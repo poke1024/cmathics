@@ -1,6 +1,8 @@
 #include "leaves.h"
 #include "types.h"
 
+const Slice empty_slice = Slice(std::shared_ptr<LeavesStorage>(), nullptr, nullptr);
+
 LeavesStorage::~LeavesStorage() {
     for (size_t i = 0; i < _n; i++) {
         _leaves[i]->deref();

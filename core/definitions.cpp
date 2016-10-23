@@ -43,7 +43,9 @@ Definitions::Definitions() {
     _empty_list->ref();
 
     // add important system symbols
-    add_internal_symbol(new Sequence(this));
+    auto sequence = new Sequence(this);
+    add_internal_symbol(sequence);
+    _sequence = sequence;
 
     // bootstrap pattern matching symbols
     add_internal_symbol(new Blank(this));

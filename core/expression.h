@@ -64,11 +64,11 @@ public:
     }
 
     virtual Match match(
+        Definitions *definitions,
         const BaseExpression *item) const;
 
     virtual Match match_sequence(
-        const Slice &pattern,
-        const Slice &sequence) const;
+        const Matcher &matcher) const;
 };
 
 

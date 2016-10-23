@@ -22,9 +22,11 @@ enum Type {
     RawExpressionType
 };
 
-typedef std::tuple<size_t, size_t> match_sizes_t;
-constexpr size_t MATCH_MAX = SIZE_T_MAX;
+typedef int64_t match_size_t; // needs to be signed
+typedef std::tuple<match_size_t, match_size_t> match_sizes_t;
+constexpr match_size_t MATCH_MAX = INT64_MAX;
 
+class Definitions;
 class Symbol;
 
 typedef std::vector<std::tuple<const Symbol*, BaseExpressionPtr>> Variables;
@@ -58,6 +60,8 @@ public:
 };
 
 std::ostream &operator<<(std::ostream &s, const Match &m);
+
+class Matcher;
 
 class BaseExpression {
 private:
@@ -111,22 +115,13 @@ public:
 
     // pattern matching; if not noted otherwise, "this" is the pattern that is matched against here.
 
-    virtual Match match(const BaseExpression *item) const {
+    virtual Match match(Definitions *definitions, const BaseExpression *item) const {
         return Match(false); // match "item" against this
     }
 
-    virtual Match match_sequence(
-        const Slice &pattern,
-        const Slice &sequence) const;
+    virtual Match match_sequence(const Matcher &matcher) const;
 
-    virtual Match match_sequence_with_head(
-        const Slice &pattern,
-        const Slice &sequence) const;
-
-    Match match_rest(
-        const Slice &pattern,
-        const Slice &sequence,
-        size_t match_size = 1) const;
+    virtual Match match_sequence_with_head(const Matcher &matcher) const;
 
     virtual match_sizes_t match_num_args() const {
         return std::make_tuple(1, 1); // default

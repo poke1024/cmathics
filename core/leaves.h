@@ -124,5 +124,6 @@ public:
     }
 };
 
+extern const Slice empty_slice;
 
 #endif //CMATHICS_LEAVES_H

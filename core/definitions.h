@@ -122,6 +122,7 @@ class Definitions {
 private:
     std::map<std::string,Symbol*> _definitions;
     Expression *_empty_list;
+    const Symbol *_sequence;
 
     void add_internal_symbol(Symbol *symbol);
 
@@ -133,6 +134,10 @@ public:
 
     inline Expression *empty_list() const {
         return _empty_list;
+    }
+
+    inline const Symbol *sequence() const {
+        return _sequence;
     }
 };
 

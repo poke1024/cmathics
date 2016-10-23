@@ -29,7 +29,16 @@ int main() {
         x, new Expression(definitions->lookup("System`Blank"), {})
     });
 
-    Match m = patt->match(new MachineInteger(7));
+    Match m = patt->match(definitions, new MachineInteger(7));
+    std::cout << m;
+
+
+    patt = new Expression(definitions->lookup("System`Pattern"), {
+        x, new Expression(definitions->lookup("System`BlankSequence"), {})
+    });
+
+    m = patt->match(definitions, new Expression(
+        definitions->lookup("System`Sequence"), {new MachineInteger(1), new MachineInteger(3)}));
     std::cout << m;
 
     /*

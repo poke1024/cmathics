@@ -181,18 +181,10 @@ BaseExpressionPtr Expression::evaluate3() const {
     return nullptr;
 }
 
-Match Expression::match(
-    const BaseExpression *item) const {
-
-    return match_sequence(
-        Slice(this),
-        Slice(item));
+Match Expression::match(Definitions *definitions, const BaseExpression *item) const {
+    return match_sequence(Matcher(definitions, this, empty_slice, Slice(item)));
 }
 
-Match Expression::match_sequence(
-    const Slice &pattern,
-    const Slice &sequence) const {
-
-    return static_cast<const Expression*>(pattern[0])->_head->match_sequence_with_head(
-        pattern, sequence);
+Match Expression::match_sequence(const Matcher &matcher) const {
+    return static_cast<const Expression*>(matcher.this_pattern())->_head->match_sequence_with_head(matcher);
 }

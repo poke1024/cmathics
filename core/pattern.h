@@ -8,6 +8,41 @@
 
 #include <iostream>
 
+
+class Matcher {
+private:
+    Definitions * const _definitions;
+    const Symbol *_variable;
+    BaseExpressionPtr _this_pattern;
+    const Slice &_next_pattern;
+    const Slice &_sequence;
+
+    Match consume(size_t n) const;
+
+public:
+    inline Matcher(Definitions *definitions, BaseExpressionPtr this_pattern, const Slice &next_pattern, const Slice &sequence) :
+        _definitions(definitions), _variable(nullptr), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
+    }
+
+    inline Matcher(Definitions *definitions, const Symbol *variable, BaseExpressionPtr this_pattern, const Slice &next_pattern, const Slice &sequence) :
+        _definitions(definitions), _variable(variable), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
+    }
+
+    inline const BaseExpressionPtr this_pattern() const {
+        return _this_pattern;
+    }
+
+    inline const Slice &sequence() const {
+        return _sequence;
+    }
+
+    match_size_t remaining(match_size_t min_remaining) const;
+
+    Match operator()(size_t match_size) const;
+
+    Match operator()(const Symbol *var, BaseExpressionPtr pattern) const;
+};
+
 class Blank : public Symbol {
 public:
     Blank(Definitions *definitions) :
@@ -18,64 +53,51 @@ public:
         return std::make_tuple(1, 1);
     }
 
-    virtual Match match_sequence_with_head(
-        const Slice &pattern,
-        const Slice &sequence) const {
-
-        if (pattern.size() == 1) {
-            if (sequence.size() == 1) {
-                return Match(true);
-            } else {
-                return Match(false);
-            }
-        } else {
-            return match_rest(pattern, sequence);
-        }
+    virtual Match match_sequence_with_head(const Matcher &matcher) const {
+        return matcher(1);
     }
 };
 
-
-class BlankSequence : public Symbol {
+template<int MINIMUM>
+class BlankSequenceBase : public Symbol {
 public:
-    BlankSequence(Definitions *definitions) :
-        Symbol(definitions, "System`BlankSequence") {
+    BlankSequenceBase(Definitions *definitions, const char *name) :
+        Symbol(definitions, name) {
     }
 
     virtual match_sizes_t match_num_args_with_head(const Expression *patt) const {
-        return std::make_tuple(1, MATCH_MAX);
+        return std::make_tuple(MINIMUM, MATCH_MAX);
     }
 
-    virtual Match match_sequence_with_head(
-        const Slice &pattern,
-        const Slice &sequence) const {
+    virtual Match match_sequence_with_head(const Matcher &matcher) const {
+        const match_size_t remaining = matcher.remaining(MINIMUM);
 
-        if (pattern.size() == 1) {
-            if (sequence.size() >= 1) {
-                return Match(true);
-            } else {
-                return Match(false);
-            }
-        } else {
-            for (size_t l = sequence.size(); l >= 1; l--) {
-                auto match = match_rest(pattern, sequence, l);
-                if (match) {
-                    return match;
-                }
-            }
-
+        if (remaining < MINIMUM) {
             return Match(false);
         }
+
+        for (size_t l = remaining; l >= MINIMUM; l--) {
+            auto match = matcher(l);
+            if (match) {
+                return match;
+            }
+        }
+
+        return Match(false);
     }
 };
 
-class BlankNullSequence : public Symbol {
+class BlankSequence : public BlankSequenceBase<1> {
+public:
+    BlankSequence(Definitions *definitions) :
+        BlankSequenceBase(definitions, "System`BlankSequence") {
+    }
+};
+
+class BlankNullSequence : public BlankSequenceBase<0> {
 public:
     BlankNullSequence(Definitions *definitions) :
-        Symbol(definitions, "System`BlankNullSequence") {
-    }
-
-    virtual match_sizes_t match_num_args_with_head(const Expression *patt) const {
-        return std::make_tuple(1, MATCH_MAX);
+        BlankSequenceBase(definitions, "System`BlankNullSequence") {
     }
 };
 
@@ -85,45 +107,15 @@ public:
         Symbol(definitions, "System`Pattern") {
     }
 
-    virtual Match match_sequence_with_head(
-        const Slice &pattern,
-        const Slice &sequence) const {
-
-        auto patt = static_cast<const Expression*>(pattern[0]);
-        auto item = sequence[0];
+    virtual Match match_sequence_with_head(const Matcher &matcher) const {
+        auto patt = static_cast<const Expression*>(matcher.this_pattern());
 
         auto var_expr = patt->_leaves[0];
         assert(var_expr->type() == SymbolType);
         // if nullptr -> throw self.error('patvar', expr)
         const Symbol *var = static_cast<const Symbol*>(var_expr);
 
-        const BaseExpression *existing = var->matched_value();
-        if (existing) {
-            if (existing->same(item)) {
-                return match_rest(pattern, sequence);
-            } else {
-                return Match(false);
-            }
-        } else if (patt->_leaves[1]->match(item)) {
-            Match match;
-
-            var->set_matched_value(item);
-            try {
-                match = match_rest(pattern, sequence);
-            } catch(...) {
-                var->clear_matched_value();
-                throw;
-            }
-            var->clear_matched_value();
-
-            if (match) {
-                match.add_variable(var, item);
-            }
-
-            return match;
-        } else {
-            return Match(false);
-        }
+        return matcher(var, patt->_leaves[1]);
     }
 
     virtual match_sizes_t match_num_args_with_head(const Expression *patt) const {
