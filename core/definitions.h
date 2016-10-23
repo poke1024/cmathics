@@ -1,14 +1,19 @@
 #ifndef SYMTABLE_H
 #define SYMTABLE_H
+
 #include "types.h"
 #include "expression.h"
 
+#include <string>
+#include <vector>
+#include <map>
+
 
 // c functions used for builtin evaluation
-typedef BaseExpression* (CFunction)(Expression*);
+typedef BaseExpressionPtr (CFunction)(const Expression*);
 
 
-typedef struct {
+struct Attributes {
     // pattern matching attributes
     unsigned int is_orderless: 1;
     unsigned int is_flat: 1;
@@ -34,12 +39,26 @@ typedef struct {
     unsigned int is_sequencehold: 1;
     unsigned int is_temporary: 1;
     unsigned int is_stub: 1;
-} Attributes;
+};
 
 
-typedef struct {
-    BaseExpression base;
-    char* name;
+class Definitions;
+
+
+typedef uint64_t match_id_t;
+
+
+class Symbol : public BaseExpression {
+protected:
+    friend class Definitions;
+
+    const std::string _name;
+
+    mutable BaseExpressionPtr _matched_value;
+
+    Symbol(Definitions *new_definitions, const char *name);
+
+public:
     Expression* own_values;
     Expression* sub_values;
     Expression* up_values;
@@ -53,22 +72,68 @@ typedef struct {
     CFunction *up_code;
     CFunction *down_code;
     Attributes attributes;
-} Symbol;
 
+    virtual Type type() const {
+        return SymbolType;
+    }
 
-typedef struct {
-    uint32_t size;
-    uint32_t count;
-    Symbol* table;
-} Definitions;
+    virtual bool same(const BaseExpression *expr) const {
+        return expr == this; // compare as pointers: symbols are unique
+    }
 
+    virtual hash_t hash() const {
+        return hash_pair(symbol_hash, (std::uintptr_t)this);
+    }
 
-Definitions* Definitions_new(uint32_t size);
-void Definitions_free(Definitions* d);
-void Definitions_init(Definitions* d, Definitions* system_definitions);
-Symbol* Definitions_lookup(Definitions* d, const char* name);
-uint32_t Definitions_hash(const char* key, const uint32_t size);    // exposed for testing
+    virtual std::string fullform() const {
+        return _name;
+    }
 
-int64_t* get_int_value(Definitions* definitions, const char* name);
-int64_t* set_int_value(Definitions* definitions, const char* name, int64_t value);
+    virtual BaseExpression *evaluate();
+
+    virtual Match match(const BaseExpression *expr) const {
+        return Match(same(expr));
+    }
+
+    inline void set_matched_value(BaseExpressionPtr value) const {
+        _matched_value = value;
+    }
+
+    inline void clear_matched_value() const {
+        _matched_value = nullptr;
+    }
+
+    inline BaseExpressionPtr matched_value() const {
+        return _matched_value;
+    }
+};
+
+class Sequence : public Symbol {
+public:
+    Sequence(Definitions *definitions) : Symbol(definitions, "System`Sequence") {
+    }
+
+    virtual bool is_symbol_sequence() const {
+        return true;
+    }
+};
+
+class Definitions {
+private:
+    std::map<std::string,Symbol*> _definitions;
+    Expression *_empty_list;
+
+    void add_internal_symbol(Symbol *symbol);
+
+public:
+    Definitions();
+
+    Symbol *new_symbol(const char *name);
+    Symbol *lookup(const char *name) const;
+
+    inline Expression *empty_list() const {
+        return _empty_list;
+    }
+};
+
 #endif

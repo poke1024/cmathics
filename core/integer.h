@@ -1,37 +1,85 @@
 #ifndef INT_H
 #define INT_H
+
 #include <gmp.h>
 #include <stdint.h>
 
 #include "types.h"
+#include "hash.h"
 
+class Integer : public BaseExpression {
+};
 
-typedef struct {
-    BaseExpression base;
-    int64_t value;
-} MachineInteger;
+class MachineInteger : public Integer {
+public:
+    const int64_t value;
 
+    inline MachineInteger(int64_t new_value) : value(new_value) {
+    }
 
-typedef struct {
-    BaseExpression base;
+    virtual Type type() const {
+        return MachineIntegerType;
+    }
+
+    virtual bool same(const BaseExpression *expr) const {
+        if (expr->type() == MachineIntegerType) {
+            return value == static_cast<const MachineInteger*>(expr)->value;
+        } else {
+            return false;
+        }
+    }
+
+    virtual hash_t hash() const {
+        return hash_pair(machine_integer_hash, value);
+    }
+
+    virtual std::string fullform() const {
+        return std::to_string(value);
+    }
+
+    virtual Match match(const BaseExpression *expr) const {
+        return Match(same(expr));
+    }
+};
+
+class BigInteger : public Integer {
+public:
     mpz_t value;
-} BigInteger;
 
+    inline BigInteger(const mpz_t &new_value) {
+        mpz_init(value);
+        mpz_set(value, new_value);
+    }
 
-typedef union {
-    BaseExpression base;
-    MachineInteger machine;
-    BigInteger big;
-} Integer;
+    virtual Type type() const {
+        return BigIntegerType;
+    }
 
+    virtual bool same(const BaseExpression *expr) const {
+        if (expr->type() == BigIntegerType) {
+            return mpz_cmp(value, static_cast<const BigInteger*>(expr)->value) == 0;
+        } else {
+            return false;
+        }
+    }
 
-MachineInteger* MachineInteger_new(void);
-void MachineInteger_init(MachineInteger* p);
-void MachineInteger_set(MachineInteger* p, const int64_t value);
+    virtual hash_t hash() const {
+        //  TODO hash
+        return 0;
+    }
 
-BigInteger* BigInteger_new(void);
-void BigInteger_init(BigInteger* p);
-void BigInteger_set(BigInteger* p, const mpz_t value);
+    virtual std::string fullform() const {
+        return std::string("biginteger");  // FIXME
+    }
+};
 
-Integer* Integer_from_mpz(const mpz_t value);
+// convert mpz to Integer
+inline Integer* Integer_from_mpz(const mpz_t &value) {
+    if (mpz_fits_slong_p(value)) {
+        return new MachineInteger(mpz_get_si(value));
+    } else {
+        return new BigInteger(value);
+    }
+}
+
 #endif

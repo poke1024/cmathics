@@ -4,29 +4,63 @@
 #include <stdint.h>
 
 #include "types.h"
+#include "hash.h"
 
 
-typedef struct {
-    BaseExpression base;
-    double value;
-} MachineReal;
+class MachineReal : public BaseExpression {
+public:
+    const double value;
 
+    MachineReal(const double new_value) : value(new_value) {
+    }
 
-typedef struct {
-    BaseExpression base;
+    virtual Type type() const {
+        return MachineRealType;
+    }
+
+    virtual bool same(const BaseExpression *expr) const {
+        if (expr->type() == MachineRealType) {
+            return value == static_cast<const MachineReal*>(expr)->value;
+        } else {
+            return false;
+        }
+    }
+
+    virtual hash_t hash() const {
+        // TODO better hash see CPython _Py_HashDouble
+        return hash_pair(machine_real_hash, (uint64_t)value);
+    }
+
+    virtual std::string fullform() const {
+        return std::to_string(value); // FIXME
+    }
+
+    virtual Match match(const BaseExpression *expr) const {
+        return Match(same(expr));
+    }
+};
+
+class BigReal : public BaseExpression {
+public:
     mpfr_t value;
     double prec;
-} BigReal;
 
+    BigReal(const double new_prec, const double new_value);
 
-void MachineReal_init(MachineReal* p);
-void MachineReal_set(MachineReal* p, const double value);
-MachineReal* MachineReal_from_d(const double value);
+    virtual Type type() const {
+        return BigRealType;
+    }
 
+    virtual hash_t hash() const {
+        // TODO hash
+        return 0;
+    }
 
-void BigReal_init(BigReal* p, const double prec);
-void BigReal_set_d(BigReal* p, const double value);
-void BigReal_clear(BigReal* p);
+    virtual std::string fullform() const {
+        return std::string("bigreal"); // FIXME
+    }
+};
 
-int32_t PrecisionOf(BaseExpression*, double* result);
+int32_t precision_of(BaseExpression*, double &result);
+
 #endif

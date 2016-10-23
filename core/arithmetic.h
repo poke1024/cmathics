@@ -4,5 +4,6 @@
 #include "types.h"
 #include "expression.h"
 
-BaseExpression* _Plus(Expression* expr);
+BaseExpressionPtr _Plus(Expression* expr);
+
 #endif

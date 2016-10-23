@@ -2,19 +2,19 @@
 #include <stdlib.h>
 #include "misc.h"
 
-int64_t Expression_height(BaseExpression* expression) {
+int64_t Expression_height(BaseExpressionPtr expression) {
     int64_t result;
     uint32_t leaf_height;
     int64_t i;
     Expression* nexpression;
 
     assert(expression != NULL);
-    switch (expression->type) {
+    switch (expression->type()) {
         case ExpressionType:
             nexpression = (Expression*) expression;
-            result = Expression_height(nexpression->head);
-            for (i=0; i<nexpression->argc; i++) {
-                leaf_height = Expression_height(nexpression->leaves[i]);
+            result = Expression_height(nexpression->_head);
+            for (auto leaf : nexpression->_leaves) {
+                leaf_height = Expression_height(leaf);
                 if (leaf_height > result) {
                     result = leaf_height;
                 }

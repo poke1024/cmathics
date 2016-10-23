@@ -6,17 +6,45 @@
 #include "types.h"
 #include "integer.h"
 
-
-typedef struct {
-    BaseExpression base;
+class Rational : public BaseExpression {
+public:
     mpq_t value;
-} Rational;
+
+    inline Rational(mpq_t new_value) {
+        mpq_init(value);
+    }
+
+    virtual Type type() const {
+        return RationalType;
+    }
+
+    virtual hash_t hash() const {
+        /*uint64_t seed = 0;
+
+        numer = (BaseExpression*) Rational_numer(expression);
+        denom = (BaseExpression*) Rational_denom(expression);
+
+        seed = hash_combine(seed, rational_hash);
+        seed = hash_combine(seed, Hash(numer));
+        seed = hash_combine(seed, Hash(denom));*/
+
+        return 0;
+    }
+
+    // copies denominator to a new Integer
+    Integer* numer() const {
+        mpz_t x;
+        mpz_set(x, mpq_numref(value));
+        return Integer_from_mpz(x);
+    }
 
 
-void Rational_init(Rational* q);
-void Rational_set(Rational* r, mpq_t value);
-void Rational_clear(Rational* q);
+    // copies numerator to a new Integer
+    Integer* denom() const {
+        mpz_t x;
+        mpz_set(x, mpq_denref(value));
+        return Integer_from_mpz(x);
+    }
+};
 
-Integer* Rational_numer(const Rational* q);
-Integer* Rational_denom(const Rational* q);
 #endif

@@ -1,5 +1,6 @@
 #ifndef EVALUATION_H
 #define EVALUATION_H
+
 #include <stdbool.h>
 
 #include "definitions.h"
@@ -43,7 +44,8 @@ typedef enum {
 } EvaluationInterrupt;
 
 
-typedef struct {
+class Evaluation {
+public:
     Definitions* definitions;
     int64_t recursion_depth;
     bool timeout;
@@ -52,12 +54,12 @@ typedef struct {
     bool catch_interrupts;
     EvaluationInterrupt interrupt;
     Out* out;
-} Evaluation;
+
+    Evaluation(Definitions* new_definitions, bool new_catch_interrupts);
+
+    BaseExpressionPtr evaluate(BaseExpression* expression);
+};
 
 
 void send_message(Evaluation* evaluation, Symbol* symbol, char* tag);
-BaseExpression* Evaluate(Evaluation* evaluation, BaseExpression* expression);
-
-Evaluation* Evaluation_new(Definitions* definitions, bool catch_interrupts);
-void Evaluation_free(Evaluation* evaluation);
 #endif
