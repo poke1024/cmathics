@@ -89,6 +89,10 @@ public:
         return _name;
     }
 
+    const std::string &name() const {
+        return _name;
+    }
+
     virtual BaseExpression *evaluate();
 
     virtual Match match(const BaseExpression *expr) const {
@@ -130,7 +134,7 @@ public:
     Definitions();
 
     Symbol *new_symbol(const char *name);
-    Symbol *lookup(const char *name) const;
+    Symbol *lookup(const char *name);
 
     inline Expression *empty_list() const {
         return _empty_list;

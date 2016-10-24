@@ -9,7 +9,22 @@
 #include "string.h"
 #include "real.h"
 
+bool Matcher::heads(size_t n, const Symbol *head) const {
+    const BaseExpressionPtr head_expr =
+        static_cast<BaseExpressionPtr>(head);
+
+    for (size_t i = 0; i < n; i++) {
+        if (head_expr != _sequence[i]->get_head()) {
+            return i;
+        }
+    }
+
+    return n;
+}
+
 Match Matcher::consume(size_t n) const {
+    assert(_sequence.size() >= n);
+
     if (_next_pattern.size() == 0) {
         if (_sequence.size() == n) {
             return Match(true);
@@ -17,27 +32,53 @@ Match Matcher::consume(size_t n) const {
             return Match(false);
         }
     } else {
-        assert(_sequence.size() >= n);
         auto next = _next_pattern[0];
         auto rest = _next_pattern.slice(1);
         return next->match_sequence(Matcher(_definitions, next, rest, _sequence.slice(n)));
     }
 }
 
-match_size_t Matcher::remaining(match_size_t min_remaining) const {
-    match_size_t remaining = _sequence.size();
+Match Matcher::blank_sequence(match_size_t k, const Symbol *head) const {
+    const size_t n = _sequence.size();
+
+    match_size_t min_remaining = n;
+    match_size_t max_remaining = n;
+
     for (auto patt : _next_pattern) {
         size_t min_args, max_args;
         std::tie(min_args, max_args) = patt->match_num_args();
-        if ((remaining -= min_args) < min_remaining) {
-            return remaining;
+
+        if ((max_remaining -= min_args) < k) {
+            return Match(false);
+        }
+        if ((min_remaining -= max_args) < 0) {
+            min_remaining = 0;
         }
     }
-    return remaining;
+
+    min_remaining = std::max(min_remaining, k);
+
+    if (head) {
+        max_remaining = std::min(
+            max_remaining, (match_size_t)heads(max_remaining, head));
+    }
+
+    for (size_t l = max_remaining; l >= min_remaining; l--) {
+        auto match = (*this)(l, nullptr);
+        if (match) {
+            return match;
+        }
+    }
+
+    return Match(false);
 }
 
-Match Matcher::operator()(size_t match_size) const {
+Match Matcher::operator()(size_t match_size, const Symbol *head) const {
     if (_sequence.size() < match_size) {
+        return Match(false);
+    }
+
+    if (head && heads(match_size, head) != match_size) {
         return Match(false);
     }
 
@@ -85,3 +126,20 @@ Match Matcher::operator()(const Symbol *var, BaseExpressionPtr pattern) const {
     return pattern->match_sequence(matcher);
 }
 
+const Symbol *blank_head(const Expression *patt) {
+    switch (patt->_leaves.size()) {
+        case 0:
+            return nullptr;
+
+        case 1: {
+            auto symbol = patt->_leaves[0];
+            if (symbol->type() == SymbolType) {
+                return static_cast<const Symbol *>(symbol);
+            }
+        }
+        // fallthrough
+
+        default:
+            return nullptr;
+    }
+}

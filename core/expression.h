@@ -3,7 +3,6 @@
 
 #include "types.h"
 #include "hash.h"
-#include <valarray>
 #include <vector>
 
 class Expression : public BaseExpression {
@@ -50,6 +49,10 @@ public:
     virtual std::string fullform() const;
 
     virtual BaseExpressionPtr evaluate() const;
+
+    virtual BaseExpressionPtr get_head() const {
+        return _head;
+    }
 
     virtual Slice get_sequence() const {
         if (_head->is_symbol_sequence()) {

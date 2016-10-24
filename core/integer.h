@@ -46,9 +46,13 @@ class BigInteger : public Integer {
 public:
     mpz_t value;
 
-    inline BigInteger(const mpz_t &new_value) {
+    inline BigInteger(mpz_srcptr new_value) {
         mpz_init(value);
         mpz_set(value, new_value);
+    }
+
+    virtual ~BigInteger() {
+        mpz_clear(value);
     }
 
     virtual Type type() const {
@@ -74,7 +78,7 @@ public:
 };
 
 // convert mpz to Integer
-inline Integer* Integer_from_mpz(const mpz_t &value) {
+inline Integer* Integer_from_mpz(mpz_srcptr value) {
     if (mpz_fits_slong_p(value)) {
         return new MachineInteger(mpz_get_si(value));
     } else {

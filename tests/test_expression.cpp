@@ -1,9 +1,7 @@
 #include <gtest/gtest.h>
 
 
-extern "C" {
-    #include "core/expression.h"
-}
+#include "core/expression.h"
 
 
 /*

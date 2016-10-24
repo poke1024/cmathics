@@ -7,7 +7,6 @@
 
 #include <string>
 #include <stdint.h>
-#include <valarray>
 #include <functional>
 #include <assert.h>
 #include <climits>
@@ -19,21 +18,21 @@ class Match;
 typedef const BaseExpression* BaseExpressionPtr;
 const BaseExpressionPtr *copy_leaves(const BaseExpressionPtr *leaves, size_t n);
 
-class LeavesStorage {
+class Extent {
 public: // protected:
     const BaseExpressionPtr *_leaves;
     const size_t _n;
 
 public:
-    inline LeavesStorage(const BaseExpressionPtr *leaves, size_t n) : _n(n), _leaves(copy_leaves(leaves, n)) {
+    inline Extent(const BaseExpressionPtr *leaves, size_t n) : _n(n), _leaves(copy_leaves(leaves, n)) {
     }
 
-    ~LeavesStorage();
+    ~Extent();
 };
 
 class Slice {
 public: // private:
-    const std::shared_ptr<LeavesStorage> _storage;
+    const std::shared_ptr<Extent> _storage;
     const BaseExpressionPtr * const _begin;
     const BaseExpressionPtr * const _end;
     const BaseExpressionPtr _expr;
@@ -41,14 +40,14 @@ public: // private:
 public:
     // copy leaves. Leaves takes ownership of the BaseExpression instances in leaves and will delete them.
     inline Slice(const BaseExpressionPtr* leaves, size_t n) :
-        _storage(std::make_shared<LeavesStorage>(leaves, n)),
+        _storage(std::make_shared<Extent>(leaves, n)),
         _begin(_storage->_leaves),
         _end(_begin + n),
         _expr(nullptr) {
     }
 
     // refer to the leaves of an already existing storage.
-    inline Slice(const std::shared_ptr<LeavesStorage> &storage) :
+    inline Slice(const std::shared_ptr<Extent> &storage) :
         _storage(storage),
         _begin(_storage->_leaves),
         _end(_begin + _storage->_n),
@@ -57,7 +56,7 @@ public:
 
     // refer to a slice of an already existing storage.
     inline Slice(
-        const std::shared_ptr<LeavesStorage> &storage,
+        const std::shared_ptr<Extent> &storage,
         const BaseExpressionPtr * const begin,
         const BaseExpressionPtr * const end) :
 

@@ -13,7 +13,7 @@
 
 
 // sums all integers in an expression
-Integer* add_Integers(Expression* expr) {
+Integer* add_Integers(const Expression* expr) {
     uint32_t i;
     int64_t machine_leaf;
     mpz_t result;
@@ -45,7 +45,7 @@ Integer* add_Integers(Expression* expr) {
 }
 
 
-BaseExpression* add_MachineInexact(Expression* expr) {
+BaseExpression* add_MachineInexact(const Expression* expr) {
     BaseExpression* result;
 
     // create an array to store all the symbolic arguments which can't be evaluated.
@@ -102,8 +102,7 @@ BaseExpression* add_MachineInexact(Expression* expr) {
 }
 
 
-BaseExpressionPtr _Plus(Expression* expr) {
-    MachineInteger* machine_result;
+BaseExpressionPtr _Plus(const Expression* expr) {
     Integer* integer_result;
 
     switch (expr->_leaves.size()) {

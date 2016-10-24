@@ -31,13 +31,13 @@ Match BaseExpression::match_sequence(const Matcher &matcher) const {
     if (sequence.size() == 0) {
         return Match(false);
     } else if (same(sequence[0])) {
-        return matcher(1);
+        return matcher(1, nullptr);
     } else {
         return Match(false);
     }
 }
 
-Match BaseExpression::match_sequence_with_head(const Matcher &matcher) const {
+Match BaseExpression::match_sequence_with_head(const Expression *patt, const Matcher &matcher) const {
     // pattern[0] is always an Expression.
     // "this" is always pattern[0]->_head.
 
@@ -45,11 +45,9 @@ Match BaseExpression::match_sequence_with_head(const Matcher &matcher) const {
 
     if (sequence.size() == 0) {
         return Match(false);
-    }
-
-    if (!matcher.this_pattern()->same(sequence[0])) {
+    } else if (!patt->same(sequence[0])) {
         return Match(false);
+    } else {
+        return matcher(1, nullptr);
     }
-
-    return matcher(1);
 }

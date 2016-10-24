@@ -47,8 +47,20 @@ public:
 
     BigReal(const double new_prec, const double new_value);
 
+    virtual ~BigReal() {
+        mpfr_clear(value);
+    }
+
     virtual Type type() const {
         return BigRealType;
+    }
+
+    virtual bool same(const BaseExpression *expr) const {
+        if (expr->type() == BigRealType) {
+            return mpfr_cmp(value, static_cast<const BigReal*>(expr)->value) == 0;
+        } else {
+            return false;
+        }
     }
 
     virtual hash_t hash() const {
@@ -61,6 +73,6 @@ public:
     }
 };
 
-int32_t precision_of(BaseExpression*, double &result);
+std::pair<int32_t,double> precision_of(BaseExpressionPtr);
 
 #endif

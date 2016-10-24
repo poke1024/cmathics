@@ -186,5 +186,6 @@ Match Expression::match(Definitions *definitions, const BaseExpression *item) co
 }
 
 Match Expression::match_sequence(const Matcher &matcher) const {
-    return static_cast<const Expression*>(matcher.this_pattern())->_head->match_sequence_with_head(matcher);
+    auto patt = static_cast<const Expression*>(matcher.this_pattern());
+    return patt->_head->match_sequence_with_head(patt, matcher);
 }

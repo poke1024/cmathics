@@ -1,9 +1,9 @@
 #include "leaves.h"
 #include "types.h"
 
-const Slice empty_slice = Slice(std::shared_ptr<LeavesStorage>(), nullptr, nullptr);
+const Slice empty_slice = Slice(std::shared_ptr<Extent>(), nullptr, nullptr);
 
-LeavesStorage::~LeavesStorage() {
+Extent::~Extent() {
     for (size_t i = 0; i < _n; i++) {
         _leaves[i]->deref();
     }
@@ -49,7 +49,7 @@ Slice Slice::apply(
             }
 
             ;
-            return Slice(std::make_shared<LeavesStorage>(&new_leaves[0], new_leaves.size()));
+            return Slice(std::make_shared<Extent>(&new_leaves[0], new_leaves.size()));
         }
     }
 

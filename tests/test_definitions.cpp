@@ -1,15 +1,13 @@
 #include <stdlib.h>
 #include <gtest/gtest.h>
 
-extern "C" {
-    #include "core/definitions.h"
-    #include "core/expression.h"
-    #include "core/types.h"
-}
+#include "core/definitions.h"
+#include "core/expression.h"
+#include "core/types.h"
 
 
-TEST(Definitions, new32) {
-    Definitions* d = Definitions_new(32);
+/*TEST(Definitions, new32) {
+    Definitions* d = new Definitions();
     ASSERT_TRUE(d != NULL);
     EXPECT_EQ(d->size, 32);
     EXPECT_EQ(d->count, 0);
@@ -18,42 +16,32 @@ TEST(Definitions, new32) {
 
 
 TEST(Definitions, new0) {
-    Definitions* d = Definitions_new(0);
+    Definitions* d = new Definitions();
     EXPECT_TRUE(d == NULL);
-}
+}*/
 
 
 TEST(Definitions, init) {
-    Definitions* d = Definitions_new(32);
-    Definitions_init(d, NULL);  // System Definitions
-    EXPECT_EQ(d->size, 32);
-    EXPECT_EQ(d->count, 1);
-    Symbol* l = Definitions_lookup(d, "List");
+    Definitions* d = new Definitions();
+    const Symbol* l = d->lookup("List");
     ASSERT_TRUE(l != NULL);
-    EXPECT_STREQ(l->name, "List");
-    Definitions_free(d);
+    EXPECT_STREQ(l->name().c_str(), "List");
 }
 
 
 TEST(Definitions, lookup) {
-    Definitions* d = Definitions_new(32);
-    Symbol* s = Definitions_lookup(d, "abc");
+    Definitions* d = new Definitions();
+    const Symbol* s = d->lookup("abc");
     ASSERT_TRUE(s != NULL);
-    EXPECT_STREQ(s->name, "abc");
-    EXPECT_EQ(d->size, 32);
-    EXPECT_EQ(d->count, 1);
-    Definitions_free(d);
+    EXPECT_STREQ(s->name().c_str(), "abc");
 }
 
 
 TEST(Definitions, lookup_twice) {
-    Definitions* d = Definitions_new(32);
-    Symbol* s1 = Definitions_lookup(d, "abc");
-    Symbol* s2 = Definitions_lookup(d, "abc");
+    Definitions* d = new Definitions();
+    const Symbol* s1 = d->lookup("abc");
+    const Symbol* s2 = d->lookup("abc");
     ASSERT_TRUE(s1 != NULL);
     ASSERT_TRUE(s2 != NULL);
     EXPECT_EQ(s1, s2);
-    EXPECT_EQ(d->size, 32);
-    EXPECT_EQ(d->count, 1);
-    Definitions_free(d);
 }

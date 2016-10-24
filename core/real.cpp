@@ -11,9 +11,7 @@
 const double LOG_2_10 = 3.321928094887362;  // log2(10.0);
 
 BigReal::BigReal(const double new_prec, const double new_value) {
-    mpfr_prec_t bits_prec;
-    bits_prec = (mpfr_prec_t) ceil(LOG_2_10 * prec);
-    // p->base.ref = 0;
+    const mpfr_prec_t bits_prec = (mpfr_prec_t) ceil(LOG_2_10 * new_prec);
     prec = new_prec;
     mpfr_init2(value, bits_prec);
     mpfr_set_d(value, new_value, MPFR_RNDN);
@@ -24,30 +22,26 @@ BigReal::BigReal(const double new_prec, const double new_value) {
 // returns 1 if the precision is machine-valued
 // returns 2 if the precision is big in which case result is also set
 
-int32_t precision_of(BaseExpressionPtr expr, double &result) {
-    uint32_t i;
-    int32_t ret_code;
-    double leaf_result;
-    bool first_big;
-    Expression* expr_expr;
-    BigReal* big_expr;
+std::pair<int32_t,double> precision_of(BaseExpressionPtr expr) {
 
     switch (expr->type()) {
         case MachineRealType:
-            result = 0.0;
-            return 1;
-        case BigRealType:
-            big_expr = (BigReal*) expr;
-            result = big_expr->prec;
-            return 2;
-        case ExpressionType:
-            first_big = false;
-            expr_expr = (Expression*) expr;
+            return std::pair<int32_t,double>(1, 0.0);
+        case BigRealType: {
+            auto big_expr = (const BigReal *) expr;
+            return std::pair<int32_t, double>(2, big_expr->prec);
+        }
+        case ExpressionType: {
+            bool first_big = false;
+            const Expression *expr_expr = (const Expression *) expr;
+            double result = 0.0;
             for (auto leaf : expr_expr->_leaves) {
-                ret_code = precision_of(leaf, leaf_result);
+                auto r = precision_of(leaf);
+                auto ret_code = r.first;
+                auto leaf_result = r.second;
 
                 if (ret_code == 1) {
-                    return 1;
+                    return std::pair<int32_t, double>(1, result);
                 } else if (ret_code == 2) {
                     if (first_big) {
                         result = leaf_result;
@@ -62,13 +56,14 @@ int32_t precision_of(BaseExpressionPtr expr, double &result) {
                 }
             }
             if (first_big) {
-                return 0;
+                return std::pair<int32_t, double>(0, result);
             } else {
-                return 2;
+                return std::pair<int32_t, double>(2, result);
             }
+        }
         case ComplexType:
             // TODO
         default:
-            return 0;
+            return std::pair<int32_t,double>(0,  0.0);
     }
 }

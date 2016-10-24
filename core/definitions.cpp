@@ -77,10 +77,11 @@ Symbol *Definitions::new_symbol(const char *name) {
     return symbol;
 }
 
-Symbol *Definitions::lookup(const char *name) const {
+Symbol *Definitions::lookup(const char *name) {
     auto it = _definitions.find(name);
+
     if (it == _definitions.end()) {
-        return nullptr;
+        return new_symbol(name); // FIXME do we really want this?
     } else {
         return it->second;
     }

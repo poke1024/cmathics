@@ -2,14 +2,11 @@
 #include <gmpxx.h>
 #include <gtest/gtest.h>
 
-extern "C" {
-    #include "core/types.h"
-    #include "core/datastructures.h"
-    #include "core/integer.h"
-}
+#include "core/types.h"
+#include "core/integer.h"
 
 
-TEST(List, List_new) {
+/*TEST(List, List_new) {
     List l;
     List_new(&l, 5);
     EXPECT_EQ(l.size, 5);
@@ -121,4 +118,4 @@ TEST(List, List_shrink) {
     List_pop(&l);
     EXPECT_EQ(l.size, 2);
     EXPECT_EQ(l.count, 0);
-}
+}*/

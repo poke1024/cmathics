@@ -12,6 +12,11 @@ public:
 
     inline Rational(mpq_t new_value) {
         mpq_init(value);
+        mpq_set(value, new_value);
+    }
+
+    virtual ~Rational() {
+        mpq_clear(value);
     }
 
     virtual Type type() const {
@@ -31,19 +36,22 @@ public:
         return 0;
     }
 
-    // copies denominator to a new Integer
-    Integer* numer() const {
-        mpz_t x;
-        mpz_set(x, mpq_numref(value));
-        return Integer_from_mpz(x);
+    virtual bool same(const BaseExpression *expr) const {
+        return false; // FIXME
     }
 
+    virtual std::string fullform() const {
+        return "???"; // FIXME
+    }
+
+    // copies denominator to a new Integer
+    inline Integer* numer() const {
+        return Integer_from_mpz(mpq_numref(value));
+    }
 
     // copies numerator to a new Integer
-    Integer* denom() const {
-        mpz_t x;
-        mpz_set(x, mpq_denref(value));
-        return Integer_from_mpz(x);
+    inline Integer* denom() const {
+        return Integer_from_mpz(mpq_denref(value));
     }
 };
 

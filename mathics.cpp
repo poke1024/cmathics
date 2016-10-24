@@ -19,8 +19,28 @@
 #include <vector>
 #include "core/string.h"
 
+#include <Python.h>
+#include <stdlib.h>
 
 int main() {
+    // set PYTHONHOME to a python with a Mathics installation.
+    setenv("PYTHONHOME", "/Users/bernhard/Projekte/j5", true);
+    Py_Initialize();
+
+    PyObject* main = PyImport_AddModule("__main__");
+    PyObject* globalDictionary = PyModule_GetDict(main);
+    PyObject* localDictionary = PyDict_New();
+
+    const char* pythonScript = "result = multiplicand * multiplier\n";
+    PyDict_SetItemString(localDictionary, "multiplicand", PyLong_FromLong(2));
+    PyDict_SetItemString(localDictionary, "multiplier", PyLong_FromLong(5));
+    PyRun_String(pythonScript, Py_file_input, globalDictionary, localDictionary);
+    long result = PyLong_AsLong(PyDict_GetItemString(localDictionary, "result"));
+    std::cout << result;
+
+    Py_Finalize();
+    return 0;
+
     Definitions* definitions = new Definitions();
 
     auto x = definitions->new_symbol("Global`x");

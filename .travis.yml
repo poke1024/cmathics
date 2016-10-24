@@ -23,7 +23,8 @@ before_install:
   - make
   - cd -
 install:
-  - make CC=$(CC) CXX=$(CXX)
-  - make CC=$(CC) CXX=$(CXX) test
+  - mkdir build
+  - cd build
+  - cmake .. && make && make tests
 script:
-  - make run_test
+  - ./cmathicstest

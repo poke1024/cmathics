@@ -17,6 +17,8 @@ private:
     const Slice &_next_pattern;
     const Slice &_sequence;
 
+    bool heads(size_t n, const Symbol *head) const;
+
     Match consume(size_t n) const;
 
 public:
@@ -36,12 +38,14 @@ public:
         return _sequence;
     }
 
-    match_size_t remaining(match_size_t min_remaining) const;
-
-    Match operator()(size_t match_size) const;
+    Match operator()(size_t match_size, const Symbol *head) const;
 
     Match operator()(const Symbol *var, BaseExpressionPtr pattern) const;
+
+    Match blank_sequence(match_size_t k, const Symbol *head) const;
 };
+
+const Symbol *blank_head(const Expression *patt);
 
 class Blank : public Symbol {
 public:
@@ -53,8 +57,8 @@ public:
         return std::make_tuple(1, 1);
     }
 
-    virtual Match match_sequence_with_head(const Matcher &matcher) const {
-        return matcher(1);
+    virtual Match match_sequence_with_head(const Expression *patt, const Matcher &matcher) const {
+        return matcher(1, blank_head(patt));
     }
 };
 
@@ -69,21 +73,8 @@ public:
         return std::make_tuple(MINIMUM, MATCH_MAX);
     }
 
-    virtual Match match_sequence_with_head(const Matcher &matcher) const {
-        const match_size_t remaining = matcher.remaining(MINIMUM);
-
-        if (remaining < MINIMUM) {
-            return Match(false);
-        }
-
-        for (size_t l = remaining; l >= MINIMUM; l--) {
-            auto match = matcher(l);
-            if (match) {
-                return match;
-            }
-        }
-
-        return Match(false);
+    virtual Match match_sequence_with_head(const Expression *patt, const Matcher &matcher) const {
+        return matcher.blank_sequence(MINIMUM, blank_head(patt));
     }
 };
 
@@ -107,9 +98,7 @@ public:
         Symbol(definitions, "System`Pattern") {
     }
 
-    virtual Match match_sequence_with_head(const Matcher &matcher) const {
-        auto patt = static_cast<const Expression*>(matcher.this_pattern());
-
+    virtual Match match_sequence_with_head(const Expression *patt, const Matcher &matcher) const {
         auto var_expr = patt->_leaves[0];
         assert(var_expr->type() == SymbolType);
         // if nullptr -> throw self.error('patvar', expr)

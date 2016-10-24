@@ -105,6 +105,10 @@ public:
 
     // various getters
 
+    virtual BaseExpressionPtr get_head() const {
+        return nullptr; // no head available
+    }
+
     virtual Slice get_sequence() const {
         return Slice(this);
     }
@@ -121,7 +125,7 @@ public:
 
     virtual Match match_sequence(const Matcher &matcher) const;
 
-    virtual Match match_sequence_with_head(const Matcher &matcher) const;
+    virtual Match match_sequence_with_head(const Expression *patt, const Matcher &matcher) const;
 
     virtual match_sizes_t match_num_args() const {
         return std::make_tuple(1, 1); // default
