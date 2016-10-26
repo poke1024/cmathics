@@ -4,16 +4,13 @@
 const Slice empty_slice = Slice(std::shared_ptr<Extent>(), nullptr, nullptr);
 
 Extent::~Extent() {
-    for (size_t i = 0; i < _n; i++) {
-        _leaves[i]->deref();
-    }
     delete[] _leaves;
 }
 
 Slice Slice::apply(
     size_t begin,
     size_t end,
-    const std::function<BaseExpressionPtr(BaseExpressionPtr)> &f) const {
+    const std::function<BaseExpressionRef(const BaseExpressionRef&)> &f) const {
 
     assert(_expr == nullptr);
     if (_storage.use_count() == 1) {
@@ -25,7 +22,7 @@ Slice Slice::apply(
         auto new_leaf = f(leaves[i]);
 
         if (new_leaf) { // copy is needed now
-            std::vector<BaseExpressionPtr> new_leaves;
+            std::vector<BaseExpressionRef> new_leaves;
             new_leaves.reserve(_end - _begin);
 
             try {

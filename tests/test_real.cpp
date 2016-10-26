@@ -46,24 +46,24 @@ TEST(BigReal, BigReal_set) {
 
 
 TEST(PrecisionOf, MachineReal) {
-    MachineReal p(1.5);
-    auto ret = precision_of((BaseExpressionPtr)&p);
+    auto p = std::make_shared<MachineReal>(1.5);
+    auto ret = precision_of(p);
     EXPECT_EQ(ret.first, 1);
     EXPECT_EQ(ret.second, 0.0);
 }
 
 
 TEST(PrecisionOf, BigReal) {
-    BigReal p(30.0, 1.5);
-    auto ret = precision_of((BaseExpressionPtr)&p);
+    auto p = std::make_shared<BigReal>(30.0, 1.5);
+    auto ret = precision_of(p);
     EXPECT_EQ(ret.first, 2);
     EXPECT_EQ(ret.second, 30.0);
 }
 
 
 TEST(PrecisionOf, MachineInteger) {
-    MachineInteger p(5);
-    auto ret = precision_of((BaseExpressionPtr)&p);
+    auto p = std::make_shared<MachineInteger>(5);
+    auto ret = precision_of(p);
     EXPECT_EQ(ret.first, 0);
 }
 
@@ -75,9 +75,8 @@ TEST(PrecisionOf, BigInteger) {
 
     mpz_init_set_si(value, 5);
 
-    BigInteger p(value);
-
-    auto ret = precision_of((BaseExpressionPtr)&p);
+    auto p = std::make_shared<BigInteger>(value);
+    auto ret = precision_of(p);
     EXPECT_EQ(ret.first, 0);
 
     mpz_clear(value);

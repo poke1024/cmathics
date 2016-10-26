@@ -23,8 +23,8 @@ void send_message(Evaluation* evaluation, Symbol* symbol, char* tag) {
 }
 
 
-BaseExpressionPtr Evaluation::evaluate(BaseExpression* expr) {
-    BaseExpressionPtr result;
+BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
+    BaseExpressionRef result;
     // int64_t line_no;
 
     // TODO $HistoryLength

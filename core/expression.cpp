@@ -10,7 +10,7 @@
 #include "definitions.h"
 #include "pattern.h"
 
-bool Expression::same(const BaseExpression *item) const {
+bool Expression::same(BaseExpressionPtr item) const {
     if (this == item) {
         return true;
     }
@@ -19,7 +19,7 @@ bool Expression::same(const BaseExpression *item) const {
     }
     const Expression *expr = static_cast<const Expression*>(item);
 
-    if (!_head->same(expr->_head)) {
+    if (!_head->same(expr->_head.get())) {
         return false;
     }
 
@@ -28,7 +28,7 @@ bool Expression::same(const BaseExpression *item) const {
         return false;
     }
     for (size_t i = 0; i < n_leaves; i++) {
-        if (!_leaves[i]->same(expr->_leaves[i])) {
+        if (!_leaves[i]->same(expr->_leaves[i].get())) {
             return false;
         }
     }
@@ -75,7 +75,7 @@ std::string Expression::fullform() const {
 }
 
 // returns nullptr if nothing changed
-BaseExpressionPtr Expression::evaluate() const {
+BaseExpressionRef Expression::evaluate() const {
     // Step 1
     // Evaluate the head
     auto head = _head;
@@ -93,7 +93,7 @@ BaseExpressionPtr Expression::evaluate() const {
     size_t eval_leaf_start, eval_leaf_stop;
 
     if (head->type() == SymbolType) {
-        auto head_symbol = (Symbol*)head;
+        auto head_symbol = (Symbol*)head.get();
 
         // only one type of Hold attribute can be set at a time
         assert(head_symbol->attributes.is_holdfirst +
@@ -124,7 +124,7 @@ BaseExpressionPtr Expression::evaluate() const {
         assert(eval_leaf_stop <= _leaves.size());
 
         // perform the evaluation
-        return evaluate2(head, _leaves.apply(eval_leaf_start, eval_leaf_stop, [](BaseExpressionPtr leaf) mutable {
+        return evaluate2(head, _leaves.apply(eval_leaf_start, eval_leaf_stop, [](const BaseExpressionRef &leaf) mutable {
             return leaf->evaluate();
         }));
     } else {
@@ -132,7 +132,7 @@ BaseExpressionPtr Expression::evaluate() const {
     }
 }
 
-BaseExpressionPtr Expression::evaluate2(BaseExpressionPtr head, const Slice &leaves) const {
+BaseExpressionRef Expression::evaluate2(const BaseExpressionRef &head, const Slice &leaves) const {
     if (_head == head and _leaves == leaves) {
         return evaluate3();
     } else {
@@ -140,7 +140,7 @@ BaseExpressionPtr Expression::evaluate2(BaseExpressionPtr head, const Slice &lea
     }
 }
 
-BaseExpressionPtr Expression::evaluate3() const {
+BaseExpressionRef Expression::evaluate3() const {
     auto head = _head;
 
     // Step 3
@@ -150,8 +150,9 @@ BaseExpressionPtr Expression::evaluate3() const {
     // Step 4
     // Apply SubValues
     if (head->type() == ExpressionType) {
-        if (((Expression*) head)->_head->type() == SymbolType) {
-            auto head_symbol = (Symbol*) ((Expression*) head)->_head;
+        auto head_head = std::static_pointer_cast<const Expression>(head)->_head.get();
+        if (head_head->type() == SymbolType) {
+            auto head_symbol = static_cast<const Symbol*>(head_head);
             // TODO
         }
     }
@@ -159,7 +160,7 @@ BaseExpressionPtr Expression::evaluate3() const {
     // Step 5
     // Evaluate the head with leaves. (DownValue)
     if (head->type() == SymbolType) {
-        auto head_symbol = (Symbol*) head;
+        auto head_symbol = static_cast<const Symbol*>(head.get());
 
         // first try to apply CFunction (if present)
         if (head_symbol->down_code != nullptr) {
@@ -178,14 +179,10 @@ BaseExpressionPtr Expression::evaluate3() const {
         }
     }
 
-    return nullptr;
-}
-
-Match Expression::match(Definitions *definitions, const BaseExpression *item) const {
-    return match_sequence(Matcher(definitions, this, empty_slice, Slice(item)));
+    return BaseExpressionRef();
 }
 
 Match Expression::match_sequence(const Matcher &matcher) const {
-    auto patt = static_cast<const Expression*>(matcher.this_pattern());
+    auto patt = std::static_pointer_cast<const Expression>(matcher.this_pattern());
     return patt->_head->match_sequence_with_head(patt, matcher);
 }

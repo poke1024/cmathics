@@ -14,7 +14,7 @@ bool Matcher::heads(size_t n, const Symbol *head) const {
         static_cast<BaseExpressionPtr>(head);
 
     for (size_t i = 0; i < n; i++) {
-        if (head_expr != _sequence[i]->get_head()) {
+        if (head_expr != _sequence[i]->get_head_ptr()) {
             return i;
         }
     }
@@ -86,15 +86,16 @@ Match Matcher::operator()(size_t match_size, const Symbol *head) const {
         return consume(match_size);
     }
 
-    BaseExpressionPtr item;
+    BaseExpressionRef item;
 
     if (match_size == 1) {
         item = _sequence[0];
     } else {
-        item = new Expression(_definitions->sequence(), _sequence.slice(0, match_size)); // FIXME
+        item = std::make_shared<Expression>(
+            _definitions->sequence(), _sequence.slice(0, match_size));
     }
 
-    const BaseExpression *existing = _variable->matched_value();
+    const BaseExpressionRef &existing = _variable->matched_value();
     if (existing) {
         if (existing->same(item)) {
             return consume(match_size);
@@ -121,7 +122,7 @@ Match Matcher::operator()(size_t match_size, const Symbol *head) const {
     }
 }
 
-Match Matcher::operator()(const Symbol *var, BaseExpressionPtr pattern) const {
+Match Matcher::operator()(const Symbol *var, const BaseExpressionRef &pattern) const {
     auto matcher = Matcher(_definitions, var, pattern, _next_pattern, _sequence);
     return pattern->match_sequence(matcher);
 }
@@ -132,7 +133,7 @@ const Symbol *blank_head(const Expression *patt) {
             return nullptr;
 
         case 1: {
-            auto symbol = patt->_leaves[0];
+            auto symbol = patt->leaf_ptr(0);
             if (symbol->type() == SymbolType) {
                 return static_cast<const Symbol *>(symbol);
             }

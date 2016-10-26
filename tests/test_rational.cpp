@@ -32,7 +32,7 @@ TEST(Rational, Rational_numer) {
     mpq_set_si(value, 5, 7);
     Rational q(value);
 
-    Integer *integer = q.numer();
+    BaseExpressionRef integer = q.numer();
     EXPECT_EQ(integer->type(), MachineIntegerType);
-    EXPECT_EQ(((const MachineInteger*)integer)->value, 5);
+    EXPECT_EQ(std::static_pointer_cast<const MachineInteger>(integer)->value, 5);
 }

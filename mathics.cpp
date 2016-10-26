@@ -24,7 +24,7 @@
 
 int main() {
     // set PYTHONHOME to a python with a Mathics installation.
-    setenv("PYTHONHOME", "/Users/bernhard/Projekte/j5", true);
+    /*setenv("PYTHONHOME", "/Users/bernhard/Projekte/j5", true);
     Py_Initialize();
 
     PyObject* main = PyImport_AddModule("__main__");
@@ -39,7 +39,7 @@ int main() {
     std::cout << result;
 
     Py_Finalize();
-    return 0;
+    return 0;*/
 
     Definitions* definitions = new Definitions();
 

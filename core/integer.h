@@ -78,11 +78,11 @@ public:
 };
 
 // convert mpz to Integer
-inline Integer* Integer_from_mpz(mpz_srcptr value) {
+inline BaseExpressionRef Integer_from_mpz(mpz_srcptr value) {
     if (mpz_fits_slong_p(value)) {
-        return new MachineInteger(mpz_get_si(value));
+        return std::make_shared<MachineInteger>(mpz_get_si(value));
     } else {
-        return new BigInteger(value);
+        return std::make_shared<BigInteger>(value);
     }
 }
 

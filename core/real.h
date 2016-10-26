@@ -73,6 +73,6 @@ public:
     }
 };
 
-std::pair<int32_t,double> precision_of(BaseExpressionPtr);
+std::pair<int32_t,double> precision_of(const BaseExpressionRef&);
 
 #endif

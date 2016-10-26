@@ -29,7 +29,7 @@ constexpr match_size_t MATCH_MAX = INT64_MAX;
 class Definitions;
 class Symbol;
 
-typedef std::vector<std::tuple<const Symbol*, BaseExpressionPtr>> Variables;
+typedef std::vector<std::tuple<const Symbol*, BaseExpressionRef>> Variables;
 
 class Match {
 private:
@@ -51,7 +51,7 @@ public:
         return _variables.get();
     }
 
-    void add_variable(const Symbol *var, BaseExpressionPtr value) {
+    void add_variable(const Symbol *var, const BaseExpressionRef &value) {
         if (!_variables) {
             _variables = std::make_shared<Variables>();
         }
@@ -63,26 +63,16 @@ std::ostream &operator<<(std::ostream &s, const Match &m);
 
 class Matcher;
 
-class BaseExpression {
-private:
-    mutable size_t _ref; // what we really want here is boost::intrusive_ptr
+class Expression;
 
+typedef std::shared_ptr<const Expression> ExpressionRef;
+
+class BaseExpression {
 public:
-    BaseExpression() : _ref(0) {
+    BaseExpression() {
     }
 
     virtual ~BaseExpression() {
-    }
-
-    inline BaseExpressionPtr ref() const {
-        _ref++;
-        return this;
-    }
-
-    inline void deref() const {
-        if (--_ref == 0) {
-            delete this;
-        }
     }
 
     virtual Type type() const = 0;
@@ -92,25 +82,33 @@ public:
         return false;
     }
 
-    virtual bool same(const BaseExpression *expr) const = 0;
+    inline bool same(const BaseExpressionRef &expr) const {
+        return same(expr.get());
+    }
+
+    virtual bool same(BaseExpressionPtr expr) const = 0;
 
     virtual hash_t hash() const = 0;
 
     virtual std::string fullform() const = 0;
 
-    virtual BaseExpressionPtr evaluate() const {
+    virtual BaseExpressionRef evaluate() const {
         // atomic expressions remain unchanged
         return nullptr;
     }
 
     // various getters
 
-    virtual BaseExpressionPtr get_head() const {
+    virtual BaseExpressionRef get_head() const {
+        return BaseExpressionRef(); // no head available
+    }
+
+    virtual BaseExpressionPtr get_head_ptr() const {
         return nullptr; // no head available
     }
 
-    virtual Slice get_sequence() const {
-        return Slice(this);
+    virtual bool is_sequence() const {
+        return false;
     }
 
     virtual const char *get_string_value() const {
@@ -119,13 +117,9 @@ public:
 
     // pattern matching; if not noted otherwise, "this" is the pattern that is matched against here.
 
-    virtual Match match(Definitions *definitions, const BaseExpression *item) const {
-        return Match(false); // match "item" against this
-    }
-
     virtual Match match_sequence(const Matcher &matcher) const;
 
-    virtual Match match_sequence_with_head(const Expression *patt, const Matcher &matcher) const;
+    virtual Match match_sequence_with_head(const ExpressionRef &patt, const Matcher &matcher) const;
 
     virtual match_sizes_t match_num_args() const {
         return std::make_tuple(1, 1); // default
@@ -135,7 +129,7 @@ public:
         return std::make_tuple(1, 1); // default for non-symbol heads
     }
 
-    virtual BaseExpression *replace(const BaseExpression *item) const {
+    virtual BaseExpressionRef replace(BaseExpressionRef item) const {
         // replace expression at base
         // Equivalent to Replace[expr, patt] but doesn't search into the expression
         // e.g. DoReplace(1 + a, a -> 2) doesn't apply because it doesn't match at root
@@ -145,10 +139,10 @@ public:
     }
 };
 
-inline const BaseExpressionPtr *copy_leaves(const BaseExpressionPtr *leaves, size_t n) {
-    auto new_leaves = new BaseExpressionPtr[n];
+inline const BaseExpressionRef *copy_leaves(const BaseExpressionRef *leaves, size_t n) {
+    auto new_leaves = new BaseExpressionRef[n];
     for (size_t i = 0; i < n; i++) {
-        new_leaves[i] = leaves[i]->ref();
+        new_leaves[i] = leaves[i];
     }
     return new_leaves;
 }

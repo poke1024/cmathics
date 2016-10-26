@@ -23,7 +23,7 @@ TEST(Definitions, new0) {
 
 TEST(Definitions, init) {
     Definitions* d = new Definitions();
-    const Symbol* l = d->lookup("List");
+    SymbolRef l = d->lookup("List");
     ASSERT_TRUE(l != NULL);
     EXPECT_STREQ(l->name().c_str(), "List");
 }
@@ -31,7 +31,7 @@ TEST(Definitions, init) {
 
 TEST(Definitions, lookup) {
     Definitions* d = new Definitions();
-    const Symbol* s = d->lookup("abc");
+    SymbolRef s = d->lookup("abc");
     ASSERT_TRUE(s != NULL);
     EXPECT_STREQ(s->name().c_str(), "abc");
 }
@@ -39,8 +39,8 @@ TEST(Definitions, lookup) {
 
 TEST(Definitions, lookup_twice) {
     Definitions* d = new Definitions();
-    const Symbol* s1 = d->lookup("abc");
-    const Symbol* s2 = d->lookup("abc");
+    SymbolRef s1 = d->lookup("abc");
+    SymbolRef s2 = d->lookup("abc");
     ASSERT_TRUE(s1 != NULL);
     ASSERT_TRUE(s2 != NULL);
     EXPECT_EQ(s1, s2);

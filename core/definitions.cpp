@@ -21,9 +21,9 @@ Symbol::Symbol(Definitions *definitions, const char *name) : _name(name), _match
     down_code = nullptr;
 }
 
-BaseExpression *Symbol::evaluate() {
+BaseExpressionRef Symbol::evaluate() {
     // return NULL if nothing changed
-    BaseExpression* result = NULL;
+    BaseExpressionRef result;
 
     // try all the own values until one applies
     for (auto leaf : own_values->_leaves) {
@@ -31,29 +31,28 @@ BaseExpression *Symbol::evaluate() {
         if (result != NULL)
             break;
     }
+
     return result;
 }
 
 
 Definitions::Definitions() {
     // construct common `List[]` for bootstrapping
-    _empty_list = nullptr;
     auto list = new_symbol("System`List");
-    _empty_list = new Expression(list, {});
-    _empty_list->ref();
+    _empty_list = std::shared_ptr<Expression>(new Expression(list, {}));
 
     // add important system symbols
-    auto sequence = new Sequence(this);
+    auto sequence = std::make_shared<Sequence>(this);
     add_internal_symbol(sequence);
     _sequence = sequence;
 
     // bootstrap pattern matching symbols
-    add_internal_symbol(new Blank(this));
-    add_internal_symbol(new BlankSequence(this));
-    add_internal_symbol(new BlankNullSequence(this));
-    add_internal_symbol(new Pattern(this));
-    add_internal_symbol(new Alternatives(this));
-    add_internal_symbol(new Repeated(this));
+    add_internal_symbol(std::make_shared<Blank>(this));
+    add_internal_symbol(std::make_shared<BlankSequence>(this));
+    add_internal_symbol(std::make_shared<BlankNullSequence>(this));
+    add_internal_symbol(std::make_shared<Pattern>(this));
+    add_internal_symbol(std::make_shared<Alternatives>(this));
+    add_internal_symbol(std::make_shared<Repeated>(this));
 
     /*new_symbol("System`RepeatedNull", RepeatedNull);
     new_symbol("System`Except", Except);
@@ -70,14 +69,14 @@ Definitions::Definitions() {
     new_symbol("System`Optional", Optional);*/
 }
 
-Symbol *Definitions::new_symbol(const char *name) {
+SymbolRef Definitions::new_symbol(const char *name) {
     assert(_definitions.find(name) == _definitions.end());
-    Symbol *symbol = new Symbol(this, name);
+    auto symbol = std::make_shared<Symbol>(this, name);
     _definitions[name] = symbol;
     return symbol;
 }
 
-Symbol *Definitions::lookup(const char *name) {
+SymbolRef Definitions::lookup(const char *name) {
     auto it = _definitions.find(name);
 
     if (it == _definitions.end()) {
@@ -87,7 +86,6 @@ Symbol *Definitions::lookup(const char *name) {
     }
 }
 
-void Definitions::add_internal_symbol(Symbol *symbol) {
+void Definitions::add_internal_symbol(const SymbolRef &symbol) {
     _definitions[symbol->_name] = symbol;
-    symbol->ref();
 }

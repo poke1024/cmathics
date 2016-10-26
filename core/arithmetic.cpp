@@ -13,11 +13,10 @@
 
 
 // sums all integers in an expression
-Integer* add_Integers(const Expression* expr) {
+BaseExpressionRef add_Integers(const ExpressionRef &expr) {
     uint32_t i;
     int64_t machine_leaf;
     mpz_t result;
-    Integer* return_value;
 
     // XXX right now the entire computation is done with GMP. This is slower
     // than using machine precision arithmetic but simpler because we don't
@@ -28,28 +27,26 @@ Integer* add_Integers(const Expression* expr) {
     for (auto leaf : expr->_leaves) {
         auto type = leaf->type();
         if (type == MachineIntegerType) {
-            machine_leaf = ((MachineInteger*)leaf)->value;
+            machine_leaf = std::static_pointer_cast<const MachineInteger>(leaf)->value;
             if (machine_leaf >= 0) {
                 mpz_add_ui(result, result, (uint64_t) machine_leaf);
             } else {
                 mpz_add_ui(result, result, (uint64_t) -machine_leaf);
             }
         } else if (type == BigIntegerType) {
-            mpz_add(result, result, ((BigInteger*)leaf)->value);
+            mpz_add(result, result, std::static_pointer_cast<const BigInteger>(leaf)->value);
         }
     }
 
-    return_value = Integer_from_mpz(result);
+    auto return_value = Integer_from_mpz(result);
     mpz_clear(result);
     return return_value;
 }
 
 
-BaseExpression* add_MachineInexact(const Expression* expr) {
-    BaseExpression* result;
-
+BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
     // create an array to store all the symbolic arguments which can't be evaluated.
-    auto symbolics = std::vector<BaseExpressionPtr>();
+    auto symbolics = std::vector<BaseExpressionRef>();
     symbolics.reserve(expr->_leaves.size());
 
     double sum = 0.0;
@@ -57,19 +54,19 @@ BaseExpression* add_MachineInexact(const Expression* expr) {
         auto type = leaf->type();
         switch(type) {
             case MachineIntegerType:
-                sum += (double) (((MachineInteger*) leaf)->value);
+                sum += (double) std::static_pointer_cast<const MachineInteger>(leaf)->value;
                 break;
             case BigIntegerType:
-                sum += mpz_get_d(((BigInteger*) leaf)->value);
+                sum += mpz_get_d(std::static_pointer_cast<const BigInteger>(leaf)->value);
                 break;
             case MachineRealType:
-                sum += ((MachineReal*) leaf)->value;
+                sum += std::static_pointer_cast<const MachineReal>(leaf)->value;
                 break;
             case BigRealType:
-                sum += mpfr_get_d(((BigReal*) leaf)->value, MPFR_RNDN);
+                sum += mpfr_get_d(std::static_pointer_cast<const BigReal>(leaf)->value, MPFR_RNDN);
                 break;
             case RationalType:
-                sum += mpq_get_d(((Rational*) leaf)->value);
+                sum += mpq_get_d(std::static_pointer_cast<const Rational>(leaf)->value);
                 break;
             case ComplexType:
                 assert(false);
@@ -86,29 +83,29 @@ BaseExpression* add_MachineInexact(const Expression* expr) {
     // at least one non-symbolic
     assert(symbolics.size() != expr->_leaves.size());
 
+    BaseExpressionRef result;
+
     if (symbolics.size() == expr->_leaves.size() - 1) {
         // one non-symbolic: nothing to do
-         result = NULL;
+        // result = NULL;
     } else if (!symbolics.empty()) {
         // at least one symbolic
-        symbolics.push_back(new MachineReal(sum));
-        result = new Expression(expr->_head, symbolics);
+        symbolics.push_back(std::make_shared<MachineReal>(sum));
+        result = std::make_shared<Expression>(expr->_head, symbolics);
     } else {
         // no symbolics
-        result = new MachineReal(sum);
+        result = std::make_shared<MachineReal>(sum);
     }
 
     return result;
 }
 
 
-BaseExpressionPtr _Plus(const Expression* expr) {
-    Integer* integer_result;
-
+BaseExpressionRef _Plus(const ExpressionRef &expr) {
     switch (expr->_leaves.size()) {
         case 0:
             // Plus[] -> 0
-            return new MachineInteger(0);
+            return std::make_shared<MachineInteger>(0);
 
         case 1:
             // Plus[a_] -> a
@@ -135,7 +132,7 @@ BaseExpressionPtr _Plus(const Expression* expr) {
 
     // expression contains an Integer
     if (types_seen & int_mask) {
-        integer_result = add_Integers(expr);
+        auto integer_result = add_Integers(expr);
         // FIXME return Plus[symbolics__, integer_result]
         return integer_result;
     }
@@ -143,5 +140,5 @@ BaseExpressionPtr _Plus(const Expression* expr) {
     // TODO rational and complex
 
     // expression is symbolic
-    return nullptr;
+    return BaseExpressionRef();
 }

@@ -22,18 +22,18 @@ BigReal::BigReal(const double new_prec, const double new_value) {
 // returns 1 if the precision is machine-valued
 // returns 2 if the precision is big in which case result is also set
 
-std::pair<int32_t,double> precision_of(BaseExpressionPtr expr) {
+std::pair<int32_t,double> precision_of(const BaseExpressionRef &expr) {
 
     switch (expr->type()) {
         case MachineRealType:
             return std::pair<int32_t,double>(1, 0.0);
         case BigRealType: {
-            auto big_expr = (const BigReal *) expr;
+            auto big_expr = (const BigReal *) expr.get();
             return std::pair<int32_t, double>(2, big_expr->prec);
         }
         case ExpressionType: {
             bool first_big = false;
-            const Expression *expr_expr = (const Expression *) expr;
+            const Expression *expr_expr = (const Expression *) expr.get();
             double result = 0.0;
             for (auto leaf : expr_expr->_leaves) {
                 auto r = precision_of(leaf);

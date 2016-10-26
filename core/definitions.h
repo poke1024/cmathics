@@ -10,7 +10,7 @@
 
 
 // c functions used for builtin evaluation
-typedef BaseExpressionPtr (CFunction)(const Expression*);
+typedef BaseExpressionRef (CFunction)(const Expression*);
 
 
 struct Attributes {
@@ -44,21 +44,17 @@ struct Attributes {
 
 class Definitions;
 
-
-typedef uint64_t match_id_t;
-
-
 class Symbol : public BaseExpression {
 protected:
     friend class Definitions;
 
     const std::string _name;
 
-    mutable BaseExpressionPtr _matched_value;
-
-    Symbol(Definitions *new_definitions, const char *name);
+    mutable BaseExpressionRef _matched_value;
 
 public:
+    Symbol(Definitions *new_definitions, const char *name);
+
     Expression* own_values;
     Expression* sub_values;
     Expression* up_values;
@@ -93,24 +89,26 @@ public:
         return _name;
     }
 
-    virtual BaseExpression *evaluate();
+    virtual BaseExpressionRef evaluate();
 
     virtual Match match(const BaseExpression *expr) const {
         return Match(same(expr));
     }
 
-    inline void set_matched_value(BaseExpressionPtr value) const {
+    inline void set_matched_value(const BaseExpressionRef &value) const {
         _matched_value = value;
     }
 
     inline void clear_matched_value() const {
-        _matched_value = nullptr;
+        _matched_value.reset();
     }
 
-    inline BaseExpressionPtr matched_value() const {
+    inline const BaseExpressionRef &matched_value() const {
         return _matched_value;
     }
 };
+
+typedef std::shared_ptr<const Symbol> SymbolRef;
 
 class Sequence : public Symbol {
 public:
@@ -124,23 +122,23 @@ public:
 
 class Definitions {
 private:
-    std::map<std::string,Symbol*> _definitions;
-    Expression *_empty_list;
-    const Symbol *_sequence;
+    std::map<std::string,SymbolRef> _definitions;
+    std::shared_ptr<Expression> _empty_list;
+    SymbolRef _sequence;
 
-    void add_internal_symbol(Symbol *symbol);
+    void add_internal_symbol(const SymbolRef &symbol);
 
 public:
     Definitions();
 
-    Symbol *new_symbol(const char *name);
-    Symbol *lookup(const char *name);
+    SymbolRef new_symbol(const char *name);
+    SymbolRef lookup(const char *name);
 
     inline Expression *empty_list() const {
-        return _empty_list;
+        return _empty_list.get();
     }
 
-    inline const Symbol *sequence() const {
+    inline const SymbolRef &sequence() const {
         return _sequence;
     }
 };

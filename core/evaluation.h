@@ -57,7 +57,7 @@ public:
 
     Evaluation(Definitions* new_definitions, bool new_catch_interrupts);
 
-    BaseExpressionPtr evaluate(BaseExpression* expression);
+    BaseExpressionRef evaluate(BaseExpressionRef expression);
 };
 
 

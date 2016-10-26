@@ -12,9 +12,9 @@ int64_t Expression_height(BaseExpressionPtr expression) {
     switch (expression->type()) {
         case ExpressionType:
             nexpression = (Expression*) expression;
-            result = Expression_height(nexpression->_head);
+            result = Expression_height(nexpression->_head.get());
             for (auto leaf : nexpression->_leaves) {
-                leaf_height = Expression_height(leaf);
+                leaf_height = Expression_height(leaf.get());
                 if (leaf_height > result) {
                     result = leaf_height;
                 }

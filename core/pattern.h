@@ -13,7 +13,7 @@ class Matcher {
 private:
     Definitions * const _definitions;
     const Symbol *_variable;
-    BaseExpressionPtr _this_pattern;
+    const BaseExpressionRef &_this_pattern;
     const Slice &_next_pattern;
     const Slice &_sequence;
 
@@ -22,15 +22,15 @@ private:
     Match consume(size_t n) const;
 
 public:
-    inline Matcher(Definitions *definitions, BaseExpressionPtr this_pattern, const Slice &next_pattern, const Slice &sequence) :
+    inline Matcher(Definitions *definitions, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
         _definitions(definitions), _variable(nullptr), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
     }
 
-    inline Matcher(Definitions *definitions, const Symbol *variable, BaseExpressionPtr this_pattern, const Slice &next_pattern, const Slice &sequence) :
+    inline Matcher(Definitions *definitions, const Symbol *variable, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
         _definitions(definitions), _variable(variable), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
     }
 
-    inline const BaseExpressionPtr this_pattern() const {
+    inline const BaseExpressionRef &this_pattern() const {
         return _this_pattern;
     }
 
@@ -40,10 +40,14 @@ public:
 
     Match operator()(size_t match_size, const Symbol *head) const;
 
-    Match operator()(const Symbol *var, BaseExpressionPtr pattern) const;
+    Match operator()(const Symbol *var, const BaseExpressionRef &pattern) const;
 
     Match blank_sequence(match_size_t k, const Symbol *head) const;
 };
+
+inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions *definitions) {
+    return patt->match_sequence(Matcher(definitions, patt, empty_slice, Slice(item)));
+}
 
 const Symbol *blank_head(const Expression *patt);
 
@@ -99,7 +103,7 @@ public:
     }
 
     virtual Match match_sequence_with_head(const Expression *patt, const Matcher &matcher) const {
-        auto var_expr = patt->_leaves[0];
+        auto var_expr = patt->_leaves[0].get();
         assert(var_expr->type() == SymbolType);
         // if nullptr -> throw self.error('patvar', expr)
         const Symbol *var = static_cast<const Symbol*>(var_expr);

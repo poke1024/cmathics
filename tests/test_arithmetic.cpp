@@ -11,21 +11,19 @@
 
 TEST(Arithmetic, Plus) {
     // initialize arguments
-    MachineInteger *a = new MachineInteger(1);
-    MachineInteger *b = new MachineInteger(2);
-    MachineInteger* c;
+    BaseExpressionRef a = std::make_shared<MachineInteger>(1);
+    BaseExpressionRef b = std::make_shared<MachineInteger>(2);
 
     // get plus head
     Definitions* definitions = new Definitions(); // System Definitions
-    BaseExpression* plus_head = (BaseExpression*) definitions->lookup("Plus");
+    auto plus_head = definitions->lookup("Plus");
 
     // construct expression
-    Expression* plus_expr = new Expression(plus_head, {a, b});
+    ExpressionRef plus_expr = ExpressionRef(new Expression(plus_head, {a, b}));
 
-    BaseExpressionPtr result_expr = _Plus(plus_expr);
+    BaseExpressionRef result_expr = _Plus(plus_expr);
     ASSERT_EQ(result_expr->type(), MachineIntegerType);
-    c = (MachineInteger*) result_expr;
-    EXPECT_EQ(c->value, 3);
+    EXPECT_EQ(std::static_pointer_cast<const MachineInteger>(result_expr)->value, 3);
 }
 
 
