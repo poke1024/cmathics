@@ -73,6 +73,14 @@ public:
     }
 };
 
+inline BaseExpressionRef real(double value) {
+    return std::make_shared<MachineReal>(value);
+}
+
+inline BaseExpressionRef real(double prec, double value) {
+    return std::make_shared<BigReal>(prec, value);
+}
+
 std::pair<int32_t,double> precision_of(const BaseExpressionRef&);
 
 #endif

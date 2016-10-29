@@ -41,4 +41,8 @@ public:
     }
 };
 
+inline BaseExpressionRef string(const char *value) {
+    return std::make_shared<String>(value);
+}
+
 #endif

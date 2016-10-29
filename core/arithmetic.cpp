@@ -38,7 +38,7 @@ BaseExpressionRef add_Integers(const ExpressionRef &expr) {
         }
     }
 
-    auto return_value = Integer_from_mpz(result);
+    auto return_value = integer(result);
     mpz_clear(result);
     return return_value;
 }
@@ -90,11 +90,11 @@ BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
         // result = NULL;
     } else if (!symbolics.empty()) {
         // at least one symbolic
-        symbolics.push_back(std::make_shared<MachineReal>(sum));
-        result = std::make_shared<Expression>(expr->_head, symbolics);
+        symbolics.push_back(real(sum));
+        result = expression(expr->_head, symbolics);
     } else {
         // no symbolics
-        result = std::make_shared<MachineReal>(sum);
+        result = real(sum);
     }
 
     return result;
@@ -105,7 +105,7 @@ BaseExpressionRef _Plus(const ExpressionRef &expr) {
     switch (expr->_leaves.size()) {
         case 0:
             // Plus[] -> 0
-            return std::make_shared<MachineInteger>(0);
+            return integer(0LL);
 
         case 1:
             // Plus[a_] -> a

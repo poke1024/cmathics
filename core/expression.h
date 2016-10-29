@@ -74,6 +74,19 @@ public:
         const Matcher &matcher) const;
 };
 
+inline BaseExpressionRef expression(BaseExpressionRef head, const std::vector<BaseExpressionRef> &leaves) {
+    return std::make_shared<Expression>(head, leaves);
+}
+
+template<typename... T>
+inline BaseExpressionRef expression(BaseExpressionRef head, T... leaves) {
+    return std::make_shared<Expression>(head, {leaves...});
+}
+
+/*inline operator+(const BaseExpressionRef &a, BaseExpressionRef &b) {
+    return expression('Plus', {a, b});
+}*/
+
 inline Slice get_sequence(const BaseExpressionRef &expr) {
     if (expr->is_sequence()) {
         return Slice(std::static_pointer_cast<const Expression>(expr)->_leaves);
@@ -81,4 +94,5 @@ inline Slice get_sequence(const BaseExpressionRef &expr) {
         return Slice(expr);
     }
 }
+
 #endif

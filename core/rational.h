@@ -46,12 +46,12 @@ public:
 
     // copies denominator to a new Integer
     inline BaseExpressionRef numer() const {
-        return Integer_from_mpz(mpq_numref(value));
+        return integer(mpq_numref(value));
     }
 
     // copies numerator to a new Integer
     inline BaseExpressionRef denom() const {
-        return Integer_from_mpz(mpq_denref(value));
+        return integer(mpq_denref(value));
     }
 };
 

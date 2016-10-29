@@ -66,7 +66,7 @@ TEST(BigInteger, BigInteger_set__big) {
 TEST(Integer_from_mpz, MachineInteger) {
     mpz_t value;
     mpz_init_set_si(value, 5);
-    auto result = Integer_from_mpz(value);
+    auto result = integer(value);
     ASSERT_EQ(result->type(), MachineIntegerType);
     EXPECT_EQ(std::static_pointer_cast<const MachineInteger>(result)->value, 5);
 }
@@ -78,7 +78,7 @@ TEST(Integer_from_mpz, BigInteger) {
     mpz_init_set_si(value, 41);
     mpz_pow_ui(value, value, 53);  // overflows 64bit int for sure
 
-    auto result = Integer_from_mpz(value);
+    auto result = integer(value);
     ASSERT_EQ(result->type(), BigIntegerType);
     EXPECT_STREQ(mpz_get_str(NULL, 16, std::static_pointer_cast<const BigInteger>(result)->value), hex_value);
 }
