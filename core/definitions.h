@@ -10,7 +10,7 @@
 
 
 // c functions used for builtin evaluation
-typedef BaseExpressionRef (CFunction)(const ExpressionRef&);
+typedef BaseExpressionRef (CFunction)(const Expression&);
 
 
 struct Attributes {

@@ -46,7 +46,7 @@ typedef enum {
 
 class Evaluation {
 public:
-    Definitions* definitions;
+    Definitions &definitions;
     int64_t recursion_depth;
     bool timeout;
     bool stopped;
@@ -55,7 +55,7 @@ public:
     EvaluationInterrupt interrupt;
     Out* out;
 
-    Evaluation(Definitions* new_definitions, bool new_catch_interrupts);
+    Evaluation(Definitions &definitions, bool new_catch_interrupts);
 
     BaseExpressionRef evaluate(BaseExpressionRef expression);
 };

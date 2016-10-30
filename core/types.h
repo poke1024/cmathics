@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <functional>
 #include <vector>
+#include <experimental/optional>
 
 #include "hash.h"
 #include "leaves.h"
@@ -67,7 +68,7 @@ class Expression;
 
 typedef std::shared_ptr<const Expression> ExpressionRef;
 
-class BaseExpression : public std::enable_shared_from_this<BaseExpression> {
+class BaseExpression {
 public:
     BaseExpression() {
     }
@@ -138,6 +139,16 @@ public:
         return nullptr;
     }
 };
+
+inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
+    if (expr) {
+        s << expr->fullform();
+    } else {
+        s << "(no expression)";
+    }
+    return s;
+}
+
 
 inline const BaseExpressionRef *copy_leaves(const BaseExpressionRef *leaves, size_t n) {
     auto new_leaves = new BaseExpressionRef[n];

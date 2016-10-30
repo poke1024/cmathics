@@ -164,8 +164,7 @@ BaseExpressionRef Expression::evaluate3() const {
 
         // first try to apply CFunction (if present)
         if (head_symbol->down_code != nullptr) {
-            auto child_result = (head_symbol->down_code)(
-                std::static_pointer_cast<const Expression>(shared_from_this()));
+            auto child_result = (head_symbol->down_code)(*this);
             if (child_result != nullptr) {
                 return child_result;
             }

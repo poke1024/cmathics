@@ -308,12 +308,12 @@ void python_test(const char *input) {
 
     SymbolRef plus_symbol = definitions->lookup("System`Plus");
     plus_symbol->down_code = _Plus;
-    Evaluation* evaluation = new Evaluation(definitions, true);
-    std::cout << expr->fullform() << std::endl;
+    Evaluation* evaluation = new Evaluation(*definitions, true);
+    std::cout << expr << std::endl;
     std::cout << "evaluating...\n";
     BaseExpressionRef evaluated = evaluation->evaluate(expr);
     std::cout << "done\n";
-    std::cout << evaluated->fullform() << std::endl;
+    std::cout << evaluated << std::endl;
 }
 
 int main() {
