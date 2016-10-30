@@ -67,6 +67,7 @@ class Matcher;
 class Expression;
 
 typedef std::shared_ptr<const Expression> ExpressionRef;
+typedef const Expression *ExpressionPtr;
 
 class BaseExpression {
 public:
@@ -120,13 +121,13 @@ public:
 
     virtual Match match_sequence(const Matcher &matcher) const;
 
-    virtual Match match_sequence_with_head(const ExpressionRef &patt, const Matcher &matcher) const;
+    virtual Match match_sequence_with_head(ExpressionPtr patt, const Matcher &matcher) const;
 
     virtual match_sizes_t match_num_args() const {
         return std::make_tuple(1, 1); // default
     }
 
-    virtual match_sizes_t match_num_args_with_head(const Expression *patt) const {
+    virtual match_sizes_t match_num_args_with_head(ExpressionPtr patt) const {
         return std::make_tuple(1, 1); // default for non-symbol heads
     }
 

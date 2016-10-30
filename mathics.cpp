@@ -284,6 +284,38 @@ public:
     }
 };
 
+typedef std::function<BaseExpressionRef(const Expression &expr)> builtin_function;
+
+class Rule {
+public:
+    virtual BaseExpressionRef apply(const Expression &expr) = 0;
+};
+
+class BuiltinRule : public Rule {
+public:
+    BuiltinRule(const BaseExpressionRef &patt, builtin_function f) {
+
+    }
+};
+
+/*class Runtime {
+private:
+    Definitions &_definitions;
+    Parser parser;
+
+public:
+
+    void add_builtin(
+        const char *name,
+        const char *patt,
+        builtin_function f) {
+
+        auto rule = new BuiltinRule(parser.parse(patt), f);
+        _definitions.lookup(name)->add_down_rule(rule);
+    }
+};*/
+
+
 void python_test(const char *input) {
     auto parser_module = python::module("mathics.core.parser.parser");
     auto Parser = getattr(parser_module, "Parser");
@@ -308,43 +340,47 @@ void python_test(const char *input) {
 
     SymbolRef plus_symbol = definitions->lookup("System`Plus");
     plus_symbol->down_code = _Plus;
-    Evaluation* evaluation = new Evaluation(*definitions, true);
+    Evaluation evaluation(*definitions, true);
     std::cout << expr << std::endl;
     std::cout << "evaluating...\n";
-    BaseExpressionRef evaluated = evaluation->evaluate(expr);
+    BaseExpressionRef evaluated = evaluation.evaluate(expr);
     std::cout << "done\n";
     std::cout << evaluated << std::endl;
+}
+
+void pattern_test() {
+    Definitions definitions;
+
+    auto x = definitions.new_symbol("Global`x");
+
+    auto patt = expression(definitions.lookup("System`Pattern"), {
+        x, expression(definitions.lookup("System`Blank"), {})
+    });
+
+    Match m = match(patt, new MachineInteger(7), definitions);
+    std::cout << m << std::endl;
+
+    patt = expression(definitions.lookup("System`Pattern"), {
+        x, expression(definitions.lookup("System`BlankSequence"), {})
+    });
+
+    auto some_expr = expression(definitions.lookup("System`Sequence"), {
+        integer(1), integer(3)});
+
+    m = match(patt, some_expr, definitions);
+    std::cout << m << std::endl;
 }
 
 int main() {
     // set PYTHONHOME to a python with a Mathics installation.
     setenv("PYTHONHOME", "/Users/bernhard/Projekte/j5", true);
 
+    pattern_test();
+
     Py_Initialize();
     python_test("1.1 + 5.2");
     Py_Finalize();
     return 0;
-
-    /*
-    Definitions* definitions = new Definitions();
-
-    auto x = definitions->new_symbol("Global`x");
-
-    auto patt = new Expression(definitions->lookup("System`Pattern"), {
-        x, new Expression(definitions->lookup("System`Blank"), {})
-    });
-
-    Match m = patt->match(definitions, new MachineInteger(7));
-    std::cout << m;
-
-
-    patt = new Expression(definitions->lookup("System`Pattern"), {
-        x, new Expression(definitions->lookup("System`BlankSequence"), {})
-    });
-
-    m = patt->match(definitions, new Expression(
-        definitions->lookup("System`Sequence"), {new MachineInteger(1), new MachineInteger(3)}));
-    std::cout << m;*/
 
     /*
 

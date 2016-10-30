@@ -37,7 +37,7 @@ Match BaseExpression::match_sequence(const Matcher &matcher) const {
     }
 }
 
-Match BaseExpression::match_sequence_with_head(const ExpressionRef &patt, const Matcher &matcher) const {
+Match BaseExpression::match_sequence_with_head(ExpressionPtr patt, const Matcher &matcher) const {
     // pattern[0] is always an Expression.
     // "this" is always pattern[0]->_head.
 

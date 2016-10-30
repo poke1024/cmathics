@@ -92,7 +92,7 @@ Match Matcher::operator()(size_t match_size, const Symbol *head) const {
         item = _sequence[0];
     } else {
         item = std::make_shared<Expression>(
-            _definitions->sequence(), _sequence.slice(0, match_size));
+            _definitions.sequence(), _sequence.slice(0, match_size));
     }
 
     const BaseExpressionRef &existing = _variable->matched_value();
@@ -127,7 +127,7 @@ Match Matcher::operator()(const Symbol *var, const BaseExpressionRef &pattern) c
     return pattern->match_sequence(matcher);
 }
 
-const Symbol *blank_head(const Expression *patt) {
+const Symbol *blank_head(ExpressionPtr patt) {
     switch (patt->_leaves.size()) {
         case 0:
             return nullptr;

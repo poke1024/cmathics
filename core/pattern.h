@@ -11,7 +11,7 @@
 
 class Matcher {
 private:
-    Definitions * const _definitions;
+    Definitions &_definitions;
     const Symbol *_variable;
     const BaseExpressionRef &_this_pattern;
     const Slice &_next_pattern;
@@ -22,11 +22,11 @@ private:
     Match consume(size_t n) const;
 
 public:
-    inline Matcher(Definitions *definitions, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
+    inline Matcher(Definitions &definitions, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
         _definitions(definitions), _variable(nullptr), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
     }
 
-    inline Matcher(Definitions *definitions, const Symbol *variable, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
+    inline Matcher(Definitions &definitions, const Symbol *variable, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
         _definitions(definitions), _variable(variable), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
     }
 
@@ -45,11 +45,15 @@ public:
     Match blank_sequence(match_size_t k, const Symbol *head) const;
 };
 
-inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions *definitions) {
+inline Match match(const BaseExpressionRef &patt, BaseExpressionPtr item, Definitions &definitions) {
     return patt->match_sequence(Matcher(definitions, patt, empty_slice, Slice(item)));
 }
 
-const Symbol *blank_head(const Expression *patt);
+inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &definitions) {
+    return match(patt, item.get(), definitions);
+}
+
+const Symbol *blank_head(ExpressionPtr patt);
 
 class Blank : public Symbol {
 public:
@@ -102,7 +106,7 @@ public:
         Symbol(definitions, "System`Pattern") {
     }
 
-    virtual Match match_sequence_with_head(const Expression *patt, const Matcher &matcher) const {
+    virtual Match match_sequence_with_head(ExpressionPtr patt, const Matcher &matcher) const {
         auto var_expr = patt->_leaves[0].get();
         assert(var_expr->type() == SymbolType);
         // if nullptr -> throw self.error('patvar', expr)
@@ -111,7 +115,7 @@ public:
         return matcher(var, patt->_leaves[1]);
     }
 
-    virtual match_sizes_t match_num_args_with_head(const Expression *patt) const {
+    virtual match_sizes_t match_num_args_with_head(ExpressionPtr patt) const {
         if (patt->_leaves.size() == 2) {
             // Pattern is only valid with two arguments
             return patt->_leaves[1]->match_num_args();
@@ -127,7 +131,7 @@ public:
         Symbol(definitions, "System`Alternatives") {
     }
 
-    virtual match_sizes_t match_num_args_with_head(const Expression *patt) const {
+    virtual match_sizes_t match_num_args_with_head(ExpressionPtr patt) const {
         auto leaves = patt->_leaves;
 
         if (leaves.size() == 0) {
@@ -154,7 +158,7 @@ public:
         Symbol(definitions, "System`Repeated") {
     }
 
-    virtual match_sizes_t match_num_args_with_head(const Expression *patt) const {
+    virtual match_sizes_t match_num_args_with_head(ExpressionPtr patt) const {
         switch(patt->_leaves.size()) {
             case 1:
                 return std::make_tuple(1, MATCH_MAX);

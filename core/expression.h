@@ -87,9 +87,12 @@ inline BaseExpressionRef expression(BaseExpressionRef head, T... leaves) {
     return expression('Plus', {a, b});
 }*/
 
-inline Slice get_sequence(const BaseExpressionRef &expr) {
+inline Slice get_sequence(BaseExpressionPtr expr) {
+    // IMPORTANT: the caller guarantees that the returned Slice lives as
+    // long as the given expression pointer "expr"!
+
     if (expr->is_sequence()) {
-        return Slice(std::static_pointer_cast<const Expression>(expr)->_leaves);
+        return Slice(static_cast<const Expression*>(expr)->_leaves);
     } else {
         return Slice(expr);
     }

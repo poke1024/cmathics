@@ -81,11 +81,17 @@ public:
         _end(leaves._end) {
     }
 
-    inline Slice(const BaseExpressionRef &expr) :
-        _expr(expr),
-        _begin(&expr),
+    inline Slice(BaseExpressionPtr expr) :
+        _expr(expr, [](BaseExpressionPtr) {
+            // nothing. we do not want to really delete the pointer _expr holds (it's
+            // usually a pointer to the stack, see below).
+        }),
+        _begin(&_expr),
         _end(_begin + 1) {
-        // special case for Leaves with exactly one element. happens often enough to optimize this.
+        // special case for Leaves with exactly one element. happens extensively during
+        // evaluation when we pattern match rules, so it's important to optimize this,
+        // in order to avoid heap allocations. IMPORTANT: the caller guarantees that the
+        // given pointer to expr is valid as long as this Slice lives!
     }
 
     inline const BaseExpressionRef &leaf(size_t i) const {
