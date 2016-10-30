@@ -10,11 +10,13 @@
 class Integer : public BaseExpression {
 };
 
+typedef int64_t machine_integer_t;
+
 class MachineInteger : public Integer {
 public:
-    const int64_t value;
+    const machine_integer_t value;
 
-    inline MachineInteger(int64_t new_value) : value(new_value) {
+    inline MachineInteger(machine_integer_t new_value) : value(new_value) {
     }
 
     virtual Type type() const {
@@ -77,11 +79,12 @@ public:
     }
 };
 
-inline BaseExpressionRef integer(int64_t value) {
+inline BaseExpressionRef integer(machine_integer_t value) {
     return std::make_shared<MachineInteger>(value);
 }
 
 inline BaseExpressionRef integer(mpz_srcptr value) {
+    static_assert(sizeof(long) == sizeof(machine_integer_t), "types long and machine_integer_t differ");
     if (mpz_fits_slong_p(value)) {
         return integer(mpz_get_si(value));
     } else {

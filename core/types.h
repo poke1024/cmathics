@@ -67,7 +67,7 @@ class Expression;
 
 typedef std::shared_ptr<const Expression> ExpressionRef;
 
-class BaseExpression {
+class BaseExpression : public std::enable_shared_from_this<BaseExpression> {
 public:
     BaseExpression() {
     }

@@ -11,7 +11,7 @@ class MachineReal : public BaseExpression {
 public:
     const double value;
 
-    MachineReal(const double new_value) : value(new_value) {
+    explicit MachineReal(const double new_value) : value(new_value) {
     }
 
     virtual Type type() const {
@@ -45,7 +45,7 @@ public:
     mpfr_t value;
     double prec;
 
-    BigReal(const double new_prec, const double new_value);
+    explicit BigReal(const double new_prec, const double new_value);
 
     virtual ~BigReal() {
         mpfr_clear(value);

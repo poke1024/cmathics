@@ -10,7 +10,7 @@
 
 
 // c functions used for builtin evaluation
-typedef BaseExpressionRef (CFunction)(const Expression*);
+typedef BaseExpressionRef (CFunction)(const ExpressionRef&);
 
 
 struct Attributes {
@@ -108,7 +108,9 @@ public:
     }
 };
 
-typedef std::shared_ptr<const Symbol> SymbolRef;
+// in contrast to BaseExpressionRef, SymbolRefs are not constant. Symbols might
+// change, after all, if rules are added.
+typedef std::shared_ptr<Symbol> SymbolRef;
 
 class Sequence : public Symbol {
 public:
