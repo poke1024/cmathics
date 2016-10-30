@@ -28,10 +28,10 @@ namespace python {
 
     class borrowed_reference {
     public:
-        PyObject *const py_object;
+        PyObject *const _py_object;
 
-        borrowed_reference(PyObject *new_py_object) : py_object(new_py_object) {
-            if (!new_py_object) {
+        borrowed_reference(PyObject *py_object) : _py_object(py_object) {
+            if (!py_object) {
                 throw std::runtime_error("invalid python reference");
             }
         }
@@ -39,10 +39,10 @@ namespace python {
 
     class new_reference {
     public:
-        PyObject *const py_object;
+        PyObject *const _py_object;
 
-        new_reference(PyObject *new_py_object) : py_object(new_py_object) {
-            if (!new_py_object) {
+        new_reference(PyObject *py_object) : _py_object(py_object) {
+            if (!py_object) {
                 throw std::runtime_error("invalid python reference");
             }
         }
@@ -83,7 +83,7 @@ namespace python {
 
     class object {
     private:
-        PyObject *const _py_object;
+        PyObject *_py_object;
 
     protected:
         inline bool isinstance(const object &klass) const {
@@ -104,18 +104,31 @@ namespace python {
 
     public:
         friend bool isinstance(const object &o, const object &klass);
-
         friend object getattr(const object &o, const char *name);
 
-        inline object(const borrowed_reference &ref) : _py_object(ref.py_object) {
+        inline object() : _py_object(nullptr) {
+        }
+
+        inline object(const borrowed_reference &ref) : _py_object(ref._py_object) {
             Py_INCREF(_py_object);
         }
 
-        inline object(const new_reference &ref) : _py_object(ref.py_object) {
+        inline object(const new_reference &ref) : _py_object(ref._py_object) {
         }
 
         inline ~object() {
-            Py_DECREF(_py_object);
+            if (_py_object) {
+                Py_DECREF(_py_object);
+            }
+        }
+
+        inline object &operator=(const object &other) {
+            if (_py_object) {
+                Py_DECREF(_py_object);
+            }
+            _py_object = other._py_object;
+            Py_INCREF(_py_object);
+            return *this;
         }
 
         inline bool operator==(const object &other) const {
@@ -150,7 +163,7 @@ namespace python {
             return object(new_reference(PyObject_Repr(_py_object)));
         }
 
-        inline std::string str() const {
+        inline std::string as_string() const {
             std::string s;
             if (PyUnicode_Check(_py_object)) {
                 PyObject *bytes = PyUnicode_AsEncodedString(_py_object, "utf8", "strict");
@@ -162,7 +175,7 @@ namespace python {
             return s;
         }
 
-        inline void integer(mpz_t x) const {
+        inline void as_integer(mpz_t x) const {
             if (!PyLong_Check(_py_object)) {
                 throw std::runtime_error("not an integer value");
             }
@@ -172,7 +185,7 @@ namespace python {
                 mpz_set_si(x, value);
             } else {
                 object n(new_reference(PyNumber_ToBase(_py_object, 10)));
-                std::string s(n.str());
+                std::string s(n.as_string());
                 mpz_set_str(x, s.c_str(), 10);
             }
         }
@@ -183,6 +196,10 @@ namespace python {
                 throw std::runtime_error("could not get float");
             }
             return x;
+        }
+
+        inline object type() const {
+            return object(new_reference(PyObject_Type(_py_object)));
         }
 
         inline object operator()() const {
@@ -211,7 +228,7 @@ namespace python {
     }
 
     inline std::ostream &operator<<(std::ostream &s, const python::object &o) {
-        s << o.repr().str();
+        s << o.repr().as_string();
         return s;
     }
 
@@ -229,9 +246,9 @@ using python::getattr;
 
 // ---
 
-class Converter {
+class ParseConverter {
 private:
-    Definitions *_definitions;
+    Definitions &_definitions;
 
     python::object _expression;
     python::object _symbol, _symbol_lookup;
@@ -239,7 +256,7 @@ private:
     python::object _machine_real;
 
 public:
-    Converter(Definitions *definitions) :
+    ParseConverter(Definitions &definitions) :
         _definitions(definitions),
         _expression(python::string("Expression")),
         _symbol(python::string("Symbol")),
@@ -251,14 +268,21 @@ public:
     BaseExpressionRef convert(const python::object &o) {
         auto kind = o[0];
 
-        if (kind == _symbol || kind == _symbol_lookup) {
-            auto name = o[1].str();
-            return _definitions->lookup(name.c_str());
+        if (kind == _symbol) {
+            auto name = o[1].as_string();
+            return _definitions.lookup(name.c_str());
+        } else if (kind == _symbol_lookup) {
+            auto name = o[1].as_string();
+            if (name.find('`') == std::string::npos) {
+                // FIXME: add correct context
+                name = "System`" + name;
+            }
+            return _definitions.lookup(name.c_str());
         } else if (kind == _integer) {
             mpz_t x;
             mpz_init(x);
             try {
-                o[1].integer(x);
+                o[1].as_integer(x);
                 auto y = integer(x);
                 mpz_clear(x);
                 return y;
@@ -279,68 +303,59 @@ public:
             return expression(head, leaves);
         } else {
             throw std::runtime_error(std::string(
-                "unsupported parsed item of type " + kind.str()));
+                "unsupported parsed item of type " + kind.as_string()));
         }
     }
 };
 
-typedef std::function<BaseExpressionRef(const Expression &expr)> builtin_function;
-
-class Rule {
-public:
-    virtual BaseExpressionRef apply(const Expression &expr) = 0;
-};
-
-class BuiltinRule : public Rule {
-public:
-    BuiltinRule(const BaseExpressionRef &patt, builtin_function f) {
-
-    }
-};
-
-/*class Runtime {
+class Parser {
 private:
-    Definitions &_definitions;
-    Parser parser;
+    python::object _feeder;
+    python::object _parse;
+    python::object _do_convert;
+    ParseConverter _converter;
 
 public:
+    Parser(Definitions &definitions) : _converter(definitions) {
+        auto parser_module = python::module("mathics.core.parser.parser");
+        auto parser = getattr(parser_module, "Parser")();
 
-    void add_builtin(
-        const char *name,
-        const char *patt,
-        builtin_function f) {
+        auto feed_module = python::module("mathics.core.parser.feed");
+        auto SingleLineFeeder = getattr(feed_module, "SingleLineFeeder");
 
-        auto rule = new BuiltinRule(parser.parse(patt), f);
-        _definitions.lookup(name)->add_down_rule(rule);
+        _feeder = SingleLineFeeder;
+        _parse = getattr(parser, "parse");
+
+        auto convert_module = python::module("mathics.core.parser.convert");
+        _do_convert = getattr(getattr(convert_module, "GenericConverter")(), "do_convert");
     }
-};*/
 
+    BaseExpressionRef parse(const char *s) {
+        auto tree = _do_convert(_parse(_feeder(s)));
+        return _converter.convert(tree);
+    }
+};
+
+BaseExpressionRef Most(const Expression &expr) {
+    auto list = std::static_pointer_cast<const Expression>(expr.leaves()[0]);
+    auto leaves = list->leaves();
+    auto n = leaves.size();
+    return expression(list->head(), leaves.slice(0, n > 0 ? n - 1 : 0));
+}
 
 void python_test(const char *input) {
-    auto parser_module = python::module("mathics.core.parser.parser");
-    auto Parser = getattr(parser_module, "Parser");
-    auto parser = Parser();
+    Definitions definitions;
+    Parser parser(definitions);
 
-    auto feed_module = python::module("mathics.core.parser.feed");
-    auto SingleLineFeeder = getattr(feed_module, "SingleLineFeeder");
+    auto expr = parser.parse(input);
 
-    auto feeder = SingleLineFeeder(input);
-    auto result = getattr(parser, "parse")(feeder);
+    SymbolRef plus_symbol = definitions.lookup("System`Plus");
+    plus_symbol->add_down_rule(BaseExpressionRef(), Plus);
 
-    auto convert_module = python::module("mathics.core.parser.convert");
-    auto do_convert = getattr(getattr(convert_module, "GenericConverter")(), "do_convert");
+    SymbolRef most_symbol = definitions.lookup("System`Most");
+    most_symbol->add_down_rule(parser.parse("Most[x_List]"), Most);
 
-    auto tree = do_convert(result);
-
-    std::cout << "parsed: " << tree << std::endl;
-
-    Definitions* definitions = new Definitions();
-    Converter converter(definitions);
-    auto expr = converter.convert(tree);
-
-    SymbolRef plus_symbol = definitions->lookup("System`Plus");
-    plus_symbol->down_code = _Plus;
-    Evaluation evaluation(*definitions, true);
+    Evaluation evaluation(definitions, true);
     std::cout << expr << std::endl;
     std::cout << "evaluating...\n";
     BaseExpressionRef evaluated = evaluation.evaluate(expr);
@@ -357,7 +372,7 @@ void pattern_test() {
         x, expression(definitions.lookup("System`Blank"), {})
     });
 
-    Match m = match(patt, new MachineInteger(7), definitions);
+    Match m = match(patt, integer(7), definitions);
     std::cout << m << std::endl;
 
     patt = expression(definitions.lookup("System`Pattern"), {
@@ -378,7 +393,8 @@ int main() {
     pattern_test();
 
     Py_Initialize();
-    python_test("1.1 + 5.2");
+    //python_test("x + 1.1 + 5.2");
+    python_test("Most[{1, 2, 3, 4, 5}]");
     Py_Finalize();
     return 0;
 

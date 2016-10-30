@@ -69,6 +69,8 @@ class Expression;
 typedef std::shared_ptr<const Expression> ExpressionRef;
 typedef const Expression *ExpressionPtr;
 
+class Evaluation;
+
 class BaseExpression {
 public:
     BaseExpression() {
@@ -85,27 +87,27 @@ public:
     }
 
     inline bool same(const BaseExpressionRef &expr) const {
-        return same(expr.get());
+        return same(*expr);
     }
 
-    virtual bool same(BaseExpressionPtr expr) const = 0;
+    virtual bool same(const BaseExpression &expr) const = 0;
 
     virtual hash_t hash() const = 0;
 
     virtual std::string fullform() const = 0;
 
-    virtual BaseExpressionRef evaluate() const {
+    virtual BaseExpressionRef evaluate(Evaluation &evaluation) const {
         // atomic expressions remain unchanged
-        return nullptr;
+        return BaseExpressionRef();
     }
 
     // various getters
 
-    virtual BaseExpressionRef get_head() const {
+    virtual BaseExpressionRef head() const {
         return BaseExpressionRef(); // no head available
     }
 
-    virtual BaseExpressionPtr get_head_ptr() const {
+    virtual BaseExpressionPtr head_ptr() const {
         return nullptr; // no head available
     }
 

@@ -3,7 +3,8 @@
 
 #include "types.h"
 #include "expression.h"
+#include "pattern.h"
 
-BaseExpressionRef _Plus(const Expression &expr);
+BaseExpressionRef Plus(const Expression &expr);
 
 #endif

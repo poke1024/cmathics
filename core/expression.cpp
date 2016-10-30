@@ -6,20 +6,21 @@
 #include <assert.h>
 
 #include "expression.h"
+#include "evaluation.h"
 #include "hash.h"
 #include "definitions.h"
 #include "pattern.h"
 
-bool Expression::same(BaseExpressionPtr item) const {
-    if (this == item) {
+bool Expression::same(const BaseExpression &item) const {
+    if (this == &item) {
         return true;
     }
-    if (item->type() != ExpressionType) {
+    if (item.type() != ExpressionType) {
         return false;
     }
-    const Expression *expr = static_cast<const Expression*>(item);
+    const Expression *expr = static_cast<const Expression*>(&item);
 
-    if (!_head->same(expr->_head.get())) {
+    if (!_head->same(expr->_head)) {
         return false;
     }
 
@@ -28,7 +29,7 @@ bool Expression::same(BaseExpressionPtr item) const {
         return false;
     }
     for (size_t i = 0; i < n_leaves; i++) {
-        if (!_leaves[i]->same(expr->_leaves[i].get())) {
+        if (!_leaves[i]->same(expr->_leaves[i])) {
             return false;
         }
     }
@@ -75,13 +76,13 @@ std::string Expression::fullform() const {
 }
 
 // returns nullptr if nothing changed
-BaseExpressionRef Expression::evaluate() const {
+BaseExpressionRef Expression::evaluate(Evaluation &evaluation) const {
     // Step 1
     // Evaluate the head
     auto head = _head;
 
     while (true) {
-        auto child_result = head->evaluate();
+        auto child_result = head->evaluate(evaluation);
         if (child_result == nullptr)
             break;
         head = child_result;
@@ -124,23 +125,24 @@ BaseExpressionRef Expression::evaluate() const {
         assert(eval_leaf_stop <= _leaves.size());
 
         // perform the evaluation
-        return evaluate2(head, _leaves.apply(eval_leaf_start, eval_leaf_stop, [](const BaseExpressionRef &leaf) mutable {
-            return leaf->evaluate();
-        }));
+        return evaluate2(head, _leaves.apply(eval_leaf_start, eval_leaf_stop,
+            [&evaluation](const BaseExpressionRef &leaf) mutable {
+                return leaf->evaluate(evaluation);
+            }), evaluation);
     } else {
-        return evaluate2(head, _leaves);
+        return evaluate2(head, _leaves, evaluation);
     }
 }
 
-BaseExpressionRef Expression::evaluate2(const BaseExpressionRef &head, const Slice &leaves) const {
+BaseExpressionRef Expression::evaluate2(const BaseExpressionRef &head, const Slice &leaves, Evaluation &evaluation) const {
     if (_head == head and _leaves == leaves) {
-        return evaluate3();
+        return evaluate3(evaluation);
     } else {
-        return Expression(head, leaves).evaluate3();
+        return Expression(head, leaves).evaluate3(evaluation);
     }
 }
 
-BaseExpressionRef Expression::evaluate3() const {
+BaseExpressionRef Expression::evaluate3(Evaluation &evaluation) const {
     auto head = _head;
 
     // Step 3
@@ -161,19 +163,11 @@ BaseExpressionRef Expression::evaluate3() const {
     // Evaluate the head with leaves. (DownValue)
     if (head->type() == SymbolType) {
         auto head_symbol = static_cast<const Symbol*>(head.get());
+        auto definitions = evaluation.definitions;
 
-        // first try to apply CFunction (if present)
-        if (head_symbol->down_code != nullptr) {
-            auto child_result = (head_symbol->down_code)(*this);
-            if (child_result != nullptr) {
-                return child_result;
-            }
-        }
-
-        // if the CFunction is absent or returns NULL then apply downvalues
-        for (size_t i = 0; i < head_symbol->down_values->_leaves.size(); i++) {
-            auto child_result = replace(head_symbol->down_values->_leaves[i]);
-            if (child_result != nullptr) {
+        for (const RuleRef &rule : head_symbol->down_rules) {
+            auto child_result = rule->try_apply(*this, definitions);
+            if (child_result) {
                 return child_result;
             }
         }

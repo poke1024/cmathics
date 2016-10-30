@@ -30,7 +30,7 @@ Match BaseExpression::match_sequence(const Matcher &matcher) const {
 
     if (sequence.size() == 0) {
         return Match(false);
-    } else if (same(sequence[0].get())) {
+    } else if (same(sequence[0])) {
         return matcher(1, nullptr);
     } else {
         return Match(false);
@@ -45,9 +45,17 @@ Match BaseExpression::match_sequence_with_head(ExpressionPtr patt, const Matcher
 
     if (sequence.size() == 0) {
         return Match(false);
-    } else if (!patt->same(sequence[0].get())) {
-        return Match(false);
     } else {
-        return matcher(1, nullptr);
+        auto next = sequence[0];
+        if (next->type() == ExpressionType) {
+            auto expr = std::static_pointer_cast<const Expression>(next);
+            if (!expr->head()->same(patt->head())) {
+                return Match(false);
+            } else {
+                return matcher.descend();
+            }
+        } else {
+            return Match(false);
+        }
     }
 }

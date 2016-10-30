@@ -18,9 +18,9 @@ public:
         return MachineRealType;
     }
 
-    virtual bool same(const BaseExpression *expr) const {
-        if (expr->type() == MachineRealType) {
-            return value == static_cast<const MachineReal*>(expr)->value;
+    virtual bool same(const BaseExpression &expr) const {
+        if (expr.type() == MachineRealType) {
+            return value == static_cast<const MachineReal*>(&expr)->value;
         } else {
             return false;
         }
@@ -35,7 +35,7 @@ public:
         return std::to_string(value); // FIXME
     }
 
-    virtual Match match(const BaseExpression *expr) const {
+    virtual Match match(const BaseExpression &expr) const {
         return Match(same(expr));
     }
 };
@@ -55,9 +55,9 @@ public:
         return BigRealType;
     }
 
-    virtual bool same(const BaseExpression *expr) const {
-        if (expr->type() == BigRealType) {
-            return mpfr_cmp(value, static_cast<const BigReal*>(expr)->value) == 0;
+    virtual bool same(const BaseExpression &expr) const {
+        if (expr.type() == BigRealType) {
+            return mpfr_cmp(value, static_cast<const BigReal*>(&expr)->value) == 0;
         } else {
             return false;
         }

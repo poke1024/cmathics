@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "types.h"
+#include "pattern.h"
 #include "integer.h"
 #include "arithmetic.h"
 #include "real.h"
@@ -101,7 +102,7 @@ BaseExpressionRef add_MachineInexact(const Expression &expr) {
 }
 
 
-BaseExpressionRef _Plus(const Expression &expr) {
+BaseExpressionRef Plus(const Expression &expr) {
     switch (expr._leaves.size()) {
         case 0:
             // Plus[] -> 0

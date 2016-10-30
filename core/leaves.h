@@ -45,7 +45,7 @@ public:
 class Slice {
 public: // private:
     const std::shared_ptr<Extent> _storage;
-    BaseExpressionRef _expr;
+    const BaseExpressionRef _expr;
     const BaseExpressionRef * const _begin;
     const BaseExpressionRef * const _end;
 
@@ -75,10 +75,11 @@ public:
         _end(end) {
     }
 
-    inline Slice(const Slice& leaves) :
-        _storage(leaves._storage),
-        _begin(leaves._begin),
-        _end(leaves._end) {
+    inline Slice(const Slice& slice) :
+        _storage(slice._storage),
+        _expr(slice._expr),
+        _begin(_expr ? &_expr : slice._begin),
+        _end(_expr ? _begin + 1 : slice._end) {
     }
 
     inline Slice(BaseExpressionPtr expr) :
@@ -102,8 +103,12 @@ public:
         return _begin[i].get();
     }
 
-    inline bool operator==(const Slice &leaves) const {
-        return _begin == leaves._begin && _end == leaves._end && _expr == leaves._expr;
+    inline bool operator==(const Slice &slice) const {
+        if (_expr) {
+            return _expr == slice._expr;
+        } else {
+            return _begin == slice._begin && _end == slice._end;
+        }
     }
 
     Slice apply(
@@ -111,16 +116,7 @@ public:
         size_t end,
         const std::function<BaseExpressionRef(const BaseExpressionRef&)> &f) const;
 
-    Slice slice(size_t begin, size_t end = SIZE_T_MAX) const {
-        assert(begin <= end);
-
-        const size_t offset = _begin - _storage->_leaves + begin;
-        const size_t n = _storage->_n;
-        assert(offset <= n);
-
-        end = std::min(end, n - offset);
-        return Slice(_storage, _begin + begin, _begin + end);
-    }
+    Slice slice(size_t begin, size_t end = SIZE_T_MAX) const;
 
     inline size_t size() const {
         return _end - _begin;

@@ -7,8 +7,8 @@
 
 class Expression : public BaseExpression {
 private:
-    BaseExpressionRef evaluate2(const BaseExpressionRef &head, const Slice &leaves) const;
-    BaseExpressionRef evaluate3() const;
+    BaseExpressionRef evaluate2(const BaseExpressionRef &head, const Slice &leaves, Evaluation &evaluation) const;
+    BaseExpressionRef evaluate3(Evaluation &evaluation) const;
 
 public:
     mutable hash_t _computed_hash;
@@ -46,19 +46,23 @@ public:
         return ExpressionType;
     }
 
-    virtual bool same(BaseExpressionPtr item) const;
+    virtual bool same(const BaseExpression &item) const;
 
     virtual hash_t hash() const;
 
     virtual std::string fullform() const;
 
-    virtual BaseExpressionRef evaluate() const;
+    virtual BaseExpressionRef evaluate(Evaluation &evaluation) const;
 
-    virtual BaseExpressionRef get_head() const {
+    virtual BaseExpressionRef head() const {
         return _head;
     }
 
-    virtual BaseExpressionPtr get_head_ptr() const {
+    const Slice &leaves() const {
+        return _leaves;
+    }
+
+    virtual BaseExpressionPtr head_ptr() const {
         return _head.get();
     }
 
@@ -78,6 +82,10 @@ inline BaseExpressionRef expression(BaseExpressionRef head, const std::vector<Ba
     return std::make_shared<Expression>(head, leaves);
 }
 
+inline BaseExpressionRef expression(BaseExpressionRef head, const Slice &slice) {
+    return std::make_shared<Expression>(head, slice);
+}
+
 template<typename... T>
 inline BaseExpressionRef expression(BaseExpressionRef head, T... leaves) {
     return std::make_shared<Expression>(head, {leaves...});
@@ -87,7 +95,7 @@ inline BaseExpressionRef expression(BaseExpressionRef head, T... leaves) {
     return expression('Plus', {a, b});
 }*/
 
-inline Slice get_sequence(BaseExpressionPtr expr) {
+/*inline Slice get_sequence(BaseExpressionPtr expr) {
     // IMPORTANT: the caller guarantees that the returned Slice lives as
     // long as the given expression pointer "expr"!
 
@@ -96,6 +104,6 @@ inline Slice get_sequence(BaseExpressionPtr expr) {
     } else {
         return Slice(expr);
     }
-}
+}*/
 
 #endif

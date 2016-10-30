@@ -16,9 +16,9 @@ public:
         return StringType;
     }
 
-    virtual bool same(const BaseExpression *expr) const {
-        if (expr->type() == StringType) {
-            return value == static_cast<const String*>(expr)->value;
+    virtual bool same(const BaseExpression &expr) const {
+        if (expr.type() == StringType) {
+            return value == static_cast<const String*>(&expr)->value;
         } else {
             return false;
         }
@@ -36,7 +36,7 @@ public:
         return value.c_str();
     }
 
-    virtual Match match(const BaseExpression *expr) const {
+    virtual Match match(const BaseExpression &expr) const {
         return Match(same(expr));
     }
 };

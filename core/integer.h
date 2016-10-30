@@ -23,9 +23,9 @@ public:
         return MachineIntegerType;
     }
 
-    virtual bool same(const BaseExpression *expr) const {
-        if (expr->type() == MachineIntegerType) {
-            return value == static_cast<const MachineInteger*>(expr)->value;
+    virtual bool same(const BaseExpression &expr) const {
+        if (expr.type() == MachineIntegerType) {
+            return value == static_cast<const MachineInteger*>(&expr)->value;
         } else {
             return false;
         }
@@ -39,7 +39,7 @@ public:
         return std::to_string(value);
     }
 
-    virtual Match match(const BaseExpression *expr) const {
+    virtual Match match(const BaseExpression &expr) const {
         return Match(same(expr));
     }
 };
@@ -61,9 +61,9 @@ public:
         return BigIntegerType;
     }
 
-    virtual bool same(const BaseExpression *expr) const {
-        if (expr->type() == BigIntegerType) {
-            return mpz_cmp(value, static_cast<const BigInteger*>(expr)->value) == 0;
+    virtual bool same(const BaseExpression &expr) const {
+        if (expr.type() == BigIntegerType) {
+            return mpz_cmp(value, static_cast<const BigInteger*>(&expr)->value) == 0;
         } else {
             return false;
         }

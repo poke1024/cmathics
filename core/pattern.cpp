@@ -14,7 +14,7 @@ bool Matcher::heads(size_t n, const Symbol *head) const {
         static_cast<BaseExpressionPtr>(head);
 
     for (size_t i = 0; i < n; i++) {
-        if (head_expr != _sequence[i]->get_head_ptr()) {
+        if (head_expr != _sequence[i]->head_ptr()) {
             return i;
         }
     }
@@ -91,6 +91,7 @@ Match Matcher::operator()(size_t match_size, const Symbol *head) const {
     if (match_size == 1) {
         item = _sequence[0];
     } else {
+        // FIXME only create on the heap if needed
         item = std::make_shared<Expression>(
             _definitions.sequence(), _sequence.slice(0, match_size));
     }
@@ -126,6 +127,27 @@ Match Matcher::operator()(const Symbol *var, const BaseExpressionRef &pattern) c
     auto matcher = Matcher(_definitions, var, pattern, _next_pattern, _sequence);
     return pattern->match_sequence(matcher);
 }
+
+Match Matcher::descend() const {
+    assert(_this_pattern->type() == ExpressionType);
+    auto patt_expr = std::static_pointer_cast<const Expression>(_this_pattern);
+    auto patt_sequence = patt_expr->leaves();
+    auto patt_next = patt_sequence[0];
+
+    assert(_sequence[0]->type() == ExpressionType);
+    auto item_expr = std::static_pointer_cast<const Expression>(_sequence[0]);
+    auto item_sequence = item_expr->leaves();
+
+    auto matcher = Matcher(_definitions, patt_next, patt_sequence.slice(1), item_sequence);
+    auto match = patt_next->match_sequence(matcher);
+    if (match) {
+        // FIXME: transfer variables
+        return consume(1);
+    } else {
+        return match;
+    }
+}
+
 
 const Symbol *blank_head(ExpressionPtr patt) {
     switch (patt->_leaves.size()) {

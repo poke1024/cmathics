@@ -42,18 +42,42 @@ public:
 
     Match operator()(const Symbol *var, const BaseExpressionRef &pattern) const;
 
+    Match descend() const;
+
     Match blank_sequence(match_size_t k, const Symbol *head) const;
 };
 
-inline Match match(const BaseExpressionRef &patt, BaseExpressionPtr item, Definitions &definitions) {
-    return patt->match_sequence(Matcher(definitions, patt, empty_slice, Slice(item)));
+inline Match match(const BaseExpressionRef &patt, const BaseExpression &item, Definitions &definitions) {
+    // FIXME: safeguard against item being referenced in Match() that is returned here.
+    return patt->match_sequence(Matcher(definitions, patt, empty_slice, Slice(&item)));
 }
 
 inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &definitions) {
-    return match(patt, item.get(), definitions);
+    return match(patt, *item, definitions);
 }
 
 const Symbol *blank_head(ExpressionPtr patt);
+
+class Rule {
+private:
+    const BaseExpressionRef _patt;
+    const rule_function _func;
+
+public:
+    inline Rule() : _patt() {
+    }
+
+    inline Rule(const BaseExpressionRef &patt, const rule_function &func) : _patt(patt), _func(func) {
+    }
+
+    inline BaseExpressionRef try_apply(const Expression &expr, Definitions &definitions) {
+        if (!_patt || match(_patt, expr, definitions)) {
+            return _func(expr);
+        } else {
+            return BaseExpressionRef();
+        }
+    }
+};
 
 class Blank : public Symbol {
 public:

@@ -5,6 +5,8 @@
 
 // initialise a definition entry
 Symbol::Symbol(Definitions *definitions, const char *name) : _name(name), _matched_value(nullptr) {
+    attributes.clear();
+
     const auto empty_list = definitions->empty_list();
     own_values = empty_list;
     sub_values = empty_list;
@@ -15,10 +17,6 @@ Symbol::Symbol(Definitions *definitions, const char *name) : _name(name), _match
     default_values = empty_list;
     messages = empty_list;
     options = empty_list;
-
-    sub_code = nullptr;
-    up_code = nullptr;
-    down_code = nullptr;
 }
 
 BaseExpressionRef Symbol::evaluate() {
@@ -33,6 +31,11 @@ BaseExpressionRef Symbol::evaluate() {
     }
 
     return result;
+}
+
+void Symbol::add_down_rule(const BaseExpressionRef &patt, rule_function func) {
+    RuleRef rule(new Rule(patt, func));
+    down_rules.push_back(std::move(rule));
 }
 
 

@@ -10,8 +10,7 @@
 
 
 // c functions used for builtin evaluation
-typedef BaseExpressionRef (CFunction)(const Expression&);
-
+typedef std::function<BaseExpressionRef(const Expression &)> rule_function;
 
 struct Attributes {
     // pattern matching attributes
@@ -39,8 +38,17 @@ struct Attributes {
     unsigned int is_sequencehold: 1;
     unsigned int is_temporary: 1;
     unsigned int is_stub: 1;
+
+    inline void clear() {
+        memset(this, 0, sizeof(*this));
+    }
 };
 
+class Rule;
+
+typedef std::unique_ptr<Rule> RuleRef;
+
+typedef std::vector<RuleRef> Rules;
 
 class Definitions;
 
@@ -64,17 +72,20 @@ public:
     Expression* default_values;
     Expression* messages;
     Expression* options;
-    CFunction *sub_code;
-    CFunction *up_code;
-    CFunction *down_code;
+
+    Rules sub_rules;
+    Rules up_rules;
+    Rules down_rules;
+
     Attributes attributes;
 
     virtual Type type() const {
         return SymbolType;
     }
 
-    virtual bool same(const BaseExpression *expr) const {
-        return expr == this; // compare as pointers: symbols are unique
+    virtual bool same(const BaseExpression &expr) const {
+        // compare as pointers: Symbol instances are unique
+        return &expr == this;
     }
 
     virtual hash_t hash() const {
@@ -91,7 +102,7 @@ public:
 
     virtual BaseExpressionRef evaluate();
 
-    virtual Match match(const BaseExpression *expr) const {
+    virtual Match match(const BaseExpression &expr) const {
         return Match(same(expr));
     }
 
@@ -106,6 +117,8 @@ public:
     inline const BaseExpressionRef &matched_value() const {
         return _matched_value;
     }
+
+    void add_down_rule(const BaseExpressionRef &patt, rule_function func);
 };
 
 // in contrast to BaseExpressionRef, SymbolRefs are not constant. Symbols might
