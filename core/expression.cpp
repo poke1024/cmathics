@@ -75,75 +75,75 @@ std::string Expression::fullform() const {
     return result.str();
 }
 
-// returns nullptr if nothing changed
-BaseExpressionRef Expression::evaluate(Evaluation &evaluation) const {
-    // Step 1
+BaseExpressionRef Expression::evaluate_head(Evaluation &evaluation) const {
     // Evaluate the head
+
     auto head = _head;
 
     while (true) {
-        auto child_result = head->evaluate(evaluation);
-        if (child_result == nullptr)
+        auto new_head = head->evaluate(head, evaluation);
+        if (new_head) {
+            head = new_head;
+        } else {
             break;
-        head = child_result;
+        }
     }
 
-    // Step 2
+    return head;
+}
+
+Slice Expression::evaluate_leaves(Evaluation &evaluation) const {
     // Evaluate the leaves from left to right (according to Hold values).
+
+    const auto head = _head;
+
+    if (head->type() != SymbolType) {
+        return _leaves;
+    }
+
+    const auto head_symbol = (Symbol*)head.get();
+
+    // only one type of Hold attribute can be set at a time
+    assert(head_symbol->attributes.is_holdfirst +
+           head_symbol->attributes.is_holdrest +
+           head_symbol->attributes.is_holdall +
+           head_symbol->attributes.is_holdallcomplete <= 1);
 
     size_t eval_leaf_start, eval_leaf_stop;
 
-    if (head->type() == SymbolType) {
-        auto head_symbol = (Symbol*)head.get();
+    if (head_symbol->attributes.is_holdfirst) {
+        eval_leaf_start = 1;
+        eval_leaf_stop = _leaves.size();
+    } else if (head_symbol->attributes.is_holdrest) {
+        eval_leaf_start = 0;
+        eval_leaf_stop = 1;
+    } else if (head_symbol->attributes.is_holdall) {
+        // TODO flatten sequences
+        eval_leaf_start = 0;
+        eval_leaf_stop = 0;
+    } else if (head_symbol->attributes.is_holdallcomplete) {
+        // no more evaluation is applied
+        return _leaves;
+    } else {
+        eval_leaf_start = 0;
+        eval_leaf_stop = _leaves.size();
+    }
 
-        // only one type of Hold attribute can be set at a time
-        assert(head_symbol->attributes.is_holdfirst +
-               head_symbol->attributes.is_holdrest +
-               head_symbol->attributes.is_holdall +
-               head_symbol->attributes.is_holdallcomplete <= 1);
+    assert(0 <= eval_leaf_start);
+    assert(eval_leaf_start <= eval_leaf_stop);
+    assert(eval_leaf_stop <= _leaves.size());
 
-        if (head_symbol->attributes.is_holdfirst) {
-            eval_leaf_start = 1;
-            eval_leaf_stop = _leaves.size();
-        } else if (head_symbol->attributes.is_holdrest) {
-            eval_leaf_start = 0;
-            eval_leaf_stop = 1;
-        } else if (head_symbol->attributes.is_holdall) {
-            // TODO flatten sequences
-            eval_leaf_start = 0;
-            eval_leaf_stop = 0;
-        } else if (head_symbol->attributes.is_holdallcomplete) {
-            // no more evaluation is applied
-            return NULL;
-        } else {
-            eval_leaf_start = 0;
-            eval_leaf_stop = _leaves.size();
+    return _leaves.apply(
+        eval_leaf_start,
+        eval_leaf_stop,
+        [&evaluation](const BaseExpressionRef &leaf) mutable {
+            return leaf->evaluate(leaf, evaluation);
         }
-
-        assert(0 <= eval_leaf_start);
-        assert(eval_leaf_start <= eval_leaf_stop);
-        assert(eval_leaf_stop <= _leaves.size());
-
-        // perform the evaluation
-        return evaluate2(head, _leaves.apply(eval_leaf_start, eval_leaf_stop,
-            [&evaluation](const BaseExpressionRef &leaf) mutable {
-                return leaf->evaluate(evaluation);
-            }), evaluation);
-    } else {
-        return evaluate2(head, _leaves, evaluation);
-    }
+    );
 }
 
-BaseExpressionRef Expression::evaluate2(const BaseExpressionRef &head, const Slice &leaves, Evaluation &evaluation) const {
-    if (_head == head and _leaves == leaves) {
-        return evaluate3(evaluation);
-    } else {
-        return Expression(head, leaves).evaluate3(evaluation);
-    }
-}
-
-BaseExpressionRef Expression::evaluate3(Evaluation &evaluation) const {
-    auto head = _head;
+BaseExpressionRef Expression::evaluate_values(ExpressionRef self, Evaluation &evaluation) const {
+    const auto head = _head;
 
     // Step 3
     // Apply UpValues for leaves
@@ -166,7 +166,7 @@ BaseExpressionRef Expression::evaluate3(Evaluation &evaluation) const {
         auto definitions = evaluation.definitions;
 
         for (const RuleRef &rule : head_symbol->down_rules) {
-            auto child_result = rule->try_apply(*this, definitions);
+            auto child_result = rule->try_apply(self, definitions);
             if (child_result) {
                 return child_result;
             }
@@ -174,6 +174,24 @@ BaseExpressionRef Expression::evaluate3(Evaluation &evaluation) const {
     }
 
     return BaseExpressionRef();
+}
+
+// returns nullptr if nothing changed
+BaseExpressionRef Expression::evaluate(const BaseExpressionRef &self, Evaluation &evaluation) const {
+    // Step 1
+    const auto head = evaluate_head(evaluation);
+
+    // Step 2
+    const auto leaves = evaluate_leaves(evaluation);
+
+    // Step 3, 4, ...
+    if (_head == head and _leaves == leaves) {
+        const auto expr = std::static_pointer_cast<const Expression>(self);
+        return evaluate_values(expr, evaluation);
+    } else {
+        auto intermediate = expression(head, leaves);
+        return intermediate->evaluate_values(intermediate, evaluation);
+    }
 }
 
 Match Expression::match_sequence(const Matcher &matcher) const {

@@ -10,7 +10,7 @@
 
 
 // c functions used for builtin evaluation
-typedef std::function<BaseExpressionRef(const Expression &)> rule_function;
+typedef std::function<BaseExpressionRef(const ExpressionRef &)> rule_function;
 
 struct Attributes {
     // pattern matching attributes
@@ -58,7 +58,7 @@ protected:
 
     const std::string _name;
 
-    mutable BaseExpressionRef _matched_value;
+    mutable BaseExpressionPtr _matched_value;
 
 public:
     Symbol(Definitions *new_definitions, const char *name);
@@ -106,15 +106,15 @@ public:
         return Match(same(expr));
     }
 
-    inline void set_matched_value(const BaseExpressionRef &value) const {
+    inline void set_matched_value(BaseExpressionPtr value) const {
         _matched_value = value;
     }
 
     inline void clear_matched_value() const {
-        _matched_value.reset();
+        _matched_value = nullptr;
     }
 
-    inline const BaseExpressionRef &matched_value() const {
+    inline BaseExpressionPtr matched_value() const {
         return _matched_value;
     }
 

@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <functional>
 #include <vector>
-#include <experimental/optional>
 
 #include "hash.h"
 #include "leaves.h"
@@ -96,7 +95,7 @@ public:
 
     virtual std::string fullform() const = 0;
 
-    virtual BaseExpressionRef evaluate(Evaluation &evaluation) const {
+    virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, Evaluation &evaluation) const {
         // atomic expressions remain unchanged
         return BaseExpressionRef();
     }
@@ -140,6 +139,10 @@ public:
         // returns NULL if no match is found
         // TODO
         return nullptr;
+    }
+
+    virtual BaseExpressionRef clone() const {
+        throw std::runtime_error("not implemented yet");
     }
 };
 

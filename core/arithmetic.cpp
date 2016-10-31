@@ -14,7 +14,7 @@
 
 
 // sums all integers in an expression
-BaseExpressionRef add_Integers(const Expression &expr) {
+BaseExpressionRef add_Integers(const ExpressionRef &expr) {
     uint32_t i;
     int64_t machine_leaf;
     mpz_t result;
@@ -25,7 +25,7 @@ BaseExpressionRef add_Integers(const Expression &expr) {
 
     mpz_init(result);
 
-    for (auto leaf : expr._leaves) {
+    for (auto leaf : expr->_leaves) {
         auto type = leaf->type();
         if (type == MachineIntegerType) {
             machine_leaf = std::static_pointer_cast<const MachineInteger>(leaf)->value;
@@ -45,13 +45,13 @@ BaseExpressionRef add_Integers(const Expression &expr) {
 }
 
 
-BaseExpressionRef add_MachineInexact(const Expression &expr) {
+BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
     // create an array to store all the symbolic arguments which can't be evaluated.
     auto symbolics = std::vector<BaseExpressionRef>();
-    symbolics.reserve(expr._leaves.size());
+    symbolics.reserve(expr->_leaves.size());
 
     double sum = 0.0;
-    for (auto leaf : expr._leaves) {
+    for (auto leaf : expr->_leaves) {
         auto type = leaf->type();
         switch(type) {
             case MachineIntegerType:
@@ -82,17 +82,17 @@ BaseExpressionRef add_MachineInexact(const Expression &expr) {
     }
 
     // at least one non-symbolic
-    assert(symbolics.size() != expr._leaves.size());
+    assert(symbolics.size() != expr->_leaves.size());
 
     BaseExpressionRef result;
 
-    if (symbolics.size() == expr._leaves.size() - 1) {
+    if (symbolics.size() == expr->_leaves.size() - 1) {
         // one non-symbolic: nothing to do
         // result = NULL;
     } else if (!symbolics.empty()) {
         // at least one symbolic
         symbolics.push_back(real(sum));
-        result = expression(expr._head, symbolics);
+        result = expression(expr->_head, symbolics);
     } else {
         // no symbolics
         result = real(sum);
@@ -102,20 +102,20 @@ BaseExpressionRef add_MachineInexact(const Expression &expr) {
 }
 
 
-BaseExpressionRef Plus(const Expression &expr) {
-    switch (expr._leaves.size()) {
+BaseExpressionRef Plus(const ExpressionRef &expr) {
+    switch (expr->_leaves.size()) {
         case 0:
             // Plus[] -> 0
             return integer(0LL);
 
         case 1:
             // Plus[a_] -> a
-            return expr._leaves[0];
+            return expr->_leaves[0];
     }
 
     // bit field to determine which types are present
     uint16_t types_seen = 0;
-    for (auto leaf : expr._leaves) {
+    for (auto leaf : expr->_leaves) {
         types_seen |= 1 << leaf->type();
     }
 

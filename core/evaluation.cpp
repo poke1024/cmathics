@@ -34,7 +34,7 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
     // line_no = get_line_no(evaluation);
 
     // perform evaluation
-    result = expr->evaluate(*this);
+    result = expr->evaluate(expr, *this);
 
     // TODO $Post
 

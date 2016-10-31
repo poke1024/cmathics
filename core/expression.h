@@ -4,11 +4,13 @@
 #include "types.h"
 #include "hash.h"
 #include <vector>
+#include <experimental/optional>
 
 class Expression : public BaseExpression {
 private:
-    BaseExpressionRef evaluate2(const BaseExpressionRef &head, const Slice &leaves, Evaluation &evaluation) const;
-    BaseExpressionRef evaluate3(Evaluation &evaluation) const;
+    BaseExpressionRef evaluate_head(Evaluation &evaluation) const;
+    Slice evaluate_leaves(Evaluation &evaluation) const;
+    BaseExpressionRef evaluate_values(ExpressionRef self, Evaluation &evaluation) const;
 
 public:
     mutable hash_t _computed_hash;
@@ -34,14 +36,6 @@ public:
         _computed_hash(0) {
     }
 
-    inline const BaseExpressionRef &leaf(size_t i) const {
-        return _leaves.leaf(i);
-    }
-
-    inline BaseExpressionPtr leaf_ptr(size_t i) const {
-        return _leaves.leaf_ptr(i);
-    }
-
     virtual Type type() const {
         return ExpressionType;
     }
@@ -52,18 +46,26 @@ public:
 
     virtual std::string fullform() const;
 
-    virtual BaseExpressionRef evaluate(Evaluation &evaluation) const;
+    virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, Evaluation &evaluation) const;
 
     virtual BaseExpressionRef head() const {
         return _head;
+    }
+
+    virtual BaseExpressionPtr head_ptr() const {
+        return _head.get();
     }
 
     const Slice &leaves() const {
         return _leaves;
     }
 
-    virtual BaseExpressionPtr head_ptr() const {
-        return _head.get();
+    inline const BaseExpressionRef &leaf(size_t i) const {
+        return _leaves.leaf(i);
+    }
+
+    inline BaseExpressionPtr leaf_ptr(size_t i) const {
+        return _leaves.leaf_ptr(i);
     }
 
     virtual bool is_sequence() const {
@@ -76,18 +78,22 @@ public:
 
     virtual Match match_sequence(
         const Matcher &matcher) const;
+
+    virtual BaseExpressionRef clone() const {
+        return std::make_shared<Expression>(_head, _leaves);
+    }
 };
 
-inline BaseExpressionRef expression(BaseExpressionRef head, const std::vector<BaseExpressionRef> &leaves) {
+inline ExpressionRef expression(BaseExpressionRef head, const std::vector<BaseExpressionRef> &leaves) {
     return std::make_shared<Expression>(head, leaves);
 }
 
-inline BaseExpressionRef expression(BaseExpressionRef head, const Slice &slice) {
+inline ExpressionRef expression(BaseExpressionRef head, const Slice &slice) {
     return std::make_shared<Expression>(head, slice);
 }
 
 template<typename... T>
-inline BaseExpressionRef expression(BaseExpressionRef head, T... leaves) {
+inline ExpressionRef expression(BaseExpressionRef head, T... leaves) {
     return std::make_shared<Expression>(head, {leaves...});
 }
 

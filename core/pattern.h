@@ -18,8 +18,8 @@ private:
     const Slice &_sequence;
 
     bool heads(size_t n, const Symbol *head) const;
-
     Match consume(size_t n) const;
+    Match match_variable(size_t match_size, const BaseExpression &item, const BaseExpressionRef &item_ref) const;
 
 public:
     inline Matcher(Definitions &definitions, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
@@ -47,13 +47,8 @@ public:
     Match blank_sequence(match_size_t k, const Symbol *head) const;
 };
 
-inline Match match(const BaseExpressionRef &patt, const BaseExpression &item, Definitions &definitions) {
-    // FIXME: safeguard against item being referenced in Match() that is returned here.
-    return patt->match_sequence(Matcher(definitions, patt, empty_slice, Slice(&item)));
-}
-
 inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &definitions) {
-    return match(patt, *item, definitions);
+    return patt->match_sequence(Matcher(definitions, patt, empty_slice, Slice(item)));
 }
 
 const Symbol *blank_head(ExpressionPtr patt);
@@ -70,7 +65,7 @@ public:
     inline Rule(const BaseExpressionRef &patt, const rule_function &func) : _patt(patt), _func(func) {
     }
 
-    inline BaseExpressionRef try_apply(const Expression &expr, Definitions &definitions) {
+    inline BaseExpressionRef try_apply(const ExpressionRef &expr, Definitions &definitions) {
         if (!_patt || match(_patt, expr, definitions)) {
             return _func(expr);
         } else {

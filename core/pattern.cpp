@@ -73,6 +73,34 @@ Match Matcher::blank_sequence(match_size_t k, const Symbol *head) const {
     return Match(false);
 }
 
+Match Matcher::match_variable(size_t match_size, const BaseExpression &item, const BaseExpressionRef &item_ref) const {
+    BaseExpressionPtr existing = _variable->matched_value();
+    if (existing) {
+        if (existing->same(item)) {
+            return consume(match_size);
+        } else {
+            return Match(false);
+        }
+    } else {
+        Match match;
+
+        _variable->set_matched_value(&item);
+        try {
+            match = consume(match_size);
+        } catch(...) {
+            _variable->clear_matched_value();
+            throw;
+        }
+        _variable->clear_matched_value();
+
+        if (match) {
+            match.add_variable(_variable, item_ref ? item_ref : item.clone());
+        }
+
+        return match;
+    }
+}
+
 Match Matcher::operator()(size_t match_size, const Symbol *head) const {
     if (_sequence.size() < match_size) {
         return Match(false);
@@ -86,40 +114,14 @@ Match Matcher::operator()(size_t match_size, const Symbol *head) const {
         return consume(match_size);
     }
 
-    BaseExpressionRef item;
-
     if (match_size == 1) {
-        item = _sequence[0];
+        const auto item = _sequence[0];
+        return match_variable(match_size, *item, item);
     } else {
-        // FIXME only create on the heap if needed
-        item = std::make_shared<Expression>(
-            _definitions.sequence(), _sequence.slice(0, match_size));
-    }
-
-    const BaseExpressionRef &existing = _variable->matched_value();
-    if (existing) {
-        if (existing->same(item)) {
-            return consume(match_size);
-        } else {
-            return Match(false);
-        }
-    } else {
-        Match match;
-
-        _variable->set_matched_value(item);
-        try {
-            match = consume(match_size);
-        } catch(...) {
-            _variable->clear_matched_value();
-            throw;
-        }
-        _variable->clear_matched_value();
-
-        if (match) {
-            match.add_variable(_variable, item); // add leaves only
-        }
-
-        return match;
+        const Expression expression(
+            _definitions.sequence(),
+            _sequence.slice(0, match_size));
+        return match_variable(match_size, expression, BaseExpressionRef());
     }
 }
 

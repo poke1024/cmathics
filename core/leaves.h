@@ -50,6 +50,9 @@ public: // private:
     const BaseExpressionRef * const _end;
 
 public:
+    inline explicit Slice() : _begin(nullptr), _end(nullptr) {
+    }
+
     // copy leaves. Leaves takes ownership of the BaseExpression instances in leaves and will delete them.
     inline Slice(const BaseExpressionRef* leaves, size_t n) :
         _storage(std::make_shared<Extent>(leaves, n)),
@@ -82,17 +85,16 @@ public:
         _end(_expr ? _begin + 1 : slice._end) {
     }
 
-    inline Slice(BaseExpressionPtr expr) :
-        _expr(expr, [](BaseExpressionPtr) {
-            // nothing. we do not want to really delete the pointer _expr holds (it's
-            // usually a pointer to the stack, see below).
-        }),
+    inline Slice(const BaseExpressionRef &expr) :
+        _expr(expr),
         _begin(&_expr),
         _end(_begin + 1) {
         // special case for Leaves with exactly one element. happens extensively during
-        // evaluation when we pattern match rules, so it's important to optimize this,
-        // in order to avoid heap allocations. IMPORTANT: the caller guarantees that the
-        // given pointer to expr is valid as long as this Slice lives!
+        // evaluation when we pattern match rules, so it's very useful to optimize this.
+    }
+
+    inline operator bool() const {
+        return _begin;
     }
 
     inline const BaseExpressionRef &leaf(size_t i) const {

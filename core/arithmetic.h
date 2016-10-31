@@ -5,6 +5,6 @@
 #include "expression.h"
 #include "pattern.h"
 
-BaseExpressionRef Plus(const Expression &expr);
+BaseExpressionRef Plus(const ExpressionRef &expr);
 
 #endif
