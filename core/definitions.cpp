@@ -34,7 +34,7 @@ BaseExpressionRef Symbol::evaluate() {
 }
 
 void Symbol::add_down_rule(const BaseExpressionRef &patt, rule_function func) {
-    RuleRef rule(new Rule(patt, func));
+    auto rule = std::make_unique<Rule>(patt, func);
     down_rules.push_back(std::move(rule));
 }
 
