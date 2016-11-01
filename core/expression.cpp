@@ -194,7 +194,7 @@ BaseExpressionRef Expression::evaluate(const BaseExpressionRef &self, Evaluation
     }
 }
 
-Match Expression::match_sequence(const Matcher &matcher) const {
+bool Expression::match_sequence(const Matcher &matcher) const {
     auto patt = std::static_pointer_cast<const Expression>(matcher.this_pattern());
     return patt->_head->match_sequence_with_head(patt.get(), matcher);
 }

@@ -9,6 +9,11 @@
 #include "string.h"
 #include "real.h"
 
+void Matcher::add_matched_variable(const Symbol *variable) const {
+    variable->link_variable(_matched_variables_head);
+    _matched_variables_head = variable;
+}
+
 bool Matcher::heads(size_t n, const Symbol *head) const {
     const BaseExpressionPtr head_expr =
         static_cast<BaseExpressionPtr>(head);
@@ -22,23 +27,29 @@ bool Matcher::heads(size_t n, const Symbol *head) const {
     return n;
 }
 
-Match Matcher::consume(size_t n) const {
+bool Matcher::consume(size_t n) const {
     assert(_sequence.size() >= n);
 
     if (_next_pattern.size() == 0) {
         if (_sequence.size() == n) {
-            return Match(true);
+            return true;
         } else {
-            return Match(false);
+            return false;
         }
     } else {
         auto next = _next_pattern[0];
         auto rest = _next_pattern.slice(1);
-        return next->match_sequence(Matcher(_definitions, next, rest, _sequence.slice(n)));
+        Matcher matcher(_id, _matched_variables_head, _definitions, next, rest, _sequence.slice(n));
+        if (next->match_sequence(matcher)) {
+            _matched_variables_head = matcher._matched_variables_head;
+            return true;
+        } else {
+            return false;
+        }
     }
 }
 
-Match Matcher::blank_sequence(match_size_t k, const Symbol *head) const {
+bool Matcher::blank_sequence(match_size_t k, const Symbol *head) const {
     const size_t n = _sequence.size();
 
     match_size_t min_remaining = n;
@@ -49,7 +60,7 @@ Match Matcher::blank_sequence(match_size_t k, const Symbol *head) const {
         std::tie(min_args, max_args) = patt->match_num_args();
 
         if ((max_remaining -= min_args) < k) {
-            return Match(false);
+            return false;
         }
         if ((min_remaining -= max_args) < 0) {
             min_remaining = 0;
@@ -70,44 +81,45 @@ Match Matcher::blank_sequence(match_size_t k, const Symbol *head) const {
         }
     }
 
-    return Match(false);
+    return false;
 }
 
-Match Matcher::match_variable(size_t match_size, const BaseExpression &item, const BaseExpressionRef &item_ref) const {
-    BaseExpressionPtr existing = _variable->matched_value();
+bool Matcher::match_variable(size_t match_size, const BaseExpressionRef &item) const {
+    BaseExpressionRef existing = _variable->matched_value(_id);
     if (existing) {
         if (existing->same(item)) {
             return consume(match_size);
         } else {
-            return Match(false);
+            return false;
         }
     } else {
-        Match match;
+        bool match;
 
-        _variable->set_matched_value(&item);
+        _variable->set_matched_value(_id, item);
         try {
             match = consume(match_size);
         } catch(...) {
             _variable->clear_matched_value();
             throw;
         }
-        _variable->clear_matched_value();
 
         if (match) {
-            match.add_variable(_variable, item_ref ? item_ref : item.clone());
+            add_matched_variable(_variable);
+        } else {
+            _variable->clear_matched_value();
         }
 
         return match;
     }
 }
 
-Match Matcher::operator()(size_t match_size, const Symbol *head) const {
+bool Matcher::operator()(size_t match_size, const Symbol *head) const {
     if (_sequence.size() < match_size) {
-        return Match(false);
+        return false;
     }
 
     if (head && heads(match_size, head) != match_size) {
-        return Match(false);
+        return false;
     }
 
     if (!_variable) {
@@ -115,22 +127,25 @@ Match Matcher::operator()(size_t match_size, const Symbol *head) const {
     }
 
     if (match_size == 1) {
-        const auto item = _sequence[0];
-        return match_variable(match_size, *item, item);
+        return match_variable(match_size, _sequence[0]);
     } else {
-        const Expression expression(
+        return match_variable(match_size, expression(
             _definitions.sequence(),
-            _sequence.slice(0, match_size));
-        return match_variable(match_size, expression, BaseExpressionRef());
+            _sequence.slice(0, match_size)));
     }
 }
 
-Match Matcher::operator()(const Symbol *var, const BaseExpressionRef &pattern) const {
-    auto matcher = Matcher(_definitions, var, pattern, _next_pattern, _sequence);
-    return pattern->match_sequence(matcher);
+bool Matcher::operator()(const Symbol *var, const BaseExpressionRef &pattern) const {
+    auto matcher = Matcher(_id, _matched_variables_head, _definitions, var, pattern, _next_pattern, _sequence);
+    if (pattern->match_sequence(matcher)) {
+        _matched_variables_head = matcher._matched_variables_head;
+        return true;
+    } else {
+        return false;
+    }
 }
 
-Match Matcher::descend() const {
+bool Matcher::descend() const {
     assert(_this_pattern->type() == ExpressionType);
     auto patt_expr = std::static_pointer_cast<const Expression>(_this_pattern);
     auto patt_sequence = patt_expr->leaves();
@@ -140,13 +155,13 @@ Match Matcher::descend() const {
     auto item_expr = std::static_pointer_cast<const Expression>(_sequence[0]);
     auto item_sequence = item_expr->leaves();
 
-    auto matcher = Matcher(_definitions, patt_next, patt_sequence.slice(1), item_sequence);
-    auto match = patt_next->match_sequence(matcher);
+    const auto matcher = Matcher(_id, _matched_variables_head, _definitions, patt_next, patt_sequence.slice(1), item_sequence);
+    const auto match = patt_next->match_sequence(matcher);
     if (match) {
-        // FIXME: transfer variables
+        _matched_variables_head = matcher._matched_variables_head;
         return consume(1);
     } else {
-        return match;
+        return false;
     }
 }
 

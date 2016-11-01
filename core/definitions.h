@@ -44,7 +44,19 @@ struct Attributes {
     }
 };
 
-class Rule;
+class Rule {
+private:
+    const BaseExpressionRef _patt;
+
+protected:
+    virtual BaseExpressionRef apply(const Match &match) const = 0;
+
+public:
+    inline Rule(const BaseExpressionRef &patt) : _patt(patt) {
+    }
+
+    BaseExpressionRef try_apply(const ExpressionRef &expr, Definitions &definitions) const;
+};
 
 typedef std::unique_ptr<Rule> RuleRef;
 
@@ -58,7 +70,9 @@ protected:
 
     const std::string _name;
 
-    mutable BaseExpressionPtr _matched_value;
+    mutable MatchId _match_id;
+    mutable BaseExpressionRef _match_value;
+    mutable const Symbol *_linked_variable;
 
 public:
     Symbol(Definitions *new_definitions, const char *name);
@@ -102,28 +116,71 @@ public:
 
     virtual BaseExpressionRef evaluate();
 
-    virtual Match match(const BaseExpression &expr) const {
-        return Match(same(expr));
+    void add_down_rule(RuleRef &rule);
+
+    virtual bool match(const BaseExpression &expr) const {
+        return same(expr);
     }
 
-    inline void set_matched_value(BaseExpressionPtr value) const {
-        _matched_value = value;
+    inline void set_matched_value(const MatchId &id, const BaseExpressionRef &value) const {
+        _match_id = id;
+        _match_value = value;
     }
 
     inline void clear_matched_value() const {
-        _matched_value = nullptr;
+        _match_id.reset();
+        _match_value.reset();
     }
 
-    inline BaseExpressionPtr matched_value() const {
-        return _matched_value;
+    inline BaseExpressionRef matched_value() const {
+        // only call this after a successful match and only on variables that were actually
+        // matched. during matching, i.e. if the match is not yet successful, the MatchId
+        // needs to be checked to filter out old, stale matches using the getter function
+        // just below this one.
+        return _match_value;
     }
 
-    void add_down_rule(const BaseExpressionRef &patt, rule_function func);
+    inline BaseExpressionRef matched_value(const MatchId &id) const {
+        if (_match_id == id) {
+            return _match_value;
+        } else {
+            return BaseExpressionRef();
+        }
+    }
+
+    inline void link_variable(const Symbol *symbol) const {
+        _linked_variable = symbol;
+    }
+
+    inline const Symbol *linked_variable() const {
+        return _linked_variable;
+    }
 };
 
-// in contrast to BaseExpressionRef, SymbolRefs are not constant. Symbols might
-// change, after all, if rules are added.
-typedef std::shared_ptr<Symbol> SymbolRef;
+template<int M, int N>
+struct unpack_symbols {
+    void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
+        // symbols are ordered in reverse order of their original appearance in the pattern.
+        // we reverse this again, so they appear in the pattern's order in the tuple t.
+        assert(symbol != nullptr);
+        std::get<N - 1>(t) = symbol->matched_value();
+        unpack_symbols<M, N - 1>()(symbol->linked_variable(), t);
+    }
+};
+
+template<int M>
+struct unpack_symbols<M, 0> {
+    void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
+        assert(symbol == nullptr);
+    }
+};
+
+template<int N>
+inline typename BaseExpressionTuple<N>::type Match::get() const {
+    typename BaseExpressionTuple<N>::type t;
+    unpack_symbols<N, N>()(_variables, t);
+    return t;
+};
 
 class Sequence : public Symbol {
 public:
@@ -134,6 +191,8 @@ public:
         return true;
     }
 };
+
+#include "builtin.h"
 
 class Definitions {
 private:
@@ -147,6 +206,7 @@ public:
     Definitions();
 
     SymbolRef new_symbol(const char *name);
+
     SymbolRef lookup(const char *name);
 
     inline Expression *empty_list() const {
@@ -155,6 +215,16 @@ public:
 
     inline const SymbolRef &sequence() const {
         return _sequence;
+    }
+
+    template<typename F, typename... Vars>
+    inline std::function<BaseExpressionRef(void)> build_call_to(F func, Vars... vars) {
+        return build_call([this](const char *name) {
+            // built-in patterns like Most[x_List] always map their variables (e.g. x)
+            // to System, so place the parameter names received here in System as well.
+            const std::string full_name(std::string("System`") + name);
+            return this->lookup(full_name.c_str());
+        }, func)(vars...);
     }
 };
 

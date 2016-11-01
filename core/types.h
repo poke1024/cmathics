@@ -29,37 +29,71 @@ constexpr match_size_t MATCH_MAX = INT64_MAX;
 class Definitions;
 class Symbol;
 
-typedef std::vector<std::tuple<const Symbol*, BaseExpressionRef>> Variables;
+template<int N, typename... refs>
+struct BaseExpressionTuple {
+    typedef typename BaseExpressionTuple<N - 1, BaseExpressionRef, refs...>::type type;
+};
+
+template<typename... refs>
+struct BaseExpressionTuple<0, refs...> {
+    typedef std::tuple<refs...> type;
+};
 
 class Match {
 private:
     bool _matched;
-    std::shared_ptr<Variables> _variables;
+    const Symbol *_variables;
 
 public:
-    inline Match() : _matched(false) {
-    }
-
-    inline Match(bool matched) : _matched(matched) {
+    explicit inline Match(bool matched, const Symbol *variables) : _matched(matched), _variables(variables) {
     }
 
     inline operator bool() const {
         return _matched;
     }
 
-    inline const Variables *vars() const {
-        return _variables.get();
+    inline const Symbol *variables() const {
+        return _variables;
     }
 
-    void add_variable(const Symbol *var, const BaseExpressionRef &value) {
-        if (!_variables) {
-            _variables = std::make_shared<Variables>();
-        }
-        _variables->push_back(std::make_tuple(var, value));
-    }
+    template<int N>
+    typename BaseExpressionTuple<N>::type get() const;
 };
 
 std::ostream &operator<<(std::ostream &s, const Match &m);
+
+class MatchId { // uniquely identifies a specific match
+private:
+    std::weak_ptr<const BaseExpression> _patt;
+    std::weak_ptr<const BaseExpression> _item;
+
+public:
+    inline MatchId() {
+    }
+
+    inline MatchId(const BaseExpressionRef &patt, const BaseExpressionRef &item) : _patt(patt), _item(item) {
+    }
+
+    inline MatchId &operator=(const MatchId &other) {
+        _patt = other._patt;
+        _item = other._item;
+        return *this;
+    }
+
+    inline bool operator==(const MatchId &other) const {
+        if (_patt.expired() || _item.expired() || other._patt.expired() || other._item.expired()) {
+            return false;
+        } else {
+            return _patt.lock().get() == other._patt.lock().get() &&
+                _item.lock().get() == other._item.lock().get();
+        }
+    }
+
+    inline void reset() {
+        _patt.reset();
+        _item.reset();
+    }
+};
 
 class Matcher;
 
@@ -67,6 +101,12 @@ class Expression;
 
 typedef std::shared_ptr<const Expression> ExpressionRef;
 typedef const Expression *ExpressionPtr;
+
+class Symbol;
+
+// in contrast to BaseExpressionRef, SymbolRefs are not constant. Symbols might
+// change, after all, if rules are added.
+typedef std::shared_ptr<Symbol> SymbolRef;
 
 class Evaluation;
 
@@ -120,9 +160,9 @@ public:
 
     // pattern matching; if not noted otherwise, "this" is the pattern that is matched against here.
 
-    virtual Match match_sequence(const Matcher &matcher) const;
+    virtual bool match_sequence(const Matcher &matcher) const;
 
-    virtual Match match_sequence_with_head(ExpressionPtr patt, const Matcher &matcher) const;
+    virtual bool match_sequence_with_head(ExpressionPtr patt, const Matcher &matcher) const;
 
     virtual match_sizes_t match_num_args() const {
         return std::make_tuple(1, 1); // default
@@ -150,7 +190,7 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
     if (expr) {
         s << expr->fullform();
     } else {
-        s << "(no expression)";
+        //s << "(no expression)";
     }
     return s;
 }

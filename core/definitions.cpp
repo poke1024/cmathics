@@ -3,8 +3,9 @@
 #include "definitions.h"
 #include "pattern.h"
 
+Symbol::Symbol(Definitions *definitions, const char *name) : _name(name), _linked_variable(nullptr) {
 // initialise a definition entry
-Symbol::Symbol(Definitions *definitions, const char *name) : _name(name), _matched_value(nullptr) {
+
     attributes.clear();
 
     const auto empty_list = definitions->empty_list();
@@ -33,8 +34,7 @@ BaseExpressionRef Symbol::evaluate() {
     return result;
 }
 
-void Symbol::add_down_rule(const BaseExpressionRef &patt, rule_function func) {
-    auto rule = std::make_unique<Rule>(patt, func);
+void Symbol::add_down_rule(RuleRef &rule) {
     down_rules.push_back(std::move(rule));
 }
 

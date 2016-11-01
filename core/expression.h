@@ -76,7 +76,7 @@ public:
         return _head->match_num_args_with_head(this);
     }
 
-    virtual Match match_sequence(
+    virtual bool match_sequence(
         const Matcher &matcher) const;
 
     virtual BaseExpressionRef clone() const {

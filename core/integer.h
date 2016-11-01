@@ -39,8 +39,8 @@ public:
         return std::to_string(value);
     }
 
-    virtual Match match(const BaseExpression &expr) const {
-        return Match(same(expr));
+    virtual bool match(const BaseExpression &expr) const {
+        return same(expr);
     }
 };
 

@@ -2,20 +2,19 @@
 #include "pattern.h"
 
 std::ostream &operator<<(std::ostream &s, const Match &m) {
-    s << "Match<" << (m ? "true" : "false") << ", ";
-    auto vars = m.vars();
+    s << "Match<" << (m ? "true" : "false"); // << ", ";
+    auto var = m.variables();
     s << "{";
-    if (vars) {
+    if (var) {
         bool first = true;
-        for (auto assignment : *vars) {
-            const Symbol *var;
-            BaseExpressionRef value;
-            std::tie(var, value) = assignment;
+        while (var) {
+            BaseExpressionRef value = var->matched_value();
             if (!first) {
                 s << ", ";
             }
             s << var->fullform() << ":" << value->fullform();
             first = false;
+            var = var->linked_variable();
         }
     }
     s << "}";
@@ -23,39 +22,39 @@ std::ostream &operator<<(std::ostream &s, const Match &m) {
     return s;
 }
 
-Match BaseExpression::match_sequence(const Matcher &matcher) const {
+bool BaseExpression::match_sequence(const Matcher &matcher) const {
     // "this" is always pattern[0].
 
     auto sequence = matcher.sequence();
 
     if (sequence.size() == 0) {
-        return Match(false);
+        return false;
     } else if (same(sequence[0])) {
         return matcher(1, nullptr);
     } else {
-        return Match(false);
+        return false;
     }
 }
 
-Match BaseExpression::match_sequence_with_head(ExpressionPtr patt, const Matcher &matcher) const {
+bool BaseExpression::match_sequence_with_head(ExpressionPtr patt, const Matcher &matcher) const {
     // pattern[0] is always an Expression.
     // "this" is always pattern[0]->_head.
 
     auto sequence = matcher.sequence();
 
     if (sequence.size() == 0) {
-        return Match(false);
+        return false;
     } else {
         auto next = sequence[0];
         if (next->type() == ExpressionType) {
             auto expr = std::static_pointer_cast<const Expression>(next);
             if (!expr->head()->same(patt->head())) {
-                return Match(false);
+                return false;
             } else {
                 return matcher.descend();
             }
         } else {
-            return Match(false);
+            return false;
         }
     }
 }

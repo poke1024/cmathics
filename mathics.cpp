@@ -336,8 +336,30 @@ public:
     }
 };
 
-BaseExpressionRef Most(const ExpressionRef &expr) {
-    auto list = std::static_pointer_cast<const Expression>(expr->leaves()[0]);
+/*class Runtime {
+private:
+    Definitions _definitions;
+    Parser _parser;
+
+public:
+    Runtime() : _parser(_definitions) {
+
+    }
+
+    void add_builtin(const char *name, const char *patt, func) {
+        _parser.parse(patt);
+    }
+};*/
+
+
+
+BaseExpressionRef test1(BaseExpressionRef x) {
+    std::cout << x << std::endl;
+    return BaseExpressionRef();
+}
+
+BaseExpressionRef Most(const BaseExpressionRef &x) {
+    auto list = std::static_pointer_cast<const Expression>(x);
     auto leaves = list->leaves();
     auto n = leaves.size();
     return expression(list->head(), leaves.slice(0, n > 0 ? n - 1 : 0));
@@ -349,11 +371,14 @@ void python_test(const char *input) {
 
     auto expr = parser.parse(input);
 
-    SymbolRef plus_symbol = definitions.lookup("System`Plus");
-    plus_symbol->add_down_rule(BaseExpressionRef(), Plus);
+    //SymbolRef plus_symbol = definitions.lookup("System`Plus");
+    //auto rule = std::make_unique<Rule>(patt, func);
 
     SymbolRef most_symbol = definitions.lookup("System`Most");
-    most_symbol->add_down_rule(parser.parse("Most[x_List]"), Most);
+    auto r = make_builtin_rule<1>(parser.parse("Most[x_List]"), Most);
+    most_symbol->add_down_rule(r);
+
+    // std::cout << parser.parse("Most[x_List]") << std::endl;
 
     Evaluation evaluation(definitions, true);
     std::cout << expr << std::endl;
@@ -366,7 +391,10 @@ void python_test(const char *input) {
 void pattern_test() {
     Definitions definitions;
 
-    auto x = definitions.new_symbol("Global`x");
+    auto x = definitions.new_symbol("System`x");
+
+    //auto f = definitions.build_call_to(test1, "x");
+    //f();
 
     auto patt = expression(definitions.lookup("System`Pattern"), {
         x, expression(definitions.lookup("System`Blank"), {})
@@ -390,7 +418,7 @@ int main() {
     // set PYTHONHOME to a python with a Mathics installation.
     setenv("PYTHONHOME", "/Users/bernhard/Projekte/j5", true);
 
-    pattern_test();
+    //pattern_test();
 
     Py_Initialize();
     //python_test("x + 1.1 + 5.2");
