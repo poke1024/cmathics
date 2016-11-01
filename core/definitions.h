@@ -49,13 +49,13 @@ private:
     const BaseExpressionRef _patt;
 
 protected:
-    virtual BaseExpressionRef apply(const Match &match) const = 0;
+    virtual BaseExpressionRef apply(const Match &match, Evaluation &evaluation) const = 0;
 
 public:
     inline Rule(const BaseExpressionRef &patt) : _patt(patt) {
     }
 
-    BaseExpressionRef try_apply(const ExpressionRef &expr, Definitions &definitions) const;
+    BaseExpressionRef try_apply(const ExpressionRef &expr, Evaluation &evaluation) const;
 };
 
 typedef std::unique_ptr<Rule> RuleRef;

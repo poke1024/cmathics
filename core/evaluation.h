@@ -3,10 +3,6 @@
 
 #include <stdbool.h>
 
-#include "definitions.h"
-#include "expression.h"
-
-
 typedef enum {
     PrintType, MessageType
 } OutType;
@@ -43,6 +39,8 @@ typedef enum {
     NoInterrupt, AbortInterrupt, TimeoutInterrupt, ReturnInterrupt, BreakInterrupt, ContinueInterrupt
 } EvaluationInterrupt;
 
+
+class Definitions;
 
 class Evaluation {
 public:

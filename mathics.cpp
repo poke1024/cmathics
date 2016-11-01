@@ -336,51 +336,59 @@ public:
     }
 };
 
-/*class Runtime {
+class Runtime {
 private:
     Definitions _definitions;
     Parser _parser;
 
 public:
     Runtime() : _parser(_definitions) {
-
     }
 
-    void add_builtin(const char *name, const char *patt, func) {
-        _parser.parse(patt);
+    inline Definitions &definitions() {
+        return _definitions;
     }
-};*/
 
+    BaseExpressionRef parse(const char *s) {
+        return _parser.parse(s);
+    }
 
+    template<int N>
+    void add_builtin(const char *down, const char *patt, typename BuiltinFunctionArguments<N>::type func) {
+        std::string full_down = std::string("System`") + down;
+        SymbolRef symbol = _definitions.lookup(full_down.c_str());
+        auto rule = make_builtin_rule<N>(_parser.parse(patt), func);
+        symbol->add_down_rule(rule);
+    }
+};
 
-BaseExpressionRef test1(BaseExpressionRef x) {
-    std::cout << x << std::endl;
-    return BaseExpressionRef();
-}
+// Timing
 
-BaseExpressionRef Most(const BaseExpressionRef &x) {
-    auto list = std::static_pointer_cast<const Expression>(x);
-    auto leaves = list->leaves();
-    auto n = leaves.size();
-    return expression(list->head(), leaves.slice(0, n > 0 ? n - 1 : 0));
-}
+// Range
+
+// Append
+
+// Fold
 
 void python_test(const char *input) {
-    Definitions definitions;
-    Parser parser(definitions);
+    Runtime runtime;
 
-    auto expr = parser.parse(input);
+    auto expr = runtime.parse(input);
 
     //SymbolRef plus_symbol = definitions.lookup("System`Plus");
     //auto rule = std::make_unique<Rule>(patt, func);
 
-    SymbolRef most_symbol = definitions.lookup("System`Most");
-    auto r = make_builtin_rule<1>(parser.parse("Most[x_List]"), Most);
-    most_symbol->add_down_rule(r);
+    runtime.add_builtin<1>(
+        "Most",
+        "Most[x_List]",
+        [](const BaseExpressionRef &x, const Evaluation &evaluation) {
+            auto list = std::static_pointer_cast<const Expression>(x);
+            auto leaves = list->leaves();
+            auto n = leaves.size();
+            return expression(list->head(), leaves.slice(0, n > 0 ? n - 1 : 0));
+    });
 
-    // std::cout << parser.parse("Most[x_List]") << std::endl;
-
-    Evaluation evaluation(definitions, true);
+    Evaluation evaluation(runtime.definitions(), true);
     std::cout << expr << std::endl;
     std::cout << "evaluating...\n";
     BaseExpressionRef evaluated = evaluation.evaluate(expr);
@@ -392,9 +400,6 @@ void pattern_test() {
     Definitions definitions;
 
     auto x = definitions.new_symbol("System`x");
-
-    //auto f = definitions.build_call_to(test1, "x");
-    //f();
 
     auto patt = expression(definitions.lookup("System`Pattern"), {
         x, expression(definitions.lookup("System`Blank"), {})
@@ -418,7 +423,7 @@ int main() {
     // set PYTHONHOME to a python with a Mathics installation.
     setenv("PYTHONHOME", "/Users/bernhard/Projekte/j5", true);
 
-    //pattern_test();
+    pattern_test();
 
     Py_Initialize();
     //python_test("x + 1.1 + 5.2");

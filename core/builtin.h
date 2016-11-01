@@ -1,3 +1,5 @@
+#include "evaluation.h"
+
 // apply_from_tuple is taken from http://www.cppsamples.com/common-tasks/apply-tuple-to-function.html
 // in C++17, this will become std::apply
 
@@ -25,7 +27,7 @@ struct BuiltinFunctionArguments {
 
 template<typename... refs>
 struct BuiltinFunctionArguments<0, refs...> {
-    typedef std::function<BaseExpressionRef(refs...)> type;
+    typedef std::function<BaseExpressionRef(refs..., const Evaluation&)> type;
 };
 
 
@@ -37,8 +39,8 @@ private:
     func_type _func;
 
 protected:
-    virtual BaseExpressionRef apply(const Match &match) const {
-        return apply_from_tuple(_func, match.get<N>());
+    virtual BaseExpressionRef apply(const Match &match, Evaluation &evaluation) const {
+        return apply_from_tuple(_func, std::tuple_cat(match.get<N>(), std::make_tuple(evaluation)));
     }
 
 public:

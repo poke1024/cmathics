@@ -163,10 +163,9 @@ BaseExpressionRef Expression::evaluate_values(ExpressionRef self, Evaluation &ev
     // Evaluate the head with leaves. (DownValue)
     if (head->type() == SymbolType) {
         auto head_symbol = static_cast<const Symbol*>(head.get());
-        auto definitions = evaluation.definitions;
 
         for (const RuleRef &rule : head_symbol->down_rules) {
-            auto child_result = rule->try_apply(self, definitions);
+            auto child_result = rule->try_apply(self, evaluation);
             if (child_result) {
                 return child_result;
             }

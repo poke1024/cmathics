@@ -5,6 +5,7 @@
 
 #include "types.h"
 #include "definitions.h"
+#include "evaluation.h"
 
 #include <iostream>
 
@@ -78,10 +79,10 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
     }
 }
 
-inline BaseExpressionRef Rule::try_apply(const ExpressionRef &expr, Definitions &definitions) const {
-    const Match m = match(_patt, expr, definitions);
+inline BaseExpressionRef Rule::try_apply(const ExpressionRef &expr, Evaluation &evaluation) const {
+    const Match m = match(_patt, expr, evaluation.definitions);
     if (m) {
-        return apply(m);
+        return apply(m, evaluation);
     } else {
         return BaseExpressionRef();
     }
