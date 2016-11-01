@@ -8,12 +8,28 @@
 
 #include <iostream>
 
+class MatchContext {
+private:
+    const Symbol *_matched_variables_head;
+
+public:
+    const MatchId id;
+    Definitions &definitions;
+
+    inline MatchContext(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &defs) :
+        id(patt, item), definitions(defs), _matched_variables_head(nullptr) {
+    }
+
+    void add_matched_variable(const Symbol *variable);
+
+    inline const Symbol *matched_variables() const {
+        return _matched_variables_head;
+    }
+};
+
 class Matcher {
 private:
-    MatchId _id;
-    mutable const Symbol *_matched_variables_head;
-    Definitions &_definitions;
-
+    MatchContext &_context;
     const Symbol *_variable;
     const BaseExpressionRef &_this_pattern;
     const Slice &_next_pattern;
@@ -22,19 +38,14 @@ private:
     bool heads(size_t n, const Symbol *head) const;
     bool consume(size_t n) const;
     bool match_variable(size_t match_size, const BaseExpressionRef &item) const;
-    void add_matched_variable(const Symbol *variable) const;
 
 public:
-    inline Matcher(const MatchId &id, const Symbol *matched_variables_head, Definitions &definitions, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
-        _id(id), _definitions(definitions), _matched_variables_head(matched_variables_head), _variable(nullptr), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
+    inline Matcher(MatchContext &context, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
+        _context(context), _variable(nullptr), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
     }
 
-    inline Matcher(const MatchId &id, const Symbol *matched_variables_head, Definitions &definitions, const Symbol *variable, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
-        _id(id), _definitions(definitions), _matched_variables_head(matched_variables_head), _variable(variable), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
-    }
-
-    inline const Symbol *matched_variables() const {
-        return _matched_variables_head;
+    inline Matcher(MatchContext &context, const Symbol *variable, const BaseExpressionRef &this_pattern, const Slice &next_pattern, const Slice &sequence) :
+        _context(context), _variable(variable), _this_pattern(this_pattern), _next_pattern(next_pattern), _sequence(sequence) {
     }
 
     inline const BaseExpressionRef &this_pattern() const {
@@ -55,12 +66,15 @@ public:
 };
 
 inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &definitions) {
-    const MatchId id(patt, item);
-    Matcher matcher(id, nullptr, definitions, patt, empty_slice, Slice(item));
-    if (patt->match_sequence(matcher)) {
-        return Match(true, matcher.matched_variables());
-    } else {
-        return Match(false, nullptr);
+    MatchContext context(patt, item, definitions);
+    {
+        Matcher matcher(context, patt, empty_slice, Slice(item));
+
+        if (patt->match_sequence(matcher)) {
+            return Match(true, context.matched_variables());
+        } else {
+            return Match(false, nullptr);
+        }
     }
 }
 
