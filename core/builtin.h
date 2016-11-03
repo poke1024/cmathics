@@ -1,4 +1,6 @@
 #include "evaluation.h"
+#include "pattern.h"
+#include "definitions.h"
 
 // apply_from_tuple is taken from http://www.cppsamples.com/common-tasks/apply-tuple-to-function.html
 // in C++17, this will become std::apply
@@ -30,8 +32,20 @@ struct BuiltinFunctionArguments<0, refs...> {
     typedef std::function<BaseExpressionRef(refs..., const Evaluation&)> type;
 };
 
-
 template<int N>
+inline Rule make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
+    return [patt, func](const ExpressionRef &expr, Evaluation &evaluation) {
+        auto bla = patt;
+        const Match m = match(patt, expr, evaluation.definitions);
+        if (m) {
+            return apply_from_tuple(func, std::tuple_cat(m.get<N>(), std::make_tuple(evaluation)));
+        } else {
+            return BaseExpressionRef();
+        }
+    };
+}
+
+/*template<int N>
 class BuiltinRule : public Rule {
 private:
     using func_type = typename BuiltinFunctionArguments<N>::type;
@@ -51,4 +65,4 @@ public:
 template<int N>
 RuleRef make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
     return std::make_unique<BuiltinRule<N>>(patt, func);
-}
+}*/

@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <gmp.h>
 #include <iostream>
+#include <sstream>
 
 #include "core/misc.h"
 #include "core/expression.h"
@@ -18,6 +19,7 @@
 #include "core/arithmetic.h"
 #include <vector>
 #include "core/string.h"
+#include "core/builtin.h"
 
 #include <Python.h>
 #include <stdlib.h>
@@ -30,10 +32,7 @@ namespace python {
     public:
         PyObject *const _py_object;
 
-        borrowed_reference(PyObject *py_object) : _py_object(py_object) {
-            if (!py_object) {
-                throw std::runtime_error("invalid python reference");
-            }
+        inline borrowed_reference(PyObject *py_object) : _py_object(py_object) {
         }
     };
 
@@ -41,10 +40,7 @@ namespace python {
     public:
         PyObject *const _py_object;
 
-        new_reference(PyObject *py_object) : _py_object(py_object) {
-            if (!py_object) {
-                throw std::runtime_error("invalid python reference");
-            }
+        inline new_reference(PyObject *py_object) : _py_object(py_object) {
         }
     };
 
@@ -91,6 +87,12 @@ namespace python {
         }
 
         inline object attr(const char *name) const {
+            if (!PyObject_HasAttrString(_py_object, name)) {
+                return object(borrowed_reference(Py_None));
+                /*std::ostringstream err;
+                err << "failed to get " << name << " of " << repr().as_string();
+                throw std::runtime_error(err.str());*/
+            }
             return object(new_reference(PyObject_GetAttrString(_py_object, name)));
         }
 
@@ -109,8 +111,16 @@ namespace python {
         inline object() : _py_object(nullptr) {
         }
 
+        inline object(const object &o) : _py_object(o._py_object) {
+            if (_py_object) {
+                Py_INCREF(_py_object);
+            }
+        }
+
         inline object(const borrowed_reference &ref) : _py_object(ref._py_object) {
-            Py_INCREF(_py_object);
+            if (_py_object) {
+                Py_INCREF(_py_object);
+            }
         }
 
         inline object(const new_reference &ref) : _py_object(ref._py_object) {
@@ -122,12 +132,18 @@ namespace python {
             }
         }
 
+        inline bool valid() const {
+            return _py_object;
+        }
+
         inline object &operator=(const object &other) {
             if (_py_object) {
                 Py_DECREF(_py_object);
             }
             _py_object = other._py_object;
-            Py_INCREF(_py_object);
+            if (_py_object) {
+                Py_INCREF(_py_object);
+            }
             return *this;
         }
 
@@ -164,15 +180,24 @@ namespace python {
         }
 
         inline std::string as_string() const {
-            std::string s;
-            if (PyUnicode_Check(_py_object)) {
+            if (!_py_object) {
+                return "NULL";
+            } else if (PyUnicode_Check(_py_object)) {
+                std::string s;
                 PyObject *bytes = PyUnicode_AsEncodedString(_py_object, "utf8", "strict");
                 if (bytes) {
-                    s = PyBytes_AsString(bytes);
+                    try {
+                        s = PyBytes_AsString(bytes);
+                    } catch(...) {
+                        Py_DECREF(bytes);
+                        throw;
+                    }
                     Py_DECREF(bytes);
                 }
+                return s;
+            } else {
+                return "<not a string>";
             }
-            return s;
         }
 
         inline void as_integer(mpz_t x) const {
@@ -251,7 +276,7 @@ private:
     Definitions &_definitions;
 
     python::object _expression;
-    python::object _symbol, _symbol_lookup;
+    python::object _symbol, _lookup;
     python::object _integer;
     python::object _machine_real;
 
@@ -260,7 +285,7 @@ public:
         _definitions(definitions),
         _expression(python::string("Expression")),
         _symbol(python::string("Symbol")),
-        _symbol_lookup(python::string("SymbolLookup")),
+        _lookup(python::string("Lookup")),
         _integer(python::string("Integer")),
         _machine_real(python::string("MachineReal")) {
     }
@@ -271,7 +296,7 @@ public:
         if (kind == _symbol) {
             auto name = o[1].as_string();
             return _definitions.lookup(name.c_str());
-        } else if (kind == _symbol_lookup) {
+        } else if (kind == _lookup) {
             auto name = o[1].as_string();
             if (name.find('`') == std::string::npos) {
                 // FIXME: add correct context
@@ -327,7 +352,9 @@ public:
         _parse = getattr(parser, "parse");
 
         auto convert_module = python::module("mathics.core.parser.convert");
-        _do_convert = getattr(getattr(convert_module, "GenericConverter")(), "do_convert");
+        auto generic_converter = getattr(convert_module, "GenericConverter");
+        // if(generic_converter.is_none())
+        _do_convert = getattr(generic_converter(), "do_convert");
     }
 
     BaseExpressionRef parse(const char *s) {
@@ -349,16 +376,25 @@ public:
         return _definitions;
     }
 
+    inline Parser &parser() {
+        return _parser;
+    }
+
     BaseExpressionRef parse(const char *s) {
         return _parser.parse(s);
     }
 
-    template<int N>
-    void add_builtin(const char *down, const char *patt, typename BuiltinFunctionArguments<N>::type func) {
-        std::string full_down = std::string("System`") + down;
+    void add(const char *name, const std::initializer_list<Rule> &rules) {
+        std::string full_down = std::string("System`") + name;
         SymbolRef symbol = _definitions.lookup(full_down.c_str());
-        auto rule = make_builtin_rule<N>(_parser.parse(patt), func);
-        symbol->add_down_rule(rule);
+        for (auto rule : rules) {
+            symbol->add_down_rule(rule);
+        }
+    }
+
+    template<int N>
+    Rule rule(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
+        return make_builtin_rule<N>(_parser.parse(pattern), func);
     }
 };
 
@@ -378,14 +414,16 @@ void python_test(const char *input) {
     //SymbolRef plus_symbol = definitions.lookup("System`Plus");
     //auto rule = std::make_unique<Rule>(patt, func);
 
-    runtime.add_builtin<1>(
-        "Most",
-        "Most[x_List]",
-        [](const BaseExpressionRef &x, const Evaluation &evaluation) {
-            auto list = std::static_pointer_cast<const Expression>(x);
-            auto leaves = list->leaves();
-            auto n = leaves.size();
-            return expression(list->head(), leaves.slice(0, n > 0 ? n - 1 : 0));
+    runtime.add("Most", {
+        runtime.rule<1>(
+            "Most[x_List]",
+            [](const BaseExpressionRef &x, const Evaluation &evaluation) {
+                auto list = std::static_pointer_cast<const Expression>(x);
+                auto leaves = list->leaves();
+                auto n = leaves.size();
+                return expression(list->head(), leaves.slice(0, n > 0 ? n - 1 : 0));
+            }
+       )
     });
 
     Evaluation evaluation(runtime.definitions(), true);
@@ -420,12 +458,12 @@ void pattern_test() {
 }
 
 int main() {
-    // set PYTHONHOME to a python with a Mathics installation.
-    setenv("PYTHONHOME", "/Users/bernhard/Projekte/j5", true);
-
-    pattern_test();
-
+    // note: if Py_Initialize() fails (e.g. with "unable to load the file system codec"), it usually means that
+    // your PYTHONHOME environment variable and the Python library we linked this binary against don't match.
     Py_Initialize();
+
+    // pattern_test();
+
     //python_test("x + 1.1 + 5.2");
     python_test("Most[{1, 2, 3, 4, 5}]");
     Py_Finalize();

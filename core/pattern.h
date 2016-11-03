@@ -79,14 +79,14 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
     }
 }
 
-inline BaseExpressionRef Rule::try_apply(const ExpressionRef &expr, Evaluation &evaluation) const {
+/*inline BaseExpressionRef Rule::try_apply(const ExpressionRef &expr, Evaluation &evaluation) const {
     const Match m = match(_patt, expr, evaluation.definitions);
     if (m) {
         return apply(m, evaluation);
     } else {
         return BaseExpressionRef();
     }
-}
+}*/
 
 const Symbol *blank_head(ExpressionPtr patt);
 

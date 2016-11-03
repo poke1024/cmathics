@@ -164,8 +164,8 @@ BaseExpressionRef Expression::evaluate_values(ExpressionRef self, Evaluation &ev
     if (head->type() == SymbolType) {
         auto head_symbol = static_cast<const Symbol*>(head.get());
 
-        for (const RuleRef &rule : head_symbol->down_rules) {
-            auto child_result = rule->try_apply(self, evaluation);
+        for (const Rule &rule : head_symbol->down_rules) {
+            auto child_result = rule(self, evaluation);
             if (child_result) {
                 return child_result;
             }

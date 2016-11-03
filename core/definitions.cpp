@@ -35,8 +35,8 @@ BaseExpressionRef Symbol::evaluate() {
     return result;
 }
 
-void Symbol::add_down_rule(RuleRef &rule) {
-    down_rules.push_back(std::move(rule));
+void Symbol::add_down_rule(const Rule &rule) {
+    down_rules.push_back(rule);
 }
 
 

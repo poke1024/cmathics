@@ -44,23 +44,9 @@ struct Attributes {
     }
 };
 
-class Rule {
-private:
-    const BaseExpressionRef _patt;
+typedef std::function<BaseExpressionRef(const ExpressionRef &expr, Evaluation &evaluation)> Rule;
 
-protected:
-    virtual BaseExpressionRef apply(const Match &match, Evaluation &evaluation) const = 0;
-
-public:
-    inline Rule(const BaseExpressionRef &patt) : _patt(patt) {
-    }
-
-    BaseExpressionRef try_apply(const ExpressionRef &expr, Evaluation &evaluation) const;
-};
-
-typedef std::unique_ptr<Rule> RuleRef;
-
-typedef std::vector<RuleRef> Rules;
+typedef std::vector<Rule> Rules;
 
 class Definitions;
 
@@ -116,7 +102,7 @@ public:
 
     virtual BaseExpressionRef evaluate();
 
-    void add_down_rule(RuleRef &rule);
+    void add_down_rule(const Rule &rule);
 
     virtual bool match(const BaseExpression &expr) const {
         return same(expr);
@@ -192,8 +178,6 @@ public:
     }
 };
 
-#include "builtin.h"
-
 class Definitions {
 private:
     std::map<std::string,SymbolRef> _definitions;
@@ -217,7 +201,7 @@ public:
         return _sequence;
     }
 
-    template<typename F, typename... Vars>
+    /*template<typename F, typename... Vars>
     inline std::function<BaseExpressionRef(void)> build_call_to(F func, Vars... vars) {
         return build_call([this](const char *name) {
             // built-in patterns like Most[x_List] always map their variables (e.g. x)
@@ -225,7 +209,7 @@ public:
             const std::string full_name(std::string("System`") + name);
             return this->lookup(full_name.c_str());
         }, func)(vars...);
-    }
+    }*/
 };
 
 #endif

@@ -1,20 +1,26 @@
 cmake_minimum_required(VERSION 3.6)
 project(cmathics)
 
-# find_package(Boost REQUIRED)
-
-# include_directories(${Boost_INCLUDE_DIRS})
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 include_directories(${cmathics_SOURCE_DIR})
 
-if(TRUE)
-    include_directories("$ENV{HOME}/homebrew/include")
-    link_directories("$ENV{HOME}/homebrew/lib")
+set(HOMEBREWHOME "$ENV{HOMEBREWHOME}")
+set(PYTHONHOME "$ENV{PYTHONHOME}")
 
-    include_directories("$ENV{HOME}/Projekte/j5/include/python3.5m")
-    link_directories("$ENV{HOME}/Projekte/j5/lib")
+if(HOMEBREWHOME)
+    message(STATUS "using homebrew at ${HOMEBREWHOME}")
+    # on OS X, the easiest way to get the dependent libraries is to use homebrew. we might want to use a custom
+    # path that can be specified using this env var. your homebrew needs to be set up using: brew install gmp mpfr
+    include_directories("${HOMEBREWHOME}/include")
+    link_directories("${HOMEBREWHOME}/lib")
+endif()
+
+if(PYTHONHOME)
+    # note that PYTHONHOME should be the PYTHONHOME that is set (as environment variable) when we run the binary
+    # later. mismatches here will produce nasty errors.
+    include_directories("${PYTHONHOME}/include/python3.5m")
+    link_directories("${PYTHONHOME}/lib")
 endif()
 
 set(SOURCE_FILES
