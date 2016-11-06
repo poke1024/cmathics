@@ -14,13 +14,20 @@ if(HOMEBREWHOME)
     # path that can be specified using this env var. your homebrew needs to be set up using: brew install gmp mpfr
     include_directories("${HOMEBREWHOME}/include")
     link_directories("${HOMEBREWHOME}/lib")
+elseif(APPLE)
+    message(WARNING "please set HOMEBREWHOME to a homebrew installaton with gmp and mpfr.")
 endif()
 
 if(PYTHONHOME)
-    # note that PYTHONHOME should be the PYTHONHOME that is set (as environment variable) when we run the binary
-    # later. mismatches here will produce nasty errors.
+    # PYTHONHOME must point to a python installation with Mathics installed. note that PYTHONHOME should be the
+    # saane PYTHONHOME that is set (as environment variable) when we run the binary later. mismatches here will
+    # produce nasty errors.
     include_directories("${PYTHONHOME}/include/python3.5m")
     link_directories("${PYTHONHOME}/lib")
+    set(PYTHONHOME "python3.5m")
+else()
+    find_package(PythonLibs REQUIRED)
+    include_directories(${PYTHON_INCLUDE_DIRS})
 endif()
 
 set(SOURCE_FILES
@@ -56,7 +63,7 @@ set(SOURCE_FILES
 add_custom_target(standalone)
 
 add_executable(cmathics ${SOURCE_FILES} mathics.cpp)
-target_link_libraries(cmathics mpfr gmp python3.5m)
+target_link_libraries(cmathics mpfr gmp ${PYTHON_LIBRARIES})
 
 add_custom_target(tests)
 

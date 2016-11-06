@@ -23,10 +23,27 @@
 
 #include <Python.h>
 #include <stdlib.h>
+#include <stdexcept>
 
 // a slim wrapper around PyObject.
 
+template<typename ... Args>
+std::string string_format(const std::string& format, Args ... args)  {
+    // taken from http://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf
+    size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1; // extra space for '\0'
+    std::unique_ptr<char[]> buf(new char[size]);
+    snprintf(buf.get(), size, format.c_str(), args ...);
+    return std::string(buf.get(), buf.get() + size - 1); // we don't want the '\0' inside
+}
 namespace python {
+
+    class import_error : public std::runtime_error {
+    public:
+        import_error(const char *module) : std::runtime_error(
+            string_format("The Python module '%s' could not be imported. Please check that your PYTHONHOME points "
+                "to a Python installation with that package installed.", module)) {
+        }
+    };
 
     class borrowed_reference {
     public:
@@ -232,11 +249,11 @@ namespace python {
         }
 
         inline object operator()(const char *s) const {
-            return object(new_reference(PyObject_CallFunction(_py_object, "s", s)));
+            return object(new_reference(PyObject_CallFunction(_py_object, const_cast<char*>("s"), s)));
         }
 
         inline object operator()(const object &o) const {
-            return object(new_reference(PyObject_CallFunction(_py_object, "O", o._py_object)));
+            return object(new_reference(PyObject_CallFunction(_py_object, const_cast<char*>("O"), o._py_object)));
         }
     };
 
@@ -249,7 +266,11 @@ namespace python {
     }
 
     inline object module(const char *name) {
-        return object(new_reference(PyImport_ImportModule(name)));
+        auto module = PyImport_ImportModule(name);
+        if (!module) {
+            throw import_error(name);
+        }
+        return object(new_reference(module));
     }
 
     inline std::ostream &operator<<(std::ostream &s, const python::object &o) {
