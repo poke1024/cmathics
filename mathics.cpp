@@ -45,6 +45,13 @@ namespace python {
         }
     };
 
+    class attribute_error : public std::runtime_error {
+    public:
+        attribute_error(std::string o, const char *attribute) : std::runtime_error(
+            string_format("Object %s has no attribute %s", o.c_str(), attribute)) {
+        }
+    };
+
     class borrowed_reference {
     public:
         PyObject *const _py_object;
@@ -106,11 +113,9 @@ namespace python {
         inline object attr(const char *name) const {
             if (!PyObject_HasAttrString(_py_object, name)) {
                 return object(borrowed_reference(Py_None));
-                /*std::ostringstream err;
-                err << "failed to get " << name << " of " << repr().as_string();
-                throw std::runtime_error(err.str());*/
+            } else {
+                return object(new_reference(PyObject_GetAttrString(_py_object, name)));
             }
-            return object(new_reference(PyObject_GetAttrString(_py_object, name)));
         }
 
         inline bool compare(const object &other, int op_id) const {
@@ -153,8 +158,12 @@ namespace python {
             return _py_object;
         }
 
-        inline bool is_none() const {
-            return _py_object == Py_None;
+        inline object operator[](const char *name) const {
+            if (!PyObject_HasAttrString(_py_object, name)) {
+                throw attribute_error(repr().as_string(), name);
+            } else {
+                return object(new_reference(PyObject_GetAttrString(_py_object, name)));
+            }
         }
 
         inline object &operator=(const object &other) {
@@ -194,6 +203,10 @@ namespace python {
                 throw std::runtime_error("object is neither list nor tuple");
             }
             return object(borrowed_reference(item));
+        }
+
+        inline object operator[](int i) const {
+            return (*this)[static_cast<size_t>(i)];
         }
 
         inline object repr() const {
@@ -260,6 +273,8 @@ namespace python {
             return object(new_reference(PyObject_CallFunction(_py_object, const_cast<char*>("O"), o._py_object)));
         }
     };
+
+    object None(borrowed_reference(Py_None));
 
     object list_iterator::operator*() const {
         return object(borrowed_reference(PyList_GetItem(_py_object, _i)));
@@ -368,22 +383,24 @@ private:
 public:
     Parser(Definitions &definitions) : _converter(definitions) {
         auto parser_module = python::module("mathics.core.parser.parser");
-        auto parser = getattr(parser_module, "Parser")();
+        auto parser = parser_module["Parser"]();
 
         auto feed_module = python::module("mathics.core.parser.feed");
-        auto SingleLineFeeder = getattr(feed_module, "SingleLineFeeder");
+        auto SingleLineFeeder = feed_module["SingleLineFeeder"];
 
         _feeder = SingleLineFeeder;
-        _parse = getattr(parser, "parse");
+        _parse = parser["parse"];
 
         auto convert_module = python::module("mathics.core.parser.convert");
-        auto generic_converter = getattr(convert_module, "GenericConverter");
-        if(generic_converter.is_none()) {
-            throw std::runtime_error("Could not load mathics.core.parser.convert.GenericConverter. Please make "
-                "sure that you have a recent version of Mathics installed in your PYTHONHOME.");
-        }
 
-        _do_convert = getattr(generic_converter(), "do_convert");
+        try {
+            auto generic_converter = convert_module["GenericConverter"];
+            _do_convert = generic_converter()["do_convert"];
+        } catch(const python::attribute_error& e) {
+            throw std::runtime_error("Your version of Mathics is too old (it does not know "
+                "mathics.core.parser.convert.GenericConverter). Please make sure that you "
+                "have a recent version of Mathics installed in your PYTHONHOME.");
+        }
     }
 
     BaseExpressionRef parse(const char *s) {
