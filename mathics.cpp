@@ -153,6 +153,10 @@ namespace python {
             return _py_object;
         }
 
+        inline bool is_none() const {
+            return _py_object == Py_None;
+        }
+
         inline object &operator=(const object &other) {
             if (_py_object) {
                 Py_DECREF(_py_object);
@@ -374,7 +378,11 @@ public:
 
         auto convert_module = python::module("mathics.core.parser.convert");
         auto generic_converter = getattr(convert_module, "GenericConverter");
-        // if(generic_converter.is_none())
+        if(generic_converter.is_none()) {
+            throw std::runtime_error("Could not load mathics.core.parser.convert.GenericConverter. Please make "
+                "sure that you have a recent version of Mathics installed in your PYTHONHOME.");
+        }
+
         _do_convert = getattr(generic_converter(), "do_convert");
     }
 

@@ -20,11 +20,11 @@ endif()
 
 if(PYTHONHOME)
     # PYTHONHOME must point to a python installation with Mathics installed. note that PYTHONHOME should be the
-    # saane PYTHONHOME that is set (as environment variable) when we run the binary later. mismatches here will
-    # produce nasty errors.
+    # same PYTHONHOME that is set (as environment variable) when we run the binary later. mismatches here will
+    # produce nasty, seemingly unrelated, errors/hard aborts at startup when Py_Initialize is called.
     include_directories("${PYTHONHOME}/include/python3.5m")
     link_directories("${PYTHONHOME}/lib")
-    set(PYTHONHOME "python3.5m")
+    set(PYTHON_LIBRARIES "python3.5m")
 else()
     find_package(PythonLibs REQUIRED)
     include_directories(${PYTHON_INCLUDE_DIRS})
