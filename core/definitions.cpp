@@ -28,17 +28,25 @@ BaseExpressionRef Symbol::evaluate() {
     BaseExpressionRef result;
 
     // try all the own values until one applies
-    for (auto leaf : own_values->_leaves) {
+    /*for (auto leaf : own_values->_leaves) {
         result = replace(leaf);
         if (result != NULL)
             break;
-    }
+    }*/
 
     return result;
 }
 
 void Symbol::add_down_rule(const Rule &rule) {
     down_rules.push_back(rule);
+}
+
+BaseExpressionRef Symbol::replace_all(const Match &match) const {
+	if (match.id() == _match_id) {
+		return _match_value;
+	} else {
+		return BaseExpressionRef();
+	}
 }
 
 
@@ -51,6 +59,7 @@ Definitions::Definitions() {
     auto sequence = std::make_shared<Sequence>(this);
     add_internal_symbol(sequence);
     _sequence = sequence;
+	_list = list;
 
     // bootstrap pattern matching symbols
     add_internal_symbol(std::make_shared<Blank>(this));

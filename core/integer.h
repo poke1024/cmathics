@@ -67,17 +67,27 @@ public:
     }
 };
 
-inline BaseExpressionRef integer(machine_integer_t value) {
+inline BaseExpressionRef from_value(machine_integer_t value) {
     return std::make_shared<MachineInteger>(value);
 }
 
-inline BaseExpressionRef integer(const mpz_class &value) {
+inline BaseExpressionRef from_value(const mpz_class &value) {
     static_assert(sizeof(long) == sizeof(machine_integer_t), "types long and machine_integer_t differ");
     if (value.fits_slong_p()) {
-        return integer(value.get_si());
+        return from_value(value.get_si());
     } else {
         return std::make_shared<BigInteger>(value);
     }
+}
+
+template<>
+inline int64_t to_value<int64_t>(const BaseExpressionRef &expr) {
+	switch (expr->type()) {
+		case MachineIntegerType:
+			return std::static_pointer_cast<const MachineInteger>(expr)->value;
+		default:
+			assert(false);
+	}
 }
 
 #endif

@@ -133,13 +133,12 @@ Slice Expression::evaluate_leaves(Evaluation &evaluation) const {
     assert(eval_leaf_start <= eval_leaf_stop);
     assert(eval_leaf_stop <= _leaves.size());
 
-    return _leaves.apply(
+   return _leaves.apply(
         eval_leaf_start,
         eval_leaf_stop,
-        [&evaluation](const BaseExpressionRef &leaf) mutable {
+        [&evaluation](const BaseExpressionRef &leaf) {
             return leaf->evaluate(leaf, evaluation);
-        }
-    );
+        });
 }
 
 BaseExpressionRef Expression::evaluate_values(ExpressionRef self, Evaluation &evaluation) const {
@@ -196,4 +195,24 @@ BaseExpressionRef Expression::evaluate(const BaseExpressionRef &self, Evaluation
 bool Expression::match_sequence(const Matcher &matcher) const {
     auto patt = std::static_pointer_cast<const Expression>(matcher.this_pattern());
     return patt->_head->match_sequence_with_head(patt.get(), matcher);
+}
+
+BaseExpressionRef Expression::replace_all(const Match &match) const {
+    auto new_head = _head->replace_all(match);
+
+	auto new_leaves = _leaves.apply(
+		0,
+		_leaves.size(),
+		[&match](const BaseExpressionRef &leaf) {
+			return leaf->replace_all(match);
+		});
+
+	if (new_head || new_leaves != _leaves) {
+		if (!new_head) {
+			new_head = _head;
+		}
+		return expression(new_head, new_leaves);
+	} else {
+		return BaseExpressionRef();
+	}
 }

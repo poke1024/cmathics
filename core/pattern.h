@@ -9,25 +9,6 @@
 
 #include <iostream>
 
-class MatchContext {
-private:
-    const Symbol *_matched_variables_head;
-
-public:
-    const MatchId id;
-    Definitions &definitions;
-
-    inline MatchContext(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &defs) :
-        id(patt, item), definitions(defs), _matched_variables_head(nullptr) {
-    }
-
-    void add_matched_variable(const Symbol *variable);
-
-    inline const Symbol *matched_variables() const {
-        return _matched_variables_head;
-    }
-};
-
 class Matcher {
 private:
     MatchContext &_context;
@@ -72,21 +53,12 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
         Matcher matcher(context, patt, empty_slice, Slice(item));
 
         if (patt->match_sequence(matcher)) {
-            return Match(true, context.matched_variables());
+            return Match(true, context);
         } else {
-            return Match(false, nullptr);
+            return Match(); // no match
         }
     }
 }
-
-/*inline BaseExpressionRef Rule::try_apply(const ExpressionRef &expr, Evaluation &evaluation) const {
-    const Match m = match(_patt, expr, evaluation.definitions);
-    if (m) {
-        return apply(m, evaluation);
-    } else {
-        return BaseExpressionRef();
-    }
-}*/
 
 const Symbol *blank_head(ExpressionPtr patt);
 

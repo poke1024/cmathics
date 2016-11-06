@@ -35,7 +35,6 @@ struct BuiltinFunctionArguments<0, refs...> {
 template<int N>
 inline Rule make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
     return [patt, func](const ExpressionRef &expr, Evaluation &evaluation) {
-        auto bla = patt;
         const Match m = match(patt, expr, evaluation.definitions);
         if (m) {
             return apply_from_tuple(func, std::tuple_cat(m.get<N>(), std::make_tuple(evaluation)));
@@ -45,24 +44,18 @@ inline Rule make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFun
     };
 }
 
-/*template<int N>
-class BuiltinRule : public Rule {
-private:
-    using func_type = typename BuiltinFunctionArguments<N>::type;
-
-    func_type _func;
-
-protected:
-    virtual BaseExpressionRef apply(const Match &match, Evaluation &evaluation) const {
-        return apply_from_tuple(_func, std::tuple_cat(match.get<N>(), std::make_tuple(evaluation)));
-    }
-
-public:
-    inline BuiltinRule(const BaseExpressionRef &patt, func_type func) : Rule(patt), _func(func) {
-    }
-};
-
-template<int N>
-RuleRef make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
-    return std::make_unique<BuiltinRule<N>>(patt, func);
-}*/
+inline Rule make_rewrite_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
+	return [patt, into](const ExpressionRef &expr, Evaluation &evaluation) {
+		const Match m = match(patt, expr, evaluation.definitions);
+		if (m) {
+			auto replaced = into->replace_all(m);
+			if (!replaced) {
+				return into;
+			} else {
+				return replaced;
+			}
+		} else {
+			return BaseExpressionRef();
+		}
+	};
+}

@@ -358,9 +358,9 @@ public:
         } else if (kind == _integer) {
             mpz_class x;
 	        o[1].as_integer(x);
-            return integer(x);
+            return from_value(x);
         } else if (kind == _machine_real) {
-            return real(o[1].as_float());
+            return from_value(o[1].as_float());
         } else if (kind == _expression) {
             auto head = convert(o[1]);
             std::vector<BaseExpressionRef> leaves;
@@ -447,6 +447,10 @@ public:
         return make_builtin_rule<N>(_parser.parse(pattern), func);
     }
 
+	Rule rewrite(const char *pattern, const char *into) {
+		return make_rewrite_rule(_parser.parse(pattern), _parser.parse(into));
+	}
+
     void initialize() {
         add("Plus", {
             Plus
@@ -464,14 +468,14 @@ public:
             )
         });
 
-        /*add("Range", {
+        add("Range", {
+	        rewrite("Range[imax_]", "Range[1, imax, 1]"),
+	        rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]"),
             rule<3>(
                 "Range[imin_, imax_, di_]",
-                [](const BaseExpressionRef &imin, const BaseExpressionRef &imax, const BaseExpressionRef &di, const Evaluation &evaluation) {
-
-                }
+                Range
             )
-        });*/
+        });
     }
 };
 
@@ -483,15 +487,11 @@ public:
 
 // Fold
 
-template<typename T>
-void range(T imin, T imax, T di) {
-	// for MachineIntegers, MachineReals, ...
-}
-
 void python_test(const char *input) {
     Runtime runtime;
 
     runtime.initialize();
+
     auto expr = runtime.parse(input);
 
     Evaluation evaluation(runtime.definitions(), true);
@@ -511,18 +511,18 @@ void pattern_test() {
         x, expression(definitions.lookup("System`Blank"), {})
     });
 
-    Match m = match(patt, integer(7), definitions);
-    std::cout << m << std::endl;
+    Match m1 = match(patt, from_value(7LL), definitions);
+    std::cout << m1 << std::endl;
 
     patt = expression(definitions.lookup("System`Pattern"), {
         x, expression(definitions.lookup("System`BlankSequence"), {})
     });
 
     auto some_expr = expression(definitions.lookup("System`Sequence"), {
-        integer(1), integer(3)});
+		from_value(1LL), from_value(3LL)});
 
-    m = match(patt, some_expr, definitions);
-    std::cout << m << std::endl;
+    Match m2 = match(patt, some_expr, definitions);
+    std::cout << m2 << std::endl;
 }
 
 void mini_console() {
@@ -534,11 +534,15 @@ void mini_console() {
         auto expr = runtime.parse(line.c_str());
 
         Evaluation evaluation(runtime.definitions(), true);
-        BaseExpressionRef evaluated = evaluation.evaluate(expr);
-        if (!evaluated) {
-            evaluated = expr;
-        }
-        std::cout << evaluated << std::endl;
+	    while (true) {
+		    BaseExpressionRef evaluated = evaluation.evaluate(expr);
+		    if (evaluated) {
+			    expr = evaluated;
+		    } else {
+			    break;
+		    }
+	    }
+        std::cout << expr << std::endl;
 
         std::cout << ">> ";
         std::cout.flush();

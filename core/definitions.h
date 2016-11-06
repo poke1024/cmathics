@@ -104,7 +104,9 @@ public:
         return same(expr);
     }
 
-    inline void set_matched_value(const MatchId &id, const BaseExpressionRef &value) const {
+	virtual BaseExpressionRef replace_all(const Match &match) const;
+
+	inline void set_matched_value(const MatchId &id, const BaseExpressionRef &value) const {
         _match_id = id;
         _match_value = value;
     }
@@ -142,16 +144,15 @@ public:
 template<int M, int N>
 struct unpack_symbols {
     void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
-        // symbols are ordered in reverse order of their original appearance in the pattern.
-        // we reverse this again, so they appear in the pattern's order in the tuple t.
+        // symbols are already ordered in the order of their (first) appearance in the original pattern.
         assert(symbol != nullptr);
-        std::get<N - 1>(t) = symbol->matched_value();
-        unpack_symbols<M, N - 1>()(symbol->linked_variable(), t);
+        std::get<N>(t) = symbol->matched_value();
+        unpack_symbols<M, N + 1>()(symbol->linked_variable(), t);
     }
 };
 
 template<int M>
-struct unpack_symbols<M, 0> {
+struct unpack_symbols<M, M> {
     void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
         assert(symbol == nullptr);
     }
@@ -160,7 +161,7 @@ struct unpack_symbols<M, 0> {
 template<int N>
 inline typename BaseExpressionTuple<N>::type Match::get() const {
     typename BaseExpressionTuple<N>::type t;
-    unpack_symbols<N, N>()(_variables, t);
+    unpack_symbols<N, 0>()(_variables, t);
     return t;
 };
 
@@ -178,7 +179,9 @@ class Definitions {
 private:
     std::map<std::string,SymbolRef> _definitions;
     std::shared_ptr<Expression> _empty_list;
+
     SymbolRef _sequence;
+	SymbolRef _list;
 
     void add_internal_symbol(const SymbolRef &symbol);
 
@@ -193,19 +196,13 @@ public:
         return _empty_list.get();
     }
 
+    inline const SymbolRef &list() const {
+        return _list;
+    }
+
     inline const SymbolRef &sequence() const {
         return _sequence;
     }
-
-    /*template<typename F, typename... Vars>
-    inline std::function<BaseExpressionRef(void)> build_call_to(F func, Vars... vars) {
-        return build_call([this](const char *name) {
-            // built-in patterns like Most[x_List] always map their variables (e.g. x)
-            // to System, so place the parameter names received here in System as well.
-            const std::string full_name(std::string("System`") + name);
-            return this->lookup(full_name.c_str());
-        }, func)(vars...);
-    }*/
 };
 
 #endif

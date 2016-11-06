@@ -78,7 +78,9 @@ public:
     virtual bool match_sequence(
         const Matcher &matcher) const;
 
-    virtual BaseExpressionRef clone() const {
+	virtual BaseExpressionRef replace_all(const Match &match) const;
+
+	virtual BaseExpressionRef clone() const {
         return std::make_shared<Expression>(_head, _leaves);
     }
 };

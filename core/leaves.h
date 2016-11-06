@@ -10,6 +10,7 @@
 #include <functional>
 #include <assert.h>
 #include <climits>
+#include <vector>
 
 class BaseExpression;
 class Expression;
@@ -18,7 +19,13 @@ class Match;
 typedef const BaseExpression* BaseExpressionPtr;
 typedef std::shared_ptr<const BaseExpression> BaseExpressionRef;
 
-const BaseExpressionRef *copy_leaves(const BaseExpressionRef *leaves, size_t n);
+inline const BaseExpressionRef *copy_leaves(const BaseExpressionRef *leaves, size_t n) {
+    auto new_leaves = new BaseExpressionRef[n];
+    for (size_t i = 0; i < n; i++) {
+        new_leaves[i] = leaves[i];
+    }
+    return new_leaves;
+}
 
 class Extent {
 protected:
@@ -113,10 +120,52 @@ public:
         }
     }
 
+	inline bool operator!=(const Slice &slice) const {
+		return !(*this == slice);
+	}
+
+	template<typename F>
     Slice apply(
         size_t begin,
         size_t end,
-        const std::function<BaseExpressionRef(const BaseExpressionRef&)> &f) const;
+        const F &f) const {
+
+	    assert(_expr == nullptr);
+
+	    if (_storage.use_count() == 1) {
+		    // FIXME. optimize this case. we do not need to copy here.
+	    }
+
+	    auto leaves = _storage->_leaves;
+	    for (size_t i = begin; i < end; i++) {
+		    auto new_leaf = f(leaves[i]);
+
+		    if (new_leaf) { // copy is needed now
+			    std::vector<BaseExpressionRef> new_leaves;
+			    new_leaves.reserve(_end - _begin);
+
+			    new_leaves.insert(new_leaves.end(), &leaves[0], &leaves[i]);
+
+			    new_leaves.push_back(new_leaf); // leaves[i]
+
+			    for (size_t j = i + 1; j < end; j++) {
+				    auto old_leaf = leaves[j];
+				    new_leaf = f(old_leaf);
+				    if (new_leaf) {
+					    new_leaves.push_back(new_leaf);
+				    } else {
+					    new_leaves.push_back(old_leaf);
+				    }
+			    }
+
+			    new_leaves.insert(new_leaves.end(), &leaves[end], &leaves[_end - _begin]);
+
+			    return Slice(std::make_shared<Extent>(&new_leaves[0], new_leaves.size()));
+		    }
+	    }
+
+	    return *this;
+    }
 
     Slice slice(size_t begin, size_t end = SIZE_T_MAX) const;
 

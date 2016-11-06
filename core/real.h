@@ -40,6 +40,11 @@ inline mp_prec_t bits_prec(double prec) {
 	return static_cast<mp_prec_t>(ceil(LOG_2_10 * prec));
 }
 
+inline mp_prec_t from_bits_prec(mp_prec_t bits_prec) {
+	constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
+	return bits_prec / LOG_2_10;
+}
+
 class BigReal : public BaseExpression {
 public:
     mpfr::mpreal _value;
@@ -49,7 +54,11 @@ public:
 		BaseExpression(BigRealType), _value(value, bits_prec(prec), MPFR_RNDN), _prec(prec) {
 	}
 
-    virtual bool same(const BaseExpression &expr) const {
+	explicit inline BigReal(const mpfr::mpreal &value) :
+		BaseExpression(BigRealType), _value(value), _prec(from_bits_prec(value.get_prec())) {
+	}
+
+	virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == BigRealType) {
             return _value == static_cast<const BigReal*>(&expr)->_value;
         } else {
@@ -67,11 +76,15 @@ public:
     }
 };
 
-inline BaseExpressionRef real(double value) {
+inline BaseExpressionRef from_value(machine_real_t value) {
     return std::make_shared<MachineReal>(value);
 }
 
-inline BaseExpressionRef real(double prec, double value) {
+inline BaseExpressionRef from_value(const mpfr::mpreal &value) {
+	return std::make_shared<BigReal>(value);
+}
+
+inline BaseExpressionRef real(double prec, machine_real_t value) {
     return std::make_shared<BigReal>(prec, value);
 }
 

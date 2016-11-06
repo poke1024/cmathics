@@ -40,7 +40,7 @@ BaseExpressionRef add_Integers(const ExpressionRef &expr) {
         }
     }
 
-	return integer(result);
+	return from_value(result);
 }
 
 
@@ -90,11 +90,11 @@ BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
         // result = NULL;
     } else if (!symbolics.empty()) {
         // at least one symbolic
-        symbolics.push_back(real(sum));
+        symbolics.push_back(from_value(sum));
         result = expression(expr->_head, symbolics);
     } else {
         // no symbolics
-        result = real(sum);
+        result = from_value(sum);
     }
 
     return result;
@@ -105,7 +105,7 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
     switch (expr->_leaves.size()) {
         case 0:
             // Plus[] -> 0
-            return integer(0LL);
+            return from_value(0LL);
 
         case 1:
             // Plus[a_] -> a
@@ -113,7 +113,7 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
     }
 
     // bit field to determine which types are present
-    uint16_t types_seen = 0;
+	TypeMask types_seen = 0;
     for (auto leaf : expr->_leaves) {
         types_seen |= 1 << leaf->type();
     }
@@ -123,7 +123,7 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
         return add_MachineInexact(expr);
     }
 
-    constexpr uint16_t int_mask = (1 << BigIntegerType) | (1 << MachineIntegerType);
+    constexpr TypeMask int_mask = (1 << BigIntegerType) | (1 << MachineIntegerType);
 
     // expression is all Integers
     if ((types_seen & int_mask) == types_seen) {
@@ -141,4 +141,74 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
 
     // expression is symbolic
     return BaseExpressionRef();
+}
+
+template<typename F>
+BaseExpressionRef compute(TypeMask mask, const F &f) {
+	// expression contains a Real
+	if (mask & (1 << MachineRealType)) {
+		return f.template compute<double>();
+	}
+
+	constexpr TypeMask machine_int_mask = (1 << MachineIntegerType);
+	// expression is all MachineIntegers
+	if ((mask & machine_int_mask) == mask) {
+		return f.template compute<int64_t>();
+	}
+
+	constexpr TypeMask int_mask = (1 << BigIntegerType) | (1 << MachineIntegerType);
+	// expression is all Integers
+	if ((mask & int_mask) == mask) {
+		return f.template compute<mpz_class>();
+	}
+
+	constexpr TypeMask rational_mask = (1 << RationalType);
+	// expression is all Rationals
+	if ((mask & rational_mask) == mask) {
+		return f.template compute<mpq_class>();
+	}
+
+	// f.compute<mpfr::mpreal>()
+
+	assert(false);
+}
+
+class RangeComputation {
+private:
+	const BaseExpressionRef &_imin;
+	const BaseExpressionRef &_imax;
+	const BaseExpressionRef &_di;
+	const Evaluation &_evaluation;
+
+public:
+	inline RangeComputation(
+		const BaseExpressionRef &imin,
+		const BaseExpressionRef &imax,
+		const BaseExpressionRef &di,
+		const Evaluation &evaluation) : _imin(imin), _imax(imax), _di(di), _evaluation(evaluation) {
+	}
+
+	template<typename T>
+	BaseExpressionRef compute() const {
+		const T imin = to_value<T>(_imin);
+		const T imax = to_value<T>(_imax);
+		const T di = to_value<T>(_di);
+
+		std::vector<BaseExpressionRef> leaves;
+		for (T x = imin; x <= imax; x += di) {
+			leaves.push_back(from_value(x));
+		}
+
+		return expression(_evaluation.definitions.list(), leaves);
+	}
+};
+
+BaseExpressionRef Range(
+	const BaseExpressionRef &imin,
+    const BaseExpressionRef &imax,
+    const BaseExpressionRef &di,
+	const Evaluation &evaluation) {
+	return compute(
+		imin->type_mask() | imax->type_mask() | di->type_mask(),
+		RangeComputation(imin, imax, di, evaluation));
 }

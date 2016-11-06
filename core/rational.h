@@ -36,13 +36,17 @@ public:
 
     // copies denominator to a new Integer
     inline BaseExpressionRef numer() const {
-        return integer(value.get_num());
+        return from_value(value.get_num());
     }
 
     // copies numerator to a new Integer
     inline BaseExpressionRef denom() const {
-        return integer(value.get_den());
+        return from_value(value.get_den());
     }
 };
+
+inline BaseExpressionRef from_value(const mpq_class &value) {
+    return std::make_shared<Rational>(value);
+}
 
 #endif

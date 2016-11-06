@@ -23,6 +23,8 @@ enum Type {
     RawExpressionType
 };
 
+typedef uint16_t TypeMask;
+
 typedef int64_t machine_integer_t;
 typedef double machine_real_t;
 
@@ -43,18 +45,82 @@ struct BaseExpressionTuple<0, refs...> {
     typedef std::tuple<refs...> type;
 };
 
+class MatchId { // uniquely identifies a specific match
+private:
+	std::weak_ptr<const BaseExpression> _patt;
+	std::weak_ptr<const BaseExpression> _item;
+
+public:
+	inline MatchId() {
+	}
+
+	inline MatchId(const MatchId& id) : _patt(id._patt), _item(id._item) {
+	}
+
+	inline MatchId(const BaseExpressionRef &patt, const BaseExpressionRef &item) : _patt(patt), _item(item) {
+	}
+
+	inline MatchId &operator=(const MatchId &other) {
+		_patt = other._patt;
+		_item = other._item;
+		return *this;
+	}
+
+	inline bool operator==(const MatchId &other) const {
+		if (_patt.expired() || _item.expired() || other._patt.expired() || other._item.expired()) {
+			return false;
+		} else {
+			return _patt.lock().get() == other._patt.lock().get() &&
+			       _item.lock().get() == other._item.lock().get();
+		}
+	}
+
+	inline void reset() {
+		_patt.reset();
+		_item.reset();
+	}
+};
+
+class MatchContext {
+private:
+	const Symbol *_matched_variables_head;
+
+public:
+	const MatchId id;
+	Definitions &definitions;
+
+	inline MatchContext(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &defs) :
+		id(patt, item), definitions(defs), _matched_variables_head(nullptr) {
+	}
+
+	void add_matched_variable(const Symbol *variable);
+
+	inline const Symbol *matched_variables() const {
+		return _matched_variables_head;
+	}
+};
+
 class Match {
 private:
-    bool _matched;
+    const bool _matched;
+	const MatchId _id;
     const Symbol *_variables;
 
 public:
-    explicit inline Match(bool matched, const Symbol *variables) : _matched(matched), _variables(variables) {
+	explicit inline Match() : _matched(false) {
+	}
+
+    explicit inline Match(bool matched, const MatchContext &context) :
+	    _matched(matched), _id(context.id), _variables(context.matched_variables()) {
     }
 
     inline operator bool() const {
         return _matched;
     }
+
+	inline const MatchId &id() const {
+		return _id;
+	}
 
     inline const Symbol *variables() const {
         return _variables;
@@ -65,39 +131,6 @@ public:
 };
 
 std::ostream &operator<<(std::ostream &s, const Match &m);
-
-class MatchId { // uniquely identifies a specific match
-private:
-    std::weak_ptr<const BaseExpression> _patt;
-    std::weak_ptr<const BaseExpression> _item;
-
-public:
-    inline MatchId() {
-    }
-
-    inline MatchId(const BaseExpressionRef &patt, const BaseExpressionRef &item) : _patt(patt), _item(item) {
-    }
-
-    inline MatchId &operator=(const MatchId &other) {
-        _patt = other._patt;
-        _item = other._item;
-        return *this;
-    }
-
-    inline bool operator==(const MatchId &other) const {
-        if (_patt.expired() || _item.expired() || other._patt.expired() || other._item.expired()) {
-            return false;
-        } else {
-            return _patt.lock().get() == other._patt.lock().get() &&
-                _item.lock().get() == other._item.lock().get();
-        }
-    }
-
-    inline void reset() {
-        _patt.reset();
-        _item.reset();
-    }
-};
 
 class Matcher;
 
@@ -128,6 +161,10 @@ public:
     inline Type type() const {
 	    return _type;
     }
+
+	inline TypeMask type_mask() const {
+		return ((TypeMask)1) << _type;
+	}
 
     // virtual bool is_symbol() const;
     // virtual bool is_expression() const;
@@ -182,19 +219,19 @@ public:
         return std::make_tuple(1, 1); // default for non-symbol heads
     }
 
-    virtual BaseExpressionRef replace(BaseExpressionRef item) const {
-        // replace expression at base
-        // Equivalent to Replace[expr, patt] but doesn't search into the expression
-        // e.g. DoReplace(1 + a, a -> 2) doesn't apply because it doesn't match at root
-        // returns NULL if no match is found
-        // TODO
-        return nullptr;
+    virtual BaseExpressionRef replace_all(const Match &match) const {
+		return BaseExpressionRef();
     }
 
     virtual BaseExpressionRef clone() const {
         throw std::runtime_error("not implemented yet");
     }
 };
+
+template<typename T>
+T to_value(const BaseExpressionRef &expr) {
+	assert(false);
+}
 
 inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
     if (expr) {
@@ -203,15 +240,6 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
         //s << "(no expression)";
     }
     return s;
-}
-
-
-inline const BaseExpressionRef *copy_leaves(const BaseExpressionRef *leaves, size_t n) {
-    auto new_leaves = new BaseExpressionRef[n];
-    for (size_t i = 0; i < n; i++) {
-        new_leaves[i] = leaves[i];
-    }
-    return new_leaves;
 }
 
 #endif
