@@ -9,13 +9,9 @@ class String : public BaseExpression {
 public:
     const std::string value;
 
-    explicit String(const char *new_value) : value(new_value) {
+    explicit String(const char *new_value) : BaseExpression(StringType), value(new_value) {
     }
-
-    virtual Type type() const {
-        return StringType;
-    }
-
+    
     virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == StringType) {
             return value == static_cast<const String*>(&expr)->value;

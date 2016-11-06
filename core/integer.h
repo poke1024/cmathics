@@ -1,30 +1,28 @@
 #ifndef INT_H
 #define INT_H
 
-#include <gmp.h>
+#include <gmpxx.h>
 #include <stdint.h>
 
 #include "types.h"
 #include "hash.h"
 
 class Integer : public BaseExpression {
+public:
+	inline Integer(Type type) : BaseExpression(type) {
+	}
 };
-
-typedef int64_t machine_integer_t;
 
 class MachineInteger : public Integer {
 public:
     const machine_integer_t value;
 
-    inline MachineInteger(machine_integer_t new_value) : value(new_value) {
-    }
-
-    virtual Type type() const {
-        return MachineIntegerType;
+    inline MachineInteger(machine_integer_t new_value) :
+	    Integer(MachineIntegerType), value(new_value) {
     }
 
     virtual bool same(const BaseExpression &expr) const {
-        if (expr.type() == MachineIntegerType) {
+        if (expr.type() == type()) {
             return value == static_cast<const MachineInteger*>(&expr)->value;
         } else {
             return false;
@@ -46,24 +44,14 @@ public:
 
 class BigInteger : public Integer {
 public:
-    mpz_t value;
+	mpz_class value;
 
-    inline BigInteger(mpz_srcptr new_value) {
-        mpz_init(value);
-        mpz_set(value, new_value);
-    }
-
-    virtual ~BigInteger() {
-        mpz_clear(value);
-    }
-
-    virtual Type type() const {
-        return BigIntegerType;
+    inline BigInteger(const mpz_class &new_value) : Integer(BigIntegerType), value(new_value) {
     }
 
     virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == BigIntegerType) {
-            return mpz_cmp(value, static_cast<const BigInteger*>(&expr)->value) == 0;
+            return value == static_cast<const BigInteger*>(&expr)->value;
         } else {
             return false;
         }
@@ -83,10 +71,10 @@ inline BaseExpressionRef integer(machine_integer_t value) {
     return std::make_shared<MachineInteger>(value);
 }
 
-inline BaseExpressionRef integer(mpz_srcptr value) {
+inline BaseExpressionRef integer(const mpz_class &value) {
     static_assert(sizeof(long) == sizeof(machine_integer_t), "types long and machine_integer_t differ");
-    if (mpz_fits_slong_p(value)) {
-        return integer(mpz_get_si(value));
+    if (value.fits_slong_p()) {
+        return integer(value.get_si());
     } else {
         return std::make_shared<BigInteger>(value);
     }

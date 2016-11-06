@@ -19,25 +19,24 @@ public:
     Slice _leaves;  // other options: ropes, skip lists, ...
 
     inline Expression(BaseExpressionRef head, const Slice &leaves) :
+        BaseExpression(ExpressionType),
         _head(head),
         _leaves(leaves),
         _computed_hash(0) {
     }
 
     inline Expression(BaseExpressionRef head, std::initializer_list<BaseExpressionRef> leaves) :
+	    BaseExpression(ExpressionType),
         _head(head),
         _leaves(leaves.begin(), leaves.size()),
         _computed_hash(0) {
     }
 
     inline Expression(BaseExpressionRef head, const std::vector<BaseExpressionRef> &leaves) :
+	    BaseExpression(ExpressionType),
         _head(head),
         _leaves(&leaves[0], leaves.size()),
         _computed_hash(0) {
-    }
-
-    virtual Type type() const {
-        return ExpressionType;
     }
 
     virtual bool same(const BaseExpression &item) const;

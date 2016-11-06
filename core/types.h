@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <functional>
 #include <vector>
+#include <cstdlib>
 
 #include "hash.h"
 #include "leaves.h"
@@ -21,6 +22,9 @@ enum Type {
     StringType,
     RawExpressionType
 };
+
+typedef int64_t machine_integer_t;
+typedef double machine_real_t;
 
 typedef int64_t match_size_t; // needs to be signed
 typedef std::tuple<match_size_t, match_size_t> match_sizes_t;
@@ -111,14 +115,20 @@ typedef std::shared_ptr<Symbol> SymbolRef;
 class Evaluation;
 
 class BaseExpression {
+private:
+	const Type _type;
+
 public:
-    BaseExpression() {
+    inline BaseExpression(Type type) : _type(type) {
     }
 
     virtual ~BaseExpression() {
     }
 
-    virtual Type type() const = 0;
+    inline Type type() const {
+	    return _type;
+    }
+
     // virtual bool is_symbol() const;
     // virtual bool is_expression() const;
     virtual bool is_symbol_sequence() const {

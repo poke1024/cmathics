@@ -1,21 +1,16 @@
 #ifndef REAL_H
 #define REAL_H
-#include <mpfr.h>
+#include <mpfrcxx/mpreal.h>
 #include <stdint.h>
 
 #include "types.h"
 #include "hash.h"
 
-
 class MachineReal : public BaseExpression {
 public:
-    const double value;
+    const machine_real_t value;
 
-    explicit MachineReal(const double new_value) : value(new_value) {
-    }
-
-    virtual Type type() const {
-        return MachineRealType;
+    explicit MachineReal(machine_real_t new_value) : BaseExpression(MachineRealType), value(new_value) {
     }
 
     virtual bool same(const BaseExpression &expr) const {
@@ -40,24 +35,23 @@ public:
     }
 };
 
+inline mp_prec_t bits_prec(double prec) {
+	constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
+	return static_cast<mp_prec_t>(ceil(LOG_2_10 * prec));
+}
+
 class BigReal : public BaseExpression {
 public:
-    mpfr_t value;
-    double prec;
+    mpfr::mpreal _value;
+	const double _prec;
 
-    explicit BigReal(const double new_prec, const double new_value);
-
-    virtual ~BigReal() {
-        mpfr_clear(value);
-    }
-
-    virtual Type type() const {
-        return BigRealType;
-    }
+	explicit inline BigReal(double prec, double value) :
+		BaseExpression(BigRealType), _value(value, bits_prec(prec), MPFR_RNDN), _prec(prec) {
+	}
 
     virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == BigRealType) {
-            return mpfr_cmp(value, static_cast<const BigReal*>(&expr)->value) == 0;
+            return _value == static_cast<const BigReal*>(&expr)->_value;
         } else {
             return false;
         }

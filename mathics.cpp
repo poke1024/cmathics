@@ -36,6 +36,18 @@ std::string string_format(const std::string& format, Args ... args)  {
     return std::string(buf.get(), buf.get() + size - 1); // we don't want the '\0' inside
 }
 namespace python {
+    class Context {
+    public:
+        Context() {
+            // note: if Py_Initialize() fails (e.g. with "unable to load the file system codec"), it usually means that
+            // your PYTHONHOME environment variable and the Python library we linked this binary against don't match.
+            Py_Initialize();
+        }
+
+        ~Context() {
+            Py_Finalize();
+        }
+    };
 
     class import_error : public std::runtime_error {
     public:
@@ -234,18 +246,18 @@ namespace python {
             }
         }
 
-        inline void as_integer(mpz_t x) const {
+        inline void as_integer(mpz_class &x) const {
             if (!PyLong_Check(_py_object)) {
                 throw std::runtime_error("not an integer value");
             }
             int overflow;
             long value = PyLong_AsLongAndOverflow(_py_object, &overflow);
             if (overflow == 0 && value != -1) {
-                mpz_set_si(x, value);
+                x = value;
             } else {
                 object n(new_reference(PyNumber_ToBase(_py_object, 10)));
                 std::string s(n.as_string());
-                mpz_set_str(x, s.c_str(), 10);
+                x.set_str(s, 10);
             }
         }
 
@@ -344,17 +356,9 @@ public:
             }
             return _definitions.lookup(name.c_str());
         } else if (kind == _integer) {
-            mpz_t x;
-            mpz_init(x);
-            try {
-                o[1].as_integer(x);
-                auto y = integer(x);
-                mpz_clear(x);
-                return y;
-            } catch (...) {
-                mpz_clear(x);
-                throw;
-            }
+            mpz_class x;
+	        o[1].as_integer(x);
+            return integer(x);
         } else if (kind == _machine_real) {
             return real(o[1].as_float());
         } else if (kind == _expression) {
@@ -442,6 +446,33 @@ public:
     Rule rule(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
         return make_builtin_rule<N>(_parser.parse(pattern), func);
     }
+
+    void initialize() {
+        add("Plus", {
+            Plus
+        });
+
+        add("Most", {
+            rule<1>(
+                "Most[x_List]",
+                [](const BaseExpressionRef &x, const Evaluation &evaluation) {
+                    auto list = std::static_pointer_cast<const Expression>(x);
+                    auto leaves = list->leaves();
+                    auto n = leaves.size();
+                    return expression(list->head(), leaves.slice(0, n > 0 ? n - 1 : 0));
+                }
+            )
+        });
+
+        /*add("Range", {
+            rule<3>(
+                "Range[imin_, imax_, di_]",
+                [](const BaseExpressionRef &imin, const BaseExpressionRef &imax, const BaseExpressionRef &di, const Evaluation &evaluation) {
+
+                }
+            )
+        });*/
+    }
 };
 
 // Timing
@@ -452,25 +483,16 @@ public:
 
 // Fold
 
+template<typename T>
+void range(T imin, T imax, T di) {
+	// for MachineIntegers, MachineReals, ...
+}
+
 void python_test(const char *input) {
     Runtime runtime;
 
+    runtime.initialize();
     auto expr = runtime.parse(input);
-
-    //SymbolRef plus_symbol = definitions.lookup("System`Plus");
-    //auto rule = std::make_unique<Rule>(patt, func);
-
-    runtime.add("Most", {
-        runtime.rule<1>(
-            "Most[x_List]",
-            [](const BaseExpressionRef &x, const Evaluation &evaluation) {
-                auto list = std::static_pointer_cast<const Expression>(x);
-                auto leaves = list->leaves();
-                auto n = leaves.size();
-                return expression(list->head(), leaves.slice(0, n > 0 ? n - 1 : 0));
-            }
-       )
-    });
 
     Evaluation evaluation(runtime.definitions(), true);
     std::cout << expr << std::endl;
@@ -503,47 +525,30 @@ void pattern_test() {
     std::cout << m << std::endl;
 }
 
+void mini_console() {
+    Runtime runtime;
+    runtime.initialize();
+
+    std::cout << ">> ";
+    for (std::string line; std::getline(std::cin, line);) {
+        auto expr = runtime.parse(line.c_str());
+
+        Evaluation evaluation(runtime.definitions(), true);
+        BaseExpressionRef evaluated = evaluation.evaluate(expr);
+        if (!evaluated) {
+            evaluated = expr;
+        }
+        std::cout << evaluated << std::endl;
+
+        std::cout << ">> ";
+        std::cout.flush();
+    }
+}
+
 int main() {
-    // note: if Py_Initialize() fails (e.g. with "unable to load the file system codec"), it usually means that
-    // your PYTHONHOME environment variable and the Python library we linked this binary against don't match.
-    Py_Initialize();
+    python::Context context;
 
-    // pattern_test();
-
-    //python_test("x + 1.1 + 5.2");
-    python_test("Most[{1, 2, 3, 4, 5}]");
-    Py_Finalize();
-    return 0;
-
-    /*
-
-    Symbol* plus_symbol = definitions->new_symbol("Plus");
-    plus_symbol->down_code = _Plus;
-
-    BaseExpression* head = (BaseExpression*) plus_symbol;
-    //BaseExpression* la = (BaseExpression*) Definitions_lookup(definitions, "a");
-    //BaseExpression* lb = (BaseExpression*) Definitions_lookup(definitions, "b");
-
-    auto la = new MachineInteger(5);
-    auto lb = new MachineReal(10.2);
-
-    std::vector<BaseExpression*> leaves;
-    leaves.push_back(la);
-    leaves.push_back(lb);
-    Expression* expr = new Expression(head, leaves);
-
-    Evaluation* evaluation = new Evaluation(definitions, true);
-
-    std::cout << expr->fullform() << std::endl;
-
-    std::cout << "evaluating...\n";
-    BaseExpression* result = evaluation->evaluate(expr);
-    std::cout << "done\n";
-
-    std::cout << result->fullform();
-    */
-    // printf("height = %li\n", Expression_height((BaseExpression*) expr));
-    // printf("hash = %lu\n", expr->hash);
+    mini_console();
 
     return 0;
 }

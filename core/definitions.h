@@ -79,10 +79,6 @@ public:
 
     Attributes attributes;
 
-    virtual Type type() const {
-        return SymbolType;
-    }
-
     virtual bool same(const BaseExpression &expr) const {
         // compare as pointers: Symbol instances are unique
         return &expr == this;

@@ -4,8 +4,10 @@
 #include "evaluation.h"
 #include "pattern.h"
 
-Symbol::Symbol(Definitions *definitions, const char *name) : _name(name), _linked_variable(nullptr) {
-// initialise a definition entry
+Symbol::Symbol(Definitions *definitions, const char *name) :
+    BaseExpression(SymbolType), _name(name), _linked_variable(nullptr) {
+
+	// initialise a definition entry
 
     attributes.clear();
 

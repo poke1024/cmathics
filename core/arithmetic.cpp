@@ -15,33 +15,32 @@
 
 // sums all integers in an expression
 BaseExpressionRef add_Integers(const ExpressionRef &expr) {
-    uint32_t i;
-    int64_t machine_leaf;
-    mpz_t result;
+	mpz_class result(0);
 
     // XXX right now the entire computation is done with GMP. This is slower
     // than using machine precision arithmetic but simpler because we don't
     // need to handle overflow. Could be optimised.
 
-    mpz_init(result);
-
     for (auto leaf : expr->_leaves) {
-        auto type = leaf->type();
-        if (type == MachineIntegerType) {
-            machine_leaf = std::static_pointer_cast<const MachineInteger>(leaf)->value;
-            if (machine_leaf >= 0) {
-                mpz_add_ui(result, result, (uint64_t) machine_leaf);
-            } else {
-                mpz_add_ui(result, result, (uint64_t) -machine_leaf);
-            }
-        } else if (type == BigIntegerType) {
-            mpz_add(result, result, std::static_pointer_cast<const BigInteger>(leaf)->value);
+        switch (leaf->type()) {
+	        case MachineIntegerType: {
+		        auto value = std::static_pointer_cast<const MachineInteger>(leaf)->value;
+		        if (value >= 0) {
+			        result += static_cast<unsigned long>(value);
+		        } else {
+			        result -= static_cast<unsigned long>(-value);
+		        }
+		        break;
+	        }
+	        case BigIntegerType:
+		        result += std::static_pointer_cast<const BigInteger>(leaf)->value;
+		        break;
+	        default:
+		        assert(false);
         }
     }
 
-    auto return_value = integer(result);
-    mpz_clear(result);
-    return return_value;
+	return integer(result);
 }
 
 
@@ -58,16 +57,16 @@ BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
                 sum += (double) std::static_pointer_cast<const MachineInteger>(leaf)->value;
                 break;
             case BigIntegerType:
-                sum += mpz_get_d(std::static_pointer_cast<const BigInteger>(leaf)->value);
+                sum += std::static_pointer_cast<const BigInteger>(leaf)->value.get_d();
                 break;
             case MachineRealType:
                 sum += std::static_pointer_cast<const MachineReal>(leaf)->value;
                 break;
             case BigRealType:
-                sum += mpfr_get_d(std::static_pointer_cast<const BigReal>(leaf)->value, MPFR_RNDN);
+                sum += std::static_pointer_cast<const BigReal>(leaf)->_value.toDouble(MPFR_RNDN);
                 break;
             case RationalType:
-                sum += mpq_get_d(std::static_pointer_cast<const Rational>(leaf)->value);
+                sum += std::static_pointer_cast<const Rational>(leaf)->value.get_d();
                 break;
             case ComplexType:
                 assert(false);
@@ -102,7 +101,7 @@ BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
 }
 
 
-BaseExpressionRef Plus(const ExpressionRef &expr) {
+BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) {
     switch (expr->_leaves.size()) {
         case 0:
             // Plus[] -> 0

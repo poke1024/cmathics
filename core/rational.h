@@ -8,19 +8,9 @@
 
 class Rational : public BaseExpression {
 public:
-    mpq_t value;
+    mpq_class value;
 
-    inline Rational(mpq_t new_value) {
-        mpq_init(value);
-        mpq_set(value, new_value);
-    }
-
-    virtual ~Rational() {
-        mpq_clear(value);
-    }
-
-    virtual Type type() const {
-        return RationalType;
+    inline Rational(const mpq_class &new_value) : BaseExpression(RationalType), value(new_value) {
     }
 
     virtual hash_t hash() const {
@@ -46,12 +36,12 @@ public:
 
     // copies denominator to a new Integer
     inline BaseExpressionRef numer() const {
-        return integer(mpq_numref(value));
+        return integer(value.get_num());
     }
 
     // copies numerator to a new Integer
     inline BaseExpressionRef denom() const {
-        return integer(mpq_denref(value));
+        return integer(value.get_den());
     }
 };
 
