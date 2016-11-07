@@ -21,8 +21,6 @@ int64_t Expression_height(BaseExpressionPtr expression) {
             }
             result++; // for this level
             break;
-        case RawExpressionType:
-            // TODO
         default:
             result = 1;
     }

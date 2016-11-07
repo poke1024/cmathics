@@ -19,6 +19,8 @@ class Match;
 typedef const BaseExpression* BaseExpressionPtr;
 typedef std::shared_ptr<const BaseExpression> BaseExpressionRef;
 
+typedef uint16_t TypeMask;
+
 inline const BaseExpressionRef *copy_leaves(const BaseExpressionRef *leaves, size_t n) {
     auto new_leaves = new BaseExpressionRef[n];
     for (size_t i = 0; i < n; i++) {
@@ -38,7 +40,9 @@ public:
     inline Extent(const BaseExpressionRef *leaves, size_t n) : _n(n), _leaves(copy_leaves(leaves, n)) {
     }
 
-    ~Extent();
+    inline ~Extent() {
+	    delete[] _leaves;
+    }
 
     inline const BaseExpressionRef &leaf(size_t i) const {
         return _leaves[i];
@@ -128,7 +132,8 @@ public:
     Slice apply(
         size_t begin,
         size_t end,
-        const F &f) const {
+        const F &f,
+        TypeMask mask) const {
 
 	    assert(_expr == nullptr);
 
@@ -138,6 +143,8 @@ public:
 
 	    auto leaves = _storage->_leaves;
 	    for (size_t i = begin; i < end; i++) {
+		    // FIXME check mask
+
 		    auto new_leaf = f(leaves[i]);
 
 		    if (new_leaf) { // copy is needed now
@@ -149,6 +156,8 @@ public:
 			    new_leaves.push_back(new_leaf); // leaves[i]
 
 			    for (size_t j = i + 1; j < end; j++) {
+				    // FIXME check mask
+
 				    auto old_leaf = leaves[j];
 				    new_leaf = f(old_leaf);
 				    if (new_leaf) {

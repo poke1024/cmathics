@@ -1,6 +1,31 @@
 #include "types.h"
 #include "pattern.h"
 
+const char *type_name(Type type) {
+    switch (type) {
+	    case MachineIntegerType:
+		    return "MachineInteger";
+	    case BigIntegerType:
+		    return "BigInteger";
+	    case MachineRealType:
+		    return "MachineReal";
+	    case BigRealType:
+		    return "BigReal";
+	    case RationalType:
+		    return "Rational";
+	    case ComplexType:
+		    return "Complex";
+	    case ExpressionType:
+		    return "Expression";
+	    case SymbolType:
+		    return "Symbol";
+	    case StringType:
+		    return "String";
+	    default:
+		    return "Unknown";
+    }
+}
+
 std::ostream &operator<<(std::ostream &s, const Match &m) {
     s << "Match<" << (m ? "true" : "false"); // << ", ";
     auto var = m.variables();

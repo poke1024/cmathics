@@ -6,7 +6,6 @@
 #include <functional>
 #include <vector>
 #include <cstdlib>
-
 #include "hash.h"
 #include "leaves.h"
 
@@ -19,11 +18,10 @@ enum Type {
     ComplexType,
     ExpressionType,
     SymbolType,
-    StringType,
-    RawExpressionType
+    StringType
 };
 
-typedef uint16_t TypeMask;
+const char *type_name(Type type);
 
 typedef int64_t machine_integer_t;
 typedef double machine_real_t;
@@ -227,11 +225,6 @@ public:
         throw std::runtime_error("not implemented yet");
     }
 };
-
-template<typename T>
-T to_value(const BaseExpressionRef &expr) {
-	assert(false);
-}
 
 inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
     if (expr) {

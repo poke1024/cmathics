@@ -3,10 +3,6 @@
 
 const Slice empty_slice = Slice(std::shared_ptr<Extent>(), nullptr, nullptr);
 
-Extent::~Extent() {
-    delete[] _leaves;
-}
-
 Slice Slice::slice(size_t begin, size_t end) const {
     assert(begin <= end);
 

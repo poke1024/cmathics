@@ -138,7 +138,8 @@ Slice Expression::evaluate_leaves(Evaluation &evaluation) const {
         eval_leaf_stop,
         [&evaluation](const BaseExpressionRef &leaf) {
             return leaf->evaluate(leaf, evaluation);
-        });
+        },
+        (1L << ExpressionType) | (1L << SymbolType));
 }
 
 BaseExpressionRef Expression::evaluate_values(ExpressionRef self, Evaluation &evaluation) const {
@@ -205,7 +206,8 @@ BaseExpressionRef Expression::replace_all(const Match &match) const {
 		_leaves.size(),
 		[&match](const BaseExpressionRef &leaf) {
 			return leaf->replace_all(match);
-		});
+		},
+		(1L << ExpressionType) | (1L << SymbolType));
 
 	if (new_head || new_leaves != _leaves) {
 		if (!new_head) {

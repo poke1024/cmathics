@@ -76,7 +76,7 @@ set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test_integer.cpp
     tests/test_rational.cpp
     tests/test_real.cpp
-    tests/test_string.cpp parser/tokeniser.cpp parser/tokeniser.h)
+    tests/test_string.cpp parser/tokeniser.cpp parser/tokeniser.h core/primitives.h)
 
 include_directories("$ENV{HOME}/googletest/googletest/include")
 link_directories("$ENV{HOME}/googletest/googletest/lib")

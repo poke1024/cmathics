@@ -11,6 +11,7 @@
 #include "arithmetic.h"
 #include "real.h"
 #include "rational.h"
+#include "primitives.h"
 
 
 // sums all integers in an expression
@@ -40,7 +41,7 @@ BaseExpressionRef add_Integers(const ExpressionRef &expr) {
         }
     }
 
-	return from_value(result);
+	return from_primitive(result);
 }
 
 
@@ -74,7 +75,6 @@ BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
             case ExpressionType:
             case SymbolType:
             case StringType:
-            case RawExpressionType:
                 symbolics.push_back(leaf);
                 break;
         }
@@ -90,11 +90,11 @@ BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
         // result = NULL;
     } else if (!symbolics.empty()) {
         // at least one symbolic
-        symbolics.push_back(from_value(sum));
+        symbolics.push_back(from_primitive(sum));
         result = expression(expr->_head, symbolics);
     } else {
         // no symbolics
-        result = from_value(sum);
+        result = from_primitive(sum);
     }
 
     return result;
@@ -105,7 +105,7 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
     switch (expr->_leaves.size()) {
         case 0:
             // Plus[] -> 0
-            return from_value(0LL);
+            return from_primitive(0LL);
 
         case 1:
             // Plus[a_] -> a
@@ -190,13 +190,15 @@ public:
 
 	template<typename T>
 	BaseExpressionRef compute() const {
-		const T imin = to_value<T>(_imin);
-		const T imax = to_value<T>(_imax);
-		const T di = to_value<T>(_di);
+		const T imin = to_primitive<T>(_imin);
+		const T imax = to_primitive<T>(_imax);
+		const T di = to_primitive<T>(_di);
+
+		// FIXME use PackedSlice
 
 		std::vector<BaseExpressionRef> leaves;
 		for (T x = imin; x <= imax; x += di) {
-			leaves.push_back(from_value(x));
+			leaves.push_back(from_primitive(x));
 		}
 
 		return expression(_evaluation.definitions.list(), leaves);

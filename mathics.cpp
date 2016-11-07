@@ -358,9 +358,9 @@ public:
         } else if (kind == _integer) {
             mpz_class x;
 	        o[1].as_integer(x);
-            return from_value(x);
+            return from_primitive(x);
         } else if (kind == _machine_real) {
-            return from_value(o[1].as_float());
+            return from_primitive(o[1].as_float());
         } else if (kind == _expression) {
             auto head = convert(o[1]);
             std::vector<BaseExpressionRef> leaves;
@@ -511,7 +511,7 @@ void pattern_test() {
         x, expression(definitions.lookup("System`Blank"), {})
     });
 
-    Match m1 = match(patt, from_value(7LL), definitions);
+    Match m1 = match(patt, from_primitive(7LL), definitions);
     std::cout << m1 << std::endl;
 
     patt = expression(definitions.lookup("System`Pattern"), {
@@ -519,7 +519,7 @@ void pattern_test() {
     });
 
     auto some_expr = expression(definitions.lookup("System`Sequence"), {
-		from_value(1LL), from_value(3LL)});
+		from_primitive(1LL), from_primitive(3LL)});
 
     Match m2 = match(patt, some_expr, definitions);
     std::cout << m2 << std::endl;
@@ -531,6 +531,10 @@ void mini_console() {
 
     std::cout << ">> ";
     for (std::string line; std::getline(std::cin, line);) {
+	    if (line.empty()) {
+		    break;
+	    }
+
         auto expr = runtime.parse(line.c_str());
 
         Evaluation evaluation(runtime.definitions(), true);
