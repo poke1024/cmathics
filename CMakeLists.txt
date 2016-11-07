@@ -31,6 +31,8 @@ else()
 endif()
 
 set(SOURCE_FILES
+    parser/tokeniser.cpp
+    parser/tokeniser.h
     core/arithmetic.cpp
     core/arithmetic.h
     core/definitions.cpp
@@ -58,7 +60,11 @@ set(SOURCE_FILES
     core/types.h
     core/types.cpp
     core/leaves.cpp
-    core/leaves.h)
+    core/leaves.h
+    core/primitives.h
+    core/builtin.h
+    core/symbol.h
+    core/matcher.h)
 
 add_custom_target(standalone)
 
@@ -76,7 +82,7 @@ set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test_integer.cpp
     tests/test_rational.cpp
     tests/test_real.cpp
-    tests/test_string.cpp parser/tokeniser.cpp parser/tokeniser.h core/primitives.h)
+    tests/test_string.cpp)
 
 include_directories("$ENV{HOME}/googletest/googletest/include")
 link_directories("$ENV{HOME}/googletest/googletest/lib")

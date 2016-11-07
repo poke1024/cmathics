@@ -15,14 +15,14 @@
 
 
 // sums all integers in an expression
-BaseExpressionRef add_Integers(const ExpressionRef &expr) {
+BaseExpressionRef add_Integers(const CoreExpressionRef &expr) {
 	mpz_class result(0);
 
     // XXX right now the entire computation is done with GMP. This is slower
     // than using machine precision arithmetic but simpler because we don't
     // need to handle overflow. Could be optimised.
 
-    for (auto leaf : expr->_leaves) {
+    for (auto leaf : *expr) {
         switch (leaf->type()) {
 	        case MachineIntegerType: {
 		        auto value = std::static_pointer_cast<const MachineInteger>(leaf)->value;
@@ -45,13 +45,13 @@ BaseExpressionRef add_Integers(const ExpressionRef &expr) {
 }
 
 
-BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
+BaseExpressionRef add_MachineInexact(const CoreExpressionRef &expr) {
     // create an array to store all the symbolic arguments which can't be evaluated.
     auto symbolics = std::vector<BaseExpressionRef>();
-    symbolics.reserve(expr->_leaves.size());
+    symbolics.reserve(expr->size());
 
     double sum = 0.0;
-    for (auto leaf : expr->_leaves) {
+    for (auto leaf : *expr) {
         auto type = leaf->type();
         switch(type) {
             case MachineIntegerType:
@@ -81,11 +81,11 @@ BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
     }
 
     // at least one non-symbolic
-    assert(symbolics.size() != expr->_leaves.size());
+    assert(symbolics.size() != expr->size());
 
     BaseExpressionRef result;
 
-    if (symbolics.size() == expr->_leaves.size() - 1) {
+    if (symbolics.size() == expr->size() - 1) {
         // one non-symbolic: nothing to do
         // result = NULL;
     } else if (!symbolics.empty()) {
@@ -101,20 +101,20 @@ BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
 }
 
 
-BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) {
-    switch (expr->_leaves.size()) {
+BaseExpressionRef Plus(const CoreExpressionRef &expr, const Evaluation &evaluation) {
+    switch (expr->size()) {
         case 0:
             // Plus[] -> 0
             return from_primitive(0LL);
 
         case 1:
             // Plus[a_] -> a
-            return expr->_leaves[0];
+            return expr->leaf(0);
     }
 
     // bit field to determine which types are present
 	TypeMask types_seen = 0;
-    for (auto leaf : expr->_leaves) {
+    for (auto leaf : *expr) {
         types_seen |= 1 << leaf->type();
     }
 

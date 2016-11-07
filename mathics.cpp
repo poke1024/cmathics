@@ -460,8 +460,8 @@ public:
             rule<1>(
                 "Most[x_List]",
                 [](const BaseExpressionRef &x, const Evaluation &evaluation) {
-                    auto list = std::static_pointer_cast<const Expression>(x);
-                    auto leaves = list->leaves();
+                    auto list = x->to_refs_expression(x);
+                    auto leaves = list->_leaves;
                     auto n = leaves.size();
                     return expression(list->head(), leaves.slice(0, n > 0 ? n - 1 : 0));
                 }

@@ -23,9 +23,9 @@ std::pair<int32_t,double> precision_of(const BaseExpressionRef &expr) {
         }
         case ExpressionType: {
             bool first_big = false;
-            const Expression *expr_expr = (const Expression *)expr.get();
+            const CoreExpression *expr_expr = (const CoreExpression *)expr.get();
             double result = 0.0;
-            for (auto leaf : expr_expr->_leaves) {
+            for (auto leaf : *expr_expr) {
                 auto r = precision_of(leaf);
                 auto ret_code = r.first;
                 auto leaf_result = r.second;

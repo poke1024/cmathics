@@ -11,7 +11,7 @@ Symbol::Symbol(Definitions *definitions, const char *name) :
 
     attributes.clear();
 
-    const auto empty_list = definitions->empty_list();
+    /*const auto empty_list = definitions->empty_list();
     own_values = empty_list;
     sub_values = empty_list;
     up_values = empty_list;
@@ -20,7 +20,7 @@ Symbol::Symbol(Definitions *definitions, const char *name) :
     format_values = empty_list;
     default_values = empty_list;
     messages = empty_list;
-    options = empty_list;
+    options = empty_list;*/
 }
 
 BaseExpressionRef Symbol::evaluate() {
@@ -53,7 +53,7 @@ BaseExpressionRef Symbol::replace_all(const Match &match) const {
 Definitions::Definitions() {
     // construct common `List[]` for bootstrapping
     auto list = new_symbol("System`List");
-    _empty_list = std::shared_ptr<Expression>(new Expression(list, {}));
+    _empty_list = expression(list, {});
 
     // add important system symbols
     auto sequence = std::make_shared<Sequence>(this);

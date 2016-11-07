@@ -137,13 +137,14 @@ bool Matcher::operator()(const Symbol *var, const BaseExpressionRef &pattern) co
 
 bool Matcher::descend() const {
     assert(_this_pattern->type() == ExpressionType);
-    auto patt_expr = std::static_pointer_cast<const Expression>(_this_pattern);
-    auto patt_sequence = patt_expr->leaves();
+    auto patt_expr = _this_pattern->to_refs_expression(_this_pattern);
+    auto patt_sequence = patt_expr->_leaves;
     auto patt_next = patt_sequence[0];
 
     assert(_sequence[0]->type() == ExpressionType);
-    auto item_expr = std::static_pointer_cast<const Expression>(_sequence[0]);
-    auto item_sequence = item_expr->leaves();
+    auto item_core_expr = _sequence[0];
+	auto item_expr = item_core_expr->to_refs_expression(item_core_expr);
+    auto item_sequence = item_expr->_leaves;
 
     const auto matcher = Matcher(_context, patt_next, patt_sequence.slice(1), item_sequence);
     if (patt_next->match_sequence(matcher)) {
@@ -154,7 +155,7 @@ bool Matcher::descend() const {
 }
 
 
-const Symbol *blank_head(ExpressionPtr patt) {
+const Symbol *blank_head(RefsExpressionPtr patt) {
     switch (patt->_leaves.size()) {
         case 0:
             return nullptr;

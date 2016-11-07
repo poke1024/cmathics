@@ -74,7 +74,7 @@ inline BaseExpressionRef from_primitive(machine_integer_t value) {
 inline BaseExpressionRef from_primitive(const mpz_class &value) {
 	static_assert(sizeof(long) == sizeof(machine_integer_t), "types long and machine_integer_t differ");
 	if (value.fits_slong_p()) {
-		return from_primitive(value.get_si());
+		return from_primitive(static_cast<machine_integer_t>(value.get_si()));
 	} else {
 		return std::make_shared<BigInteger>(value);
 	}

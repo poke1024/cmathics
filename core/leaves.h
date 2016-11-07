@@ -12,189 +12,349 @@
 #include <climits>
 #include <vector>
 
-class BaseExpression;
-class Expression;
+#include "primitives.h"
+
 class Match;
 
-typedef const BaseExpression* BaseExpressionPtr;
-typedef std::shared_ptr<const BaseExpression> BaseExpressionRef;
+class Operations {
+public:
+};
 
-typedef uint16_t TypeMask;
+template<typename T>
+class OperationsImplementation : public Operations {
+private:
+	const T &_container;
 
-inline const BaseExpressionRef *copy_leaves(const BaseExpressionRef *leaves, size_t n) {
-    auto new_leaves = new BaseExpressionRef[n];
-    for (size_t i = 0; i < n; i++) {
-        new_leaves[i] = leaves[i];
-    }
-    return new_leaves;
-}
+	template<typename V>
+	inline auto primitives() const {
+		return _container.template primitives<V>();
+	}
 
-class Extent {
-protected:
-    friend class Slice;
-
-    const BaseExpressionRef *_leaves;
-    const size_t _n;
+	inline auto leaves() const {
+		return _container.leaves();
+	}
 
 public:
-    inline Extent(const BaseExpressionRef *leaves, size_t n) : _n(n), _leaves(copy_leaves(leaves, n)) {
-    }
+	inline OperationsImplementation(const T &container) : _container(container) {
+	}
+};
 
-    inline ~Extent() {
-	    delete[] _leaves;
-    }
+template<typename U, typename I>
+class PointerCollection {
+private:
+	const U * const _data;
+	const size_t _size;
 
-    inline const BaseExpressionRef &leaf(size_t i) const {
-        return _leaves[i];
-    }
+public:
+	inline PointerCollection(const U *data, size_t size) : _data(data), _size(size) {
+	}
 
-    inline BaseExpressionPtr leaf_ptr(size_t i) const {
-        return _leaves[i].get();
-    }
+	inline I begin() const {
+		return I(_data);
+	}
+
+	inline I end() const {
+		return I(_data + _size);
+	}
+
+	inline auto operator[](size_t i) const {
+		return *I(_data + i);
+	}
+};
+
+template<typename T, typename F>
+class PointerIterator {
+private:
+	const T *_ptr;
+
+public:
+	inline PointerIterator() {
+	}
+
+	inline explicit PointerIterator(const T *ptr) : _ptr(ptr) {
+	}
+
+	inline auto operator*() const {
+		return F(*_ptr);
+	}
+
+	inline bool operator==(const PointerIterator<T, F> &other) const {
+		return _ptr == other._ptr;
+	}
+
+	inline bool operator!=(const PointerIterator<T, F> &other) const {
+		return _ptr != other._ptr;
+	}
+
+	inline PointerIterator<T, F> &operator++() {
+		_ptr += 1;
+		return *this;
+	}
+
+	inline PointerIterator<T, F> operator++(int) const {
+		return PointerIterator<T, F>(_ptr + 1);
+	}
 };
 
 class Slice {
-public: // private:
-    const std::shared_ptr<Extent> _storage;
-    const BaseExpressionRef _expr;
-    const BaseExpressionRef * const _begin;
-    const BaseExpressionRef * const _end;
+protected:
+	const size_t _size;
 
 public:
-    inline explicit Slice() : _begin(nullptr), _end(nullptr) {
-    }
+	inline Slice(size_t size) : _size(size) {
+	}
 
-    // copy leaves. Leaves takes ownership of the BaseExpression instances in leaves and will delete them.
-    inline Slice(const BaseExpressionRef* leaves, size_t n) :
-        _storage(std::make_shared<Extent>(leaves, n)),
-        _begin(_storage->_leaves),
-        _end(_begin + n) {
-    }
+	inline size_t size() const {
+		return _size;
+	}
+};
 
-    // refer to the leaves of an already existing storage.
-    inline Slice(const std::shared_ptr<Extent> &storage) :
-        _storage(storage),
-        _begin(_storage->_leaves),
-        _end(_begin + _storage->_n) {
-    }
+template<typename U>
+class PackExtent {
+private:
+	const std::vector<U> _data;
 
-    // refer to a slice of an already existing storage.
-    inline Slice(
-        const std::shared_ptr<Extent> &storage,
-        const BaseExpressionRef * const begin,
-        const BaseExpressionRef * const end) :
+public:
+	typedef std::shared_ptr<PackExtent<U>> Ref;
 
-        _storage(storage),
-        _begin(begin),
-        _end(end) {
-    }
+	inline explicit PackExtent(const std::vector<U> &data) : _data(data) {
+	}
 
-    inline Slice(const Slice& slice) :
-        _storage(slice._storage),
-        _expr(slice._expr),
-        _begin(_expr ? &_expr : slice._begin),
-        _end(_expr ? _begin + 1 : slice._end) {
-    }
+	inline explicit PackExtent(std::vector<U> &&data) : _data(data) {
+	}
 
-    inline Slice(const BaseExpressionRef &expr) :
-        _expr(expr),
-        _begin(&_expr),
-        _end(_begin + 1) {
-        // special case for Leaves with exactly one element. happens extensively during
-        // evaluation when we pattern match rules, so it's very useful to optimize this.
-    }
+	inline const U *address(size_t index) {
+		return &_data[index];
+	}
+};
 
-    inline operator bool() const {
-        return _begin;
-    }
+template<typename U>
+class PackSlice : public Slice, public OperationsImplementation<PackSlice<U>> {
+private:
+	typename PackExtent<U>::Ref _extent;
+	const size_t _offset;
 
-    inline const BaseExpressionRef &leaf(size_t i) const {
-        return _begin[i];
-    }
+public:
+	template<typename V>
+	using PrimitiveIterator = PointerIterator<U, V>;
 
-    inline BaseExpressionPtr leaf_ptr(size_t i) const {
-        return _begin[i].get();
-    }
+	template<typename V>
+	using PrimitiveCollection = PointerCollection<U, PrimitiveIterator<V>>;
 
-    inline bool operator==(const Slice &slice) const {
-        if (_expr) {
-            return _expr == slice._expr;
-        } else {
-            return _begin == slice._begin && _end == slice._end;
-        }
-    }
+public:
+	class leaf {
+	private:
+		const U &_u;
+	public:
+		inline leaf(const U &u) : _u(u) {
+		}
 
-	inline bool operator!=(const Slice &slice) const {
+		inline operator BaseExpressionRef() const {
+			return from_primitive(_u);
+		}
+	};
+
+	using LeafIterator = PointerIterator<U, leaf>;
+
+	using LeafCollection = PointerCollection<U, LeafIterator>;
+
+public:
+	inline PackSlice(const typename PackExtent<U>::Ref &extent, size_t offset, size_t size) :
+		_extent(extent), _offset(offset), Slice(size), OperationsImplementation<PackSlice<U>>(*this) {
+	}
+
+	template<typename V>
+	PrimitiveCollection<V> primitives() const {
+		return PrimitiveCollection<V>(_extent->address(_offset), _size);
+	}
+
+	LeafCollection leaves() const {
+		return LeafCollection(_extent->address(_offset), _size);
+	}
+};
+
+class RefsExtent {
+private:
+	const std::vector<BaseExpressionRef> _data;
+
+public:
+	typedef std::shared_ptr<RefsExtent> Ref;
+
+	inline explicit RefsExtent(const std::vector<BaseExpressionRef> &data) : _data(data) {
+	}
+
+	inline explicit RefsExtent(std::vector<BaseExpressionRef> &&data) : _data(data) {
+	}
+
+	inline explicit RefsExtent(const std::initializer_list<BaseExpressionRef> &data) : _data(data) {
+	}
+
+	inline const BaseExpressionRef *address() const {
+		return &_data[0];
+	}
+
+	inline size_t size() const {
+		return _data.size();
+	}
+};
+
+class RefsSlice : public Slice, public OperationsImplementation<RefsSlice> {
+private:
+	typename RefsExtent::Ref _extent;
+	const BaseExpressionRef _expr;
+	const BaseExpressionRef * const _begin;
+
+public:
+	template<typename V>
+	class primitive {
+	private:
+		const BaseExpressionRef &_u;
+	public:
+		inline primitive(const BaseExpressionRef &u) : _u(u) {
+		}
+
+		inline operator V() const {
+			return to_primitive<V>(_u);
+		}
+	};
+
+	template<typename V>
+	using PrimitiveIterator = PointerIterator<BaseExpressionRef, primitive<V>>;
+
+	template<typename V>
+	using PrimitiveCollection = PointerCollection<BaseExpressionRef, PrimitiveIterator<V>>;
+
+public:
+	using LeafCollection = PointerCollection<BaseExpressionRef, BaseExpressionRef*>;
+
+public:
+	template<typename V>
+	PrimitiveCollection<V> primitives() const {
+		return PrimitiveCollection<V>(_begin, _size);
+	}
+
+	LeafCollection leaves() const {
+		return LeafCollection(_begin, _size);
+	}
+
+public:
+	inline RefsSlice() :
+		_begin(nullptr), Slice(0), OperationsImplementation<RefsSlice>(*this) {
+	}
+
+	inline RefsSlice(const std::vector<BaseExpressionRef> &data) :
+		_extent(std::make_shared<RefsExtent>(data)), _begin(_extent->address()), Slice(data.size()),
+		OperationsImplementation<RefsSlice>(*this) {
+	}
+
+	inline RefsSlice(std::vector<BaseExpressionRef> &&data) :
+		_extent(std::make_shared<RefsExtent>(data)), _begin(_extent->address()), Slice(data.size()),
+		OperationsImplementation<RefsSlice>(*this) {
+	}
+
+	inline RefsSlice(const std::initializer_list<BaseExpressionRef> &data) :
+		_extent(std::make_shared<RefsExtent>(data)), _begin(_extent->address()), Slice(data.size()),
+		OperationsImplementation<RefsSlice>(*this) {
+	}
+
+	inline RefsSlice(const typename RefsExtent::Ref &extent,
+		const BaseExpressionRef * const begin, const BaseExpressionRef * const end) :
+		_extent(extent), _begin(begin), Slice(end - begin),
+		OperationsImplementation<RefsSlice>(*this) {
+	}
+
+	inline RefsSlice(const RefsSlice &slice) :
+		_extent(slice._extent), _expr(slice._expr),
+		_begin(_expr ? &_expr : slice._begin), Slice(slice._size),
+		OperationsImplementation<RefsSlice>(*this) {
+	}
+
+	inline RefsSlice(const BaseExpressionRef &expr) :
+		_expr(expr), _begin(&_expr), Slice(1),
+		OperationsImplementation<RefsSlice>(*this) {
+		// special case for Slices with exactly one element. happens extensively during
+		// evaluation when we pattern match rules, so it's very useful to optimize this.
+	}
+
+	inline operator bool() const {
+		return _begin;
+	}
+
+	inline bool operator==(const RefsSlice &slice) const {
+		if (_expr) {
+			return _expr == slice._expr;
+		} else {
+			return _begin == slice._begin && _size == slice._size;
+		}
+	}
+
+	inline bool operator!=(const RefsSlice &slice) const {
 		return !(*this == slice);
 	}
 
+	RefsSlice slice(size_t begin, size_t end = SIZE_T_MAX) const;
+
 	template<typename F>
-    Slice apply(
-        size_t begin,
-        size_t end,
-        const F &f,
-        TypeMask mask) const {
+	RefsSlice apply(
+			size_t begin,
+			size_t end,
+			const F &f,
+			TypeMask mask) const {
 
-	    assert(_expr == nullptr);
+		assert(_expr == nullptr);
 
-	    if (_storage.use_count() == 1) {
-		    // FIXME. optimize this case. we do not need to copy here.
-	    }
+		if (_extent.use_count() == 1) {
+			// FIXME. optimize this case. we do not need to copy here.
+		}
 
-	    auto leaves = _storage->_leaves;
-	    for (size_t i = begin; i < end; i++) {
-		    // FIXME check mask
+		auto leaves = _extent->address();
+		for (size_t i = begin; i < end; i++) {
+			// FIXME check mask
 
-		    auto new_leaf = f(leaves[i]);
+			auto new_leaf = f(leaves[i]);
 
-		    if (new_leaf) { // copy is needed now
-			    std::vector<BaseExpressionRef> new_leaves;
-			    new_leaves.reserve(_end - _begin);
+			if (new_leaf) { // copy is needed now
+				std::vector<BaseExpressionRef> new_leaves;
+				new_leaves.reserve(_size);
 
-			    new_leaves.insert(new_leaves.end(), &leaves[0], &leaves[i]);
+				new_leaves.insert(new_leaves.end(), &leaves[0], &leaves[i]);
 
-			    new_leaves.push_back(new_leaf); // leaves[i]
+				new_leaves.push_back(new_leaf); // leaves[i]
 
-			    for (size_t j = i + 1; j < end; j++) {
-				    // FIXME check mask
+				for (size_t j = i + 1; j < end; j++) {
+					// FIXME check mask
 
-				    auto old_leaf = leaves[j];
-				    new_leaf = f(old_leaf);
-				    if (new_leaf) {
-					    new_leaves.push_back(new_leaf);
-				    } else {
-					    new_leaves.push_back(old_leaf);
-				    }
-			    }
+					auto old_leaf = leaves[j];
+					new_leaf = f(old_leaf);
+					if (new_leaf) {
+						new_leaves.push_back(new_leaf);
+					} else {
+						new_leaves.push_back(old_leaf);
+					}
+				}
 
-			    new_leaves.insert(new_leaves.end(), &leaves[end], &leaves[_end - _begin]);
+				new_leaves.insert(new_leaves.end(), &leaves[end], &leaves[_size]);
 
-			    return Slice(std::make_shared<Extent>(&new_leaves[0], new_leaves.size()));
-		    }
-	    }
+				return RefsSlice(std::move(new_leaves));
+			}
+		}
 
-	    return *this;
-    }
+		return *this;
+	}
 
-    Slice slice(size_t begin, size_t end = SIZE_T_MAX) const;
+	inline const BaseExpressionRef *begin() const {
+		return _begin;
+	}
 
-    inline size_t size() const {
-        return _end - _begin;
-    }
+	inline const BaseExpressionRef *end() const {
+		return _begin + _size;
+	}
 
-    inline const BaseExpressionRef *begin() const {
-        return _begin;
-    }
-
-    inline const BaseExpressionRef *end() const {
-        return _end;
-    }
-
-    inline BaseExpressionRef operator[](size_t i) const {
-        return _begin[i];
-    }
+	inline const BaseExpressionRef &operator[](size_t i) const {
+		return _begin[i];
+	}
 };
 
-extern const Slice empty_slice;
+extern const RefsSlice empty_slice;
 
 #endif //CMATHICS_LEAVES_H

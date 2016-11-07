@@ -3,7 +3,7 @@
 #include "misc.h"
 
 int64_t Expression_height(BaseExpressionPtr expression) {
-    int64_t result;
+    /*int64_t result;
     uint32_t leaf_height;
     int64_t i;
     Expression* nexpression;
@@ -24,5 +24,6 @@ int64_t Expression_height(BaseExpressionPtr expression) {
         default:
             result = 1;
     }
-    return result;
+    return result;*/
+    return 0;
 }

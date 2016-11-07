@@ -7,7 +7,10 @@
 #include <vector>
 #include <cstdlib>
 #include "hash.h"
-#include "leaves.h"
+
+class BaseExpression;
+typedef const BaseExpression* BaseExpressionPtr;
+typedef std::shared_ptr<const BaseExpression> BaseExpressionRef;
 
 enum Type {
     MachineIntegerType,
@@ -20,6 +23,8 @@ enum Type {
     SymbolType,
     StringType
 };
+
+typedef uint16_t TypeMask;
 
 const char *type_name(Type type);
 
@@ -132,10 +137,17 @@ std::ostream &operator<<(std::ostream &s, const Match &m);
 
 class Matcher;
 
-class Expression;
+class CoreExpression;
+typedef std::shared_ptr<const CoreExpression> CoreExpressionRef;
+typedef const CoreExpression *CoreExpressionPtr;
 
-typedef std::shared_ptr<const Expression> ExpressionRef;
-typedef const Expression *ExpressionPtr;
+template<typename S>
+class Expression;
+class RefsSlice;
+typedef const Expression<RefsSlice> RefsExpression;
+typedef const RefsExpression* RefsExpressionPtr;
+typedef std::shared_ptr<const RefsExpression> RefsExpressionRef;
+
 
 class Symbol;
 
@@ -207,13 +219,13 @@ public:
 
     virtual bool match_sequence(const Matcher &matcher) const;
 
-    virtual bool match_sequence_with_head(ExpressionPtr patt, const Matcher &matcher) const;
+    virtual bool match_sequence_with_head(RefsExpressionPtr patt, const Matcher &matcher) const;
 
     virtual match_sizes_t match_num_args() const {
         return std::make_tuple(1, 1); // default
     }
 
-    virtual match_sizes_t match_num_args_with_head(ExpressionPtr patt) const {
+    virtual match_sizes_t match_num_args_with_head(RefsExpressionPtr patt) const {
         return std::make_tuple(1, 1); // default for non-symbol heads
     }
 
@@ -224,6 +236,10 @@ public:
     virtual BaseExpressionRef clone() const {
         throw std::runtime_error("not implemented yet");
     }
+
+	virtual RefsExpressionRef to_refs_expression(BaseExpressionRef self) const {
+		throw std::runtime_error("cannot create refs expression");
+	}
 };
 
 inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
@@ -233,6 +249,80 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
         //s << "(no expression)";
     }
     return s;
+}
+
+class CoreExpressionIterator;
+
+class CoreExpression : public BaseExpression {
+public:
+	const BaseExpressionRef _head;
+
+	inline CoreExpression(const BaseExpressionRef &head) : BaseExpression(ExpressionType), _head(head) {
+	}
+
+	// virtual const Operations &operations() const = 0;
+
+	virtual size_t size() const = 0;
+
+	virtual BaseExpressionRef leaf(size_t i) const = 0;
+
+	inline CoreExpressionIterator begin() const;
+
+	inline CoreExpressionIterator end() const;
+
+	virtual BaseExpressionRef head() const {
+		return _head;
+	}
+
+	virtual BaseExpressionPtr head_ptr() const {
+		return _head.get();
+	}
+
+	virtual bool is_sequence() const {
+		return _head->is_symbol_sequence();
+	}
+};
+
+class CoreExpressionIterator {
+private:
+	const CoreExpression * const _expr;
+	size_t _pos;
+
+public:
+	inline CoreExpressionIterator() : _expr(nullptr) {
+	}
+
+	inline explicit CoreExpressionIterator(const CoreExpression *expr, size_t pos) : _expr(expr), _pos(pos) {
+	}
+
+	inline auto operator*() const {
+		return _expr->leaf(_pos);
+	}
+
+	inline bool operator==(const CoreExpressionIterator &other) const {
+		return _expr == other._expr && _pos == other._pos;
+	}
+
+	inline bool operator!=(const CoreExpressionIterator &other) const {
+		return _expr != other._expr || _pos != other._pos;
+	}
+
+	inline CoreExpressionIterator &operator++() {
+		_pos += 1;
+		return *this;
+	}
+
+	inline CoreExpressionIterator operator++(int) const {
+		return CoreExpressionIterator(_expr, _pos + 1);
+	}
+};
+
+inline CoreExpressionIterator CoreExpression::begin() const {
+	return CoreExpressionIterator(this, 0);
+}
+
+inline CoreExpressionIterator CoreExpression::end() const {
+	return CoreExpressionIterator(this, size());
 }
 
 #endif
