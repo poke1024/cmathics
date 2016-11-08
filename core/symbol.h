@@ -6,43 +6,57 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <bitset>
 
-// c functions used for builtin evaluation
-typedef std::function<BaseExpressionRef(const ExpressionRef &)> rule_function;
+typedef uint32_t attributes_bitmask_t;
 
-struct Attributes {
+enum class Attributes : attributes_bitmask_t {
+	None = 0,
 	// pattern matching attributes
-	unsigned int is_orderless: 1;
-	unsigned int is_flat: 1;
-	unsigned int is_oneidentity: 1;
-	unsigned int is_listable: 1;
+	Orderless = 1 << 0,
+	Flat = 1 << 1,
+	OneIdentity = 1 << 2,
+	Listable = 1 << 3,
 	// calculus attributes
-	unsigned int is_constant: 1;
-	unsigned int is_numericfunction: 1;
+	Constant = 1 << 4,
+	NumericFunction = 1 << 5,
 	// rw attributes
-	unsigned int is_protected: 1;
-	unsigned int is_locked: 1;
-	unsigned int is_readprotected: 1;
+	Protected = 1 << 6,
+	Locked = 1 << 7,
+	ReadProtected = 1 << 8,
 	// evaluation hold attributes
-	unsigned int is_holdfirst: 1;
-	unsigned int is_holdrest: 1;
-	unsigned int is_holdall: 1;
-	unsigned int is_holdallcomplete: 1;
+	HoldFirst = 1 << 9,
+	HoldRest = 1 << 10,
+	HoldAll = 1 << 11,
+	HoldAllComplete = 1 << 12,
 	// evaluation nhold attributes
-	unsigned int is_nholdfirst: 1;
-	unsigned int is_nholdrest: 1;
-	unsigned int is_nholdall: 1;
+	NHoldFirst = 1 << 13,
+	NHholdRest = 1 << 14,
+	NHoldAll = 1 << 15,
 	// misc attributes
-	unsigned int is_sequencehold: 1;
-	unsigned int is_temporary: 1;
-	unsigned int is_stub: 1;
-
-	inline void clear() {
-		memset(this, 0, sizeof(*this));
-	}
+	SequenceHold = 1 << 16,
+	Temporary = 1 << 17,
+	Stub = 1 << 18
 };
 
-typedef std::function<BaseExpressionRef(const ExpressionRef &expr, Evaluation &evaluation)> Rule;
+inline bool
+operator&(Attributes x, Attributes y)  {
+	return (static_cast<attributes_bitmask_t>(x) & static_cast<attributes_bitmask_t>(y)) != 0;
+}
+
+inline size_t
+count(Attributes x, Attributes y) {
+	std::bitset<sizeof(attributes_bitmask_t) * 8> bits(
+		static_cast<attributes_bitmask_t>(x) & static_cast<attributes_bitmask_t>(y));
+	return bits.count();
+}
+
+inline constexpr Attributes
+operator+(Attributes x, Attributes y)  {
+	return static_cast<Attributes>(static_cast<attributes_bitmask_t>(x) & static_cast<attributes_bitmask_t>(y));
+}
+
+typedef std::function<BaseExpressionRef(const ExpressionRef &expr, const Evaluation &evaluation)> Rule;
 
 typedef std::vector<Rule> Rules;
 
@@ -136,6 +150,10 @@ public:
 
 	inline const Symbol *linked_variable() const {
 		return _linked_variable;
+	}
+
+	inline void set_attributes(Attributes a) {
+		attributes = a;
 	}
 };
 

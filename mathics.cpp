@@ -437,9 +437,10 @@ public:
         return _parser.parse(s);
     }
 
-    void add(const char *name, const std::initializer_list<Rule> &rules) {
+    void add(const char *name, Attributes attributes, const std::initializer_list<Rule> &rules) {
         std::string full_down = std::string("System`") + name;
         SymbolRef symbol = _definitions.lookup(full_down.c_str());
+		symbol->set_attributes(attributes);
         for (auto rule : rules) {
             symbol->add_down_rule(rule);
         }
@@ -455,39 +456,60 @@ public:
 	}
 
     void initialize() {
-        add("Plus", {
+        add("Plus",
+            Attributes::None, {
             Plus
         });
 
-        add("Apply", {
-            rule<2>(
-                "Apply[f_, x_]",
-                [](const BaseExpressionRef &f, const BaseExpressionRef &x, const Evaluation &evaluation) {
-                    if (x->type() != ExpressionType) {
-                        throw std::runtime_error("expected Expression at position 2");
-                    }
-                    return x->clone(f);
-                }
-            )
+        add("Apply",
+            Attributes::None, {
+	            rule<2>(
+	                "Apply[f_, x_]",
+	                [](const BaseExpressionRef &f, const BaseExpressionRef &x, const Evaluation &evaluation) {
+	                    if (x->type() != ExpressionType) {
+	                        throw std::runtime_error("expected Expression at position 2");
+	                    }
+	                    return x->clone(f);
+	                }
+	            )
         });
 
-        add("Most", {
-            rule<1>(
-                "Most[x_List]",
-                [](const BaseExpressionRef &x, const Evaluation &evaluation) {
-                    auto list = std::static_pointer_cast<const Expression>(x);
-                    return list->slice(0, -1);
-                }
-            )
+        add("Most",
+            Attributes::None, {
+	            rule<1>(
+	                "Most[x_List]",
+	                [](const BaseExpressionRef &x, const Evaluation &evaluation) {
+	                    auto list = std::static_pointer_cast<const Expression>(x);
+	                    return list->slice(0, -1);
+	                }
+	            )
         });
 
-        add("Range", {
-	        rewrite("Range[imax_]", "Range[1, imax, 1]"),
-	        rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]"),
-            rule<3>(
-                "Range[imin_, imax_, di_]",
-                Range
-            )
+        add("Range",
+            Attributes::None, {
+		        rewrite("Range[imax_]", "Range[1, imax, 1]"),
+		        rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]"),
+	            rule<3>(
+	                "Range[imin_, imax_, di_]",
+	                Range
+	            )
+        });
+
+	    add("Timing",
+	        Attributes::HoldAll, {
+		        rule<1>(
+				    "Timing[expr_]",
+				    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
+					    const auto list_symbol = evaluation.definitions.list();
+					    const auto start_time = std::chrono::steady_clock::now();
+					    const auto evaluated = expr->evaluate(expr, evaluation);
+					    const auto end_time = std::chrono::steady_clock::now();
+					    const auto microseconds = std::chrono::duration_cast<
+						    std::chrono::microseconds>(end_time - start_time).count();
+					    return expression(list_symbol, {
+							from_primitive(double(microseconds) / 1000000.0), evaluated});
+				    }
+		        )
         });
     }
 };

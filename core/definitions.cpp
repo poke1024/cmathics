@@ -5,11 +5,9 @@
 #include "pattern.h"
 
 Symbol::Symbol(Definitions *definitions, const char *name) :
-    BaseExpression(SymbolType), _name(name), _linked_variable(nullptr) {
+    BaseExpression(SymbolType), _name(name), _linked_variable(nullptr), attributes(Attributes::None) {
 
 	// initialise a definition entry
-
-    attributes.clear();
 
     /*const auto empty_list = definitions->empty_list();
     own_values = empty_list;

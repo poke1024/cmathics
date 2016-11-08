@@ -46,7 +46,7 @@ public:
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const;
 
-	ExpressionRef evaluate_head_and_leaves(Evaluation &evaluation) const {
+	ExpressionRef evaluate_head_and_leaves(const Evaluation &evaluation) const {
 		// Evaluate the head
 
 		auto head = _head;
@@ -70,27 +70,29 @@ public:
 			}
 		}
 
-		const auto head_symbol = (Symbol*)head.get();
+		const auto head_symbol = static_cast<const Symbol*>(head.get());
+		const auto attributes = head_symbol->attributes;
 
 		// only one type of Hold attribute can be set at a time
-		assert(head_symbol->attributes.is_holdfirst +
-		       head_symbol->attributes.is_holdrest +
-		       head_symbol->attributes.is_holdall +
-		       head_symbol->attributes.is_holdallcomplete <= 1);
+		assert(count(attributes,
+		    Attributes::HoldFirst +
+		    Attributes::HoldRest +
+		    Attributes::HoldAll +
+		    Attributes::HoldAllComplete) <= 1);
 
 		size_t eval_leaf_start, eval_leaf_stop;
 
-		if (head_symbol->attributes.is_holdfirst) {
+		if (attributes & Attributes::HoldFirst) {
 			eval_leaf_start = 1;
 			eval_leaf_stop = _leaves.size();
-		} else if (head_symbol->attributes.is_holdrest) {
+		} else if (attributes & Attributes::HoldRest) {
 			eval_leaf_start = 0;
 			eval_leaf_stop = 1;
-		} else if (head_symbol->attributes.is_holdall) {
+		} else if (attributes & Attributes::HoldAll) {
 			// TODO flatten sequences
 			eval_leaf_start = 0;
 			eval_leaf_stop = 0;
-		} else if (head_symbol->attributes.is_holdallcomplete) {
+		} else if (attributes & Attributes::HoldAllComplete) {
 			// no more evaluation is applied
 			if (head != _head) {
 				return std::make_shared<ExpressionImplementation<Slice>>(head, _leaves);
@@ -116,7 +118,7 @@ public:
 			(1L << ExpressionType) | (1L << SymbolType));
 	}
 
-	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, Evaluation &evaluation) const {
+	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const {
 		const auto head = _head;
 
 		// Step 3
@@ -227,7 +229,7 @@ public:
 		return result.str();
 	}
 
-	virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, Evaluation &evaluation) const {
+	virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, const Evaluation &evaluation) const {
 		BaseExpressionRef expr = self;
 		while (true) {
 			BaseExpressionRef evaluated = expr->evaluate_once(expr, evaluation);
@@ -237,10 +239,10 @@ public:
 				break;
 			}
 		}
-		return expr;
+		return expr == self ? BaseExpressionRef() : expr;
 	}
 
-	virtual BaseExpressionRef evaluate_once(const BaseExpressionRef &self, Evaluation &evaluation) const {
+	virtual BaseExpressionRef evaluate_once(const BaseExpressionRef &self, const Evaluation &evaluation) const {
 		// returns empty BaseExpressionRef() if nothing changed
 
 		// Step 1, 2

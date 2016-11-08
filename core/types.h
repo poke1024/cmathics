@@ -194,11 +194,11 @@ public:
 
     virtual std::string fullform() const = 0;
 
-    virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, Evaluation &evaluation) const {
+    virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, const Evaluation &evaluation) const {
         return BaseExpressionRef(); // atomic expressions remain unchanged
     }
 
-    virtual BaseExpressionRef evaluate_once(const BaseExpressionRef &self, Evaluation &evaluation) const {
+    virtual BaseExpressionRef evaluate_once(const BaseExpressionRef &self, const Evaluation &evaluation) const {
         return BaseExpressionRef(); // atomic expressions remain unchanged
     }
 
@@ -293,7 +293,7 @@ public:
 		return _head->is_symbol_sequence();
 	}
 
-	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, Evaluation &evaluation) const = 0;
+	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
 
