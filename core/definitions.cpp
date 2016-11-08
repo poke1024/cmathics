@@ -53,7 +53,7 @@ BaseExpressionRef Symbol::replace_all(const Match &match) const {
 Definitions::Definitions() {
     // construct common `List[]` for bootstrapping
     auto list = new_symbol("System`List");
-    _empty_list = expression(list, {});
+    _empty_list = std::make_shared<RefsExpression>(list, RefsSlice({}, 0));
 
     // add important system symbols
     auto sequence = std::make_shared<Sequence>(this);

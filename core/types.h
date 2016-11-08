@@ -282,6 +282,8 @@ public:
 	}
 
 	virtual BaseExpressionRef evaluate_values(const CoreExpressionRef &self, Evaluation &evaluation) const = 0;
+
+	virtual CoreExpressionRef slice(size_t begin, size_t end = SIZE_T_MAX) const = 0;
 };
 
 class CoreExpressionIterator {

@@ -20,6 +20,8 @@ public:
 		const F &f,
 		TypeMask mask) const;
 
+	virtual CoreExpressionRef slice(size_t begin, size_t end = SIZE_T_MAX) const;
+
 	BaseExpressionRef evaluate_head(Evaluation &evaluation) const {
 		// Evaluate the head
 
@@ -210,7 +212,7 @@ public:
 		if (step2) {
 			return step2->evaluate_values(step2, evaluation);
 		} else {
-			const auto expr = std::static_pointer_cast<const Expression>(self);
+			const auto expr = std::static_pointer_cast<const CoreExpression>(self);
 			return evaluate_values(expr, evaluation);
 		}
 	}
@@ -240,14 +242,8 @@ public:
         return _head->match_num_args_with_head(this);
     }
 
-	virtual RefsExpressionRef to_refs_expression(BaseExpressionRef self) const {
-		return std::static_pointer_cast<const RefsExpression>(self);
-	}
+	virtual RefsExpressionRef to_refs_expression(BaseExpressionRef self) const;
 };
-
-inline RefsExpressionRef expression(const BaseExpressionRef &head, const RefsSlice &slice) {
-    return std::make_shared<Expression<RefsSlice>>(head, slice);
-}
 
 template<typename U>
 using PackExpressionRef = std::shared_ptr<Expression<PackSlice<U>>>;
@@ -255,6 +251,54 @@ using PackExpressionRef = std::shared_ptr<Expression<PackSlice<U>>>;
 template<typename U>
 inline PackExpressionRef<U> expression(const BaseExpressionRef &head, const PackSlice<U> &slice) {
     return std::make_shared<Expression<PackSlice<U>>>(head, slice);
+}
+
+template<typename T>
+TypeMask calc_type_mask(const T &container) {
+	TypeMask mask = 0;
+	for (auto leaf : container) {
+		mask |= 1L << leaf->type();
+	}
+	return mask;
+}
+
+template<typename E, typename T>
+std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
+	std::vector<T> values;
+	values.reserve(leaves.size());
+	for (auto leaf : leaves) {
+		values.push_back(std::static_pointer_cast<const E>(leaf)->value);
+	}
+	return values;
+}
+
+template<typename T>
+inline CoreExpressionRef make_expression(const BaseExpressionRef &head, T leaves) {
+	auto type_mask = calc_type_mask(leaves);
+	switch (type_mask) {
+		case 1L << MachineIntegerType:
+			return expression(head, PackSlice<machine_integer_t>(
+				collect<MachineInteger, machine_integer_t>(leaves)));
+		default:
+			return std::make_shared<Expression<RefsSlice>>(
+				head, RefsSlice(leaves, type_mask));
+	}
+}
+
+inline CoreExpressionRef expression(const BaseExpressionRef &head, std::vector<BaseExpressionRef> &&leaves) {
+	return make_expression<std::vector<BaseExpressionRef>>(head, leaves);
+}
+
+inline CoreExpressionRef expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
+	return make_expression<const std::vector<BaseExpressionRef>>(head, leaves);
+}
+
+inline CoreExpressionRef expression(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves) {
+	return make_expression<const std::initializer_list<BaseExpressionRef>>(head, leaves);
+}
+
+inline CoreExpressionRef expression(const BaseExpressionRef &head, const RefsSlice &slice) {
+	return std::make_shared<Expression<RefsSlice>>(head, slice);
 }
 
 template<typename Slice>
@@ -316,5 +360,38 @@ CoreExpressionRef Expression<Slice>::apply(
 	}
 }
 
+template<typename Slice>
+CoreExpressionRef Expression<Slice>::slice(size_t begin, size_t end) const {
+	return expression(_head, _leaves.slice(begin, end));
+}
+
+template<typename Slice>
+class ToRefsExpression {
+public:
+	static inline RefsExpressionRef convert(
+		const BaseExpressionRef &expr, const BaseExpressionRef &head, const Slice &slice) {
+		std::vector<BaseExpressionRef> leaves;
+		TypeMask type_mask = 0;
+		for (auto leaf : slice) {
+			type_mask |= 1L << leaf->type();
+			leaves.push_back(leaf);
+		}
+		return std::make_shared<RefsExpression>(head, RefsSlice(std::move(leaves), type_mask));
+	}
+};
+
+template<>
+class ToRefsExpression<RefsSlice> {
+public:
+	static inline RefsExpressionRef convert(
+		const BaseExpressionRef &expr, const BaseExpressionRef &head, const RefsSlice &slice) {
+		return std::static_pointer_cast<const RefsExpression>(expr);
+	}
+};
+
+template<typename Slice>
+RefsExpressionRef Expression<Slice>::to_refs_expression(BaseExpressionRef self) const {
+	return ToRefsExpression<Slice>::convert(self, _head, _leaves);
+}
 
 #endif
