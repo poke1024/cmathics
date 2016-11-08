@@ -26,6 +26,9 @@ enum Type {
 
 typedef uint16_t TypeMask;
 
+typedef int64_t index_t; // may be negative as well
+constexpr index_t INDEX_MAX = INT64_MAX;
+
 const char *type_name(Type type);
 
 typedef int64_t machine_integer_t;
@@ -239,6 +242,10 @@ public:
         throw std::runtime_error("not implemented yet");
     }
 
+	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const {
+		throw std::runtime_error("cannot clone with head");
+	}
+
 	virtual RefsExpressionRef to_refs_expression(BaseExpressionRef self) const {
 		throw std::runtime_error("cannot create refs expression");
 	}
@@ -288,7 +295,7 @@ public:
 
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, Evaluation &evaluation) const = 0;
 
-	virtual ExpressionRef slice(size_t begin, size_t end = SIZE_T_MAX) const = 0;
+	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
 
     virtual const OperationsInterface &operations() const = 0;
 };

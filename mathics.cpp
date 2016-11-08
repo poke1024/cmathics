@@ -459,13 +459,24 @@ public:
             Plus
         });
 
+        add("Apply", {
+            rule<2>(
+                "Apply[f_, x_]",
+                [](const BaseExpressionRef &f, const BaseExpressionRef &x, const Evaluation &evaluation) {
+                    if (x->type() != ExpressionType) {
+                        throw std::runtime_error("expected Expression at position 2");
+                    }
+                    return x->clone(f);
+                }
+            )
+        });
+
         add("Most", {
             rule<1>(
                 "Most[x_List]",
                 [](const BaseExpressionRef &x, const Evaluation &evaluation) {
                     auto list = std::static_pointer_cast<const Expression>(x);
-                    auto n = list->size();
-                    return list->slice(0, n > 0 ? n - 1 : 0);
+                    return list->slice(0, -1);
                 }
             )
         });

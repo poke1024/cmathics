@@ -44,7 +44,7 @@ public:
 		const F &f,
 		TypeMask type_mask) const;
 
-	virtual ExpressionRef slice(size_t begin, size_t end = SIZE_T_MAX) const;
+	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const;
 
 	ExpressionRef evaluate_head_and_leaves(Evaluation &evaluation) const {
 		// Evaluate the head
@@ -283,6 +283,10 @@ public:
 		return std::make_shared<ExpressionImplementation<Slice>>(_head, _leaves);
 	}
 
+    virtual BaseExpressionRef clone(const BaseExpressionRef &head) const {
+        return std::make_shared<ExpressionImplementation<Slice>>(head, _leaves);
+    }
+
     virtual match_sizes_t match_num_args() const {
         return _head->match_num_args_with_head(this);
     }
@@ -421,7 +425,7 @@ ExpressionRef ExpressionImplementation<Slice>::apply(
 }
 
 template<typename Slice>
-ExpressionRef ExpressionImplementation<Slice>::slice(size_t begin, size_t end) const {
+ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end) const {
 	return expression(_head, _leaves.slice(begin, end));
 }
 

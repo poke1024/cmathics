@@ -210,15 +210,27 @@ public:
 		return from_primitive(_begin[i]);
 	}
 
-	PackSlice<U> slice(size_t begin, size_t end = SIZE_T_MAX) const {
-		assert(begin <= end);
+	PackSlice<U> slice(index_t begin, index_t end = INDEX_MAX) const {
+        const size_t size = _size;
 
-		const size_t offset = _begin - _extent->address();
-		const size_t n = _extent->size();
+        if (begin < 0) {
+            begin = size - (-begin % size);
+        }
+        if (end < 0) {
+            end = size - (-end % size);
+        }
+
+		const index_t offset = _begin - _extent->address();
+		const index_t n = _extent->size();
 		assert(offset <= n);
 
 		end = std::min(end, n - offset);
 		begin = std::min(begin, end);
+
+        if (end <= begin) {
+            return PackSlice<U>(_extent, _begin, 0);
+        }
+
 		return PackSlice<U>(_extent, _begin + begin, end - begin);
 	}
 };
@@ -357,8 +369,15 @@ public:
 		return _begin[i];
 	}
 
-	inline RefsSlice slice(size_t begin, size_t end = SIZE_T_MAX) const {
-		assert(begin <= end);
+	inline RefsSlice slice(index_t begin, index_t end = INDEX_MAX) const {
+        const size_t size = _size;
+
+        if (begin < 0) {
+            begin = size - (-begin % size);
+        }
+        if (end < 0) {
+            end = size - (-end % size);
+        }
 
 		if (!_extent) {
 			// special case: only 1 item in _expr.
@@ -369,12 +388,17 @@ public:
 			}
 		}
 
-		const size_t offset = _begin - _extent->address();
-		const size_t n = _extent->size();
+		const index_t offset = _begin - _extent->address();
+		const index_t n = _extent->size();
 		assert(offset <= n);
 
 		end = std::min(end, n - offset);
 		begin = std::min(begin, end);
+
+        if (end <= begin) {
+            return empty_slice;
+        }
+
 		return RefsSlice(_extent, _begin + begin, _begin + end, _type_mask);
 	}
 };
