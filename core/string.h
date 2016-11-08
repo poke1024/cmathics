@@ -37,7 +37,7 @@ public:
     }
 };
 
-inline BaseExpressionRef from_value(const std::string &value) {
+inline BaseExpressionRef from_primitive(const std::string &value) {
     return std::make_shared<String>(value);
 }
 

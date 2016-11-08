@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "primitives.h"
+#include "string.h"
 
 class Match;
 

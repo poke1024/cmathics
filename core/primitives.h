@@ -97,4 +97,10 @@ public:
 	static constexpr Type type = MachineRealType;
 };
 
+template<>
+class TypeFromPrimitive<std::string> {
+public:
+	static constexpr Type type = StringType;
+};
+
 #endif //CMATHICS_TO_VALUE_H

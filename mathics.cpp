@@ -141,6 +141,8 @@ namespace python {
             return result == 1;
         }
 
+	    void raise_python_exception() const;
+
     public:
         friend bool isinstance(const object &o, const object &klass);
         friend object getattr(const object &o, const char *name);
@@ -277,19 +279,56 @@ namespace python {
         }
 
         inline object operator()() const {
-            return object(new_reference(PyObject_CallFunction(_py_object, nullptr)));
+	        auto ref = PyObject_CallFunction(_py_object, nullptr);
+	        if (ref == nullptr) {
+		        raise_python_exception();
+	        }
+            return object(new_reference(ref));
         }
 
         inline object operator()(const char *s) const {
-            return object(new_reference(PyObject_CallFunction(_py_object, const_cast<char*>("s"), s)));
+	        auto ref = PyObject_CallFunction(_py_object, const_cast<char*>("s"), s);
+	        if (ref == nullptr) {
+		        raise_python_exception();
+	        }
+            return object(new_reference(ref));
         }
 
         inline object operator()(const object &o) const {
-            return object(new_reference(PyObject_CallFunction(_py_object, const_cast<char*>("O"), o._py_object)));
+	        auto ref = PyObject_CallFunction(_py_object, const_cast<char*>("O"), o._py_object);
+	        if (ref == nullptr) {
+		        raise_python_exception();
+	        }
+            return object(new_reference(ref));
         }
     };
 
-    object None(borrowed_reference(Py_None));
+	class python_exception : public std::runtime_error {
+	private:
+		object _type;
+		object _value;
+		object _traceback;
+	public:
+		python_exception(object type, object value, object traceback) :
+				std::runtime_error("some kind of python exception occured"),
+				_type(type),
+				_value(value),
+				_traceback(traceback) {
+		}
+	};
+
+	void object::raise_python_exception() const {
+		PyObject *ptype;
+		PyObject *pvalue;
+		PyObject *ptraceback;
+		PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+		throw python_exception(
+			object(new_reference(ptype)),
+			object(new_reference(pvalue)),
+			object(new_reference(ptraceback)));
+	}
+
+	object None(borrowed_reference(Py_None));
 
     object list_iterator::operator*() const {
         return object(borrowed_reference(PyList_GetItem(_py_object, _i)));
@@ -334,6 +373,7 @@ private:
     python::object _symbol, _lookup;
     python::object _integer;
     python::object _machine_real;
+	python::object _string;
 
 public:
     ParseConverter(Definitions &definitions) :
@@ -342,7 +382,8 @@ public:
         _symbol(python::string("Symbol")),
         _lookup(python::string("Lookup")),
         _integer(python::string("Integer")),
-        _machine_real(python::string("MachineReal")) {
+        _machine_real(python::string("MachineReal")),
+        _string(python::string("String")) {
     }
 
     BaseExpressionRef convert(const python::object &o) {
@@ -365,19 +406,27 @@ public:
         } else if (kind == _machine_real) {
             return from_primitive(o[1].as_float());
         } else if (kind == _expression) {
-            auto head = convert(o[1]);
-            std::vector<BaseExpressionRef> leaves;
+	        auto head = convert(o[1]);
+	        std::vector<BaseExpressionRef> leaves;
 
-            for (auto leaf : o[2]) {
-                leaves.push_back(convert(leaf));
-            }
+	        for (auto leaf : o[2]) {
+		        leaves.push_back(convert(leaf));
+	        }
 
-            return expression(head, leaves);
+	        return expression(head, leaves);
+        } else if (kind == _string) {
+	        return from_primitive(o[1].as_string());
         } else {
             throw std::runtime_error(std::string(
                 "unsupported parsed item of type " + kind.as_string()));
         }
     }
+};
+
+class parse_exception : public std::runtime_error {
+public:
+	parse_exception(const char *s) : std::runtime_error(std::string("failed to parse ") + s) {
+	}
 };
 
 class Parser {
@@ -411,8 +460,12 @@ public:
     }
 
     BaseExpressionRef parse(const char *s) {
-        auto tree = _do_convert(_parse(_feeder(s)));
-        return _converter.convert(tree);
+	    try {
+		    auto tree = _do_convert(_parse(_feeder(s)));
+		    return _converter.convert(tree);
+	    } catch(python::python_exception &e) {
+		    throw parse_exception(s);
+	    }
     }
 };
 
@@ -472,7 +525,39 @@ public:
 	                    return x->clone(f);
 	                }
 	            )
-        });
+            });
+
+	    add("First",
+	        Attributes::None, {
+		        rule<1>(
+			        "First[x_]",
+			        [](const BaseExpressionRef &x, const Evaluation &evaluation) {
+				        if (x->type() != ExpressionType) {
+					        throw std::runtime_error("expected Expression at position 1");
+				        }
+				        auto list = std::static_pointer_cast<const Expression>(x);
+				        if (list->size() < 1) {
+					        throw std::runtime_error("Expression is empty");
+				        }
+						return list->leaf(0);
+			        }
+		        )
+	        });
+
+	    add("Length",
+	        Attributes::None, {
+		        rule<1>(
+				    "Length[x_]",
+			        [](const BaseExpressionRef &x, const Evaluation &evaluation) {
+				        if (x->type() != ExpressionType) {
+					        return from_primitive(static_cast<machine_integer_t>(0));
+				        } else {
+					        auto list = std::static_pointer_cast<const Expression>(x);
+					        return from_primitive(static_cast<machine_integer_t>(list->size()));
+				        }
+			        }
+		        )
+	        });
 
         add("Most",
             Attributes::None, {
@@ -483,7 +568,7 @@ public:
 	                    return list->slice(0, -1);
 	                }
 	            )
-        });
+            });
 
         add("Range",
             Attributes::None, {
@@ -493,7 +578,13 @@ public:
 	                "Range[imin_, imax_, di_]",
 	                Range
 	            )
-        });
+            });
+
+	    add("Total",
+	        Attributes::None, {
+		        rewrite("Total[head_]", "Apply[Plus, head]"),
+		        rewrite("Total[head_, n_]", "Apply[Plus, Flatten[head, n]]"),
+	        });
 
 	    add("Timing",
 	        Attributes::HoldAll, {
@@ -510,17 +601,9 @@ public:
 							from_primitive(double(microseconds) / 1000000.0), evaluated});
 				    }
 		        )
-        });
+	        });
     }
 };
-
-// Timing
-
-// Range
-
-// Append
-
-// Fold
 
 void python_test(const char *input) {
     Runtime runtime;
@@ -570,14 +653,18 @@ void mini_console() {
 		    break;
 	    }
 
-        auto expr = runtime.parse(line.c_str());
+	    try {
+		    auto expr = runtime.parse(line.c_str());
 
-        Evaluation evaluation(runtime.definitions(), true);
-        BaseExpressionRef evaluated = evaluation.evaluate(expr);
-        std::cout << evaluated << std::endl;
+		    Evaluation evaluation(runtime.definitions(), true);
+		    BaseExpressionRef evaluated = evaluation.evaluate(expr);
+		    std::cout << evaluated << std::endl;
+	    } catch (parse_exception) {
+		    std::cout << ": " << line << " could not be parsed." << std::endl;
+	    }
 
-        std::cout << ">> ";
-        std::cout.flush();
+	    std::cout << ">> ";
+	    std::cout.flush();
     }
 }
 

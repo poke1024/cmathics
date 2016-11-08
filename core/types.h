@@ -246,7 +246,7 @@ public:
 		throw std::runtime_error("cannot clone with head");
 	}
 
-	virtual RefsExpressionRef to_refs_expression(BaseExpressionRef self) const {
+	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const {
 		throw std::runtime_error("cannot create refs expression");
 	}
 };
@@ -271,11 +271,11 @@ public:
 	inline Expression(const BaseExpressionRef &head) : BaseExpression(ExpressionType), _head(head) {
 	}
 
-	// virtual const Operations &operations() const = 0;
-
 	virtual size_t size() const = 0;
 
 	virtual BaseExpressionRef leaf(size_t i) const = 0;
+
+	virtual TypeMask type_mask() const = 0;
 
 	inline ExpressionIterator begin() const;
 

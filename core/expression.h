@@ -6,11 +6,11 @@
 #include "symbol.h"
 #include "matcher.h"
 #include "operations.h"
+#include "arithmetic.h"
+#include "string.h"
 
 #include <sstream>
 #include <vector>
-
-#include "arithmetic.h"
 
 class OperationsInterface :
     virtual public ArithmeticOperations {
@@ -172,6 +172,10 @@ public:
 		return _leaves.size();
 	}
 
+	virtual TypeMask type_mask() const {
+		return _leaves.type_mask();
+	}
+
 	virtual bool same(const BaseExpression &item) const {
 		if (this == &item) {
 			return true;
@@ -292,7 +296,7 @@ public:
         return _head->match_num_args_with_head(this);
     }
 
-	virtual RefsExpressionRef to_refs_expression(BaseExpressionRef self) const;
+	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const;
 
     virtual const OperationsInterface &operations() const {
         return _operations;
@@ -333,6 +337,12 @@ inline ExpressionRef make_expression(const BaseExpressionRef &head, T leaves) {
 		case 1L << MachineIntegerType:
 			return expression(head, PackSlice<machine_integer_t>(
 				collect<MachineInteger, machine_integer_t>(leaves)));
+		case 1L << MachineRealType:
+			return expression(head, PackSlice<machine_real_t>(
+				collect<MachineReal, machine_real_t>(leaves)));
+		case 1L << StringType:
+			return expression(head, PackSlice<std::string>(
+				collect<String, std::string>(leaves)));
 		default:
 			return std::make_shared<ExpressionImplementation<RefsSlice>>(
 				head, RefsSlice(leaves, type_mask));
@@ -436,12 +446,11 @@ public:
 	static inline RefsExpressionRef convert(
 		const BaseExpressionRef &expr, const BaseExpressionRef &head, const Slice &slice) {
 		std::vector<BaseExpressionRef> leaves;
-		TypeMask type_mask = 0;
+		leaves.reserve(slice.size());
 		for (auto leaf : slice) {
-			type_mask |= 1L << leaf->type();
 			leaves.push_back(leaf);
 		}
-		return std::make_shared<RefsExpression>(head, RefsSlice(std::move(leaves), type_mask));
+		return std::make_shared<RefsExpression>(head, RefsSlice(std::move(leaves), slice.type_mask()));
 	}
 };
 
@@ -455,7 +464,7 @@ public:
 };
 
 template<typename Slice>
-RefsExpressionRef ExpressionImplementation<Slice>::to_refs_expression(BaseExpressionRef self) const {
+RefsExpressionRef ExpressionImplementation<Slice>::to_refs_expression(const BaseExpressionRef &self) const {
 	return ToRefsExpression<Slice>::convert(self, _head, _leaves);
 }
 

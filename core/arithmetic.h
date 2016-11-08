@@ -34,6 +34,10 @@ public:
 		throw std::runtime_error("cannot create mpint from mpq_class");
 	}
 
+	mpint(const std::string &value) {
+		throw std::runtime_error("cannot create mpint from std::string");
+	}
+
 	~mpint() {
 		delete big_value;
 	}

@@ -1,7 +1,9 @@
 #ifndef REAL_H
 #define REAL_H
+
 #include <mpfrcxx/mpreal.h>
 #include <stdint.h>
+#include <sstream>
 
 #include "types.h"
 #include "hash.h"
@@ -72,7 +74,9 @@ public:
     }
 
     virtual std::string fullform() const {
-        return std::string("bigreal"); // FIXME
+	    std::stringstream s; // FIXME
+	    s << _value;
+        return s.str();
     }
 };
 

@@ -81,10 +81,7 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
     }
 
     // bit field to determine which types are present
-	TypeMask types_seen = 0;
-    for (auto leaf : *expr) {
-        types_seen |= 1 << leaf->type();
-    }
+	TypeMask types_seen = expr->type_mask();
 
     // expression contains a Real
     if (types_seen & (1 << MachineRealType)) {
