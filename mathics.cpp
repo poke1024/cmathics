@@ -580,6 +580,11 @@ public:
 	            )
             });
 
+	    add("Mean",
+	        Attributes::None, {
+		        rewrite("Mean[x_List]", "Total[x] / Length[x]"),
+	        });
+
 	    add("Total",
 	        Attributes::None, {
 		        rewrite("Total[head_]", "Apply[Plus, head]"),

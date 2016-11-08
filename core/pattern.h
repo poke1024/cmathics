@@ -127,4 +127,146 @@ public:
     }
 };
 
+template<typename Slice>
+bool MatcherImplementation<Slice>::heads(size_t n, const Symbol *head) const {
+	const BaseExpressionPtr head_expr =
+			static_cast<BaseExpressionPtr>(head);
+
+	for (size_t i = 0; i < n; i++) {
+		if (head_expr != _sequence[i]->head_ptr()) {
+			return i;
+		}
+	}
+
+	return n;
+}
+
+template<typename Slice>
+bool MatcherImplementation<Slice>::consume(size_t n) const {
+	assert(_sequence.size() >= n);
+
+	if (_next_pattern.size() == 0) {
+		if (_sequence.size() == n) {
+			return true;
+		} else {
+			return false;
+		}
+	} else {
+		auto next = _next_pattern[0];
+		auto rest = _next_pattern.slice(1);
+
+		return next->match_sequence(
+			MatcherImplementation<Slice>(_context, next, rest, _sequence.slice(n)));
+	}
+}
+
+template<typename Slice>
+bool MatcherImplementation<Slice>::blank_sequence(match_size_t k, const Symbol *head) const {
+	const size_t n = _sequence.size();
+
+	match_size_t min_remaining = n;
+	match_size_t max_remaining = n;
+
+	for (auto patt : _next_pattern) {
+		size_t min_args, max_args;
+		std::tie(min_args, max_args) = patt->match_num_args();
+
+		if ((max_remaining -= min_args) < k) {
+			return false;
+		}
+		if ((min_remaining -= max_args) < 0) {
+			min_remaining = 0;
+		}
+	}
+
+	min_remaining = std::max(min_remaining, k);
+
+	if (head) {
+		max_remaining = std::min(
+				max_remaining, (match_size_t)heads(max_remaining, head));
+	}
+
+	for (size_t l = max_remaining; l >= min_remaining; l--) {
+		auto match = (*this)(l, nullptr);
+		if (match) {
+			return match;
+		}
+	}
+
+	return false;
+}
+
+template<typename Slice>
+bool MatcherImplementation<Slice>::match_variable(size_t match_size, const BaseExpressionRef &item) const {
+	const auto match_id = _context.id;
+	BaseExpressionRef existing = _variable->matched_value(match_id);
+	if (existing) {
+		if (existing->same(item)) {
+			return consume(match_size);
+		} else {
+			return false;
+		}
+	} else {
+		bool match;
+
+		_variable->set_matched_value(match_id, item);
+		try {
+			match = consume(match_size);
+		} catch(...) {
+			_variable->clear_matched_value();
+			throw;
+		}
+
+		if (match) {
+			_context.add_matched_variable(_variable);
+		} else {
+			_variable->clear_matched_value();
+		}
+
+		return match;
+	}
+}
+
+template<typename Slice>
+bool MatcherImplementation<Slice>::operator()(size_t match_size, const Symbol *head) const {
+	if (_sequence.size() < match_size) {
+		return false;
+	}
+
+	if (head && heads(match_size, head) != match_size) {
+		return false;
+	}
+
+	if (!_variable) {
+		return consume(match_size);
+	}
+
+	if (match_size == 1) {
+		return match_variable(match_size, _sequence[0]);
+	} else {
+		return match_variable(match_size, expression(
+			_context.definitions.sequence(),
+			_sequence.slice(0, match_size)));
+	}
+}
+
+template<typename Slice>
+bool MatcherImplementation<Slice>::operator()(const Symbol *var, const BaseExpressionRef &pattern) const {
+	return pattern->match_sequence(MatcherImplementation<Slice>(_context, var, pattern, _next_pattern, _sequence));
+}
+
+template<typename Slice>
+bool MatcherImplementation<Slice>::descend() const {
+	assert(_this_pattern->type() == ExpressionType);
+	auto patt_expr = _this_pattern->to_refs_expression(_this_pattern);
+	auto patt_sequence = patt_expr->_leaves;
+	auto patt_next = patt_sequence[0];
+
+	if (_sequence[0]->descend_match(_context, patt_next, patt_sequence.slice(1))) {
+		return consume(1); // if leaves matched, consume whole expression now
+	} else {
+		return false;
+	}
+}
+
 #endif

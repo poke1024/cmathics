@@ -32,16 +32,16 @@ public:
 template<typename Slice>
 class ExpressionImplementation : public Expression {
 private:
-    const AllOperationsImplementation<ExpressionImplementation<Slice>> _operations;
+	const AllOperationsImplementation<ExpressionImplementation<Slice>> _operations;
 
 public:
 	template<typename F>
 	ExpressionRef apply(
-		const BaseExpressionRef &head,
-		size_t begin,
-		size_t end,
-		const F &f,
-		TypeMask type_mask) const;
+			const BaseExpressionRef &head,
+			size_t begin,
+			size_t end,
+			const F &f,
+			TypeMask type_mask) const;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const;
 
@@ -69,15 +69,15 @@ public:
 			}
 		}
 
-		const auto head_symbol = static_cast<const Symbol*>(head.get());
+		const auto head_symbol = static_cast<const Symbol *>(head.get());
 		const auto attributes = head_symbol->attributes;
 
 		// only one type of Hold attribute can be set at a time
 		assert(count(attributes,
-		    Attributes::HoldFirst +
-		    Attributes::HoldRest +
-		    Attributes::HoldAll +
-		    Attributes::HoldAllComplete) <= 1);
+		             Attributes::HoldFirst +
+		             Attributes::HoldRest +
+		             Attributes::HoldAll +
+		             Attributes::HoldAllComplete) <= 1);
 
 		size_t eval_leaf_start, eval_leaf_stop;
 
@@ -108,13 +108,13 @@ public:
 		assert(eval_leaf_stop <= _leaves.size());
 
 		return apply(
-			head,
-			eval_leaf_start,
-			eval_leaf_stop,
-			[&evaluation](const BaseExpressionRef &leaf) {
-				return leaf->evaluate(leaf, evaluation);
-			},
-			(1L << ExpressionType) | (1L << SymbolType));
+				head,
+				eval_leaf_start,
+				eval_leaf_stop,
+				[&evaluation](const BaseExpressionRef &leaf) {
+					return leaf->evaluate(leaf, evaluation);
+				},
+				(1L << ExpressionType) | (1L << SymbolType));
 	}
 
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const {
@@ -129,7 +129,7 @@ public:
 		if (head->type() == ExpressionType) {
 			auto head_head = std::static_pointer_cast<const Expression>(head)->_head.get();
 			if (head_head->type() == SymbolType) {
-				auto head_symbol = static_cast<const Symbol*>(head_head);
+				auto head_symbol = static_cast<const Symbol *>(head_head);
 				// TODO
 			}
 		}
@@ -137,7 +137,7 @@ public:
 		// Step 5
 		// Evaluate the head with leaves. (DownValue)
 		if (head->type() == SymbolType) {
-			auto head_symbol = static_cast<const Symbol*>(head.get());
+			auto head_symbol = static_cast<const Symbol *>(head.get());
 
 			for (const Rule &rule : head_symbol->down_rules) {
 				auto child_result = rule(self, evaluation);
@@ -153,12 +153,12 @@ public:
 public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
 
-    inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &leaves) :
-	    Expression(head),
-        _leaves(leaves),
-        _operations(*this) {
+	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &leaves) :
+			Expression(head),
+			_leaves(leaves),
+			_operations(*this) {
 		assert(head);
-    }
+	}
 
 	virtual BaseExpressionRef leaf(size_t i) const {
 		return _leaves[i];
@@ -183,7 +183,7 @@ public:
 		if (item.type() != ExpressionType) {
 			return false;
 		}
-		const Expression *expr = static_cast<const Expression*>(&item);
+		const Expression *expr = static_cast<const Expression *>(&item);
 
 		if (!_head->same(expr->head())) {
 			return false;
@@ -275,32 +275,38 @@ public:
 
 	virtual BaseExpressionRef replace_all(const Match &match) const {
 		return apply(
-			_head->replace_all(match),
-			0,
-			_leaves.size(),
-			[&match](const BaseExpressionRef &leaf) {
-				return leaf->replace_all(match);
-			},
-			(1L << ExpressionType) | (1L << SymbolType));
+				_head->replace_all(match),
+				0,
+				_leaves.size(),
+				[&match](const BaseExpressionRef &leaf) {
+					return leaf->replace_all(match);
+				},
+				(1L << ExpressionType) | (1L << SymbolType));
 	}
 
 	virtual BaseExpressionRef clone() const {
 		return std::make_shared<ExpressionImplementation<Slice>>(_head, _leaves);
 	}
 
-    virtual BaseExpressionRef clone(const BaseExpressionRef &head) const {
-        return std::make_shared<ExpressionImplementation<Slice>>(head, _leaves);
-    }
+	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const {
+		return std::make_shared<ExpressionImplementation<Slice>>(head, _leaves);
+	}
 
-    virtual match_sizes_t match_num_args() const {
-        return _head->match_num_args_with_head(this);
-    }
+	virtual match_sizes_t match_num_args() const {
+		return _head->match_num_args_with_head(this);
+	}
 
 	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const;
 
-    virtual const OperationsInterface &operations() const {
-        return _operations;
-    }
+	virtual const OperationsInterface &operations() const {
+		return _operations;
+	}
+
+	virtual bool descend_match(MatchContext &context,
+       const BaseExpressionRef &this_pattern, const RefsSlice &next_pattern) const {
+		MatcherImplementation<Slice> matcher(context, this_pattern, next_pattern, _leaves);
+		return this_pattern->match_sequence(matcher);
+	}
 };
 
 template<typename U>
@@ -308,7 +314,7 @@ using PackExpressionRef = std::shared_ptr<ExpressionImplementation<PackSlice<U>>
 
 template<typename U>
 inline PackExpressionRef<U> expression(const BaseExpressionRef &head, const PackSlice<U> &slice) {
-    return std::make_shared<ExpressionImplementation<PackSlice<U>>>(head, slice);
+	return std::make_shared<ExpressionImplementation<PackSlice<U>>>(head, slice);
 }
 
 template<typename T>
@@ -379,8 +385,8 @@ ExpressionRef ExpressionImplementation<Slice>::apply(
 	}
 
 	/*if (_extent.use_count() == 1) {
-            // FIXME. optimize this case. we do not need to copy here.
-        }*/
+		// FIXME. optimize this case. we do not need to copy here.
+		}*/
 
 	auto slice = _leaves;
 

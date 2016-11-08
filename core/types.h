@@ -249,6 +249,11 @@ public:
 	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const {
 		throw std::runtime_error("cannot create refs expression");
 	}
+
+	virtual bool descend_match(MatchContext &context,
+       const BaseExpressionRef &this_pattern, const RefsSlice &next_pattern) const {
+		throw std::runtime_error("cannot descend into non-expressions");
+	}
 };
 
 inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
