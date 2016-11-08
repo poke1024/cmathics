@@ -137,14 +137,14 @@ std::ostream &operator<<(std::ostream &s, const Match &m);
 
 class Matcher;
 
-class CoreExpression;
-typedef std::shared_ptr<const CoreExpression> CoreExpressionRef;
-typedef const CoreExpression *CoreExpressionPtr;
+class Expression;
+typedef std::shared_ptr<const Expression> ExpressionRef;
+typedef const Expression *ExpressionPtr;
 
 template<typename S>
-class Expression;
+class ExpressionImplementation;
 class RefsSlice;
-typedef const Expression<RefsSlice> RefsExpression;
+typedef const ExpressionImplementation<RefsSlice> RefsExpression;
 typedef const RefsExpression* RefsExpressionPtr;
 typedef std::shared_ptr<const RefsExpression> RefsExpressionRef;
 
@@ -224,7 +224,7 @@ public:
         return std::make_tuple(1, 1); // default
     }
 
-    virtual match_sizes_t match_num_args_with_head(CoreExpressionPtr patt) const {
+    virtual match_sizes_t match_num_args_with_head(ExpressionPtr patt) const {
         return std::make_tuple(1, 1); // default for non-symbol heads
     }
 
@@ -250,13 +250,13 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
     return s;
 }
 
-class CoreExpressionIterator;
+class ExpressionIterator;
 
-class CoreExpression : public BaseExpression {
+class Expression : public BaseExpression {
 public:
 	const BaseExpressionRef _head;
 
-	inline CoreExpression(const BaseExpressionRef &head) : BaseExpression(ExpressionType), _head(head) {
+	inline Expression(const BaseExpressionRef &head) : BaseExpression(ExpressionType), _head(head) {
 	}
 
 	// virtual const Operations &operations() const = 0;
@@ -265,9 +265,9 @@ public:
 
 	virtual BaseExpressionRef leaf(size_t i) const = 0;
 
-	inline CoreExpressionIterator begin() const;
+	inline ExpressionIterator begin() const;
 
-	inline CoreExpressionIterator end() const;
+	inline ExpressionIterator end() const;
 
 	virtual BaseExpressionRef head() const {
 		return _head;
@@ -281,51 +281,51 @@ public:
 		return _head->is_symbol_sequence();
 	}
 
-	virtual BaseExpressionRef evaluate_values(const CoreExpressionRef &self, Evaluation &evaluation) const = 0;
+	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, Evaluation &evaluation) const = 0;
 
-	virtual CoreExpressionRef slice(size_t begin, size_t end = SIZE_T_MAX) const = 0;
+	virtual ExpressionRef slice(size_t begin, size_t end = SIZE_T_MAX) const = 0;
 };
 
-class CoreExpressionIterator {
+class ExpressionIterator {
 private:
-	const CoreExpression * const _expr;
+	const Expression * const _expr;
 	size_t _pos;
 
 public:
-	inline CoreExpressionIterator() : _expr(nullptr) {
+	inline ExpressionIterator() : _expr(nullptr) {
 	}
 
-	inline explicit CoreExpressionIterator(const CoreExpression *expr, size_t pos) : _expr(expr), _pos(pos) {
+	inline explicit ExpressionIterator(const Expression *expr, size_t pos) : _expr(expr), _pos(pos) {
 	}
 
 	inline auto operator*() const {
 		return _expr->leaf(_pos);
 	}
 
-	inline bool operator==(const CoreExpressionIterator &other) const {
+	inline bool operator==(const ExpressionIterator &other) const {
 		return _expr == other._expr && _pos == other._pos;
 	}
 
-	inline bool operator!=(const CoreExpressionIterator &other) const {
+	inline bool operator!=(const ExpressionIterator &other) const {
 		return _expr != other._expr || _pos != other._pos;
 	}
 
-	inline CoreExpressionIterator &operator++() {
+	inline ExpressionIterator &operator++() {
 		_pos += 1;
 		return *this;
 	}
 
-	inline CoreExpressionIterator operator++(int) const {
-		return CoreExpressionIterator(_expr, _pos + 1);
+	inline ExpressionIterator operator++(int) const {
+		return ExpressionIterator(_expr, _pos + 1);
 	}
 };
 
-inline CoreExpressionIterator CoreExpression::begin() const {
-	return CoreExpressionIterator(this, 0);
+inline ExpressionIterator Expression::begin() const {
+	return ExpressionIterator(this, 0);
 }
 
-inline CoreExpressionIterator CoreExpression::end() const {
-	return CoreExpressionIterator(this, size());
+inline ExpressionIterator Expression::end() const {
+	return ExpressionIterator(this, size());
 }
 
 #endif

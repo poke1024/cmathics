@@ -34,7 +34,7 @@ struct BuiltinFunctionArguments<0, refs...> {
 
 template<int N>
 inline Rule make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
-    return [patt, func](const CoreExpressionRef &expr, Evaluation &evaluation) {
+    return [patt, func](const ExpressionRef &expr, Evaluation &evaluation) {
         const Match m = match(patt, expr, evaluation.definitions);
         if (m) {
             return apply_from_tuple(func, std::tuple_cat(m.get<N>(), std::make_tuple(evaluation)));
@@ -45,7 +45,7 @@ inline Rule make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFun
 }
 
 inline Rule make_rewrite_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
-	return [patt, into](const CoreExpressionRef &expr, Evaluation &evaluation) {
+	return [patt, into](const ExpressionRef &expr, Evaluation &evaluation) {
 		const Match m = match(patt, expr, evaluation.definitions);
 		if (m) {
 			auto replaced = into->replace_all(m);

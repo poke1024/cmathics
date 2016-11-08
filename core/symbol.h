@@ -8,7 +8,7 @@
 #include <map>
 
 // c functions used for builtin evaluation
-typedef std::function<BaseExpressionRef(const CoreExpressionRef &)> rule_function;
+typedef std::function<BaseExpressionRef(const ExpressionRef &)> rule_function;
 
 struct Attributes {
 	// pattern matching attributes
@@ -42,7 +42,7 @@ struct Attributes {
 	}
 };
 
-typedef std::function<BaseExpressionRef(const CoreExpressionRef &expr, Evaluation &evaluation)> Rule;
+typedef std::function<BaseExpressionRef(const ExpressionRef &expr, Evaluation &evaluation)> Rule;
 
 typedef std::vector<Rule> Rules;
 

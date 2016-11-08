@@ -72,7 +72,7 @@ bool BaseExpression::match_sequence_with_head(RefsExpressionPtr patt, const Matc
     } else {
         auto next = sequence[0];
         if (next->type() == ExpressionType) {
-            auto expr = std::static_pointer_cast<const CoreExpression>(next);
+            auto expr = std::static_pointer_cast<const Expression>(next);
             if (!expr->head()->same(patt->head())) {
                 return false;
             } else {

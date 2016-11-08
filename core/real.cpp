@@ -23,7 +23,7 @@ std::pair<int32_t,double> precision_of(const BaseExpressionRef &expr) {
         }
         case ExpressionType: {
             bool first_big = false;
-            const CoreExpression *expr_expr = (const CoreExpression *)expr.get();
+            const Expression *expr_expr = static_cast<const Expression*>(expr.get());
             double result = 0.0;
             for (auto leaf : *expr_expr) {
                 auto r = precision_of(leaf);

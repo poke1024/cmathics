@@ -6,7 +6,7 @@
 #include "pattern.h"
 
 BaseExpressionRef Plus(
-	const CoreExpressionRef &expr,
+	const ExpressionRef &expr,
 	const Evaluation &evaluation);
 
 BaseExpressionRef Range(

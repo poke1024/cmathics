@@ -463,7 +463,7 @@ public:
             rule<1>(
                 "Most[x_List]",
                 [](const BaseExpressionRef &x, const Evaluation &evaluation) {
-                    auto list = std::static_pointer_cast<const CoreExpression>(x);
+                    auto list = std::static_pointer_cast<const Expression>(x);
                     auto n = list->size();
                     return list->slice(0, n > 0 ? n - 1 : 0);
                 }

@@ -15,7 +15,7 @@
 
 
 // sums all integers in an expression
-BaseExpressionRef add_Integers(const CoreExpressionRef &expr) {
+BaseExpressionRef add_Integers(const ExpressionRef &expr) {
 	mpz_class result(0);
 
     // XXX right now the entire computation is done with GMP. This is slower
@@ -45,7 +45,7 @@ BaseExpressionRef add_Integers(const CoreExpressionRef &expr) {
 }
 
 
-BaseExpressionRef add_MachineInexact(const CoreExpressionRef &expr) {
+BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
     // create an array to store all the symbolic arguments which can't be evaluated.
     auto symbolics = std::vector<BaseExpressionRef>();
     symbolics.reserve(expr->size());
@@ -101,7 +101,7 @@ BaseExpressionRef add_MachineInexact(const CoreExpressionRef &expr) {
 }
 
 
-BaseExpressionRef Plus(const CoreExpressionRef &expr, const Evaluation &evaluation) {
+BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) {
     switch (expr->size()) {
         case 0:
             // Plus[] -> 0
