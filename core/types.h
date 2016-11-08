@@ -192,8 +192,11 @@ public:
     virtual std::string fullform() const = 0;
 
     virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, Evaluation &evaluation) const {
-        // atomic expressions remain unchanged
-        return BaseExpressionRef();
+        return BaseExpressionRef(); // atomic expressions remain unchanged
+    }
+
+    virtual BaseExpressionRef evaluate_once(const BaseExpressionRef &self, Evaluation &evaluation) const {
+        return BaseExpressionRef(); // atomic expressions remain unchanged
     }
 
     // various getters

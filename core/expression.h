@@ -18,11 +18,11 @@ public:
 		size_t begin,
 		size_t end,
 		const F &f,
-		TypeMask mask) const;
+		TypeMask type_mask) const;
 
 	virtual ExpressionRef slice(size_t begin, size_t end = SIZE_T_MAX) const;
 
-	BaseExpressionRef evaluate_head(Evaluation &evaluation) const {
+	ExpressionRef evaluate_head_and_leaves(Evaluation &evaluation) const {
 		// Evaluate the head
 
 		auto head = _head;
@@ -36,16 +36,14 @@ public:
 			}
 		}
 
-		return head;
-	}
-
-	ExpressionRef evaluate_leaves(const BaseExpressionRef &head, Evaluation &evaluation) const {
 		// Evaluate the leaves from left to right (according to Hold values).
 
-		assert(head);
-
 		if (head->type() != SymbolType) {
-			return RefsExpressionRef();
+			if (head != _head) {
+				return std::make_shared<ExpressionImplementation<Slice>>(head, _leaves);
+			} else {
+				return RefsExpressionRef();
+			}
 		}
 
 		const auto head_symbol = (Symbol*)head.get();
@@ -70,7 +68,11 @@ public:
 			eval_leaf_stop = 0;
 		} else if (head_symbol->attributes.is_holdallcomplete) {
 			// no more evaluation is applied
-			return RefsExpressionRef();
+			if (head != _head) {
+				return std::make_shared<ExpressionImplementation<Slice>>(head, _leaves);
+			} else {
+				return RefsExpressionRef();
+			}
 		} else {
 			eval_leaf_start = 0;
 			eval_leaf_stop = _leaves.size();
@@ -200,20 +202,37 @@ public:
 	}
 
 	virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, Evaluation &evaluation) const {
+		BaseExpressionRef expr = self;
+		while (true) {
+			BaseExpressionRef evaluated = expr->evaluate_once(expr, evaluation);
+			if (evaluated) {
+				expr = evaluated;
+			} else {
+				break;
+			}
+		}
+		return expr;
+	}
+
+	virtual BaseExpressionRef evaluate_once(const BaseExpressionRef &self, Evaluation &evaluation) const {
 		// returns empty BaseExpressionRef() if nothing changed
 
-		// Step 1
-		const auto head = evaluate_head(evaluation);
-
-		// Step 2
-		const auto step2 = evaluate_leaves(head, evaluation);
+		// Step 1, 2
+		const auto step2 = evaluate_head_and_leaves(evaluation);
 
 		// Step 3, 4, ...
+		BaseExpressionRef step3;
 		if (step2) {
-			return step2->evaluate_values(step2, evaluation);
+			step3 = step2->evaluate_values(step2, evaluation);
 		} else {
 			const auto expr = std::static_pointer_cast<const Expression>(self);
-			return evaluate_values(expr, evaluation);
+			step3 = evaluate_values(expr, evaluation);
+		}
+
+		if (step3) {
+			return step3;
+		} else {
+			return step2;
 		}
 	}
 
@@ -308,7 +327,11 @@ ExpressionRef ExpressionImplementation<Slice>::apply(
 	size_t begin,
 	size_t end,
 	const F &f,
-	TypeMask mask) const {
+	TypeMask type_mask) const {
+
+	if ((type_mask & _leaves.type_mask()) == 0) {
+		return RefsExpressionRef(); // no change
+	}
 
 	/*if (_extent.use_count() == 1) {
             // FIXME. optimize this case. we do not need to copy here.
@@ -317,9 +340,13 @@ ExpressionRef ExpressionImplementation<Slice>::apply(
 	auto slice = _leaves;
 
 	for (size_t i = begin; i < end; i++) {
-		// FIXME check mask
+		auto leaf = slice[i];
 
-		auto new_leaf = f(slice[i]);
+		if (((1L << leaf->type()) & type_mask) == 0) {
+			continue;
+		}
+
+		auto new_leaf = f(leaf);
 
 		if (new_leaf) { // copy is needed now
 			const size_t size = slice.size();
@@ -334,14 +361,17 @@ ExpressionRef ExpressionImplementation<Slice>::apply(
 			new_leaves.push_back(new_leaf); // leaves[i]
 
 			for (size_t j = i + 1; j < end; j++) {
-				// FIXME check mask
-
 				auto old_leaf = slice[j];
-				new_leaf = f(old_leaf);
-				if (new_leaf) {
-					new_leaves.push_back(new_leaf);
-				} else {
+
+				if (((1L << old_leaf->type()) & type_mask) == 0) {
 					new_leaves.push_back(old_leaf);
+				} else {
+					new_leaf = f(old_leaf);
+					if (new_leaf) {
+						new_leaves.push_back(new_leaf);
+					} else {
+						new_leaves.push_back(old_leaf);
+					}
 				}
 			}
 

@@ -23,7 +23,6 @@ void send_message(Evaluation* evaluation, Symbol* symbol, char* tag) {
 
 
 BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
-    BaseExpressionRef result;
     // int64_t line_no;
 
     // TODO $HistoryLength
@@ -34,7 +33,7 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
     // line_no = get_line_no(evaluation);
 
     // perform evaluation
-    result = expr->evaluate(expr, *this);
+    expr = expr->evaluate(expr, *this);
 
     // TODO $Post
 
@@ -52,5 +51,5 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
 
     // TODO clear aborts
 
-    return result;
+    return expr;
 }

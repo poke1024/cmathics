@@ -69,4 +69,32 @@ inline mpfr::mpreal to_primitive<mpfr::mpreal>(const BaseExpressionRef &expr) {
 	}
 }
 
+template<typename T>
+class TypeFromPrimitive {
+};
+
+template<>
+class TypeFromPrimitive<machine_integer_t> {
+public:
+	static constexpr Type type = MachineIntegerType;
+};
+
+template<>
+class TypeFromPrimitive<mpz_class> {
+public:
+	static constexpr Type type = BigIntegerType;
+};
+
+template<>
+class TypeFromPrimitive<mpq_class> {
+public:
+	static constexpr Type type = RationalType;
+};
+
+template<>
+class TypeFromPrimitive<machine_real_t> {
+public:
+	static constexpr Type type = MachineRealType;
+};
+
 #endif //CMATHICS_TO_VALUE_H

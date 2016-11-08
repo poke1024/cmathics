@@ -540,15 +540,8 @@ void mini_console() {
         auto expr = runtime.parse(line.c_str());
 
         Evaluation evaluation(runtime.definitions(), true);
-	    while (true) {
-		    BaseExpressionRef evaluated = evaluation.evaluate(expr);
-		    if (evaluated) {
-			    expr = evaluated;
-		    } else {
-			    break;
-		    }
-	    }
-        std::cout << expr << std::endl;
+        BaseExpressionRef evaluated = evaluation.evaluate(expr);
+        std::cout << evaluated << std::endl;
 
         std::cout << ">> ";
         std::cout.flush();

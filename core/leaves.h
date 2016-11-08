@@ -181,7 +181,11 @@ public:
 		_extent(extent), _begin(begin), Slice(size), OperationsImplementation<PackSlice<U>>(*this) {
 	}
 
-	template<typename V>
+    inline TypeMask type_mask() const {
+        return 1L << TypeFromPrimitive<U>::type;
+    }
+
+    template<typename V>
 	PrimitiveCollection<V> primitives() const {
 		return PrimitiveCollection<V>(_begin, _size);
 	}
