@@ -13,38 +13,6 @@
 #include "rational.h"
 #include "primitives.h"
 
-
-// sums all integers in an expression
-BaseExpressionRef add_Integers(const ExpressionRef &expr) {
-	mpz_class result(0);
-
-    // XXX right now the entire computation is done with GMP. This is slower
-    // than using machine precision arithmetic but simpler because we don't
-    // need to handle overflow. Could be optimised.
-
-    for (auto leaf : *expr) {
-        switch (leaf->type()) {
-	        case MachineIntegerType: {
-		        auto value = std::static_pointer_cast<const MachineInteger>(leaf)->value;
-		        if (value >= 0) {
-			        result += static_cast<unsigned long>(value);
-		        } else {
-			        result -= static_cast<unsigned long>(-value);
-		        }
-		        break;
-	        }
-	        case BigIntegerType:
-		        result += std::static_pointer_cast<const BigInteger>(leaf)->value;
-		        break;
-	        default:
-		        assert(false);
-        }
-    }
-
-	return from_primitive(result);
-}
-
-
 BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
     // create an array to store all the symbolic arguments which can't be evaluated.
     auto symbolics = std::vector<BaseExpressionRef>();
@@ -127,12 +95,12 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
 
     // expression is all Integers
     if ((types_seen & int_mask) == types_seen) {
-        return add_Integers(expr);
+        return expr->operations().add_integers();
     }
 
     // expression contains an Integer
     if (types_seen & int_mask) {
-        auto integer_result = add_Integers(expr);
+        auto integer_result = expr->operations().add_integers();
         // FIXME return Plus[symbolics__, integer_result]
         return integer_result;
     }

@@ -16,29 +16,6 @@
 
 class Match;
 
-class Operations {
-public:
-};
-
-template<typename T>
-class OperationsImplementation : public Operations {
-private:
-	const T &_container;
-
-	template<typename V>
-	inline auto primitives() const {
-		return _container.template primitives<V>();
-	}
-
-	inline auto leaves() const {
-		return _container.leaves();
-	}
-
-public:
-	inline OperationsImplementation(const T &container) : _container(container) {
-	}
-};
-
 template<typename U, typename I>
 class PointerCollection {
 private:
@@ -62,6 +39,35 @@ public:
 	}
 };
 
+template<typename U, typename V>
+class Conversions {
+public:
+    static inline V convert(const U &u) {
+        return V(u);
+    }
+};
+
+template<>
+class Conversions<machine_integer_t, mpq_class> {
+public:
+    static inline mpq_class convert(const machine_integer_t &u) {
+        mpq_class v;
+        v = (signed long int)u;
+        return v;
+    }
+};
+
+template<>
+class Conversions<machine_integer_t, mpz_class> {
+public:
+    static inline mpz_class convert(const machine_integer_t &u) {
+        mpz_class v;
+        v = (signed long int)u;
+        return v;
+    }
+};
+
+
 template<typename T, typename F>
 class PointerIterator {
 private:
@@ -75,7 +81,7 @@ public:
 	}
 
 	inline auto operator*() const {
-		return F(*_ptr);
+		return Conversions<T, F>::convert(*_ptr);
 	}
 
 	inline bool operator==(const PointerIterator<T, F> &other) const {
@@ -133,7 +139,7 @@ public:
 };
 
 template<typename U>
-class PackSlice : public Slice, public OperationsImplementation<PackSlice<U>> {
+class PackSlice : public Slice {
 private:
 	typename PackExtent<U>::Ref _extent;
 	const U * const _begin;
@@ -168,17 +174,15 @@ public:
 
 public:
 	inline PackSlice(const std::vector<U> &data) :
-		_extent(std::make_shared<PackExtent<U>>(data)), _begin(_extent->address()), Slice(data.size()),
-		OperationsImplementation<PackSlice<U>>(*this) {
+		_extent(std::make_shared<PackExtent<U>>(data)), _begin(_extent->address()), Slice(data.size()) {
 	}
 
 	inline PackSlice(std::vector<U> &&data) :
-		_extent(std::make_shared<PackExtent<U>>(data)), _begin(_extent->address()), Slice(data.size()),
-		OperationsImplementation<PackSlice<U>>(*this) {
+		_extent(std::make_shared<PackExtent<U>>(data)), _begin(_extent->address()), Slice(data.size()) {
 	}
 
 	inline PackSlice(const typename PackExtent<U>::Ref &extent, const U *begin, size_t size) :
-		_extent(extent), _begin(begin), Slice(size), OperationsImplementation<PackSlice<U>>(*this) {
+		_extent(extent), _begin(begin), Slice(size) {
 	}
 
     inline TypeMask type_mask() const {
@@ -248,7 +252,7 @@ class RefsSlice;
 
 extern const RefsSlice empty_slice;
 
-class RefsSlice : public Slice, public OperationsImplementation<RefsSlice> {
+class RefsSlice : public Slice {
 private:
 	typename RefsExtent::Ref _extent;
 	const BaseExpressionRef _expr;
@@ -294,38 +298,33 @@ public:
 
 public:
 	inline RefsSlice() :
-		_begin(nullptr), _type_mask(0), Slice(0),
-		OperationsImplementation<RefsSlice>(*this) {
+		_begin(nullptr), _type_mask(0), Slice(0) {
 	}
 
 	inline RefsSlice(const std::vector<BaseExpressionRef> &data, TypeMask type_mask) :
 		_extent(std::make_shared<RefsExtent>(data)),
 		_begin(_extent->address()),
 		_type_mask(type_mask),
-		Slice(data.size()),
-		OperationsImplementation<RefsSlice>(*this) {
+		Slice(data.size()) {
 	}
 
 	inline RefsSlice(std::vector<BaseExpressionRef> &&data, TypeMask type_mask) :
 		_extent(std::make_shared<RefsExtent>(data)),
 		_begin(_extent->address()),
 		_type_mask(type_mask),
-		Slice(data.size()),
-		OperationsImplementation<RefsSlice>(*this) {
+		Slice(data.size()) {
 	}
 
 	inline RefsSlice(const std::initializer_list<BaseExpressionRef> &data, TypeMask type_mask) :
 		_extent(std::make_shared<RefsExtent>(data)),
 		_begin(_extent->address()),
 		_type_mask(type_mask),
-		Slice(data.size()),
-		OperationsImplementation<RefsSlice>(*this) {
+		Slice(data.size()) {
 	}
 
 	inline RefsSlice(const typename RefsExtent::Ref &extent,
 		const BaseExpressionRef * const begin, const BaseExpressionRef * const end, TypeMask type_mask) :
-		_extent(extent), _begin(begin), _type_mask(type_mask), Slice(end - begin),
-		OperationsImplementation<RefsSlice>(*this) {
+		_extent(extent), _begin(begin), _type_mask(type_mask), Slice(end - begin) {
 	}
 
 	inline RefsSlice(const RefsSlice &slice) :
@@ -333,13 +332,11 @@ public:
 		_expr(slice._expr),
 		_begin(_expr ? &_expr : slice._begin),
 		_type_mask(slice._type_mask),
-		Slice(slice._size),
-		OperationsImplementation<RefsSlice>(*this) {
+		Slice(slice._size) {
 	}
 
 	inline RefsSlice(const BaseExpressionRef &expr) :
-		_expr(expr), _begin(&_expr), _type_mask(1L << expr->type()), Slice(1),
-		OperationsImplementation<RefsSlice>(*this) {
+		_expr(expr), _begin(&_expr), _type_mask(1L << expr->type()), Slice(1) {
 		// special case for Slices with exactly one element. happens extensively during
 		// evaluation when we pattern match rules, so it's very useful to optimize this.
 	}

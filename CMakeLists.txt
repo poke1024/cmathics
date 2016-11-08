@@ -64,7 +64,8 @@ set(SOURCE_FILES
     core/primitives.h
     core/builtin.h
     core/symbol.h
-    core/matcher.h)
+    core/matcher.h
+    core/operations.h)
 
 add_custom_target(standalone)
 

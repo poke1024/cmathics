@@ -255,6 +255,8 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
 
 class ExpressionIterator;
 
+class OperationsInterface;
+
 class Expression : public BaseExpression {
 public:
 	const BaseExpressionRef _head;
@@ -287,6 +289,8 @@ public:
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, Evaluation &evaluation) const = 0;
 
 	virtual ExpressionRef slice(size_t begin, size_t end = SIZE_T_MAX) const = 0;
+
+    virtual const OperationsInterface &operations() const = 0;
 };
 
 class ExpressionIterator {
