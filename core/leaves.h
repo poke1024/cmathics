@@ -123,8 +123,8 @@ public:
 	inline explicit PackExtent(std::vector<U> &&data) : _data(data) {
 	}
 
-	inline const U *address(size_t index) {
-		return &_data[index];
+	inline const U *address() {
+		return &_data[0];
 	}
 };
 
@@ -132,7 +132,7 @@ template<typename U>
 class PackSlice : public Slice, public OperationsImplementation<PackSlice<U>> {
 private:
 	typename PackExtent<U>::Ref _extent;
-	const size_t _offset;
+	const U * const _begin;
 
 public:
 	template<typename V>
@@ -152,6 +152,10 @@ public:
 		inline operator BaseExpressionRef() const {
 			return from_primitive(_u);
 		}
+
+		inline BaseExpressionRef operator->() const {
+			return from_primitive(_u);
+		}
 	};
 
 	using LeafIterator = PointerIterator<U, leaf>;
@@ -159,17 +163,47 @@ public:
 	using LeafCollection = PointerCollection<U, LeafIterator>;
 
 public:
+	inline PackSlice(const std::vector<U> &data) :
+		_extent(std::make_shared<PackExtent<U>>(data)), _begin(_extent->address()), Slice(data.size()),
+		OperationsImplementation<PackSlice<U>>(*this) {
+	}
+
+	inline PackSlice(std::vector<U> &&data) :
+		_extent(std::make_shared<PackExtent<U>>(data)), _begin(_extent->address()), Slice(data.size()),
+		OperationsImplementation<PackSlice<U>>(*this) {
+	}
+
 	inline PackSlice(const typename PackExtent<U>::Ref &extent, size_t offset, size_t size) :
-		_extent(extent), _offset(offset), Slice(size), OperationsImplementation<PackSlice<U>>(*this) {
+		_extent(extent), _begin(_extent->address() + offset), Slice(size), OperationsImplementation<PackSlice<U>>(*this) {
+	}
+
+	inline bool operator==(const PackSlice<U> &slice) const {
+		return _begin == slice._begin && _size == slice._size;
+	}
+
+	inline bool operator!=(const PackSlice<U> &slice) const {
+		return !(*this == slice);
 	}
 
 	template<typename V>
 	PrimitiveCollection<V> primitives() const {
-		return PrimitiveCollection<V>(_extent->address(_offset), _size);
+		return PrimitiveCollection<V>(_begin, _size);
 	}
 
 	LeafCollection leaves() const {
-		return LeafCollection(_extent->address(_offset), _size);
+		return LeafCollection(_begin, _size);
+	}
+
+	inline LeafIterator begin() const {
+		return LeafIterator(_begin);
+	}
+
+	inline LeafIterator end() const {
+		return LeafIterator(_begin + _size);
+	}
+
+	inline BaseExpressionRef operator[](size_t i) const {
+		return from_primitive(_begin[i]);
 	}
 };
 
@@ -293,54 +327,6 @@ public:
 	}
 
 	RefsSlice slice(size_t begin, size_t end = SIZE_T_MAX) const;
-
-	template<typename F>
-	RefsSlice apply(
-			size_t begin,
-			size_t end,
-			const F &f,
-			TypeMask mask) const {
-
-		assert(_expr == nullptr);
-
-		if (_extent.use_count() == 1) {
-			// FIXME. optimize this case. we do not need to copy here.
-		}
-
-		auto leaves = _extent->address();
-		for (size_t i = begin; i < end; i++) {
-			// FIXME check mask
-
-			auto new_leaf = f(leaves[i]);
-
-			if (new_leaf) { // copy is needed now
-				std::vector<BaseExpressionRef> new_leaves;
-				new_leaves.reserve(_size);
-
-				new_leaves.insert(new_leaves.end(), &leaves[0], &leaves[i]);
-
-				new_leaves.push_back(new_leaf); // leaves[i]
-
-				for (size_t j = i + 1; j < end; j++) {
-					// FIXME check mask
-
-					auto old_leaf = leaves[j];
-					new_leaf = f(old_leaf);
-					if (new_leaf) {
-						new_leaves.push_back(new_leaf);
-					} else {
-						new_leaves.push_back(old_leaf);
-					}
-				}
-
-				new_leaves.insert(new_leaves.end(), &leaves[end], &leaves[_size]);
-
-				return RefsSlice(std::move(new_leaves));
-			}
-		}
-
-		return *this;
-	}
 
 	inline const BaseExpressionRef *begin() const {
 		return _begin;

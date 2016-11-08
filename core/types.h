@@ -148,7 +148,6 @@ typedef const Expression<RefsSlice> RefsExpression;
 typedef const RefsExpression* RefsExpressionPtr;
 typedef std::shared_ptr<const RefsExpression> RefsExpressionRef;
 
-
 class Symbol;
 
 // in contrast to BaseExpressionRef, SymbolRefs are not constant. Symbols might
@@ -225,7 +224,7 @@ public:
         return std::make_tuple(1, 1); // default
     }
 
-    virtual match_sizes_t match_num_args_with_head(RefsExpressionPtr patt) const {
+    virtual match_sizes_t match_num_args_with_head(CoreExpressionPtr patt) const {
         return std::make_tuple(1, 1); // default for non-symbol heads
     }
 
@@ -281,6 +280,8 @@ public:
 	virtual bool is_sequence() const {
 		return _head->is_symbol_sequence();
 	}
+
+	virtual BaseExpressionRef evaluate_values(const CoreExpressionRef &self, Evaluation &evaluation) const = 0;
 };
 
 class CoreExpressionIterator {

@@ -194,14 +194,12 @@ public:
 		const T imax = to_primitive<T>(_imax);
 		const T di = to_primitive<T>(_di);
 
-		// FIXME use PackedSlice
-
-		std::vector<BaseExpressionRef> leaves;
+		std::vector<T> leaves;
 		for (T x = imin; x <= imax; x += di) {
-			leaves.push_back(from_primitive(x));
+			leaves.push_back(x);
 		}
 
-		return expression(_evaluation.definitions.list(), leaves);
+		return expression(_evaluation.definitions.list(), PackSlice<T>(std::move(leaves)));
 	}
 };
 

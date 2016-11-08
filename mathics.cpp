@@ -41,6 +41,9 @@ namespace python {
         Context() {
             // note: if Py_Initialize() fails (e.g. with "unable to load the file system codec"), it usually means that
             // your PYTHONHOME environment variable and the Python library we linked this binary against don't match.
+
+            // likewise, if on OS X, you get a "dyld: Library not loaded: libpython3.5m.dylib" or similar on startup,
+            // you have to set your PYTHONHOME and then, additionally, set your DYLD_LIBRARY_PATH to PYTHONHOME/lib.
             Py_Initialize();
         }
 
