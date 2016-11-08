@@ -9,7 +9,6 @@
 
 #include <sstream>
 #include <vector>
-#include <experimental/optional>
 
 #include "arithmetic.h"
 
