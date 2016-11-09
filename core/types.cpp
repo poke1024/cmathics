@@ -46,36 +46,3 @@ std::ostream &operator<<(std::ostream &s, const Match &m) {
     s << ">";
     return s;
 }
-
-bool BaseExpression::match_sequence(const Matcher &matcher) const {
-    // "this" is always pattern[0].
-
-    if (matcher.sequence_size() == 0) {
-        return false;
-    } else if (same(matcher.sequence_next())) {
-        return matcher(1, nullptr);
-    } else {
-        return false;
-    }
-}
-
-bool BaseExpression::match_sequence_with_head(RefsExpressionPtr patt, const Matcher &matcher) const {
-    // pattern[0] is always an Expression.
-    // "this" is always pattern[0]->_head.
-
-    if (matcher.sequence_size() == 0) {
-        return false;
-    } else {
-        auto next = matcher.sequence_next();
-        if (next->type() == ExpressionType) {
-            auto expr = std::static_pointer_cast<const Expression>(next);
-            if (!expr->head()->same(patt->head())) {
-                return false;
-            } else {
-                return matcher.descend();
-            }
-        } else {
-            return false;
-        }
-    }
-}

@@ -329,7 +329,6 @@ public:
 class RefsSlice : public BaseRefsSlice {
 private:
 	typename RefsExtent::Ref _extent;
-	const BaseExpressionRef _expr;
 
     inline RefsSlice(const typename RefsExtent::Ref &extent, TypeMask type_mask) :
         BaseRefsSlice(extent->address(), extent->size(), type_mask),
@@ -338,9 +337,8 @@ private:
 
 public:
     inline RefsSlice(const RefsSlice &slice) :
-        BaseRefsSlice(slice._expr ? &_expr : slice._begin, slice._size, slice._type_mask),
-        _extent(slice._extent),
-        _expr(slice._expr) {
+        BaseRefsSlice(slice._begin, slice._size, slice._type_mask),
+        _extent(slice._extent) {
 }
 
 	inline RefsSlice() : BaseRefsSlice(nullptr, 0, 0) {
@@ -365,13 +363,6 @@ public:
         TypeMask type_mask) :
         BaseRefsSlice(begin, end - begin, type_mask),
 		_extent(extent) {
-	}
-
-	inline RefsSlice(const BaseExpressionRef &expr) :
-		BaseRefsSlice(&_expr, 1, 1L << expr->type()),
-        _expr(expr) {
-		// special case for Slices with exactly one element. happens extensively during
-		// evaluation when we pattern match rules, so it's very useful to optimize this.
 	}
 
 	inline RefsSlice slice(index_t begin, index_t end = INDEX_MAX) const {

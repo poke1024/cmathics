@@ -62,6 +62,14 @@ typedef std::vector<Rule> Rules;
 
 class Definitions;
 
+enum class PatternSymbol : uint8_t {
+	None,
+	Blank,
+	BlankSequence,
+	BlankNullSequence,
+	Pattern
+};
+
 class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
@@ -73,7 +81,7 @@ protected:
 	mutable const Symbol *_linked_variable;
 
 public:
-	Symbol(Definitions *new_definitions, const char *name);
+	Symbol(Definitions *new_definitions, const char *name, PatternSymbol pattern = PatternSymbol::None);
 
 	/*Expression* own_values;
 	Expression* sub_values;
@@ -90,6 +98,7 @@ public:
 	Rules down_rules;
 
 	Attributes attributes;
+	const PatternSymbol pattern_symbol;
 
 	virtual bool same(const BaseExpression &expr) const {
 		// compare as pointers: Symbol instances are unique

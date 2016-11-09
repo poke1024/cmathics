@@ -133,9 +133,7 @@ BaseExpressionRef compute(TypeMask mask, const F &f) {
 		return f.template compute<mpq_class>();
 	}
 
-	// f.compute<mpfr::mpreal>()
-
-	assert(false);
+	return BaseExpressionRef(); // cannot evaluate
 }
 
 class RangeComputation {

@@ -4,10 +4,10 @@
 #include "types.h"
 #include "hash.h"
 #include "symbol.h"
-#include "matcher.h"
 #include "operations.h"
 #include "arithmetic.h"
 #include "string.h"
+#include "leaves.h"
 
 #include <sstream>
 #include <vector>
@@ -267,12 +267,6 @@ public:
 		}
 	}
 
-	virtual bool match_sequence(const Matcher &matcher) const {
-		auto patt = matcher.this_pattern();
-		auto patt_expr = patt->to_refs_expression(patt);
-		return patt_expr->_head->match_sequence_with_head(patt_expr.get(), matcher);
-	}
-
 	virtual BaseExpressionRef replace_all(const Match &match) const {
 		return apply(
 			_head->replace_all(match),
@@ -302,11 +296,7 @@ public:
 		return _operations;
 	}
 
-	virtual bool descend_match(MatchContext &context,
-       const BaseExpressionRef &this_pattern, const RefsSlice &next_pattern) const {
-		MatcherImplementation<Slice> matcher(context, this_pattern, next_pattern, _leaves);
-		return this_pattern->match_sequence(matcher);
-	}
+	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const;
 };
 
 template<typename U>
@@ -337,8 +327,13 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 }
 
 inline ExpressionRef make_expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
+	const auto size = leaves.size();
+	if (size == 0) { // e.g. {}
+		return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<0>>>(
+			head, InPlaceRefsSlice<0>(leaves, 0));
+	}
 	const auto type_mask = calc_type_mask(leaves);
-    switch (leaves.size()) {
+    switch (size) {
         case 1:
             return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<1>>>(
                 head, InPlaceRefsSlice<1>(leaves, type_mask));

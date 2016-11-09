@@ -5,6 +5,7 @@
 
 #include "types.h"
 #include "operations.h"
+#include "integer.h"
 
 BaseExpressionRef Plus(
 	const ExpressionRef &expr,

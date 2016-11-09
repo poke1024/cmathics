@@ -138,8 +138,6 @@ public:
 
 std::ostream &operator<<(std::ostream &s, const Match &m);
 
-class Matcher;
-
 class Expression;
 typedef std::shared_ptr<const Expression> ExpressionRef;
 typedef const Expression *ExpressionPtr;
@@ -222,11 +220,11 @@ public:
 
     // pattern matching; if not noted otherwise, "this" is the pattern that is matched against here.
 
-    virtual bool match_sequence(const Matcher &matcher) const;
+	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const {
+		throw std::runtime_error("need an Expression to match leaves");
+	}
 
-    virtual bool match_sequence_with_head(RefsExpressionPtr patt, const Matcher &matcher) const;
-
-    virtual match_sizes_t match_num_args() const {
+	virtual match_sizes_t match_num_args() const {
         return std::make_tuple(1, 1); // default
     }
 
@@ -248,11 +246,6 @@ public:
 
 	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const {
 		throw std::runtime_error("cannot create refs expression");
-	}
-
-	virtual bool descend_match(MatchContext &context,
-       const BaseExpressionRef &this_pattern, const RefsSlice &next_pattern) const {
-		throw std::runtime_error("cannot descend into non-expressions");
 	}
 };
 
