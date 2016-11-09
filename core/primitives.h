@@ -18,6 +18,18 @@ T to_primitive(const BaseExpressionRef &expr) {
 }
 
 template<>
+inline mpint to_primitive<mpint>(const BaseExpressionRef &expr) {
+	switch (expr->type()) {
+		case MachineIntegerType:
+			return mpint(std::static_pointer_cast<const MachineInteger>(expr)->value);
+		case BigIntegerType:
+			return mpint(std::static_pointer_cast<const BigInteger>(expr)->value);
+		default:
+			throw to_primitive_error(expr->type(), "mpint");
+	}
+}
+
+template<>
 inline int64_t to_primitive<int64_t>(const BaseExpressionRef &expr) {
 	switch (expr->type()) {
 		case MachineIntegerType:

@@ -154,9 +154,9 @@ public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
 
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &leaves) :
-			Expression(head),
-			_leaves(leaves),
-			_operations(*this) {
+        Expression(head),
+        _leaves(leaves),
+        _operations(*this) {
 		assert(head);
 	}
 
@@ -275,14 +275,14 @@ public:
 
 	virtual BaseExpressionRef replace_all(const Match &match) const {
 		return apply(
-				_head->replace_all(match),
-				0,
-				_leaves.size(),
-				[&match](const BaseExpressionRef &leaf) {
-					return leaf->replace_all(match);
-				},
-				(1L << ExpressionType) | (1L << SymbolType));
-	}
+			_head->replace_all(match),
+            0,
+            _leaves.size(),
+            [&match](const BaseExpressionRef &leaf) {
+                return leaf->replace_all(match);
+            },
+            (1L << ExpressionType) | (1L << SymbolType));
+}
 
 	virtual BaseExpressionRef clone() const {
 		return std::make_shared<ExpressionImplementation<Slice>>(_head, _leaves);
@@ -336,9 +336,19 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 	return values;
 }
 
-template<typename T>
-inline ExpressionRef make_expression(const BaseExpressionRef &head, T leaves) {
-	auto type_mask = calc_type_mask(leaves);
+inline ExpressionRef make_expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
+	const auto type_mask = calc_type_mask(leaves);
+    switch (leaves.size()) {
+        case 1:
+            return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<1>>>(
+                head, InPlaceRefsSlice<1>(leaves, type_mask));
+        case 2:
+            return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<2>>>(
+                head, InPlaceRefsSlice<2>(leaves, type_mask));
+        case 3:
+            return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<3>>>(
+                head, InPlaceRefsSlice<3>(leaves, type_mask));
+    }
 	switch (type_mask) {
 		case 1L << MachineIntegerType:
 			return expression(head, PackSlice<machine_integer_t>(
@@ -355,20 +365,21 @@ inline ExpressionRef make_expression(const BaseExpressionRef &head, T leaves) {
 	}
 }
 
-inline ExpressionRef expression(const BaseExpressionRef &head, std::vector<BaseExpressionRef> &&leaves) {
-	return make_expression<std::vector<BaseExpressionRef>>(head, leaves);
-}
-
 inline ExpressionRef expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
-	return make_expression<const std::vector<BaseExpressionRef>>(head, leaves);
+	return make_expression(head, leaves);
 }
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves) {
-	return make_expression<const std::initializer_list<BaseExpressionRef>>(head, leaves);
+	return make_expression(head, std::vector<BaseExpressionRef>(leaves));
 }
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const RefsSlice &slice) {
 	return std::make_shared<ExpressionImplementation<RefsSlice>>(head, slice);
+}
+
+template<size_t N>
+inline ExpressionRef expression(const BaseExpressionRef &head, const InPlaceRefsSlice<N> &slice) {
+    return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<N>>>(head, slice);
 }
 
 template<typename Slice>
@@ -393,7 +404,7 @@ ExpressionRef ExpressionImplementation<Slice>::apply(
 	for (size_t i = begin; i < end; i++) {
 		auto leaf = slice[i];
 
-		if (((1L << leaf->type()) & type_mask) == 0) {
+		if ((leaf->type_mask() & type_mask) == 0) {
 			continue;
 		}
 
@@ -414,7 +425,7 @@ ExpressionRef ExpressionImplementation<Slice>::apply(
 			for (size_t j = i + 1; j < end; j++) {
 				auto old_leaf = slice[j];
 
-				if (((1L << old_leaf->type()) & type_mask) == 0) {
+				if ((old_leaf->type_mask() & type_mask) == 0) {
 					new_leaves.push_back(old_leaf);
 				} else {
 					new_leaf = f(old_leaf);
