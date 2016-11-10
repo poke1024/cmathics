@@ -321,18 +321,18 @@ inline ExpressionRef make_expression(const BaseExpressionRef &head, const std::v
 	if (size == 0) { // e.g. {}
 		return std::make_shared<ExpressionImplementation<EmptySlice>>(head, EmptySlice());
 	}
-	const auto type_mask = calc_type_mask(leaves);
     switch (size) {
         case 1:
             return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<1>>>(
-                head, InPlaceRefsSlice<1>(leaves, type_mask));
+                head, InPlaceRefsSlice<1>(leaves, OptionalTypeMask()));
         case 2:
             return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<2>>>(
-                head, InPlaceRefsSlice<2>(leaves, type_mask));
+                head, InPlaceRefsSlice<2>(leaves, OptionalTypeMask()));
         case 3:
             return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<3>>>(
-                head, InPlaceRefsSlice<3>(leaves, type_mask));
+                head, InPlaceRefsSlice<3>(leaves, OptionalTypeMask()));
     }
+	const auto type_mask = calc_type_mask(leaves);
 	switch (type_mask) {
 		case 1L << MachineIntegerType:
 			return expression(head, PackSlice<machine_integer_t>(
