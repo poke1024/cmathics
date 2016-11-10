@@ -27,128 +27,133 @@ inline TypeMask calc_type_mask(const T &container) {
 	return mask;
 }
 
-template<typename U, typename I>
-class PointerCollection {
-private:
-	const U * const _data;
-	const size_t _size;
-
+class PassBaseExpression {
 public:
-	inline PointerCollection(const U *data, size_t size) : _data(data), _size(size) {
-	}
-
-	inline I begin() const {
-		return I(_data);
-	}
-
-	inline I end() const {
-		return I(_data + _size);
-	}
-
-	inline auto operator[](size_t i) const {
-		return *I(_data + i);
+	inline BaseExpressionRef convert(const BaseExpressionRef &u) const {
+		return u;
 	}
 };
 
-template<typename U, typename V>
-class Conversions {
+template<typename T>
+class PrimitiveToBaseExpression {
 public:
-    static inline V convert(const U &u) {
-        return V(u);
-    }
-};
-
-template<typename U>
-class Conversions<U, BaseExpressionRef> {
-public:
-	static inline BaseExpressionRef convert(const U &u) {
+	inline BaseExpressionRef convert(const T &u) const {
 		return from_primitive(u);
 	}
 };
 
-template<>
-class Conversions<machine_integer_t, mpq_class> {
+template<typename T>
+class BaseExpressionToPrimitive {
 public:
-    static inline mpq_class convert(const machine_integer_t &u) {
-        mpq_class v;
-        v = (signed long int)u;
-        return v;
-    }
+	inline T convert(const BaseExpressionRef &u) const {
+		return to_primitive<T>(u);
+	}
+};
+
+template<typename T>
+class PrimitiveToPrimitive {
 };
 
 template<>
-class Conversions<machine_integer_t, mpz_class> {
+class PrimitiveToPrimitive<mpint> {
 public:
-    static inline mpz_class convert(const machine_integer_t &u) {
-        mpz_class v;
-        v = (signed long int)u;
-        return v;
-    }
-};
+	inline mpint convert(const mpz_class &x) const {
+		return mpint(x);
+	}
 
-template<>
-class Conversions<std::string, machine_integer_t> {
-public:
-	static inline machine_integer_t convert(const std::string &u) {
-		throw std::runtime_error("illegal conversion");
+	inline mpint convert(machine_integer_t x) const {
+		return mpint(x);
+	}
+
+	inline mpint convert(const mpq_class &x) const {
+		throw std::runtime_error("unsupported conversion");
+	}
+
+	inline mpint convert(const std::string &x) const {
+		throw std::runtime_error("unsupported conversion");
 	}
 };
 
 template<>
-class Conversions<std::string, machine_real_t> {
+class PrimitiveToPrimitive<machine_real_t> {
 public:
-	static inline machine_real_t convert(const std::string &u) {
-		throw std::runtime_error("illegal conversion");
+	inline machine_real_t convert(machine_real_t x) const {
+		return x;
+	}
+
+	inline machine_real_t convert(const std::string &x) const {
+		throw std::runtime_error("unsupported conversion");
+	}
+
+	inline machine_real_t convert(const mpq_class &x) const {
+		throw std::runtime_error("unsupported conversion");
+	}
+
+	inline machine_real_t convert(const mpz_class &x) const {
+		throw std::runtime_error("unsupported conversion");
 	}
 };
 
-template<>
-class Conversions<mpz_class, machine_real_t> {
-public:
-	static inline machine_real_t convert(const mpz_class &u) {
-		throw std::runtime_error("illegal conversion");
-	}
-};
-
-template<>
-class Conversions<mpq_class, machine_real_t> {
-public:
-	static inline machine_real_t convert(const mpq_class &u) {
-		throw std::runtime_error("illegal conversion");
-	}
-};
-
-template<typename T, typename F>
+template<typename T, typename TypeConverter>
 class PointerIterator {
 private:
 	const T *_ptr;
+	const TypeConverter _converter;
 
 public:
-	inline PointerIterator() {
+	inline PointerIterator(const TypeConverter &converter) : _converter(converter) {
 	}
 
-	inline explicit PointerIterator(const T *ptr) : _ptr(ptr) {
+	inline explicit PointerIterator(const TypeConverter &converter, const T *ptr) :
+		_converter(converter), _ptr(ptr) {
 	}
 
 	inline auto operator*() const {
-		return Conversions<T, F>::convert(*_ptr);
+		return _converter.convert(*_ptr);
 	}
 
-	inline bool operator==(const PointerIterator<T, F> &other) const {
+	inline bool operator==(const PointerIterator<T, TypeConverter> &other) const {
 		return _ptr == other._ptr;
 	}
 
-	inline bool operator!=(const PointerIterator<T, F> &other) const {
+	inline bool operator!=(const PointerIterator<T, TypeConverter> &other) const {
 		return _ptr != other._ptr;
 	}
 
-	inline PointerIterator<T, F> &operator++() {
+	inline PointerIterator<T, TypeConverter> &operator++() {
 		_ptr += 1;
 		return *this;
 	}
 
-	inline PointerIterator<T, F> operator++(int) const {
-		return PointerIterator<T, F>(_ptr + 1);
+	inline PointerIterator<T, TypeConverter> operator++(int) const {
+		return PointerIterator<T, TypeConverter>(_ptr + 1);
+	}
+};
+
+template<typename T, typename TypeConverter>
+class PointerCollection {
+private:
+	const TypeConverter _converter;
+	const T * const _data;
+	const size_t _size;
+
+public:
+	using Iterator = PointerIterator<T, TypeConverter>;
+
+	inline PointerCollection(const T *data, size_t size, const TypeConverter &converter) :
+		_converter(converter), _data(data), _size(size) {
+	}
+
+	inline Iterator begin() const {
+		return PointerIterator<T, TypeConverter>(_converter, _data);
+	}
+
+	inline Iterator end() const {
+		return PointerIterator<T, TypeConverter>(_converter, _data + _size);
+	}
+
+	inline auto operator[](size_t i) const {
+		return *Iterator(_converter, _data + i);
 	}
 };
 
@@ -179,6 +184,10 @@ public:
 	inline explicit PackExtent(std::vector<U> &&data) : _data(data) {
 	}
 
+	inline const std::vector<U> &data() const {
+		return _data;
+	}
+
 	inline const U *address() {
 		return &_data[0];
 	}
@@ -196,15 +205,9 @@ private:
 
 public:
 	template<typename V>
-	using PrimitiveIterator = PointerIterator<U, V>;
+	using PrimitiveCollection = PointerCollection<U, PrimitiveToPrimitive<V>>;
 
-	template<typename V>
-	using PrimitiveCollection = PointerCollection<U, PrimitiveIterator<V>>;
-
-public:
-	using LeafIterator = PointerIterator<U, BaseExpressionRef>;
-
-	using LeafCollection = PointerCollection<U, LeafIterator>;
+	using LeafCollection = PointerCollection<U, PrimitiveToBaseExpression<U>>;
 
 public:
 	inline PackSlice(const std::vector<U> &data) :
@@ -223,21 +226,13 @@ public:
         return _size > 0 ? (1L << TypeFromPrimitive<U>::type) : 0;
     }
 
-    template<typename V>
+	template<typename V>
 	PrimitiveCollection<V> primitives() const {
-		return PrimitiveCollection<V>(_begin, _size);
+		return PrimitiveCollection<V>(_begin, _size, PrimitiveToPrimitive<V>());
 	}
 
 	LeafCollection leaves() const {
-		return LeafCollection(_begin, _size);
-	}
-
-	inline LeafIterator begin() const {
-		return LeafIterator(_begin);
-	}
-
-	inline LeafIterator end() const {
-		return LeafIterator(_begin + _size);
+		return LeafCollection(_begin, _size, PrimitiveToBaseExpression<U>());
 	}
 
 	inline BaseExpressionRef operator[](size_t i) const {
@@ -301,35 +296,19 @@ protected:
 
 public:
     template<typename V>
-    class primitive {
-    private:
-        const BaseExpressionRef &_u;
-    public:
-        inline primitive(const BaseExpressionRef &u) : _u(u) {
-        }
-
-        inline operator V() const {
-            return to_primitive<V>(_u);
-        }
-    };
-
-    template<typename V>
-    using PrimitiveIterator = PointerIterator<BaseExpressionRef, primitive<V>>;
-
-    template<typename V>
-    using PrimitiveCollection = PointerCollection<BaseExpressionRef, PrimitiveIterator<V>>;
+    using PrimitiveCollection = PointerCollection<BaseExpressionRef, BaseExpressionToPrimitive<V>>;
 
 public:
-    using LeafCollection = PointerCollection<BaseExpressionRef, BaseExpressionRef*>;
+    using LeafCollection = PointerCollection<BaseExpressionRef, PassBaseExpression>;
 
 public:
     template<typename V>
     inline PrimitiveCollection<V> primitives() const {
-        return PrimitiveCollection<V>(_begin, _size);
+        return PrimitiveCollection<V>(_begin, _size, BaseExpressionToPrimitive<V>());
     }
 
     inline LeafCollection leaves() const {
-        return LeafCollection(_begin, _size);
+        return LeafCollection(_begin, _size, PassBaseExpression());
     }
 
 	inline OptionalTypeMask sliced_type_mask(size_t new_size) const {
@@ -498,17 +477,12 @@ public:
 	}
 
 	template<typename V>
-	using PrimitiveCollection = PointerCollection<BaseExpressionRef, V*>;
-
-	using LeafCollection = PointerCollection<BaseExpressionRef, BaseExpressionRef*>;
-
-	template<typename V>
-	inline PrimitiveCollection<V> primitives() const {
-		return PrimitiveCollection<V>(nullptr, 0);
+	inline std::vector<V> primitives() const {
+		return std::vector<V>();
 	}
 
-	inline LeafCollection leaves() const {
-		return LeafCollection(nullptr, 0);
+	inline std::vector<BaseExpressionRef> leaves() const {
+		return std::vector<BaseExpressionRef>();
 	}
 
 	inline TypeMask type_mask() const {

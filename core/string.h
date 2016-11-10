@@ -41,4 +41,9 @@ inline BaseExpressionRef from_primitive(const std::string &value) {
     return std::make_shared<String>(value);
 }
 
+template<typename Alloc>
+inline BaseExpressionRef from_primitive(const Alloc& alloc, const std::string &value) {
+    return std::allocate_shared<String, Alloc>(alloc, value);
+}
+
 #endif

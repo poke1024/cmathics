@@ -27,11 +27,11 @@ class ExpressionImplementation :
 public:
 	template<typename F>
 	ExpressionRef apply(
-			const BaseExpressionRef &head,
-			size_t begin,
-			size_t end,
-			const F &f,
-			TypeMask type_mask) const;
+		const BaseExpressionRef &head,
+		size_t begin,
+		size_t end,
+		const F &f,
+		TypeMask type_mask) const;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const;
 
@@ -207,7 +207,7 @@ public:
 
 	virtual hash_t hash() const {
 		hash_t result = hash_combine(result, _head->hash());
-		for (auto leaf : _leaves) {
+		for (auto leaf : _leaves.leaves()) {
 			result = hash_combine(result, leaf->hash());
 		}
 		return result;
@@ -452,7 +452,7 @@ public:
 		const BaseExpressionRef &expr, const BaseExpressionRef &head, const Slice &slice) {
 		std::vector<BaseExpressionRef> leaves;
 		leaves.reserve(slice.size());
-		for (auto leaf : slice) {
+		for (auto leaf : slice.leaves()) {
 			leaves.push_back(leaf);
 		}
 		return std::make_shared<RefsExpression>(head, RefsSlice(std::move(leaves), slice.type_mask()));
