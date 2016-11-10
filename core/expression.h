@@ -320,7 +320,8 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 	return values;
 }
 
-inline ExpressionRef make_expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
+template<typename T>
+inline ExpressionRef make_expression(const BaseExpressionRef &head, const T &leaves) {
 	const auto size = leaves.size();
     switch (size) {
         case 0: // e.g. {}
@@ -349,11 +350,11 @@ inline ExpressionRef make_expression(const BaseExpressionRef &head, const std::v
 }
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
-	return make_expression(head, leaves);
+	return make_expression<std::vector<BaseExpressionRef>>(head, leaves);
 }
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves) {
-	return make_expression(head, std::vector<BaseExpressionRef>(leaves));
+	return make_expression<std::initializer_list<BaseExpressionRef>>(head, leaves);
 }
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const RefsSlice &slice) {

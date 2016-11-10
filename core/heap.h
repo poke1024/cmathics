@@ -2,11 +2,15 @@
 #define CMATHICS_HEAP_H
 
 #include <boost/pool/object_pool.hpp>
+#include <mpfrcxx/mpreal.h>
 
 #include "gmpxx.h"
 
 class MachineInteger;
 class BigInteger;
+
+class MachineReal;
+class BigReal;
 
 template<size_t N>
 class InPlaceRefsSlice;
@@ -27,12 +31,16 @@ private:
     boost::object_pool<MachineInteger> _machine_integers;
     boost::object_pool<BigInteger> _big_integers;
 
+    boost::object_pool<MachineReal> _machine_reals;
+    boost::object_pool<BigReal> _big_reals;
+
     boost::object_pool<ExpressionImplementation<InPlaceRefsSlice<0>>> _expression0;
     boost::object_pool<ExpressionImplementation<InPlaceRefsSlice<1>>> _expression1;
     boost::object_pool<ExpressionImplementation<InPlaceRefsSlice<2>>> _expression2;
     boost::object_pool<ExpressionImplementation<InPlaceRefsSlice<3>>> _expression3;
 
     boost::object_pool<ExpressionImplementation<RefsSlice>> _expression_refs;
+
 public:
     static void init();
 
@@ -40,6 +48,10 @@ public:
 
     static BaseExpressionRef MachineInteger(machine_integer_t value);
     static BaseExpressionRef BigInteger(const mpz_class &value);
+
+    static BaseExpressionRef MachineReal(machine_real_t value);
+    static BaseExpressionRef BigReal(const mpfr::mpreal &value);
+    static BaseExpressionRef BigReal(double prec, machine_real_t value);
 
     static ExpressionRef Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<0> &slice);
     static ExpressionRef Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<1> &slice);

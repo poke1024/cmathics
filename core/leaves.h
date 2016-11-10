@@ -455,6 +455,12 @@ public:
         std::copy(refs.begin(), refs.end(), _refs);
     }
 
+	inline InPlaceRefsSlice(const std::initializer_list<BaseExpressionRef> &refs, OptionalTypeMask type_mask) :
+		BaseSlice(&_refs[0], N, type_mask) {
+		assert(refs.size() == N);
+		std::copy(refs.begin(), refs.end(), _refs);
+	}
+
     inline InPlaceRefsSlice(const BaseExpressionRef *refs, size_t size, OptionalTypeMask type_mask) :
 		BaseSlice(&_refs[0], size, type_mask) {
         assert(size <= N);

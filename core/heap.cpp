@@ -23,6 +23,14 @@ void Heap::release(BaseExpression *expr) {
             _s_instance->_big_integers.free(static_cast<class BigInteger*>(expr));
             break;
 
+        case MachineRealType:
+            _s_instance->_machine_reals.free(static_cast<class MachineReal*>(expr));
+            break;
+
+        case BigRealType:
+            _s_instance->_big_reals.free(static_cast<class BigReal*>(expr));
+            break;
+
         case ExpressionType: {
             const SliceTypeId type_id = static_cast<const class Expression*>(expr)->slice_type_id();
             if (is_in_place(type_id)) {
@@ -71,6 +79,21 @@ BaseExpressionRef Heap::MachineInteger(machine_integer_t value) {
 BaseExpressionRef Heap::BigInteger(const mpz_class &value) {
     assert(_s_instance);
     return BaseExpressionRef(_s_instance->_big_integers.construct(value));
+}
+
+BaseExpressionRef Heap::MachineReal(machine_real_t value) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_machine_reals.construct(value));
+}
+
+BaseExpressionRef Heap::BigReal(const mpfr::mpreal &value) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_big_reals.construct(value));
+}
+
+BaseExpressionRef Heap::BigReal(double prec, machine_real_t value) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_big_reals.construct(prec, value));
 }
 
 ExpressionRef Heap::Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<0> &slice) {
