@@ -67,20 +67,6 @@ public:
     }
 };
 
-inline BaseExpressionRef from_primitive(machine_integer_t value) {
-    // return std::allocate_shared<Alloc, MachineInteger>(alloc, value);
-	return BaseExpressionRef(new MachineInteger(value));
-}
-
-inline BaseExpressionRef from_primitive(const mpz_class &value) {
-	static_assert(sizeof(long) == sizeof(machine_integer_t), "types long and machine_integer_t differ");
-	if (value.fits_slong_p()) {
-		return from_primitive(static_cast<machine_integer_t>(value.get_si()));
-	} else {
-		return BaseExpressionRef(new BigInteger(value));
-	}
-}
-
 class mpint {
 public:
     long machine_value;

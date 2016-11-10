@@ -159,12 +159,31 @@ typedef boost::intrusive_ptr<Symbol> SymbolRef;
 
 class Evaluation;
 
+enum SliceTypeId : uint8_t {
+	RefsSliceCode = 0,
+	PackSliceCode = 1,
+	InPlaceSliceCode = 128,
+	InPlaceSliceLastCode = 255,
+};
+
+constexpr SliceTypeId in_place_slice_type_id(size_t n) {
+	return SliceTypeId(SliceTypeId::InPlaceSliceCode + n);
+}
+
+inline bool is_in_place(SliceTypeId code) {
+	return code >= InPlaceSliceCode && code <= InPlaceSliceLastCode;
+}
+
+inline size_t in_place_size(SliceTypeId code) {
+	return size_t(code) - size_t(InPlaceSliceCode);
+}
+
 class BaseExpression {
 private:
 	const Type _type;
 
 protected:
-    mutable long _ref_count;
+    mutable size_t _ref_count;
 
 public:
     inline BaseExpression(Type type) : _type(type), _ref_count(0) {
@@ -257,13 +276,15 @@ public:
     friend void intrusive_ptr_release(const BaseExpression *expr);
 };
 
+#include "heap.h"
+
 inline void intrusive_ptr_add_ref(const BaseExpression *expr) {
     ++expr->_ref_count;
 }
 
 inline void intrusive_ptr_release(const BaseExpression *expr) {
     if(--expr->_ref_count == 0) {
-        delete expr;
+        Heap::release(const_cast<BaseExpression*>(expr));
     }
 }
 
@@ -313,6 +334,8 @@ public:
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
+
+	virtual SliceTypeId slice_type_id() const = 0;
 };
 
 /*class ExpressionIterator {

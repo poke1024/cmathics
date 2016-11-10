@@ -157,7 +157,7 @@ public:
 	}
 };
 
-template<typename Size>
+template<typename Size, SliceTypeId _type_id>
 class Slice {
 protected:
 	const Size _size;
@@ -169,6 +169,10 @@ public:
 
 	inline size_t size() const {
 		return _size;
+	}
+
+	inline SliceTypeId type_id() const {
+		return _type_id;
 	}
 };
 
@@ -200,7 +204,7 @@ public:
 };
 
 template<typename U>
-class PackSlice : public Slice<size_t> {
+class PackSlice : public Slice<size_t, SliceTypeId::PackSliceCode> {
 private:
 	typename PackExtent<U>::Ref _extent;
 	const U * const _begin;
@@ -291,8 +295,8 @@ public:
 	}
 };
 
-template<typename Size>
-class BaseRefsSlice : public Slice<Size> {
+template<typename Size, SliceTypeId _type_id>
+class BaseRefsSlice : public Slice<Size, _type_id> {
 protected:
     const BaseExpressionRef * const _begin;
     mutable OptionalTypeMask _type_mask;
@@ -307,11 +311,11 @@ public:
 public:
     template<typename V>
     inline PrimitiveCollection<V> primitives() const {
-        return PrimitiveCollection<V>(_begin, Slice<Size>::size(), BaseExpressionToPrimitive<V>());
+        return PrimitiveCollection<V>(_begin, Slice<Size, _type_id>::size(), BaseExpressionToPrimitive<V>());
     }
 
     inline LeafCollection leaves() const {
-        return LeafCollection(_begin, Slice<Size>::size(), PassBaseExpression());
+        return LeafCollection(_begin, Slice<Size, _type_id>::size(), PassBaseExpression());
     }
 
 	inline OptionalTypeMask sliced_type_mask(size_t new_size) const {
@@ -333,7 +337,7 @@ public:
 	        return *_type_mask;
         } else {
 	        const BaseExpressionRef *p = _begin;
-	        const BaseExpressionRef *p_end = p + Slice<Size>::size();
+	        const BaseExpressionRef *p_end = p + Slice<Size, _type_id>::size();
 	        TypeMask mask = 0;
 	        while (p != p_end) {
 		        mask |= (*p++)->type_mask();
@@ -345,7 +349,7 @@ public:
 
 public:
     inline BaseRefsSlice(const BaseExpressionRef *begin, size_t size, OptionalTypeMask type_mask) :
-        _begin(begin), Slice<Size>(size), _type_mask(type_mask) {
+        _begin(begin), Slice<Size, _type_id>(size), _type_mask(type_mask) {
     }
 
     inline const BaseExpressionRef *begin() const {
@@ -353,7 +357,7 @@ public:
     }
 
     inline const BaseExpressionRef *end() const {
-        return _begin + Slice<Size>::size();
+        return _begin + Slice<Size, _type_id>::size();
     }
 
     inline const BaseExpressionRef &operator[](size_t i) const {
@@ -361,7 +365,7 @@ public:
     }
 };
 
-class RefsSlice : public BaseRefsSlice<size_t> {
+class RefsSlice : public BaseRefsSlice<size_t, SliceTypeId::RefsSliceCode> {
 private:
 	typename RefsExtent::Ref _extent;
 
@@ -428,31 +432,37 @@ public:
 };
 
 template<size_t N>
-class InPlaceRefsSlice : public BaseRefsSlice<uint8_t> {
+class InPlaceRefsSlice : public BaseRefsSlice<uint8_t, in_place_slice_type_id(N)> {
 private:
     BaseExpressionRef _refs[N];
 
+	typedef BaseRefsSlice<uint8_t, in_place_slice_type_id(N)> BaseSlice;
+
 public:
+	inline InPlaceRefsSlice() : BaseSlice(&_refs[0], 0, 0) {
+		static_assert(N == 0, "N must be 0 for empty InPlaceRefsSlice constructor");
+	}
+
     inline InPlaceRefsSlice(const InPlaceRefsSlice<N> &slice) :
-        BaseRefsSlice(&_refs[0], slice.size(), slice.type_mask()) {
+		BaseSlice(&_refs[0], slice.size(), slice.type_mask()) {
         // mighty important to provide a copy iterator so that _begin won't get copied.
         std::copy(slice._refs, slice._refs + slice.size(), _refs);
     }
 
     inline InPlaceRefsSlice(const std::vector<BaseExpressionRef> &refs, OptionalTypeMask type_mask) :
-        BaseRefsSlice(&_refs[0], N, type_mask) {
+		BaseSlice(&_refs[0], N, type_mask) {
         assert(refs.size() == N);
         std::copy(refs.begin(), refs.end(), _refs);
     }
 
     inline InPlaceRefsSlice(const BaseExpressionRef *refs, size_t size, OptionalTypeMask type_mask) :
-        BaseRefsSlice(&_refs[0], size, type_mask) {
+		BaseSlice(&_refs[0], size, type_mask) {
         assert(size <= N);
         std::copy(refs, refs + size, _refs);
     }
 
     inline InPlaceRefsSlice<N> slice(index_t begin, index_t end = INDEX_MAX) const {
-        const size_t size = _size;
+        const size_t size = BaseSlice::size();
 
         if (begin < 0) {
             begin = size - (-begin % size);
@@ -469,44 +479,11 @@ public:
         } else if (begin == 0 && end == size) {
 	        return *this;
         } else {
-            return InPlaceRefsSlice<N>(&_refs[begin], end - begin, sliced_type_mask(end - begin));
+            return InPlaceRefsSlice<N>(&_refs[begin], end - begin, BaseSlice::sliced_type_mask(end - begin));
         }
     }
 };
 
-class EmptySlice : public Slice<uint8_t> {
-public:
-	inline EmptySlice() : Slice(0) {
-	}
-
-	template<typename V>
-	inline std::vector<V> primitives() const {
-		return std::vector<V>();
-	}
-
-	inline std::vector<BaseExpressionRef> leaves() const {
-		return std::vector<BaseExpressionRef>();
-	}
-
-	inline TypeMask type_mask() const {
-		return 0;
-	}
-
-	inline const BaseExpressionRef *begin() const {
-		return nullptr;
-	}
-
-	inline const BaseExpressionRef *end() const {
-		return nullptr;
-	}
-
-	inline const BaseExpressionRef &operator[](size_t i) const {
-		throw std::runtime_error("EmptySlice is empty");
-	}
-
-	inline EmptySlice slice(index_t begin, index_t end = INDEX_MAX) const {
-		return EmptySlice();
-	}
-};
+typedef InPlaceRefsSlice<0> EmptySlice;
 
 #endif //CMATHICS_LEAVES_H

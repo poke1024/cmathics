@@ -674,6 +674,8 @@ void mini_console() {
 }
 
 int main() {
+    Heap::init();
+
     python::Context context;
 
     mini_console();

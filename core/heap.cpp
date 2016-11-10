@@ -1,5 +1,99 @@
-//
-// Created by Bernhard on 10.11.16.
-//
-
+#include "types.h"
 #include "heap.h"
+#include "integer.h"
+#include "leaves.h"
+#include "expression.h"
+#include "definitions.h"
+#include "matcher.h"
+
+Heap *Heap::_s_instance = nullptr;
+
+void Heap::init() {
+    assert(_s_instance == nullptr);
+    _s_instance = new Heap();
+}
+
+void Heap::release(BaseExpression *expr) {
+    switch (expr->type()) {
+        case MachineIntegerType:
+            _s_instance->_machine_integers.free(static_cast<class MachineInteger*>(expr));
+            break;
+
+        case BigIntegerType:
+            _s_instance->_big_integers.free(static_cast<class BigInteger*>(expr));
+            break;
+
+        case ExpressionType: {
+            const SliceTypeId type_id = static_cast<const class Expression*>(expr)->slice_type_id();
+            if (is_in_place(type_id)) {
+                switch (in_place_size(type_id)) {
+                    case 0:
+                        _s_instance->_expression0.free(
+                            static_cast<ExpressionImplementation<InPlaceRefsSlice<0>>*>(expr));
+                        break;
+                    case 1:
+                        _s_instance->_expression1.free(
+                            static_cast<ExpressionImplementation<InPlaceRefsSlice<1>>*>(expr));
+                        break;
+                    case 2:
+                        _s_instance->_expression2.free(
+                            static_cast<ExpressionImplementation<InPlaceRefsSlice<2>>*>(expr));
+                        break;
+                    case 3:
+                        _s_instance->_expression3.free(
+                            static_cast<ExpressionImplementation<InPlaceRefsSlice<3>>*>(expr));
+                        break;
+                    default:
+                        throw std::runtime_error("encountered unsupported in-place-slice size");
+                }
+            } else if (type_id == SliceTypeId::RefsSliceCode) {
+                _s_instance->_expression_refs.free(
+                    static_cast<ExpressionImplementation<RefsSlice>*>(expr));
+            } else if (type_id == SliceTypeId::PackSliceCode) {
+                delete expr;
+            } else {
+                throw std::runtime_error("encountered unsupported slice type id");
+            }
+            break;
+        }
+
+        default:
+            delete expr;
+            break;
+    }
+}
+
+BaseExpressionRef Heap::MachineInteger(machine_integer_t value) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_machine_integers.construct(value));
+}
+
+BaseExpressionRef Heap::BigInteger(const mpz_class &value) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_big_integers.construct(value));
+}
+
+ExpressionRef Heap::Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<0> &slice) {
+    assert(_s_instance);
+    return ExpressionRef(_s_instance->_expression0.construct(head, slice));
+}
+
+ExpressionRef Heap::Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<1> &slice) {
+    assert(_s_instance);
+    return ExpressionRef(_s_instance->_expression1.construct(head, slice));
+}
+
+ExpressionRef Heap::Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<2> &slice) {
+    assert(_s_instance);
+    return ExpressionRef(_s_instance->_expression2.construct(head, slice));
+}
+
+ExpressionRef Heap::Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<3> &slice) {
+    assert(_s_instance);
+    return ExpressionRef(_s_instance->_expression3.construct(head, slice));
+}
+
+RefsExpressionRef Heap::Expression(const BaseExpressionRef &head, const RefsSlice &slice) {
+    assert(_s_instance);
+    return RefsExpressionRef(_s_instance->_expression_refs.construct(head, slice));
+}

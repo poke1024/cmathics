@@ -42,11 +42,11 @@ public:
     // copies numerator to a new Integer
     inline BaseExpressionRef denom() const {
         return from_primitive(value.get_den());
-    }
+    };
 };
 
 inline BaseExpressionRef from_primitive(const mpq_class &value) {
-	return BaseExpressionRef(new Rational(value));
+    return BaseExpressionRef(new Rational(value));
 }
 
 #endif
