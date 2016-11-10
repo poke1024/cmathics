@@ -26,6 +26,10 @@ enum Type {
 
 typedef uint16_t TypeMask;
 
+inline bool is_homogenous(TypeMask mask) {
+	return __builtin_popcount(mask) <= 1; // TypeMask contains only 0 or 1 types
+}
+
 typedef int64_t index_t; // may be negative as well
 constexpr index_t INDEX_MAX = INT64_MAX;
 

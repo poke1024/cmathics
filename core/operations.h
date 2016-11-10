@@ -13,6 +13,7 @@ protected:
 
 public:
     inline OperationsImplementation() : _expr(nullptr) {
+	    // see http://stackoverflow.com/questions/26098900/initialising-base-classes-when-using-virtual-inheritance
         throw std::runtime_error("check virtual base call instantiation in ExpressionImplementation");
     }
 

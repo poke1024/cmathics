@@ -306,15 +306,6 @@ inline PackExpressionRef<U> expression(const BaseExpressionRef &head, const Pack
 	return std::make_shared<ExpressionImplementation<PackSlice<U>>>(head, slice);
 }
 
-template<typename T>
-TypeMask calc_type_mask(const T &container) {
-	TypeMask mask = 0;
-	for (auto leaf : container) {
-		mask |= 1L << leaf->type();
-	}
-	return mask;
-}
-
 template<typename E, typename T>
 std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 	std::vector<T> values;

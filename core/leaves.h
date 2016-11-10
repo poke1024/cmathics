@@ -11,12 +11,21 @@
 #include <assert.h>
 #include <climits>
 #include <vector>
-#include <array>
+#include <experimental/optional>
 
 #include "primitives.h"
 #include "string.h"
 
-class Match;
+typedef std::experimental::optional<TypeMask> OptionalTypeMask;
+
+template<typename T>
+inline TypeMask calc_type_mask(const T &container) {
+	TypeMask mask = 0;
+	for (auto leaf : container) {
+		mask |= leaf->type_mask();
+	}
+	return mask;
+}
 
 template<typename U, typename I>
 class PointerCollection {
@@ -211,7 +220,7 @@ public:
 	}
 
     inline TypeMask type_mask() const {
-        return 1L << TypeFromPrimitive<U>::type;
+        return _size > 0 ? (1L << TypeFromPrimitive<U>::type) : 0;
     }
 
     template<typename V>
@@ -288,7 +297,7 @@ public:
 class BaseRefsSlice : public Slice {
 protected:
     const BaseExpressionRef * const _begin;
-    const TypeMask _type_mask;
+    mutable OptionalTypeMask _type_mask;
 
 public:
     template<typename V>
@@ -323,12 +332,37 @@ public:
         return LeafCollection(_begin, _size);
     }
 
+	inline OptionalTypeMask sliced_type_mask(size_t new_size) const {
+		if (new_size == 0) {
+			return OptionalTypeMask(0);
+		} else if (_type_mask) {
+			if (is_homogenous(*_type_mask)) {
+				return _type_mask;
+			} else {
+				return OptionalTypeMask();
+			}
+		} else {
+			return OptionalTypeMask();
+		}
+	}
+
     inline TypeMask type_mask() const {
-        return _type_mask;
+        if (_type_mask) {
+	        return *_type_mask;
+        } else {
+	        const BaseExpressionRef *p = _begin;
+	        const BaseExpressionRef *p_end = p + _size;
+	        TypeMask mask = 0;
+	        while (p != p_end) {
+		        mask |= (*p++)->type_mask();
+	        }
+	        _type_mask = mask;
+	        return mask;
+        }
     }
 
 public:
-    inline BaseRefsSlice(const BaseExpressionRef *begin, size_t size, TypeMask type_mask) :
+    inline BaseRefsSlice(const BaseExpressionRef *begin, size_t size, OptionalTypeMask type_mask) :
         _begin(begin), Slice(size), _type_mask(type_mask) {
     }
 
@@ -349,7 +383,7 @@ class RefsSlice : public BaseRefsSlice {
 private:
 	typename RefsExtent::Ref _extent;
 
-    inline RefsSlice(const typename RefsExtent::Ref &extent, TypeMask type_mask) :
+    inline RefsSlice(const typename RefsExtent::Ref &extent, OptionalTypeMask type_mask) :
         BaseRefsSlice(extent->address(), extent->size(), type_mask),
         _extent(extent) {
     }
@@ -363,15 +397,15 @@ public:
 	inline RefsSlice() : BaseRefsSlice(nullptr, 0, 0) {
 	}
 
-    inline RefsSlice(const std::vector<BaseExpressionRef> &data, TypeMask type_mask) :
+    inline RefsSlice(const std::vector<BaseExpressionRef> &data, OptionalTypeMask type_mask) :
         RefsSlice(std::make_shared<RefsExtent>(data), type_mask) {
 	}
 
-	inline RefsSlice(std::vector<BaseExpressionRef> &&data, TypeMask type_mask) :
+	inline RefsSlice(std::vector<BaseExpressionRef> &&data, OptionalTypeMask type_mask) :
         RefsSlice(std::make_shared<RefsExtent>(data), type_mask) {
 	}
 
-	inline RefsSlice(const std::initializer_list<BaseExpressionRef> &data, TypeMask type_mask) :
+	inline RefsSlice(const std::initializer_list<BaseExpressionRef> &data, OptionalTypeMask type_mask) :
         RefsSlice(std::make_shared<RefsExtent>(data), type_mask) {
 	}
 
@@ -379,7 +413,7 @@ public:
         const typename RefsExtent::Ref &extent,
 		const BaseExpressionRef * const begin,
         const BaseExpressionRef * const end,
-        TypeMask type_mask) :
+        OptionalTypeMask type_mask) :
         BaseRefsSlice(begin, end - begin, type_mask),
 		_extent(extent) {
 	}
@@ -394,15 +428,6 @@ public:
             end = size - (-end % size);
         }
 
-		if (!_extent) {
-			// special case: only 1 item in _expr.
-			if (begin > 0 || end < 1) {
-				return RefsSlice();
-			} else {
-				return *this;
-			}
-		}
-
 		const index_t offset = _begin - _extent->address();
 		const index_t n = _extent->size();
 		assert(offset <= n);
@@ -412,8 +437,10 @@ public:
 
         if (end <= begin) {
             return RefsSlice();
-        } else {
-	        return RefsSlice(_extent, _begin + begin, _begin + end, _type_mask);
+        } else if (begin == 0 && end == size) {
+			return *this;
+		} else {
+	        return RefsSlice(_extent, _begin + begin, _begin + end, sliced_type_mask(end - begin));
         }
 	}
 };
@@ -430,13 +457,13 @@ public:
         std::copy(slice._refs, slice._refs + slice.size(), _refs);
     }
 
-    inline InPlaceRefsSlice(const std::vector<BaseExpressionRef> &refs, TypeMask type_mask) :
+    inline InPlaceRefsSlice(const std::vector<BaseExpressionRef> &refs, OptionalTypeMask type_mask) :
         BaseRefsSlice(&_refs[0], N, type_mask) {
         assert(refs.size() == N);
         std::copy(refs.begin(), refs.end(), _refs);
     }
 
-    inline InPlaceRefsSlice(const BaseExpressionRef *refs, size_t size, TypeMask type_mask) :
+    inline InPlaceRefsSlice(const BaseExpressionRef *refs, size_t size, OptionalTypeMask type_mask) :
         BaseRefsSlice(&_refs[0], size, type_mask) {
         assert(size <= N);
         std::copy(refs, refs + size, _refs);
@@ -457,8 +484,10 @@ public:
 
         if (end <= begin) {
             return InPlaceRefsSlice<N>(nullptr, 0, 0);
+        } else if (begin == 0 && end == size) {
+	        return *this;
         } else {
-            return InPlaceRefsSlice<N>(&_refs[begin], end - begin, _type_mask);
+            return InPlaceRefsSlice<N>(&_refs[begin], end - begin, sliced_type_mask(end - begin));
         }
     }
 };
