@@ -3,21 +3,10 @@
 
 template<typename T>
 class OperationsImplementation {
-private:
-    const T * const _expr;
-
 protected:
-    inline auto expr() const {
-        return *_expr;
-    }
-
-public:
-    inline OperationsImplementation() : _expr(nullptr) {
-	    // see http://stackoverflow.com/questions/26098900/initialising-base-classes-when-using-virtual-inheritance
-        throw std::runtime_error("check virtual base call instantiation in ExpressionImplementation");
-    }
-
-    inline OperationsImplementation(const T *expr) : _expr(expr) {
+    inline const T &expr() const {
+        #pragma clang diagnostic ignored "-Wreinterpret-base-class"
+        return *reinterpret_cast<const T*>(this);
     }
 };
 

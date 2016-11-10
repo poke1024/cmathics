@@ -145,7 +145,6 @@ public:
 
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &leaves) :
         Expression(head),
-        OperationsImplementation<ExpressionImplementation<Slice>>(this),
         _leaves(leaves) {
 		assert(head);
 	}
