@@ -143,9 +143,14 @@ public:
 public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
 
-	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &leaves) :
+	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &slice) :
         Expression(head),
-        _leaves(leaves) {
+        _leaves(slice) {
+		assert(head);
+	}
+
+	inline ExpressionImplementation(const BaseExpressionRef &head) :
+		Expression(head) {
 		assert(head);
 	}
 
@@ -325,7 +330,7 @@ inline ExpressionRef make_expression(const BaseExpressionRef &head, const T &lea
 	const auto size = leaves.size();
     switch (size) {
         case 0: // e.g. {}
-            return Heap::Expression(head, InPlaceRefsSlice<0>());
+            return Heap::EmptyExpression0(head);
         case 1:
             return Heap::Expression(head, InPlaceRefsSlice<1>(leaves, OptionalTypeMask()));
         case 2:
@@ -372,113 +377,71 @@ inline ExpressionRef expression(const BaseExpressionRef &head, const InPlaceRefs
 
 class heap_storage {
 private:
-	std::vector<BaseExpressionRef> leaves;
+	std::vector<BaseExpressionRef> _leaves;
 
 public:
 	inline heap_storage(size_t size) {
-		leaves.reserve(size);
+		_leaves.reserve(size);
 	}
 
 	inline heap_storage &operator<<(const BaseExpressionRef &expr) {
-		leaves.push_back(expr);
+		_leaves.push_back(expr);
+		return *this;
+	}
+
+	inline heap_storage &operator<<(BaseExpressionRef &&expr) {
+		_leaves.push_back(expr);
 		return *this;
 	}
 
 	inline ExpressionRef to_expression(const BaseExpressionRef &head) {
-		return expression(head, std::move(leaves));
+		return expression(head, std::move(_leaves));
 	}
 };
 
 template<size_t N>
-class stack_storage_base {
+class direct_storage {
 protected:
-	BaseExpressionRef _leaves[N];
-	size_t _i = 0;
+	InPlaceExpressionRef<N> _expr;
+	BaseExpressionRef *_addr;
+	BaseExpressionRef *_end;
 
 public:
-	inline stack_storage_base &operator<<(const BaseExpressionRef &expr) {
-		_leaves[_i++] = expr;
+	inline direct_storage(const BaseExpressionRef &head) :
+		_expr(Heap::Expression(head, InPlaceRefsSlice<N>())),
+		_addr(_expr->_leaves.late_init()), _end(_addr + N) {
+	}
+
+	inline direct_storage &operator<<(const BaseExpressionRef &expr) {
+		assert(_addr < _end);
+		*_addr++ = expr;
 		return *this;
 	}
-};
 
-template<size_t N>
-class stack_storage {
-};
+	inline direct_storage &operator<<(BaseExpressionRef &&expr) {
+		assert(_addr < _end);
+		*_addr++ = expr;
+		return *this;
+	}
 
-
-template<>
-class stack_storage<1> : public stack_storage_base<1> {
-public:
-	inline ExpressionRef to_expression(const BaseExpressionRef &head) {
-		const auto &l = _leaves;
-		return expression(head, {l[0]});
+	inline ExpressionRef to_expression() {
+		return _expr;
 	}
 };
 
-template<>
-class stack_storage<2> : public stack_storage_base<2> {
-public:
-	inline ExpressionRef to_expression(const BaseExpressionRef &head) {
-		const auto &l = _leaves;
-		return expression(head, {l[0], l[1]});
-	}
-};
-
-template<>
-class stack_storage<3> : public stack_storage_base<3> {
-public:
-	inline ExpressionRef to_expression(const BaseExpressionRef &head) {
-		const auto &l = _leaves;
-		return expression(head, {l[0], l[1], l[2]});
-	}
-};
-
-template<typename Slice, typename F, typename Array>
-void apply(size_t i0, const BaseExpressionRef &leaf0, size_t end, size_t size, const Slice &slice,
-	const F &f, TypeMask type_mask, Array &array) {
-	for (size_t j = 0; j < i0; j++) {
-		array << slice[j];
-	}
-
-	array << leaf0; // leaves[i0]
-
-	for (size_t j = i0 + 1; j < end; j++) {
-		const auto &old_leaf = slice[j];
-
-		if ((old_leaf->type_mask() & type_mask) == 0) {
-			array << old_leaf;
-		} else {
-			auto new_leaf = f(old_leaf);
-			if (new_leaf) {
-				array << new_leaf;
-			} else {
-				array << old_leaf;
-			}
-		}
-	}
-
-	for (size_t j = end; j < size; j++) {
-		array << slice[j];
-	}
+template<size_t N, typename F>
+inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const F &generate, size_t size) {
+	assert(size == N);
+	direct_storage<N> storage(head);
+	generate(storage);
+	return storage.to_expression();
 }
 
-template<typename Slice, size_t N, typename F>
-inline ExpressionRef apply_tiny(const BaseExpressionRef &head, size_t i0, const BaseExpressionRef &new_leaf,
-	size_t end, const Slice &slice, const F &f, TypeMask type_mask) {
-	assert(slice.size() == N);
-	stack_storage<N> array;
-	apply(i0, new_leaf, end, N, slice, f, type_mask, array);
-	return array.to_expression(head);
-}
-
-template<typename Slice, typename F>
-inline ExpressionRef apply_regular(const BaseExpressionRef &head, size_t i0, const BaseExpressionRef &new_leaf,
-   size_t end, const Slice &slice, const F &f, TypeMask type_mask) {
-	const size_t size = slice.size();
-	heap_storage array(size);
-	apply(i0, new_leaf, end, size, slice, f, type_mask, array);
-	return array.to_expression(head);
+template<typename F>
+inline ExpressionRef expression(const BaseExpressionRef &head, const F &generate, size_t size) {
+	heap_storage storage(size);
+	generate(storage);
+	return storage.to_expression(head);
 }
 
 template<typename Slice>
@@ -497,27 +460,56 @@ ExpressionRef ExpressionImplementation<Slice>::apply(
 			// FIXME. optimize this case. we do not need to copy here.
 		}*/
 
-		for (size_t i = begin; i < end; i++) {
-			const auto &leaf = slice[i];
+		for (size_t i0 = begin; i0 < end; i0++) {
+			const auto &leaf = slice[i0];
 
 			if ((leaf->type_mask() & type_mask) == 0) {
 				continue;
 			}
 
-			const auto new_leaf = f(leaf);
+			const auto leaf0 = f(leaf);
 
-			if (new_leaf) { // copy is needed now
+			if (leaf0) { // copy is needed now
 				const BaseExpressionRef &new_head = head ? head : _head;
+				const size_t size = slice.size();
+
+				auto generate_leaves = [i0, end, size, type_mask, &slice, &f, &leaf0] (auto storage) {
+					for (size_t j = 0; j < i0; j++) {
+						storage << slice[j];
+					}
+
+					storage << leaf0; // leaves[i0]
+
+					for (size_t j = i0 + 1; j < end; j++) {
+						const auto &old_leaf = slice[j];
+
+						if ((old_leaf->type_mask() & type_mask) == 0) {
+							storage << old_leaf;
+						} else {
+							auto new_leaf = f(old_leaf);
+							if (new_leaf) {
+								storage << new_leaf;
+							} else {
+								storage << old_leaf;
+							}
+						}
+					}
+
+					for (size_t j = end; j < size; j++) {
+						storage << slice[j];
+					}
+
+				};
 
 				switch (slice.size()) {
 					case 1:
-						return apply_tiny<Slice, 1, F>(new_head, i, new_leaf, end, slice, f, type_mask);
+						return tiny_expression<1>(new_head, generate_leaves, size);
 					case 2:
-						return apply_tiny<Slice, 2, F>(new_head, i, new_leaf, end, slice, f, type_mask);
+						return tiny_expression<2>(new_head, generate_leaves, size);
 					case 3:
-						return apply_tiny<Slice, 3, F>(new_head, i, new_leaf, end, slice, f, type_mask);
+						return tiny_expression<3>(new_head, generate_leaves, size);
 					default:
-						return apply_regular<Slice, F>(new_head, i, new_leaf, end, slice, f, type_mask);
+						return expression(new_head, generate_leaves, size);
 				}
 			}
 		}

@@ -24,6 +24,9 @@ class ExpressionImplementation;
 template<typename U>
 using PackExpressionRef = boost::intrusive_ptr<ExpressionImplementation<PackSlice<U>>>;
 
+template<size_t N>
+using InPlaceExpressionRef = boost::intrusive_ptr<ExpressionImplementation<InPlaceRefsSlice<N>>>;
+
 class Heap {
 private:
     static Heap *_s_instance;
@@ -53,10 +56,15 @@ public:
     static BaseExpressionRef BigReal(const mpfr::mpreal &value);
     static BaseExpressionRef BigReal(double prec, machine_real_t value);
 
-    static ExpressionRef Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<0> &slice);
-    static ExpressionRef Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<1> &slice);
-    static ExpressionRef Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<2> &slice);
-    static ExpressionRef Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<3> &slice);
+	static InPlaceExpressionRef<0> EmptyExpression0(const BaseExpressionRef &head);
+	static InPlaceExpressionRef<1> EmptyExpression1(const BaseExpressionRef &head);
+	static InPlaceExpressionRef<2> EmptyExpression2(const BaseExpressionRef &head);
+	static InPlaceExpressionRef<3> EmptyExpression3(const BaseExpressionRef &head);
+
+	static InPlaceExpressionRef<0> Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<0> &slice);
+    static InPlaceExpressionRef<1> Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<1> &slice);
+    static InPlaceExpressionRef<2> Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<2> &slice);
+    static InPlaceExpressionRef<3> Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<3> &slice);
 
     static RefsExpressionRef Expression(const BaseExpressionRef &head, const RefsSlice &slice);
 

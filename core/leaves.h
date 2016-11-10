@@ -440,18 +440,18 @@ public:
 template<size_t N>
 class InPlaceRefsSlice : public BaseRefsSlice<uint8_t, in_place_slice_type_id(N)> {
 private:
-    BaseExpressionRef _refs[N];
+    mutable BaseExpressionRef _refs[N];
 
 	typedef BaseRefsSlice<uint8_t, in_place_slice_type_id(N)> BaseSlice;
 
 public:
-	inline InPlaceRefsSlice() : BaseSlice(&_refs[0], 0, 0) {
-		static_assert(N == 0, "N must be 0 for empty InPlaceRefsSlice constructor");
+	inline InPlaceRefsSlice() :
+		BaseSlice(&_refs[0], N, N == 0 ? OptionalTypeMask(0) : OptionalTypeMask()) {
 	}
 
     inline InPlaceRefsSlice(const InPlaceRefsSlice<N> &slice) :
-		BaseSlice(&_refs[0], slice.size(), slice.type_mask()) {
-        // mighty important to provide a copy iterator so that _begin won't get copied.
+		BaseSlice(&_refs[0], slice.size(), slice._type_mask) {
+        // mighty important to provide a copy iterator so that _begin won't get copied from other slice.
         std::copy(slice._refs, slice._refs + slice.size(), _refs);
     }
 
@@ -472,6 +472,10 @@ public:
         assert(size <= N);
         std::copy(refs, refs + size, _refs);
     }
+
+	BaseExpressionRef *late_init() const {
+		return &_refs[0];
+	}
 
     inline InPlaceRefsSlice<N> slice(index_t begin, index_t end = INDEX_MAX) const {
         const size_t size = BaseSlice::size();
