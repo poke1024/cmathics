@@ -59,7 +59,7 @@ Definitions::Definitions() {
 	_list = list;
 
     // add important system symbols
-    auto sequence = std::make_shared<::Sequence>(this);
+    auto sequence = SymbolRef(new ::Sequence(this));
     add_internal_symbol(sequence);
     _sequence = sequence;
 
@@ -67,12 +67,12 @@ Definitions::Definitions() {
     _false = new_symbol("System`False");
 
     // bootstrap pattern matching symbols
-    add_internal_symbol(std::make_shared<Blank>(this));
-    add_internal_symbol(std::make_shared<BlankSequence>(this));
-    add_internal_symbol(std::make_shared<BlankNullSequence>(this));
-    add_internal_symbol(std::make_shared<Pattern>(this));
-    add_internal_symbol(std::make_shared<Alternatives>(this));
-    add_internal_symbol(std::make_shared<Repeated>(this));
+    add_internal_symbol(SymbolRef(new Blank(this)));
+    add_internal_symbol(SymbolRef(new BlankSequence(this)));
+    add_internal_symbol(SymbolRef(new BlankNullSequence(this)));
+    add_internal_symbol(SymbolRef(new Pattern(this)));
+    add_internal_symbol(SymbolRef(new Alternatives(this)));
+    add_internal_symbol(SymbolRef(new Repeated(this)));
 
     /*new_symbol("System`RepeatedNull", RepeatedNull);
     new_symbol("System`Except", Except);
@@ -91,7 +91,7 @@ Definitions::Definitions() {
 
 SymbolRef Definitions::new_symbol(const char *name) {
     assert(_definitions.find(name) == _definitions.end());
-    auto symbol = std::make_shared<Symbol>(this, name);
+    auto symbol = SymbolRef(new Symbol(this, name));
     _definitions[name] = symbol;
     return symbol;
 }

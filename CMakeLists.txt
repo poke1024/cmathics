@@ -8,12 +8,22 @@ include_directories(${cmathics_SOURCE_DIR})
 set(HOMEBREWHOME "$ENV{HOMEBREWHOME}")
 set(PYTHONHOME "$ENV{PYTHONHOME}")
 
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED OFF)
+set(Boost_USE_STATIC_RUNTIME OFF)
+
+#find_package(Boost 1.60 COMPONENTS pool python)
+#include_directories(${Boost_INCLUDE_DIRS})
+
 if(HOMEBREWHOME)
     message(STATUS "using homebrew at ${HOMEBREWHOME}")
     # on OS X, the easiest way to get the dependent libraries is to use homebrew. we might want to use a custom
-    # path that can be specified using this env var. your homebrew needs to be set up using: brew install gmp mpfr
+    # path that can be specified using this env var. your homebrew needs to be set up using:
+    # brew install gmp mpfr boost boost-python
     include_directories("${HOMEBREWHOME}/include")
     link_directories("${HOMEBREWHOME}/lib")
+
+    set(Boost_LIBRARIES "boost_system")
 elseif(APPLE)
     message(WARNING "please set HOMEBREWHOME to a homebrew installaton with gmp and mpfr.")
 endif()
@@ -66,12 +76,12 @@ set(SOURCE_FILES
     core/symbol.h
     core/matcher.h
     core/operations.h
-    core/arithmetic_implementation.h)
+    core/arithmetic_implementation.h core/heap.cpp core/heap.h)
 
 add_custom_target(standalone)
 
 add_executable(cmathics ${SOURCE_FILES} mathics.cpp)
-target_link_libraries(cmathics mpfr gmp ${PYTHON_LIBRARIES})
+target_link_libraries(cmathics mpfr gmp ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
 
 add_custom_target(tests)
 

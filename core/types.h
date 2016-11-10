@@ -6,11 +6,13 @@
 #include <functional>
 #include <vector>
 #include <cstdlib>
+#include <boost/intrusive_ptr.hpp>
+
 #include "hash.h"
 
 class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
-typedef std::shared_ptr<const BaseExpression> BaseExpressionRef;
+typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
 
 enum Type {
     MachineIntegerType,
@@ -57,8 +59,8 @@ struct BaseExpressionTuple<0, refs...> {
 
 class MatchId { // uniquely identifies a specific match
 private:
-	std::weak_ptr<const BaseExpression> _patt;
-	std::weak_ptr<const BaseExpression> _item;
+    BaseExpressionRef _patt; // could be a weak pointer
+    BaseExpressionRef _item; // could be a weak pointer
 
 public:
 	inline MatchId() {
@@ -67,7 +69,8 @@ public:
 	inline MatchId(const MatchId& id) : _patt(id._patt), _item(id._item) {
 	}
 
-	inline MatchId(const BaseExpressionRef &patt, const BaseExpressionRef &item) : _patt(patt), _item(item) {
+	inline MatchId(const BaseExpressionRef &patt, const BaseExpressionRef &item) :
+        _patt(patt), _item(item) {
 	}
 
 	inline MatchId &operator=(const MatchId &other) {
@@ -77,12 +80,7 @@ public:
 	}
 
 	inline bool operator==(const MatchId &other) const {
-		if (_patt.expired() || _item.expired() || other._patt.expired() || other._item.expired()) {
-			return false;
-		} else {
-			return _patt.lock().get() == other._patt.lock().get() &&
-			       _item.lock().get() == other._item.lock().get();
-		}
+        return _patt == other._patt && _item == other._item;
 	}
 
 	inline void reset() {
@@ -143,7 +141,7 @@ public:
 std::ostream &operator<<(std::ostream &s, const Match &m);
 
 class Expression;
-typedef std::shared_ptr<const Expression> ExpressionRef;
+typedef boost::intrusive_ptr<const Expression> ExpressionRef;
 typedef const Expression *ExpressionPtr;
 
 template<typename S>
@@ -151,13 +149,13 @@ class ExpressionImplementation;
 class RefsSlice;
 typedef const ExpressionImplementation<RefsSlice> RefsExpression;
 typedef const RefsExpression* RefsExpressionPtr;
-typedef std::shared_ptr<const RefsExpression> RefsExpressionRef;
+typedef boost::intrusive_ptr<const RefsExpression> RefsExpressionRef;
 
 class Symbol;
 
 // in contrast to BaseExpressionRef, SymbolRefs are not constant. Symbols might
 // change, after all, if rules are added.
-typedef std::shared_ptr<Symbol> SymbolRef;
+typedef boost::intrusive_ptr<Symbol> SymbolRef;
 
 class Evaluation;
 
@@ -165,8 +163,11 @@ class BaseExpression {
 private:
 	const Type _type;
 
+protected:
+    mutable long _ref_count;
+
 public:
-    inline BaseExpression(Type type) : _type(type) {
+    inline BaseExpression(Type type) : _type(type), _ref_count(0) {
     }
 
     virtual ~BaseExpression() {
@@ -251,7 +252,20 @@ public:
 	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const {
 		throw std::runtime_error("cannot create refs expression");
 	}
+
+    friend void intrusive_ptr_add_ref(const BaseExpression *expr);
+    friend void intrusive_ptr_release(const BaseExpression *expr);
 };
+
+inline void intrusive_ptr_add_ref(const BaseExpression *expr) {
+    ++expr->_ref_count;
+}
+
+inline void intrusive_ptr_release(const BaseExpression *expr) {
+    if(--expr->_ref_count == 0) {
+        delete expr;
+    }
+}
 
 inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
     if (expr) {

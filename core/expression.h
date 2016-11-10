@@ -53,7 +53,7 @@ public:
 
 		if (head->type() != SymbolType) {
 			if (head != _head) {
-				return std::make_shared<ExpressionImplementation<Slice>>(head, _leaves);
+				return ExpressionRef(new ExpressionImplementation<Slice>(head, _leaves));
 			} else {
 				return RefsExpressionRef();
 			}
@@ -84,7 +84,7 @@ public:
 		} else if (attributes & Attributes::HoldAllComplete) {
 			// no more evaluation is applied
 			if (head != _head) {
-				return std::make_shared<ExpressionImplementation<Slice>>(head, _leaves);
+				return ExpressionRef(new ExpressionImplementation<Slice>(head, _leaves));
 			} else {
 				return RefsExpressionRef();
 			}
@@ -98,13 +98,13 @@ public:
 		assert(eval_leaf_stop <= _leaves.size());
 
 		return apply(
-				head,
-				eval_leaf_start,
-				eval_leaf_stop,
-				[&evaluation](const BaseExpressionRef &leaf) {
-					return leaf->evaluate(leaf, evaluation);
-				},
-				(1L << ExpressionType) | (1L << SymbolType));
+			head,
+			eval_leaf_start,
+			eval_leaf_stop,
+			[&evaluation](const BaseExpressionRef &leaf) {
+				return leaf->evaluate(leaf, evaluation);
+			},
+			(1L << ExpressionType) | (1L << SymbolType));
 	}
 
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const {
@@ -117,7 +117,7 @@ public:
 		// Step 4
 		// Apply SubValues
 		if (head->type() == ExpressionType) {
-			auto head_head = std::static_pointer_cast<const Expression>(head)->_head.get();
+			auto head_head = boost::static_pointer_cast<const Expression>(head)->_head.get();
 			if (head_head->type() == SymbolType) {
 				auto head_symbol = static_cast<const Symbol *>(head_head);
 				// TODO
@@ -147,6 +147,10 @@ public:
         Expression(head),
         _leaves(leaves) {
 		assert(head);
+	}
+
+	inline ExpressionImplementation(ExpressionImplementation<Slice> &&expr) :
+		Expression(expr._head), _leaves(expr.leaves) {
 	}
 
 	virtual BaseExpressionRef leaf(size_t i) const {
@@ -258,7 +262,7 @@ public:
 		if (step2) {
 			step3 = step2->evaluate_values(step2, evaluation);
 		} else {
-			const auto expr = std::static_pointer_cast<const Expression>(self);
+			const auto expr = boost::static_pointer_cast<const Expression>(self);
 			step3 = evaluate_values(expr, evaluation);
 		}
 
@@ -281,11 +285,11 @@ public:
 }
 
 	virtual BaseExpressionRef clone() const {
-		return std::make_shared<ExpressionImplementation<Slice>>(_head, _leaves);
+		return BaseExpressionRef(new ExpressionImplementation<Slice>(_head, _leaves));
 	}
 
 	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const {
-		return std::make_shared<ExpressionImplementation<Slice>>(head, _leaves);
+		return BaseExpressionRef(new ExpressionImplementation<Slice>(head, _leaves));
 	}
 
 	virtual match_sizes_t match_num_args() const {
@@ -298,11 +302,11 @@ public:
 };
 
 template<typename U>
-using PackExpressionRef = std::shared_ptr<ExpressionImplementation<PackSlice<U>>>;
+using PackExpressionRef = boost::intrusive_ptr<ExpressionImplementation<PackSlice<U>>>;
 
 template<typename U>
 inline PackExpressionRef<U> expression(const BaseExpressionRef &head, const PackSlice<U> &slice) {
-	return std::make_shared<ExpressionImplementation<PackSlice<U>>>(head, slice);
+	return PackExpressionRef<U>(new ExpressionImplementation<PackSlice<U>>(head, slice));
 }
 
 template<typename E, typename T>
@@ -310,7 +314,7 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 	std::vector<T> values;
 	values.reserve(leaves.size());
 	for (auto leaf : leaves) {
-		values.push_back(std::static_pointer_cast<const E>(leaf)->value);
+		values.push_back(boost::static_pointer_cast<const E>(leaf)->value);
 	}
 	return values;
 }
@@ -318,18 +322,18 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 inline ExpressionRef make_expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
 	const auto size = leaves.size();
 	if (size == 0) { // e.g. {}
-		return std::make_shared<ExpressionImplementation<EmptySlice>>(head, EmptySlice());
+		return ExpressionRef(new ExpressionImplementation<EmptySlice>(head, EmptySlice()));
 	}
     switch (size) {
         case 1:
-            return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<1>>>(
-                head, InPlaceRefsSlice<1>(leaves, OptionalTypeMask()));
+            return ExpressionRef(new ExpressionImplementation<InPlaceRefsSlice<1>>(
+                head, InPlaceRefsSlice<1>(leaves, OptionalTypeMask())));
         case 2:
-            return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<2>>>(
-                head, InPlaceRefsSlice<2>(leaves, OptionalTypeMask()));
+            return ExpressionRef(new ExpressionImplementation<InPlaceRefsSlice<2>>(
+                head, InPlaceRefsSlice<2>(leaves, OptionalTypeMask())));
         case 3:
-            return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<3>>>(
-                head, InPlaceRefsSlice<3>(leaves, OptionalTypeMask()));
+            return ExpressionRef(new ExpressionImplementation<InPlaceRefsSlice<3>>(
+                head, InPlaceRefsSlice<3>(leaves, OptionalTypeMask())));
     }
 	const auto type_mask = calc_type_mask(leaves);
 	switch (type_mask) {
@@ -343,8 +347,8 @@ inline ExpressionRef make_expression(const BaseExpressionRef &head, const std::v
 			return expression(head, PackSlice<std::string>(
 				collect<String, std::string>(leaves)));
 		default:
-			return std::make_shared<ExpressionImplementation<RefsSlice>>(
-				head, RefsSlice(leaves, type_mask));
+			return ExpressionRef(new ExpressionImplementation<RefsSlice>(
+				head, RefsSlice(leaves, type_mask)));
 	}
 }
 
@@ -357,16 +361,16 @@ inline ExpressionRef expression(const BaseExpressionRef &head, const std::initia
 }
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const EmptySlice &slice) {
-	return std::make_shared<ExpressionImplementation<EmptySlice>>(head, slice);
+	return ExpressionRef(new ExpressionImplementation<EmptySlice>(head, slice));
 }
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const RefsSlice &slice) {
-	return std::make_shared<ExpressionImplementation<RefsSlice>>(head, slice);
+	return ExpressionRef(new ExpressionImplementation<RefsSlice>(head, slice));
 }
 
 template<size_t N>
 inline ExpressionRef expression(const BaseExpressionRef &head, const InPlaceRefsSlice<N> &slice) {
-    return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<N>>>(head, slice);
+    return ExpressionRef(new ExpressionImplementation<InPlaceRefsSlice<N>>(head, slice));
 }
 
 template<typename Slice>
@@ -454,7 +458,8 @@ public:
 		for (auto leaf : slice.leaves()) {
 			leaves.push_back(leaf);
 		}
-		return std::make_shared<RefsExpression>(head, RefsSlice(std::move(leaves), slice.type_mask()));
+		return RefsExpressionRef(new RefsExpression(
+			head, RefsSlice(std::move(leaves), slice.type_mask())));
 	}
 };
 
@@ -463,7 +468,7 @@ class ToRefsExpression<RefsSlice> {
 public:
 	static inline RefsExpressionRef convert(
 		const BaseExpressionRef &expr, const BaseExpressionRef &head, const RefsSlice &slice) {
-		return std::static_pointer_cast<const RefsExpression>(expr);
+		return boost::static_pointer_cast<const RefsExpression>(expr);
 	}
 };
 

@@ -48,19 +48,20 @@ BaseExpressionRef ArithmeticOperationsImplementation<T>::add_machine_inexact() c
 		auto type = leaf->type();
 		switch(type) {
 			case MachineIntegerType:
-				sum += (machine_real_t) std::static_pointer_cast<const MachineInteger>(leaf)->value;
+				sum += static_cast<machine_real_t>(
+					boost::static_pointer_cast<const MachineInteger>(leaf)->value);
 				break;
 			case BigIntegerType:
-				sum += std::static_pointer_cast<const BigInteger>(leaf)->value.get_d();
+				sum += boost::static_pointer_cast<const BigInteger>(leaf)->value.get_d();
 				break;
 			case MachineRealType:
-				sum += std::static_pointer_cast<const MachineReal>(leaf)->value;
+				sum += boost::static_pointer_cast<const MachineReal>(leaf)->value;
 				break;
 			case BigRealType:
-				sum += std::static_pointer_cast<const BigReal>(leaf)->_value.toDouble(MPFR_RNDN);
+				sum += boost::static_pointer_cast<const BigReal>(leaf)->_value.toDouble(MPFR_RNDN);
 				break;
 			case RationalType:
-				sum += std::static_pointer_cast<const Rational>(leaf)->value.get_d();
+				sum += boost::static_pointer_cast<const Rational>(leaf)->value.get_d();
 				break;
 			case ComplexType:
 				assert(false);

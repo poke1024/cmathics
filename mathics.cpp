@@ -535,7 +535,7 @@ public:
 				        if (x->type() != ExpressionType) {
 					        throw std::runtime_error("expected Expression at position 1");
 				        }
-				        auto list = std::static_pointer_cast<const Expression>(x);
+				        auto list = boost::static_pointer_cast<const Expression>(x);
 				        if (list->size() < 1) {
 					        throw std::runtime_error("Expression is empty");
 				        }
@@ -552,7 +552,7 @@ public:
 				        if (x->type() != ExpressionType) {
 					        return from_primitive(static_cast<machine_integer_t>(0));
 				        } else {
-					        auto list = std::static_pointer_cast<const Expression>(x);
+					        auto list = boost::static_pointer_cast<const Expression>(x);
 					        return from_primitive(static_cast<machine_integer_t>(list->size()));
 				        }
 			        }
@@ -564,7 +564,7 @@ public:
 	            rule<1>(
 	                "Most[x_List]",
 	                [](const BaseExpressionRef &x, const Evaluation &evaluation) {
-	                    auto list = std::static_pointer_cast<const Expression>(x);
+	                    auto list = boost::static_pointer_cast<const Expression>(x);
 	                    return list->slice(0, -1);
 	                }
 	            )

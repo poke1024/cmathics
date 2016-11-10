@@ -103,7 +103,7 @@ public:
 
 		switch (patt_head->type()) {
 			case SymbolType:
-				switch (std::static_pointer_cast<const Symbol>(patt_head)->pattern_symbol) {
+				switch (boost::static_pointer_cast<const Symbol>(patt_head)->pattern_symbol) {
 					case PatternSymbol::Blank:
 						return shift(1, blank_head(patt));
 					case PatternSymbol::BlankSequence:
@@ -130,7 +130,7 @@ public:
 				} else {
 					auto next = _sequence[0];
 					if (next->type() == ExpressionType) {
-						auto expr = std::static_pointer_cast<const Expression>(next);
+						auto expr = boost::static_pointer_cast<const Expression>(next);
 						if (!expr->head()->same(patt_head)) {
 							return false;
 						} else {

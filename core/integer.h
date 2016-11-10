@@ -68,7 +68,8 @@ public:
 };
 
 inline BaseExpressionRef from_primitive(machine_integer_t value) {
-	return std::make_shared<MachineInteger>(value);
+    // return std::allocate_shared<Alloc, MachineInteger>(alloc, value);
+	return BaseExpressionRef(new MachineInteger(value));
 }
 
 inline BaseExpressionRef from_primitive(const mpz_class &value) {
@@ -76,7 +77,7 @@ inline BaseExpressionRef from_primitive(const mpz_class &value) {
 	if (value.fits_slong_p()) {
 		return from_primitive(static_cast<machine_integer_t>(value.get_si()));
 	} else {
-		return std::make_shared<BigInteger>(value);
+		return BaseExpressionRef(new BigInteger(value));
 	}
 }
 

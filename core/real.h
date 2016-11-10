@@ -81,15 +81,15 @@ public:
 };
 
 inline BaseExpressionRef from_primitive(machine_real_t value) {
-	return std::make_shared<MachineReal>(value);
+	return BaseExpressionRef(new MachineReal(value));
 }
 
 inline BaseExpressionRef from_primitive(const mpfr::mpreal &value) {
-	return std::make_shared<BigReal>(value);
+	return BaseExpressionRef(new BigReal(value));
 }
 
 inline BaseExpressionRef real(double prec, machine_real_t value) {
-	return std::make_shared<BigReal>(prec, value);
+	return BaseExpressionRef(new BigReal(prec, value));
 }
 
 std::pair<int32_t,double> precision_of(const BaseExpressionRef&);

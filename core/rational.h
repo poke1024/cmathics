@@ -46,7 +46,7 @@ public:
 };
 
 inline BaseExpressionRef from_primitive(const mpq_class &value) {
-	return std::make_shared<Rational>(value);
+	return BaseExpressionRef(new Rational(value));
 }
 
 #endif
