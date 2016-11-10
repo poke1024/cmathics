@@ -15,6 +15,7 @@
 
 #include "primitives.h"
 #include "string.h"
+#include "promote.h"
 
 typedef std::experimental::optional<TypeMask> OptionalTypeMask;
 
@@ -50,11 +51,16 @@ public:
 	}
 };
 
-template<typename T>
-class PrimitiveToPrimitive {
+template<typename V>
+class PromotePrimitive {
+public:
+    template<typename U>
+    inline V convert(const U &x) const {
+        return promote<U, V>(x);
+    }
 };
 
-template<>
+/*template<>
 class PrimitiveToPrimitive<mpint> {
 public:
 	inline mpint convert(const mpz_class &x) const {
@@ -72,9 +78,9 @@ public:
 	inline mpint convert(const std::string &x) const {
 		throw std::runtime_error("unsupported conversion");
 	}
-};
+};*/
 
-template<>
+/*template<>
 class PrimitiveToPrimitive<machine_real_t> {
 public:
 	inline machine_real_t convert(machine_real_t x) const {
@@ -92,7 +98,7 @@ public:
 	inline machine_real_t convert(const mpz_class &x) const {
 		throw std::runtime_error("unsupported conversion");
 	}
-};
+};*/
 
 template<typename T, typename TypeConverter>
 class PointerIterator {
@@ -211,7 +217,7 @@ private:
 
 public:
 	template<typename V>
-	using PrimitiveCollection = PointerCollection<U, PrimitiveToPrimitive<V>>;
+	using PrimitiveCollection = PointerCollection<U, PromotePrimitive<V>>;
 
 	using LeafCollection = PointerCollection<U, PrimitiveToBaseExpression<U>>;
 
@@ -234,7 +240,7 @@ public:
 
 	template<typename V>
 	PrimitiveCollection<V> primitives() const {
-		return PrimitiveCollection<V>(_begin, _size, PrimitiveToPrimitive<V>());
+		return PrimitiveCollection<V>(_begin, _size, PromotePrimitive<V>());
 	}
 
 	LeafCollection leaves() const {
