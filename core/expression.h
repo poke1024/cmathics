@@ -168,6 +168,15 @@ public:
 		return _leaves[i].get();
 	}
 
+	inline auto leaves() const {
+		return _leaves.leaves();
+	}
+
+	template<typename T>
+	inline auto primitives() const {
+		return _leaves.template primitives<T>();
+	}
+
 	inline auto begin() const {
 		return _leaves.begin();
 	}
