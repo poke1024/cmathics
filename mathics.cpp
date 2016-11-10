@@ -596,7 +596,7 @@ public:
 		        rule<1>(
 				    "Timing[expr_]",
 				    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
-					    const auto list_symbol = evaluation.definitions.list();
+					    const auto list_symbol = evaluation.definitions.List();
 					    const auto start_time = std::chrono::steady_clock::now();
 					    const auto evaluated = expr->evaluate(expr, evaluation);
 					    const auto end_time = std::chrono::steady_clock::now();

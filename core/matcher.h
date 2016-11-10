@@ -147,7 +147,7 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
 	MatchContext context(patt, item, definitions);
 	{
 		Matcher<InPlaceRefsSlice<1>> matcher(
-			context, patt, empty_slice, InPlaceRefsSlice<1>(&item, 1, item->type_mask()));
+			context, patt, RefsSlice(), InPlaceRefsSlice<1>(&item, 1, item->type_mask()));
 
 		if (matcher.match_sequence()) {
 			return Match(true, context);
@@ -276,8 +276,8 @@ bool Matcher<Slice>::shift(size_t match_size, const Symbol *head) const {
 		return match_variable(match_size, _sequence[0]);
 	} else {
 		return match_variable(match_size, expression(
-				_context.definitions.sequence(),
-				_sequence.slice(0, match_size)));
+			_context.definitions.Sequence(),
+			_sequence.slice(0, match_size)));
 	}
 }
 

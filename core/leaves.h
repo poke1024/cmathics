@@ -69,6 +69,29 @@ public:
     }
 };
 
+template<>
+class Conversions<std::string, machine_real_t> {
+public:
+	static inline machine_real_t convert(const std::string &u) {
+		throw std::runtime_error("illegal conversion");
+	}
+};
+
+template<>
+class Conversions<mpz_class, machine_real_t> {
+public:
+	static inline machine_real_t convert(const mpz_class &u) {
+		throw std::runtime_error("illegal conversion");
+	}
+};
+
+template<>
+class Conversions<mpq_class, machine_real_t> {
+public:
+	static inline machine_real_t convert(const mpq_class &u) {
+		throw std::runtime_error("illegal conversion");
+	}
+};
 
 template<typename T, typename F>
 class PointerIterator {
@@ -262,10 +285,6 @@ public:
 	}
 };
 
-class RefsSlice;
-
-extern const RefsSlice empty_slice;
-
 class BaseRefsSlice : public Slice {
 protected:
     const BaseExpressionRef * const _begin;
@@ -339,7 +358,7 @@ public:
     inline RefsSlice(const RefsSlice &slice) :
         BaseRefsSlice(slice._begin, slice._size, slice._type_mask),
         _extent(slice._extent) {
-}
+	}
 
 	inline RefsSlice() : BaseRefsSlice(nullptr, 0, 0) {
 	}
@@ -378,7 +397,7 @@ public:
 		if (!_extent) {
 			// special case: only 1 item in _expr.
 			if (begin > 0 || end < 1) {
-				return empty_slice;
+				return RefsSlice();
 			} else {
 				return *this;
 			}
@@ -392,10 +411,10 @@ public:
 		begin = std::min(begin, end);
 
         if (end <= begin) {
-            return empty_slice;
+            return RefsSlice();
+        } else {
+	        return RefsSlice(_extent, _begin + begin, _begin + end, _type_mask);
         }
-
-		return RefsSlice(_extent, _begin + begin, _begin + end, _type_mask);
 	}
 };
 
@@ -442,6 +461,46 @@ public:
             return InPlaceRefsSlice<N>(&_refs[begin], end - begin, _type_mask);
         }
     }
+};
+
+class EmptySlice : public Slice {
+public:
+	inline EmptySlice() : Slice(0) {
+	}
+
+	template<typename V>
+	using PrimitiveCollection = PointerCollection<BaseExpressionRef, V*>;
+
+	using LeafCollection = PointerCollection<BaseExpressionRef, BaseExpressionRef*>;
+
+	template<typename V>
+	inline PrimitiveCollection<V> primitives() const {
+		return PrimitiveCollection<V>(nullptr, 0);
+	}
+
+	inline LeafCollection leaves() const {
+		return LeafCollection(nullptr, 0);
+	}
+
+	inline TypeMask type_mask() const {
+		return 0;
+	}
+
+	inline const BaseExpressionRef *begin() const {
+		return nullptr;
+	}
+
+	inline const BaseExpressionRef *end() const {
+		return nullptr;
+	}
+
+	inline const BaseExpressionRef &operator[](size_t i) const {
+		throw std::runtime_error("EmptySlice is empty");
+	}
+
+	inline EmptySlice slice(index_t begin, index_t end = INDEX_MAX) const {
+		return EmptySlice();
+	}
 };
 
 #endif //CMATHICS_LEAVES_H

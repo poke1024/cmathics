@@ -80,27 +80,32 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
             return expr->leaf(0);
     }
 
-    // bit field to determine which types are present
+	constexpr TypeMask int_mask = (1 << BigIntegerType) | (1 << MachineIntegerType);
+
+	// bit field to determine which types are present
 	TypeMask types_seen = expr->type_mask();
 
-    // expression contains a Real
+	// expression is all MachineReals
+	if (types_seen == (1 << MachineRealType)) {
+		return expr->operations().add_only_machine_reals();
+	}
+
+	// expression is all Integers
+	if ((types_seen & int_mask) == types_seen) {
+		return expr->operations().add_only_integers();
+	}
+
+	// expression contains a Real
     if (types_seen & (1 << MachineRealType)) {
         return add_MachineInexact(expr);
     }
 
-    constexpr TypeMask int_mask = (1 << BigIntegerType) | (1 << MachineIntegerType);
-
-    // expression is all Integers
-    if ((types_seen & int_mask) == types_seen) {
-        return expr->operations().add_integers();
-    }
-
     // expression contains an Integer
-    if (types_seen & int_mask) {
+    /*if (types_seen & int_mask) {
         auto integer_result = expr->operations().add_integers();
         // FIXME return Plus[symbolics__, integer_result]
         return integer_result;
-    }
+    }*/
 
     // TODO rational and complex
 
@@ -162,7 +167,7 @@ public:
 			leaves.push_back(x);
 		}
 
-		return expression(_evaluation.definitions.list(), PackSlice<T>(std::move(leaves)));
+		return expression(_evaluation.definitions.List(), PackSlice<T>(std::move(leaves)));
 	}
 };
 

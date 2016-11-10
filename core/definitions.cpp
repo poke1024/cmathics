@@ -55,13 +55,16 @@ BaseExpressionRef Symbol::replace_all(const Match &match) const {
 Definitions::Definitions() {
     // construct common `List[]` for bootstrapping
     auto list = new_symbol("System`List");
-    _empty_list = std::make_shared<RefsExpression>(list, RefsSlice({}, 0));
+	_empty_list = expression(list, {});
+	_list = list;
 
     // add important system symbols
-    auto sequence = std::make_shared<Sequence>(this);
+    auto sequence = std::make_shared<::Sequence>(this);
     add_internal_symbol(sequence);
     _sequence = sequence;
-	_list = list;
+
+    _true = new_symbol("System`True");
+    _false = new_symbol("System`False");
 
     // bootstrap pattern matching symbols
     add_internal_symbol(std::make_shared<Blank>(this));

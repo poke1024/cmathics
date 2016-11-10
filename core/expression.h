@@ -329,8 +329,7 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 inline ExpressionRef make_expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
 	const auto size = leaves.size();
 	if (size == 0) { // e.g. {}
-		return std::make_shared<ExpressionImplementation<InPlaceRefsSlice<0>>>(
-			head, InPlaceRefsSlice<0>(leaves, 0));
+		return std::make_shared<ExpressionImplementation<EmptySlice>>(head, EmptySlice());
 	}
 	const auto type_mask = calc_type_mask(leaves);
     switch (size) {
@@ -366,6 +365,10 @@ inline ExpressionRef expression(const BaseExpressionRef &head, const std::vector
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves) {
 	return make_expression(head, std::vector<BaseExpressionRef>(leaves));
+}
+
+inline ExpressionRef expression(const BaseExpressionRef &head, const EmptySlice &slice) {
+	return std::make_shared<ExpressionImplementation<EmptySlice>>(head, slice);
 }
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const RefsSlice &slice) {
