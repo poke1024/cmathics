@@ -258,15 +258,20 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
     return s;
 }
 
-class ExpressionIterator;
+// class ExpressionIterator;
 
-class OperationsInterface;
+#include "arithmetic.h"
 
-class Expression : public BaseExpression {
+class OperationsInterface :
+	virtual public ArithmeticOperations {
+};
+
+class Expression : public BaseExpression, virtual public OperationsInterface {
 public:
 	const BaseExpressionRef _head;
 
-	inline Expression(const BaseExpressionRef &head) : BaseExpression(ExpressionType), _head(head) {
+	inline Expression(const BaseExpressionRef &head) :
+		BaseExpression(ExpressionType), _head(head) {
 	}
 
 	virtual size_t size() const = 0;
@@ -290,8 +295,6 @@ public:
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
-
-    virtual const OperationsInterface &operations() const = 0;
 };
 
 /*class ExpressionIterator {

@@ -5,35 +5,25 @@
 #include "hash.h"
 #include "symbol.h"
 #include "operations.h"
-#include "arithmetic.h"
 #include "string.h"
 #include "leaves.h"
 
 #include <sstream>
 #include <vector>
 
-class OperationsInterface :
-    virtual public ArithmeticOperations {
-};
-
 template<typename T>
 class AllOperationsImplementation :
-    public OperationsInterface,
+    virtual public OperationsInterface,
     virtual public OperationsImplementation<T>,
     public ArithmeticOperationsImplementation<T> {
 public:
     inline AllOperationsImplementation() {
     }
-
-    inline AllOperationsImplementation(const T &expr) : OperationsImplementation<T>(expr) {
-    }
 };
 
 template<typename Slice>
-class ExpressionImplementation : public Expression {
-private:
-	const AllOperationsImplementation<ExpressionImplementation<Slice>> _operations;
-
+class ExpressionImplementation :
+	public Expression, public AllOperationsImplementation<ExpressionImplementation<Slice>> {
 public:
 	template<typename F>
 	ExpressionRef apply(
@@ -155,8 +145,8 @@ public:
 
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &leaves) :
         Expression(head),
-        _leaves(leaves),
-        _operations(*this) {
+        OperationsImplementation<ExpressionImplementation<Slice>>(this),
+        _leaves(leaves) {
 		assert(head);
 	}
 
@@ -304,10 +294,6 @@ public:
 	}
 
 	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const;
-
-	virtual const OperationsInterface &operations() const {
-		return _operations;
-	}
 
 	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const;
 };

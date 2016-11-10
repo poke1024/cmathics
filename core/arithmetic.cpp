@@ -31,17 +31,17 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
 
 	// expression is all MachineReals
 	if (types_seen == (1 << MachineRealType)) {
-		return expr->operations().add_only_machine_reals();
+		return expr->add_only_machine_reals();
 	}
 
 	// expression is all Integers
 	if ((types_seen & int_mask) == types_seen) {
-		return expr->operations().add_only_integers();
+		return expr->add_only_integers();
 	}
 
 	// expression contains a Real
     if (types_seen & (1 << MachineRealType)) {
-        return expr->operations().add_machine_inexact();
+        return expr->add_machine_inexact();
     }
 
     // expression contains an Integer

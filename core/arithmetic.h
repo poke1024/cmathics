@@ -23,8 +23,8 @@ public:
 
 template<typename T>
 class ArithmeticOperationsImplementation :
-		virtual public ArithmeticOperations,
-		virtual public OperationsImplementation<T> {
+	virtual public ArithmeticOperations,
+	virtual public OperationsImplementation<T> {
 public:
 	virtual BaseExpressionRef add_only_integers() const;
 	virtual BaseExpressionRef add_only_machine_reals() const;
