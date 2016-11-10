@@ -157,12 +157,14 @@ public:
 	}
 };
 
+template<typename Size>
 class Slice {
 protected:
-	const size_t _size;
+	const Size _size;
 
 public:
 	inline Slice(size_t size) : _size(size) {
+		assert(static_cast<Size>(size) == size);
 	}
 
 	inline size_t size() const {
@@ -198,7 +200,7 @@ public:
 };
 
 template<typename U>
-class PackSlice : public Slice {
+class PackSlice : public Slice<size_t> {
 private:
 	typename PackExtent<U>::Ref _extent;
 	const U * const _begin;
@@ -289,7 +291,8 @@ public:
 	}
 };
 
-class BaseRefsSlice : public Slice {
+template<typename Size>
+class BaseRefsSlice : public Slice<Size> {
 protected:
     const BaseExpressionRef * const _begin;
     mutable OptionalTypeMask _type_mask;
@@ -304,11 +307,11 @@ public:
 public:
     template<typename V>
     inline PrimitiveCollection<V> primitives() const {
-        return PrimitiveCollection<V>(_begin, _size, BaseExpressionToPrimitive<V>());
+        return PrimitiveCollection<V>(_begin, Slice<Size>::size(), BaseExpressionToPrimitive<V>());
     }
 
     inline LeafCollection leaves() const {
-        return LeafCollection(_begin, _size, PassBaseExpression());
+        return LeafCollection(_begin, Slice<Size>::size(), PassBaseExpression());
     }
 
 	inline OptionalTypeMask sliced_type_mask(size_t new_size) const {
@@ -330,7 +333,7 @@ public:
 	        return *_type_mask;
         } else {
 	        const BaseExpressionRef *p = _begin;
-	        const BaseExpressionRef *p_end = p + _size;
+	        const BaseExpressionRef *p_end = p + Slice<Size>::size();
 	        TypeMask mask = 0;
 	        while (p != p_end) {
 		        mask |= (*p++)->type_mask();
@@ -342,7 +345,7 @@ public:
 
 public:
     inline BaseRefsSlice(const BaseExpressionRef *begin, size_t size, OptionalTypeMask type_mask) :
-        _begin(begin), Slice(size), _type_mask(type_mask) {
+        _begin(begin), Slice<Size>(size), _type_mask(type_mask) {
     }
 
     inline const BaseExpressionRef *begin() const {
@@ -350,7 +353,7 @@ public:
     }
 
     inline const BaseExpressionRef *end() const {
-        return _begin + _size;
+        return _begin + Slice<Size>::size();
     }
 
     inline const BaseExpressionRef &operator[](size_t i) const {
@@ -358,7 +361,7 @@ public:
     }
 };
 
-class RefsSlice : public BaseRefsSlice {
+class RefsSlice : public BaseRefsSlice<size_t> {
 private:
 	typename RefsExtent::Ref _extent;
 
@@ -425,7 +428,7 @@ public:
 };
 
 template<size_t N>
-class InPlaceRefsSlice : public BaseRefsSlice {
+class InPlaceRefsSlice : public BaseRefsSlice<uint8_t> {
 private:
     BaseExpressionRef _refs[N];
 
@@ -471,7 +474,7 @@ public:
     }
 };
 
-class EmptySlice : public Slice {
+class EmptySlice : public Slice<uint8_t> {
 public:
 	inline EmptySlice() : Slice(0) {
 	}
