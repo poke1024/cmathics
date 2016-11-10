@@ -65,7 +65,8 @@ set(SOURCE_FILES
     core/builtin.h
     core/symbol.h
     core/matcher.h
-    core/operations.h)
+    core/operations.h
+    core/arithmetic_implementation.h)
 
 add_custom_target(standalone)
 

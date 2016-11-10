@@ -49,6 +49,14 @@ public:
     }
 };
 
+template<typename U>
+class Conversions<U, BaseExpressionRef> {
+public:
+	static inline BaseExpressionRef convert(const U &u) {
+		return from_primitive(u);
+	}
+};
+
 template<>
 class Conversions<machine_integer_t, mpq_class> {
 public:
@@ -67,6 +75,14 @@ public:
         v = (signed long int)u;
         return v;
     }
+};
+
+template<>
+class Conversions<std::string, machine_integer_t> {
+public:
+	static inline machine_integer_t convert(const std::string &u) {
+		throw std::runtime_error("illegal conversion");
+	}
 };
 
 template<>
@@ -177,23 +193,7 @@ public:
 	using PrimitiveCollection = PointerCollection<U, PrimitiveIterator<V>>;
 
 public:
-	class leaf {
-	private:
-		const U &_u;
-	public:
-		inline leaf(const U &u) : _u(u) {
-		}
-
-		inline operator BaseExpressionRef() const {
-			return from_primitive(_u);
-		}
-
-		inline BaseExpressionRef operator->() const {
-			return from_primitive(_u);
-		}
-	};
-
-	using LeafIterator = PointerIterator<U, leaf>;
+	using LeafIterator = PointerIterator<U, BaseExpressionRef>;
 
 	using LeafCollection = PointerCollection<U, LeafIterator>;
 

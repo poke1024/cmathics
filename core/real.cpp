@@ -13,8 +13,9 @@
 // returns 2 if the precision is big in which case result is also set
 
 std::pair<int32_t,double> precision_of(const BaseExpressionRef &expr) {
+    return std::pair<int32_t,double>(0,  0.0); // FIXME
 
-    switch (expr->type()) {
+    /*switch (expr->type()) {
         case MachineRealType:
             return std::pair<int32_t,double>(1, 0.0);
         case BigRealType: {
@@ -55,5 +56,5 @@ std::pair<int32_t,double> precision_of(const BaseExpressionRef &expr) {
             // TODO
         default:
             return std::pair<int32_t,double>(0,  0.0);
-    }
+    }*/
 }

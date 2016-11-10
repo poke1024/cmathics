@@ -168,6 +168,14 @@ public:
 		return _leaves[i].get();
 	}
 
+	inline auto begin() const {
+		return _leaves.begin();
+	}
+
+	inline auto end() const {
+		return _leaves.begin();
+	}
+
 	virtual size_t size() const {
 		return _leaves.size();
 	}
@@ -482,5 +490,7 @@ template<typename Slice>
 RefsExpressionRef ExpressionImplementation<Slice>::to_refs_expression(const BaseExpressionRef &self) const {
 	return ToRefsExpression<Slice>::convert(self, _head, _leaves);
 }
+
+#include "arithmetic_implementation.h"
 
 #endif

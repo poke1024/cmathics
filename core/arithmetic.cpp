@@ -13,62 +13,6 @@
 #include "rational.h"
 #include "primitives.h"
 
-BaseExpressionRef add_MachineInexact(const ExpressionRef &expr) {
-    // create an array to store all the symbolic arguments which can't be evaluated.
-    auto symbolics = std::vector<BaseExpressionRef>();
-    symbolics.reserve(expr->size());
-
-    double sum = 0.0;
-    for (auto leaf : *expr) {
-        auto type = leaf->type();
-        switch(type) {
-            case MachineIntegerType:
-                sum += (double) std::static_pointer_cast<const MachineInteger>(leaf)->value;
-                break;
-            case BigIntegerType:
-                sum += std::static_pointer_cast<const BigInteger>(leaf)->value.get_d();
-                break;
-            case MachineRealType:
-                sum += std::static_pointer_cast<const MachineReal>(leaf)->value;
-                break;
-            case BigRealType:
-                sum += std::static_pointer_cast<const BigReal>(leaf)->_value.toDouble(MPFR_RNDN);
-                break;
-            case RationalType:
-                sum += std::static_pointer_cast<const Rational>(leaf)->value.get_d();
-                break;
-            case ComplexType:
-                assert(false);
-                break;
-            case ExpressionType:
-            case SymbolType:
-            case StringType:
-                symbolics.push_back(leaf);
-                break;
-        }
-    }
-
-    // at least one non-symbolic
-    assert(symbolics.size() != expr->size());
-
-    BaseExpressionRef result;
-
-    if (symbolics.size() == expr->size() - 1) {
-        // one non-symbolic: nothing to do
-        // result = NULL;
-    } else if (!symbolics.empty()) {
-        // at least one symbolic
-        symbolics.push_back(from_primitive(sum));
-        result = expression(expr->_head, symbolics);
-    } else {
-        // no symbolics
-        result = from_primitive(sum);
-    }
-
-    return result;
-}
-
-
 BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) {
     switch (expr->size()) {
         case 0:
@@ -97,7 +41,7 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
 
 	// expression contains a Real
     if (types_seen & (1 << MachineRealType)) {
-        return add_MachineInexact(expr);
+        return expr->operations().add_machine_inexact();
     }
 
     // expression contains an Integer

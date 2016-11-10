@@ -275,10 +275,6 @@ public:
 
 	virtual TypeMask type_mask() const = 0;
 
-	inline ExpressionIterator begin() const;
-
-	inline ExpressionIterator end() const;
-
 	virtual BaseExpressionRef head() const {
 		return _head;
 	}
@@ -298,7 +294,7 @@ public:
     virtual const OperationsInterface &operations() const = 0;
 };
 
-class ExpressionIterator {
+/*class ExpressionIterator {
 private:
 	const Expression * const _expr;
 	size_t _pos;
@@ -338,6 +334,6 @@ inline ExpressionIterator Expression::begin() const {
 
 inline ExpressionIterator Expression::end() const {
 	return ExpressionIterator(this, size());
-}
+}*/
 
 #endif
