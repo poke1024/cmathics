@@ -326,44 +326,57 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 }
 
 template<typename T>
-inline ExpressionRef make_expression(const BaseExpressionRef &head, const T &leaves) {
+inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const T &leaves) {
 	const auto size = leaves.size();
-    switch (size) {
-        case 0: // e.g. {}
-            return Heap::EmptyExpression0(head);
-        case 1:
-            return Heap::Expression(head, InPlaceRefsSlice<1>(leaves, OptionalTypeMask()));
-        case 2:
-            return Heap::Expression(head, InPlaceRefsSlice<2>(leaves, OptionalTypeMask()));
-        case 3:
-            return Heap::Expression(head, InPlaceRefsSlice<3>(leaves, OptionalTypeMask()));
-    }
-	const auto type_mask = calc_type_mask(leaves);
-	switch (type_mask) {
-		case 1L << MachineIntegerType:
-			return expression(head, PackSlice<machine_integer_t>(
-				collect<MachineInteger, machine_integer_t>(leaves)));
-		case 1L << MachineRealType:
-			return expression(head, PackSlice<machine_real_t>(
-				collect<MachineReal, machine_real_t>(leaves)));
-		case 1L << StringType:
-			return expression(head, PackSlice<std::string>(
-				collect<String, std::string>(leaves)));
+	switch (size) {
+		case 0: // e.g. {}
+			return Heap::EmptyExpression0(head);
+		case 1:
+			return Heap::Expression(head, InPlaceRefsSlice<1>(leaves, OptionalTypeMask()));
+		case 2:
+			return Heap::Expression(head, InPlaceRefsSlice<2>(leaves, OptionalTypeMask()));
+		case 3:
+			return Heap::Expression(head, InPlaceRefsSlice<3>(leaves, OptionalTypeMask()));
 		default:
-			return Heap::Expression(head, RefsSlice(leaves, type_mask));
+			throw std::runtime_error("whoever called us should have known better.");
 	}
 }
 
-inline ExpressionRef expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &&leaves) {
-	return make_expression<std::vector<BaseExpressionRef>>(head, std::move(leaves)); // FIXME
+inline ExpressionRef expression(
+	const BaseExpressionRef &head,
+	std::vector<BaseExpressionRef> &&leaves) {
+	// we expect our callers to move their leaves vector to us. if you cannot move, you
+	// should really recheck your design at the site of call.
+
+	if (leaves.size() < 4) {
+		return tiny_expression(head, leaves);
+	} else {
+		const auto type_mask = calc_type_mask(leaves);
+		switch (type_mask) {
+			case 1L << MachineIntegerType:
+				return expression(head, PackSlice<machine_integer_t>(
+					collect<MachineInteger, machine_integer_t>(leaves)));
+			case 1L << MachineRealType:
+				return expression(head, PackSlice<machine_real_t>(
+					collect<MachineReal, machine_real_t>(leaves)));
+			case 1L << StringType:
+				return expression(head, PackSlice<std::string>(
+					collect<String, std::string>(leaves)));
+			default:
+				return Heap::Expression(head, RefsSlice(leaves, type_mask));
+		}
+	}
 }
 
-inline ExpressionRef expression(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
-	return make_expression<std::vector<BaseExpressionRef>>(head, leaves);
-}
+inline ExpressionRef expression(
+	const BaseExpressionRef &head,
+	const std::initializer_list<BaseExpressionRef> &leaves) {
 
-inline ExpressionRef expression(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves) {
-	return make_expression<std::initializer_list<BaseExpressionRef>>(head, leaves);
+	if (leaves.size() < 4) {
+		return tiny_expression(head, leaves);
+	} else {
+		return Heap::Expression(head, RefsSlice(leaves, OptionalTypeMask()));
+	}
 }
 
 inline ExpressionRef expression(const BaseExpressionRef &head, const RefsSlice &slice) {
@@ -430,8 +443,7 @@ public:
 };
 
 template<size_t N, typename F>
-inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const F &generate, size_t size) {
-	assert(size == N);
+inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const F &generate) {
 	direct_storage<N> storage(head);
 	generate(storage);
 	return storage.to_expression();
@@ -501,13 +513,13 @@ ExpressionRef ExpressionImplementation<Slice>::apply(
 
 				};
 
-				switch (slice.size()) {
+				switch (size) {
 					case 1:
-						return tiny_expression<1>(new_head, generate_leaves, size);
+						return tiny_expression<1>(new_head, generate_leaves);
 					case 2:
-						return tiny_expression<2>(new_head, generate_leaves, size);
+						return tiny_expression<2>(new_head, generate_leaves);
 					case 3:
-						return tiny_expression<3>(new_head, generate_leaves, size);
+						return tiny_expression<3>(new_head, generate_leaves);
 					default:
 						return expression(new_head, generate_leaves, size);
 				}

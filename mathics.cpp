@@ -413,7 +413,7 @@ public:
 		        leaves.push_back(convert(leaf));
 	        }
 
-	        return expression(head, leaves);
+	        return expression(head, std::move(leaves));
         } else if (kind == _string) {
 	        return from_primitive(o[1].as_string());
         } else {

@@ -40,7 +40,7 @@ BaseExpressionRef ArithmeticOperationsImplementation<T>::add_machine_inexact() c
 	const T &self = this->expr();
 
 	// create an array to store all the symbolic arguments which can't be evaluated.
-	auto symbolics = std::vector<BaseExpressionRef>();
+	std::vector<BaseExpressionRef> symbolics;
 	symbolics.reserve(self.size());
 
 	machine_real_t sum = 0.0;
@@ -85,7 +85,7 @@ BaseExpressionRef ArithmeticOperationsImplementation<T>::add_machine_inexact() c
 	} else if (!symbolics.empty()) {
 		// at least one symbolic
 		symbolics.push_back(from_primitive(sum));
-		result = expression(self._head, symbolics);
+		result = expression(self._head, std::move(symbolics));
 	} else {
 		// no symbolics
 		result = from_primitive(sum);
