@@ -274,6 +274,16 @@ public:
 
 		return PackSlice<U>(_extent, _begin + begin, end - begin);
 	}
+
+	inline bool is_packed() const {
+		return true;
+	}
+
+	RefsSlice unpack() const;
+
+	inline const BaseExpressionRef *refs() const {
+		throw std::runtime_error("cannot get refs on PackSlice");
+	}
 };
 
 class RefsExtent {
@@ -435,6 +445,18 @@ public:
 	        return RefsSlice(_extent, _begin + begin, _begin + end, sliced_type_mask(end - begin));
         }
 	}
+
+	inline bool is_packed() const {
+		return false;
+	}
+
+	inline RefsSlice unpack() const {
+		return *this;
+	}
+
+	inline const BaseExpressionRef *refs() const {
+		return _begin;
+	}
 };
 
 template<size_t N>
@@ -498,8 +520,30 @@ public:
             return InPlaceRefsSlice<N>(&_refs[begin], end - begin, BaseSlice::sliced_type_mask(end - begin));
         }
     }
+
+	inline bool is_packed() const {
+		return false;
+	}
+
+	inline InPlaceRefsSlice<N> unpack() const {
+		return *this;
+	}
+
+	inline const BaseExpressionRef *refs() const {
+		return &_refs[0];
+	}
 };
 
 typedef InPlaceRefsSlice<0> EmptySlice;
+
+template<typename U>
+inline RefsSlice PackSlice<U>::unpack() const {
+	std::vector<BaseExpressionRef> leaves;
+	for (auto leaf : this->leaves()) {
+		leaves.push_back(leaf);
+	}
+	return RefsSlice(std::move(leaves), type_mask());
+}
+
 
 #endif //CMATHICS_LEAVES_H

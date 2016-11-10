@@ -7,6 +7,7 @@
 #include "operations.h"
 #include "string.h"
 #include "leaves.h"
+#include "structure.h"
 
 #include <sstream>
 #include <vector>
@@ -15,7 +16,8 @@ template<typename T>
 class AllOperationsImplementation :
     virtual public OperationsInterface,
     virtual public OperationsImplementation<T>,
-    public ArithmeticOperationsImplementation<T> {
+    public ArithmeticOperationsImplementation<T>,
+	public StructureOperationsImplementation<T> {
 public:
     inline AllOperationsImplementation() {
     }
@@ -120,7 +122,13 @@ public:
 			auto head_head = boost::static_pointer_cast<const Expression>(head)->_head.get();
 			if (head_head->type() == SymbolType) {
 				auto head_symbol = static_cast<const Symbol *>(head_head);
-				// TODO
+
+				for (const Rule &rule : head_symbol->sub_rules) {
+					auto child_result = rule(self, evaluation);
+					if (child_result) {
+						return child_result;
+					}
+				}
 			}
 		}
 
@@ -305,8 +313,14 @@ public:
 
 	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const;
 
+	virtual size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const;
+
 	virtual SliceTypeId slice_type_id() const {
 		return _leaves.type_id();
+	}
+
+	virtual const Symbol *lookup_name() const {
+		return _head->lookup_name();
 	}
 };
 
@@ -540,33 +554,37 @@ ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end)
 }
 
 template<typename Slice>
-class ToRefsExpression {
-public:
-	static inline RefsExpressionRef convert(
-		const BaseExpressionRef &expr, const BaseExpressionRef &head, const Slice &slice) {
-		std::vector<BaseExpressionRef> leaves;
-		leaves.reserve(slice.size());
-		for (auto leaf : slice.leaves()) {
-			leaves.push_back(leaf);
-		}
-		return Heap::Expression(head, RefsSlice(std::move(leaves), slice.type_mask()));
-	}
-};
+size_t ExpressionImplementation<Slice>::unpack(
+	BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
 
-template<>
-class ToRefsExpression<RefsSlice> {
-public:
-	static inline RefsExpressionRef convert(
-		const BaseExpressionRef &expr, const BaseExpressionRef &head, const RefsSlice &slice) {
-		return boost::static_pointer_cast<const RefsExpression>(expr);
+	const auto &slice = _leaves;
+	if (slice.is_packed()) {
+		auto expr = Heap::Expression(_head, slice.unpack());
+		unpacked = expr;
+		leaves = expr->_leaves.refs();
+		return expr->_leaves.size();
+	} else {
+		leaves = slice.refs();
+		return slice.size();
 	}
-};
+}
 
 template<typename Slice>
 RefsExpressionRef ExpressionImplementation<Slice>::to_refs_expression(const BaseExpressionRef &self) const {
-	return ToRefsExpression<Slice>::convert(self, _head, _leaves);
+	if (std::is_same<Slice, RefsSlice>()) {
+		return boost::static_pointer_cast<RefsExpression>(self);
+	} else {
+		std::vector<BaseExpressionRef> leaves;
+		leaves.reserve(_leaves.size());
+		for (auto leaf : _leaves.leaves()) {
+			leaves.push_back(leaf);
+		}
+		return Heap::Expression(_head, RefsSlice(std::move(leaves), _leaves.type_mask()));
+
+	}
 }
 
 #include "arithmetic_implementation.h"
+#include "structure_implementation.h"
 
 #endif

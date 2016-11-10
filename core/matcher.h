@@ -71,11 +71,9 @@ public:
 		_sequence(sequence) {
 	}
 
-	bool shift(size_t match_size, const Symbol *head) const;
+	bool shift(size_t match_size, const Symbol *head, bool make_sequence=false) const;
 
 	bool shift(const Symbol *var, const BaseExpressionRef &pattern) const;
-
-	bool descend() const;
 
 	bool blank_sequence(match_size_t k, const Symbol *head) const;
 
@@ -103,22 +101,21 @@ public:
 
 		switch (patt_head->type()) {
 			case SymbolType:
-				switch (boost::static_pointer_cast<const Symbol>(patt_head)->pattern_symbol) {
-					case PatternSymbol::Blank:
+				switch (boost::static_pointer_cast<const Symbol>(patt_head)->_id) {
+					case SymbolId::Blank:
 						return shift(1, blank_head(patt));
-					case PatternSymbol::BlankSequence:
+					case SymbolId::BlankSequence:
 						return blank_sequence(1, blank_head(patt));
-					case PatternSymbol::BlankNullSequence:
+					case SymbolId::BlankNullSequence:
 						return blank_sequence(0, blank_head(patt));
-					case PatternSymbol::Pattern: {
+					case SymbolId::Pattern: {
 						auto var_expr = patt->_leaves[0].get();
 						if (var_expr->type() == SymbolType) {
 							const Symbol *var = static_cast<const Symbol*>(var_expr);
 							return shift(var, patt->_leaves[1]);
 						}
 					}
-
-					case PatternSymbol::None: {
+					default: {
 						// nothing
 					}
 				}
@@ -130,11 +127,27 @@ public:
 				} else {
 					auto next = _sequence[0];
 					if (next->type() == ExpressionType) {
-						auto expr = boost::static_pointer_cast<const Expression>(next);
-						if (!expr->head()->same(patt_head)) {
-							return false;
+						auto next_expr = boost::static_pointer_cast<const Expression>(next);
+
+						if (next->match_leaves(_context, _this_pattern)) {
+							if (consume(1)) {
+								// match head last, so order of matched symbols is correct
+								if (patt_head->type() == ExpressionType &&
+									next_expr->head()->type() == ExpressionType) {
+
+									if (next_expr->head()->match_leaves(_context, patt_head)) {
+										return true;
+									} else {
+										return false;
+									}
+								} else {
+									return true;
+								}
+							} else {
+								return false;
+							}
 						} else {
-							return descend();
+							return false;
 						}
 					} else {
 						return false;
@@ -221,7 +234,7 @@ bool Matcher<Slice>::blank_sequence(match_size_t k, const Symbol *head) const {
 	}
 
 	for (size_t l = max_remaining; l >= min_remaining; l--) {
-		auto match = shift(l, nullptr);
+		auto match = shift(l, nullptr, true);
 		if (match) {
 			return match;
 		}
@@ -262,7 +275,7 @@ bool Matcher<Slice>::match_variable(size_t match_size, const BaseExpressionRef &
 }
 
 template<typename Slice>
-bool Matcher<Slice>::shift(size_t match_size, const Symbol *head) const {
+bool Matcher<Slice>::shift(size_t match_size, const Symbol *head, bool make_sequence) const {
 	if (_sequence.size() < match_size) {
 		return false;
 	}
@@ -275,7 +288,7 @@ bool Matcher<Slice>::shift(size_t match_size, const Symbol *head) const {
 		return consume(match_size);
 	}
 
-	if (match_size == 1) {
+	if (match_size == 1 && !make_sequence) {
 		return match_variable(match_size, _sequence[0]);
 	} else {
 		return match_variable(match_size, expression(
@@ -288,18 +301,6 @@ template<typename Slice>
 bool Matcher<Slice>::shift(const Symbol *var, const BaseExpressionRef &pattern) const {
 	Matcher<Slice> matcher(_context, var, pattern, _next_pattern, _sequence);
 	return matcher.match_sequence();
-}
-
-template<typename Slice>
-bool Matcher<Slice>::descend() const {
-	auto next = _sequence[0];
-	assert(next->type() == ExpressionType);
-
-	if (next->match_leaves(_context, _this_pattern)) {
-		return consume(1); // if leaves matched, consume whole expression now
-	} else {
-		return false;
-	}
 }
 
 template<typename Slice>

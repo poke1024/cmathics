@@ -76,7 +76,11 @@ set(SOURCE_FILES
     core/symbol.h
     core/matcher.h
     core/operations.h
-    core/arithmetic_implementation.h core/heap.cpp core/heap.h core/promote.h)
+    core/arithmetic_implementation.h
+    core/heap.cpp
+    core/heap.h
+    core/promote.h
+    core/structure.h core/structure_implementation.h)
 
 add_custom_target(standalone)
 

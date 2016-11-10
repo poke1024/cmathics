@@ -469,6 +469,11 @@ public:
     }
 };
 
+struct RuleData {
+	BaseExpressionRef pattern;
+	Rule rule;
+};
+
 class Runtime {
 private:
     Definitions _definitions;
@@ -490,28 +495,43 @@ public:
         return _parser.parse(s);
     }
 
-    void add(const char *name, Attributes attributes, const std::initializer_list<Rule> &rules) {
+    void add(const char *name, Attributes attributes, const std::initializer_list<RuleData> &rules) {
         std::string full_down = std::string("System`") + name;
         SymbolRef symbol = _definitions.lookup(full_down.c_str());
 		symbol->set_attributes(attributes);
-        for (auto rule : rules) {
-            symbol->add_down_rule(rule);
+        for (const auto &rule_data : rules) {
+	        // see core/definitions.py:get_tag_position()
+	        if (rule_data.pattern->head() == symbol) {
+		        symbol->add_down_rule(rule_data.rule);
+	        } else if (rule_data.pattern->lookup_name() == symbol) {
+		        symbol->add_sub_rule(rule_data.rule);
+	        }
         }
     }
 
+	RuleData rule(const char *pattern, Rule rule) {
+		BaseExpressionRef parsed = _parser.parse(pattern);
+		return RuleData{parsed, rule};
+	}
+
     template<int N>
-    Rule rule(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
-        return make_builtin_rule<N>(_parser.parse(pattern), func);
+    RuleData rule(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
+	    BaseExpressionRef parsed = _parser.parse(pattern);
+        return RuleData{parsed, make_builtin_rule<N>(parsed, func)};
     }
 
-	Rule rewrite(const char *pattern, const char *into) {
-		return make_rewrite_rule(_parser.parse(pattern), _parser.parse(into));
+	RuleData rewrite(const char *pattern, const char *into) {
+		BaseExpressionRef parsed =_parser.parse(pattern);
+		return RuleData{parsed, make_rewrite_rule(parsed, _parser.parse(into))};
 	}
 
     void initialize() {
         add("Plus",
             Attributes::None, {
-            Plus
+            rule(
+		        "Plus[]",
+		        Plus
+            )
         });
 
         add("Apply",
@@ -607,6 +627,27 @@ public:
 				    }
 		        )
 	        });
+
+	    add("Function",
+	        Attributes::HoldAll, {
+		        rule<2>(
+				    "Function[body_][args___]",
+				    [](const BaseExpressionRef &body, const BaseExpressionRef &args, const Evaluation &evaluation) {
+					    if (args->type() == ExpressionType && body->type() == ExpressionType) {
+						    const Expression *slots_expr = static_cast<const Expression *>(args.get());
+						    BaseExpressionRef unpacked;
+						    const BaseExpressionRef *slots;
+						    const size_t n_slots = slots_expr->unpack(unpacked, slots);
+
+						    const Expression *body_expr = static_cast<const Expression *>(body.get());
+						    return body_expr->replace_slots(slots, n_slots, evaluation);
+					    } else {
+						    return BaseExpressionRef();
+					    }
+				    }
+		        )
+	        }
+	    );
     }
 };
 

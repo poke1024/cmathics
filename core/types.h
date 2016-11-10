@@ -269,10 +269,14 @@ public:
 	}
 
 	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const {
-		throw std::runtime_error("cannot create refs expression");
+		throw std::runtime_error(std::string("cannot create refs expression for ") + typeid(this).name());
 	}
 
-    friend void intrusive_ptr_add_ref(const BaseExpression *expr);
+	virtual const Symbol *lookup_name() const {
+		return nullptr;
+	}
+
+	friend void intrusive_ptr_add_ref(const BaseExpression *expr);
     friend void intrusive_ptr_release(const BaseExpression *expr);
 };
 
@@ -300,9 +304,11 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
 // class ExpressionIterator;
 
 #include "arithmetic.h"
+#include "structure.h"
 
 class OperationsInterface :
-	virtual public ArithmeticOperations {
+	virtual public ArithmeticOperations,
+	virtual public StructureOperations {
 };
 
 class Expression : public BaseExpression, virtual public OperationsInterface {
@@ -334,6 +340,8 @@ public:
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
+
+	virtual size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const = 0;
 
 	virtual SliceTypeId slice_type_id() const = 0;
 };

@@ -4,12 +4,12 @@
 #include "evaluation.h"
 #include "pattern.h"
 
-Symbol::Symbol(Definitions *definitions, const char *name, PatternSymbol pattern) :
+Symbol::Symbol(Definitions *definitions, const char *name, SymbolId id) :
     BaseExpression(SymbolType),
     _name(name),
     _linked_variable(nullptr),
     attributes(Attributes::None),
-    pattern_symbol(pattern) {
+    _id(id) {
 
 	// initialise a definition entry
 
@@ -43,6 +43,10 @@ void Symbol::add_down_rule(const Rule &rule) {
     down_rules.push_back(rule);
 }
 
+void Symbol::add_sub_rule(const Rule &rule) {
+	sub_rules.push_back(rule);
+}
+
 BaseExpressionRef Symbol::replace_all(const Match &match) const {
 	if (match.id() == _match_id) {
 		return _match_value;
@@ -73,7 +77,6 @@ Definitions::Definitions() {
     add_internal_symbol(SymbolRef(new Pattern(this)));
     add_internal_symbol(SymbolRef(new Alternatives(this)));
     add_internal_symbol(SymbolRef(new Repeated(this)));
-
     /*new_symbol("System`RepeatedNull", RepeatedNull);
     new_symbol("System`Except", Except);
     new_symbol("System`Longest", Longest);
@@ -87,11 +90,15 @@ Definitions::Definitions() {
     new_symbol("System`Condition", Condition);
     new_symbol("System`PatternTest", PatternTest);
     new_symbol("System`Optional", Optional);*/
+
+	new_symbol("System`Slot", SymbolId::Slot);
+	new_symbol("System`SlotSequence", SymbolId::SlotSequence);
+	new_symbol("System`Function", SymbolId::Function);
 }
 
-SymbolRef Definitions::new_symbol(const char *name) {
+SymbolRef Definitions::new_symbol(const char *name, SymbolId id) {
     assert(_definitions.find(name) == _definitions.end());
-    auto symbol = SymbolRef(new Symbol(this, name));
+    auto symbol = SymbolRef(new Symbol(this, name, id));
     _definitions[name] = symbol;
     return symbol;
 }
