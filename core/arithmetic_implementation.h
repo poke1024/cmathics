@@ -9,13 +9,10 @@
 
 template<typename T>
 BaseExpressionRef ArithmeticOperationsImplementation<T>::add_only_integers() const {
-	// sums all integers in an expression
+	// sums an all MachineInteger/BigInteger expression
+
 	const T &self = this->expr();
 	mpint result(0);
-
-	// XXX right now the entire computation is done with GMP. This is slower
-	// than using machine precision arithmetic but simpler because we don't
-	// need to handle overflow. Could be optimised.
 
 	for (auto value : self.template primitives<mpint>()) {
 		result += value;
@@ -26,8 +23,9 @@ BaseExpressionRef ArithmeticOperationsImplementation<T>::add_only_integers() con
 
 template<typename T>
 BaseExpressionRef ArithmeticOperationsImplementation<T>::add_only_machine_reals() const {
-	const T &self = this->expr();
+	// sums an all MachineReal expression
 
+	const T &self = this->expr();
 	machine_real_t result = 0.;
 
 	for (auto value : self.template primitives<machine_real_t>()) {

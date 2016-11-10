@@ -10,8 +10,6 @@
 
 #include <iostream>
 
-const Symbol *blank_head(RefsExpressionPtr patt);
-
 class Blank : public Symbol {
 public:
 	Blank(Definitions *definitions) :

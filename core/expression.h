@@ -164,10 +164,6 @@ public:
 		return _leaves[i];
 	}
 
-	inline BaseExpressionPtr leaf_ptr(size_t i) const {
-		return _leaves[i].get();
-	}
-
 	inline auto leaves() const {
 		return _leaves.leaves();
 	}

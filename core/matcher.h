@@ -15,9 +15,12 @@ inline const Symbol *blank_head(RefsExpressionPtr patt) {
 			return nullptr;
 
 		case 1: {
-			auto symbol = patt->leaf_ptr(0);
+			auto symbol = patt->leaf(0);
 			if (symbol->type() == SymbolType) {
-				return static_cast<const Symbol *>(symbol);
+				// ok to get Symbol's address here as "symbol" gets out of
+				// scope, as we got this symbol from a RefsExpression that
+				// keeps on referencing this Symbol.
+				return static_cast<const Symbol *>(symbol.get());
 			}
 		}
 			// fallthrough
