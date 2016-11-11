@@ -7,47 +7,60 @@
 #include "evaluation.h"
 #include "symbol.h"
 
+class VariableList {
+private:
+    Symbol *_first;
+    Symbol *_last;
+
+public:
+    inline VariableList() : _first(nullptr), _last(nullptr) {
+    }
+
+    inline VariableList(const VariableList &list) : _first(list._first), _last(list._last) {
+    }
+
+    inline bool is_empty() const {
+        return _first == nullptr;
+    }
+
+    inline void reset() {
+        _first = nullptr;
+        _last = nullptr;
+    }
+
+    inline Symbol *get() const {
+        return _first;
+    }
+
+    inline void prepend(Symbol *symbol) {
+        Symbol *old_first = _first;
+        if (old_first) {
+            symbol->set_next_variable(old_first);
+            _first = symbol;
+        } else {
+            symbol->set_next_variable(nullptr);
+            _first = symbol;
+            _last = symbol;
+        }
+    }
+
+    inline void prepend(const VariableList &list) {
+        Symbol *list_first = list._first;
+        if (list_first) {
+            list._last->set_next_variable(_first);
+            _first = list_first;
+        }
+    }
+};
 
 class MatchContext {
-private:
-	Symbol *_matched_variables_head;
-
 public:
 	const MatchId id;
 	Definitions &definitions;
+    VariableList matched_variables;
 
 	inline MatchContext(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &defs) :
-			id(patt, item), definitions(defs), _matched_variables_head(nullptr) {
-	}
-
-	inline void add_matched_variable(Symbol *variable) {
-		variable->set_next_variable(_matched_variables_head);
-		_matched_variables_head = variable;
-	}
-
-	inline void prepend_matched_variables(Symbol *variable) {
-		if (variable) {
-			Symbol *appended = _matched_variables_head;
-			_matched_variables_head = variable;
-			while (true) {
-				Symbol *next = variable->next_variable();
-				if (!next) {
-					break;
-				}
-				variable = next;
-			}
-			variable->set_next_variable(appended);
-		}
-	}
-
-	inline Symbol *matched_variables() const {
-		return _matched_variables_head;
-	}
-
-	inline Symbol *remove_matched_variables() {
-		Symbol *head = _matched_variables_head;
-		_matched_variables_head = nullptr;
-		return head;
+        id(patt, item), definitions(defs) {
 	}
 };
 
@@ -62,7 +75,7 @@ public:
 	}
 
 	explicit inline Match(bool matched, const MatchContext &context) :
-			_matched(matched), _id(context.id), _variables(context.matched_variables()) {
+		_matched(matched), _id(context.id), _variables(context.matched_variables.get()) {
 	}
 
 	inline operator bool() const {
@@ -229,25 +242,37 @@ public:
 						if (patt_head->type() == ExpressionType &&
 						    next_expr->head()->type() == ExpressionType) {
 
-							assert(_context.matched_variables() == nullptr);
-							if (next_expr->head()->match_leaves(_context, patt_head)) {
-								head_match = _context.remove_matched_variables();
-							} else {
-								return false;
+							assert(_context.matched_variables.is_empty());
+
+							if (!next_expr->head()->match_leaves(_context, patt_head)) {
+                                return false;
 							}
-						}
 
-						if (!next->match_leaves(_context, _this_pattern)) {
-							return false;
-						}
+                            VariableList matched_variables(_context.matched_variables);
+                            _context.matched_variables.reset();
 
-						if (!consume(1)) {
-							return false;
-						}
+                            if (!next->match_leaves(_context, _this_pattern)) {
+                                return false;
+                            }
 
-						_context.prepend_matched_variables(head_match);
-						return true;
-					} else {
+                            if (!consume(1)) {
+                                return false;
+                            }
+
+                            _context.matched_variables.prepend(matched_variables);
+                            return true;
+						} else {
+                            if (!next->match_leaves(_context, _this_pattern)) {
+                                return false;
+                            }
+
+                            if (!consume(1)) {
+                                return false;
+                            }
+
+                            return true;
+                        }
+                    } else {
 						return false;
 					}
 				}
@@ -363,7 +388,7 @@ bool Matcher<Slice>::match_variable(size_t match_size, const BaseExpressionRef &
 		}
 
 		if (match) {
-			_context.add_matched_variable(_variable);
+			_context.matched_variables.prepend(_variable);
 		} else {
 			_variable->clear_matched_value();
 		}
