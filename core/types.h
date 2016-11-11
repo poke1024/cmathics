@@ -89,54 +89,9 @@ public:
 	}
 };
 
-class MatchContext {
-private:
-	const Symbol *_matched_variables_head;
+class MatchContext;
 
-public:
-	const MatchId id;
-	Definitions &definitions;
-
-	inline MatchContext(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &defs) :
-		id(patt, item), definitions(defs), _matched_variables_head(nullptr) {
-	}
-
-	void add_matched_variable(const Symbol *variable);
-
-	inline const Symbol *matched_variables() const {
-		return _matched_variables_head;
-	}
-};
-
-class Match {
-private:
-    const bool _matched;
-	const MatchId _id;
-    const Symbol *_variables;
-
-public:
-	explicit inline Match() : _matched(false) {
-	}
-
-    explicit inline Match(bool matched, const MatchContext &context) :
-	    _matched(matched), _id(context.id), _variables(context.matched_variables()) {
-    }
-
-    inline operator bool() const {
-        return _matched;
-    }
-
-	inline const MatchId &id() const {
-		return _id;
-	}
-
-    inline const Symbol *variables() const {
-        return _variables;
-    }
-
-    template<int N>
-    typename BaseExpressionTuple<N>::type get() const;
-};
+class Match;
 
 std::ostream &operator<<(std::ostream &s, const Match &m);
 

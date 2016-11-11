@@ -83,7 +83,7 @@ protected:
 
 	mutable MatchId _match_id;
 	mutable BaseExpressionRef _match_value;
-	mutable const Symbol *_linked_variable;
+	mutable Symbol *_linked_variable;
 
 public:
 	Symbol(Definitions *new_definitions, const char *name, SymbolId id = SymbolId::None);
@@ -159,11 +159,11 @@ public:
 		}
 	}
 
-	inline void link_variable(const Symbol *symbol) const {
+	inline void set_next_variable(Symbol *symbol) const {
 		_linked_variable = symbol;
 	}
 
-	inline const Symbol *linked_variable() const {
+	inline Symbol *next_variable() const {
 		return _linked_variable;
 	}
 
@@ -174,30 +174,6 @@ public:
 	virtual const Symbol *lookup_name() const {
 		return this;
 	}
-};
-
-template<int M, int N>
-struct unpack_symbols {
-	void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
-		// symbols are already ordered in the order of their (first) appearance in the original pattern.
-		assert(symbol != nullptr);
-		std::get<N>(t) = symbol->matched_value();
-		unpack_symbols<M, N + 1>()(symbol->linked_variable(), t);
-	}
-};
-
-template<int M>
-struct unpack_symbols<M, M> {
-	void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
-		assert(symbol == nullptr);
-	}
-};
-
-template<int N>
-inline typename BaseExpressionTuple<N>::type Match::get() const {
-	typename BaseExpressionTuple<N>::type t;
-	unpack_symbols<N, 0>()(_variables, t);
-	return t;
 };
 
 class Sequence : public Symbol {

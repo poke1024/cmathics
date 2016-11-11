@@ -39,7 +39,7 @@ std::ostream &operator<<(std::ostream &s, const Match &m) {
             }
             s << var->fullform() << ":" << value->fullform();
             first = false;
-            var = var->linked_variable();
+            var = var->next_variable();
         }
     }
     s << "}";

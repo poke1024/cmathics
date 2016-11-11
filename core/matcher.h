@@ -7,6 +7,104 @@
 #include "evaluation.h"
 #include "symbol.h"
 
+
+class MatchContext {
+private:
+	Symbol *_matched_variables_head;
+
+public:
+	const MatchId id;
+	Definitions &definitions;
+
+	inline MatchContext(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &defs) :
+			id(patt, item), definitions(defs), _matched_variables_head(nullptr) {
+	}
+
+	inline void add_matched_variable(Symbol *variable) {
+		variable->set_next_variable(_matched_variables_head);
+		_matched_variables_head = variable;
+	}
+
+	inline void prepend_matched_variables(Symbol *variable) {
+		if (variable) {
+			Symbol *appended = _matched_variables_head;
+			_matched_variables_head = variable;
+			while (true) {
+				Symbol *next = variable->next_variable();
+				if (!next) {
+					break;
+				}
+				variable = next;
+			}
+			variable->set_next_variable(appended);
+		}
+	}
+
+	inline Symbol *matched_variables() const {
+		return _matched_variables_head;
+	}
+
+	inline Symbol *remove_matched_variables() {
+		Symbol *head = _matched_variables_head;
+		_matched_variables_head = nullptr;
+		return head;
+	}
+};
+
+class Match {
+private:
+	const bool _matched;
+	const MatchId _id;
+	const Symbol *_variables;
+
+public:
+	explicit inline Match() : _matched(false) {
+	}
+
+	explicit inline Match(bool matched, const MatchContext &context) :
+			_matched(matched), _id(context.id), _variables(context.matched_variables()) {
+	}
+
+	inline operator bool() const {
+		return _matched;
+	}
+
+	inline const MatchId &id() const {
+		return _id;
+	}
+
+	inline const Symbol *variables() const {
+		return _variables;
+	}
+
+	template<int N>
+	typename BaseExpressionTuple<N>::type get() const;
+};
+
+template<int M, int N>
+struct unpack_symbols {
+	void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
+		// symbols are already ordered in the order of their (first) appearance in the original pattern.
+		assert(symbol != nullptr);
+		std::get<N>(t) = symbol->matched_value();
+		unpack_symbols<M, N + 1>()(symbol->next_variable(), t);
+	}
+};
+
+template<int M>
+struct unpack_symbols<M, M> {
+	void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
+		assert(symbol == nullptr);
+	}
+};
+
+template<int N>
+inline typename BaseExpressionTuple<N>::type Match::get() const {
+	typename BaseExpressionTuple<N>::type t;
+	unpack_symbols<N, 0>()(_variables, t);
+	return t;
+};
+
 class RefsSlice;
 
 inline const Symbol *blank_head(RefsExpressionPtr patt) {
@@ -34,7 +132,7 @@ template<typename Slice>
 class Matcher {
 private:
 	MatchContext &_context;
-	const Symbol *_variable;
+	Symbol *_variable;
 	const BaseExpressionRef &_this_pattern;
 	const RefsSlice &_next_pattern;
 	const Slice &_sequence;
@@ -60,7 +158,7 @@ public:
 
 	inline Matcher(
 		MatchContext &context,
-		const Symbol *variable,
+		Symbol *variable,
 		const BaseExpressionRef &this_pattern,
 		const RefsSlice &next_pattern,
 		const Slice &sequence) :
@@ -73,7 +171,7 @@ public:
 
 	bool shift(size_t match_size, const Symbol *head, bool make_sequence=false) const;
 
-	bool shift(const Symbol *var, const BaseExpressionRef &pattern) const;
+	bool shift(Symbol *var, const BaseExpressionRef &pattern) const;
 
 	bool blank_sequence(match_size_t k, const Symbol *head) const;
 
@@ -111,7 +209,7 @@ public:
 					case SymbolId::Pattern: {
 						auto var_expr = patt->_leaves[0].get();
 						if (var_expr->type() == SymbolType) {
-							const Symbol *var = static_cast<const Symbol*>(var_expr);
+							Symbol *var = const_cast<Symbol*>(static_cast<const Symbol*>(var_expr));
 							return shift(var, patt->_leaves[1]);
 						}
 					}
@@ -129,26 +227,29 @@ public:
 					if (next->type() == ExpressionType) {
 						auto next_expr = boost::static_pointer_cast<const Expression>(next);
 
-						if (next->match_leaves(_context, _this_pattern)) {
-							if (consume(1)) {
-								// match head last, so order of matched symbols is correct
-								if (patt_head->type() == ExpressionType &&
-									next_expr->head()->type() == ExpressionType) {
+						Symbol *head_match = nullptr;
 
-									if (next_expr->head()->match_leaves(_context, patt_head)) {
-										return true;
-									} else {
-										return false;
-									}
-								} else {
-									return true;
-								}
+						if (patt_head->type() == ExpressionType &&
+						    next_expr->head()->type() == ExpressionType) {
+
+							assert(_context.matched_variables() == nullptr);
+							if (next_expr->head()->match_leaves(_context, patt_head)) {
+								head_match = _context.remove_matched_variables();
 							} else {
 								return false;
 							}
-						} else {
+						}
+
+						if (!next->match_leaves(_context, _this_pattern)) {
 							return false;
 						}
+
+						if (!consume(1)) {
+							return false;
+						}
+
+						_context.prepend_matched_variables(head_match);
+						return true;
 					} else {
 						return false;
 					}
@@ -298,7 +399,7 @@ bool Matcher<Slice>::shift(size_t match_size, const Symbol *head, bool make_sequ
 }
 
 template<typename Slice>
-bool Matcher<Slice>::shift(const Symbol *var, const BaseExpressionRef &pattern) const {
+bool Matcher<Slice>::shift(Symbol *var, const BaseExpressionRef &pattern) const {
 	Matcher<Slice> matcher(_context, var, pattern, _next_pattern, _sequence);
 	return matcher.match_sequence();
 }
