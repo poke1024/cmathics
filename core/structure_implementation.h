@@ -12,41 +12,38 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
 	const BaseExpressionRef &head = self._head;
 	const auto &leaves = self._leaves;
 
-	if (head->type() == SymbolType) {
-		const Symbol *symbol = static_cast<const Symbol*>(head.get());
-		switch(symbol->_id) {
-			case SymbolId::Slot:
-				if (leaves.size() != 1) {
-					// error
-				} else {
-					const auto slot = leaves[0];
-					if (slot->type() == MachineIntegerType) {
-						const machine_integer_t slot_id =
-							static_cast<const MachineInteger*>(slot.get())->value;
-						if (slot_id < 1) {
-							// error
-						} else if (slot_id > n_slots) {
-							// error
-						} else {
-							return slots[slot_id - 1];
-						}
-					} else {
-						// error
-					}
-				}
-				break;
+    switch (head->extended_type()) {
+        case SymbolSlot:
+            if (leaves.size() != 1) {
+                // error
+            } else {
+                const auto slot = leaves[0];
+                if (slot->type() == MachineIntegerType) {
+                    const machine_integer_t slot_id =
+                            static_cast<const MachineInteger*>(slot.get())->value;
+                    if (slot_id < 1) {
+                        // error
+                    } else if (slot_id > n_slots) {
+                        // error
+                    } else {
+                        return slots[slot_id - 1];
+                    }
+                } else {
+                    // error
+                }
+            }
+            break;
 
-			case SymbolId::Function:
-				if (leaves.size() == 1) {
-					// do not replace Slots in nested Functions
-					return BaseExpressionRef();
-				}
+        case SymbolFunction:
+            if (leaves.size() == 1) {
+                // do not replace Slots in nested Functions
+                return BaseExpressionRef();
+            }
 
-			default: {
-				// nothing
-			}
-		}
-	}
+        default: {
+            // nothing
+        }
+    }
 
 	BaseExpressionRef new_head;
 	if (head->type() == ExpressionType) {

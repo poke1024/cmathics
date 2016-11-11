@@ -62,21 +62,6 @@ typedef std::vector<Rule> Rules;
 
 class Definitions;
 
-enum class SymbolId : uint8_t {
-    // FIXME: this should become obsolete; should really be handled inside regular Type
-
-	None,
-
-	Blank,
-	BlankSequence,
-	BlankNullSequence,
-	Pattern,
-
-	Slot,
-	SlotSequence,
-	Function
-};
-
 class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
@@ -88,7 +73,7 @@ protected:
 	mutable Symbol *_linked_variable;
 
 public:
-	Symbol(Definitions *new_definitions, const char *name, SymbolId id = SymbolId::None);
+	Symbol(Definitions *new_definitions, const char *name, Type symbol = SymbolType);
 
 	/*Expression* own_values;
 	Expression* sub_values;
@@ -105,7 +90,6 @@ public:
 	Rules down_rules;
 
 	Attributes attributes;
-	const SymbolId _id;
 
 	virtual bool same(const BaseExpression &expr) const {
 		// compare as pointers: Symbol instances are unique
@@ -180,11 +164,7 @@ public:
 
 class Sequence : public Symbol {
 public:
-	Sequence(Definitions *definitions) : Symbol(definitions, "System`Sequence") {
-	}
-
-	virtual bool is_symbol_sequence() const {
-		return true;
+	Sequence(Definitions *definitions) : Symbol(definitions, "System`Sequence", SymbolSequence) {
 	}
 };
 

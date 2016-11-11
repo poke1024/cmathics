@@ -22,7 +22,7 @@ private:
 public:
     Definitions();
 
-    SymbolRef new_symbol(const char *name, SymbolId id = SymbolId::None);
+    SymbolRef new_symbol(const char *name, Type symbol = SymbolType);
 
     SymbolRef lookup(const char *name);
 

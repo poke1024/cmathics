@@ -13,28 +13,28 @@
 class Blank : public Symbol {
 public:
 	Blank(Definitions *definitions) :
-		Symbol(definitions, "System`Blank", SymbolId::Blank) {
+		Symbol(definitions, "System`Blank", SymbolBlank) {
 	}
 };
 
 class BlankSequence : public Symbol {
 public:
     BlankSequence(Definitions *definitions) :
-	    Symbol(definitions, "System`BlankSequence", SymbolId::BlankSequence) {
+	    Symbol(definitions, "System`BlankSequence", SymbolBlankSequence) {
     }
 };
 
 class BlankNullSequence : public Symbol {
 public:
     BlankNullSequence(Definitions *definitions) :
-	    Symbol(definitions, "System`BlankNullSequence", SymbolId::BlankNullSequence) {
+	    Symbol(definitions, "System`BlankNullSequence", SymbolBlankNullSequence) {
     }
 };
 
 class Pattern : public Symbol {
 public:
     Pattern(Definitions *definitions) :
-        Symbol(definitions, "System`Pattern", SymbolId::Pattern) {
+        Symbol(definitions, "System`Pattern", SymbolPattern) {
     }
 
     virtual match_sizes_t match_num_args_with_head(RefsExpressionPtr patt) const {

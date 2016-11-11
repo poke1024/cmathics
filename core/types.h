@@ -14,32 +14,42 @@ class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
 typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
 
-enum Type {
-    SubTypeMask = 31,
-    SymbolBlank = 1,
-    SymbolBlankSequence = 2,
-    SymbolBlankNullSequence = 3,
-    SymbolPattern = 4,
-    SymbolSlot = 5,
-    SymbolSlotSequence = 6,
-    SymbolFunction = 7,
+constexpr int TypeBits = 4;
 
-    MainTypeMask = 31 << 5,
-    MachineIntegerType = 32,
-    BigIntegerType = 33,
-    MachineRealType = 34,
-    BigRealType = 35,
-    RationalType = 36,
-    ComplexType = 37,
-    ExpressionType = 38,
-    SymbolType = 39, // FIXME
-    StringType = 40
+enum Type : uint8_t {
+	// only the values 0 - 15 end up as bits in TypeMasks.
+
+	SymbolType = 0,
+	MachineIntegerType = 1,
+	BigIntegerType = 2,
+	MachineRealType = 3,
+	BigRealType = 4,
+	RationalType = 5,
+	ComplexType = 6,
+	ExpressionType = 7,
+	StringType = 8,
+
+	// the following values are not represented in TypeMasks.
+
+	SymbolSequence = SymbolType + (0 << TypeBits),
+
+	SymbolBlank = SymbolType + (1 << TypeBits),
+    SymbolBlankSequence = SymbolType + (2 << TypeBits),
+    SymbolBlankNullSequence = SymbolType + (3 << TypeBits),
+    SymbolPattern = SymbolType + (4 << TypeBits),
+
+    SymbolSlot = SymbolType + (5 << TypeBits),
+    SymbolSlotSequence = SymbolType + (6 << TypeBits),
+    SymbolFunction = SymbolType + (7 << TypeBits)
 };
 
-typedef uint64_t TypeMask;
+typedef uint16_t TypeMask;
+
+static_assert((1 << TypeBits) == sizeof(TypeMask) * 8,
+	"TypeMask should have one bit for each of the 2^TypeBits basic types");
 
 constexpr TypeMask MakeTypeMask(Type type) {
-    return ((TypeMask)1) << type;
+    return ((TypeMask)1) << (type & 15);
 }
 
 inline bool is_homogenous(TypeMask mask) {
@@ -149,31 +159,29 @@ inline size_t in_place_size(SliceTypeId code) {
 
 class BaseExpression {
 private:
-	const Type _type;
+	const Type _extended_type;
 
 protected:
     mutable size_t _ref_count;
 
 public:
-    inline BaseExpression(Type type) : _type(type), _ref_count(0) {
+    inline BaseExpression(Type type) : _extended_type(type), _ref_count(0) {
     }
 
     virtual ~BaseExpression() {
     }
 
     inline Type type() const {
-	    return _type;
+	    return Type(((uint8_t)_extended_type) & 15); // basic type, e.g. MachineIntegerType, SymbolType, ...
     }
 
-	inline TypeMask type_mask() const {
-		return ((TypeMask)1) << _type;
+	inline Type extended_type() const {
+		return _extended_type; // extended type, e.g. SymbolBlank
 	}
 
-    // virtual bool is_symbol() const;
-    // virtual bool is_expression() const;
-    virtual bool is_symbol_sequence() const {
-        return false;
-    }
+	inline TypeMask type_mask() const {
+		return ((TypeMask)1) << type();
+	}
 
     inline bool same(const BaseExpressionRef &expr) const {
         return same(*expr);
@@ -303,7 +311,7 @@ public:
 	}
 
 	virtual bool is_sequence() const {
-		return _head->is_symbol_sequence();
+		return _head->extended_type() == SymbolSequence;
 	}
 
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const = 0;

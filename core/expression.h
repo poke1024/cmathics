@@ -65,11 +65,12 @@ public:
 		const auto attributes = head_symbol->attributes;
 
 		// only one type of Hold attribute can be set at a time
-		assert(count(attributes,
-		             Attributes::HoldFirst +
-		             Attributes::HoldRest +
-		             Attributes::HoldAll +
-		             Attributes::HoldAllComplete) <= 1);
+		assert(count(
+			attributes,
+			Attributes::HoldFirst +
+			Attributes::HoldRest +
+			Attributes::HoldAll +
+			Attributes::HoldAllComplete) <= 1);
 
 		size_t eval_leaf_start, eval_leaf_stop;
 
@@ -106,7 +107,7 @@ public:
 			[&evaluation](const BaseExpressionRef &leaf) {
 				return leaf->evaluate(leaf, evaluation);
 			},
-			(1L << ExpressionType) | (1L << SymbolType));
+            MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType));
 	}
 
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const {
@@ -294,7 +295,7 @@ public:
             [&match](const BaseExpressionRef &leaf) {
                 return leaf->replace_all(match);
             },
-            (1L << ExpressionType) | (1L << SymbolType));
+            MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType));
 }
 
 	virtual BaseExpressionRef clone() const {

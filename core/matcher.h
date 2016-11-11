@@ -197,27 +197,24 @@ public:
 	bool match_sequence_with_head(RefsExpressionPtr patt) const {
 		const auto patt_head = patt->_head;
 
-		switch (patt_head->type()) {
-			case SymbolType:
-				switch (boost::static_pointer_cast<const Symbol>(patt_head)->_id) {
-					case SymbolId::Blank:
-						return shift(1, blank_head(patt));
-					case SymbolId::BlankSequence:
-						return blank_sequence(1, blank_head(patt));
-					case SymbolId::BlankNullSequence:
-						return blank_sequence(0, blank_head(patt));
-					case SymbolId::Pattern: {
-						auto var_expr = patt->_leaves[0].get();
-						if (var_expr->type() == SymbolType) {
-							Symbol *var = const_cast<Symbol*>(static_cast<const Symbol*>(var_expr));
-							return shift(var, patt->_leaves[1]);
-						}
-					}
-					default: {
-						// nothing
-					}
+		switch (patt_head->extended_type()) {
+			case SymbolBlank:
+				return shift(1, blank_head(patt));
+
+			case SymbolBlankSequence:
+				return blank_sequence(1, blank_head(patt));
+
+			case SymbolBlankNullSequence:
+				return blank_sequence(0, blank_head(patt));
+
+			case SymbolPattern: {
+				auto var_expr = patt->_leaves[0].get();
+				if (var_expr->type() == SymbolType) {
+					Symbol *var = const_cast<Symbol*>(static_cast<const Symbol*>(var_expr));
+					return shift(var, patt->_leaves[1]);
 				}
-				// fallthrough
+			}
+			// fallthrough
 
 			default:
 				if (_sequence.size() == 0) {

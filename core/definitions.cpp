@@ -4,12 +4,11 @@
 #include "evaluation.h"
 #include "pattern.h"
 
-Symbol::Symbol(Definitions *definitions, const char *name, SymbolId id) :
-    BaseExpression(SymbolType),
+Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
+    BaseExpression(symbol),
     _name(name),
     _linked_variable(nullptr),
-    attributes(Attributes::None),
-    _id(id) {
+    attributes(Attributes::None) {
 
 	// initialise a definition entry
 
@@ -91,14 +90,14 @@ Definitions::Definitions() {
     new_symbol("System`PatternTest", PatternTest);
     new_symbol("System`Optional", Optional);*/
 
-	new_symbol("System`Slot", SymbolId::Slot);
-	new_symbol("System`SlotSequence", SymbolId::SlotSequence);
-	new_symbol("System`Function", SymbolId::Function);
+	new_symbol("System`Slot", SymbolSlot);
+	new_symbol("System`SlotSequence", SymbolSequence);
+	new_symbol("System`Function", SymbolFunction);
 }
 
-SymbolRef Definitions::new_symbol(const char *name, SymbolId id) {
+SymbolRef Definitions::new_symbol(const char *name, Type type) {
     assert(_definitions.find(name) == _definitions.end());
-    auto symbol = SymbolRef(new Symbol(this, name, id));
+    auto symbol = SymbolRef(new Symbol(this, name, type));
     _definitions[name] = symbol;
     return symbol;
 }

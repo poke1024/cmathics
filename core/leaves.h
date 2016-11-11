@@ -235,7 +235,7 @@ public:
 	}
 
     inline TypeMask type_mask() const {
-        return _size > 0 ? (1L << TypeFromPrimitive<U>::type) : 0;
+        return _size > 0 ? MakeTypeMask(TypeFromPrimitive<U>::type) : 0;
     }
 
 	template<typename V>
