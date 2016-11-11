@@ -367,13 +367,13 @@ inline ExpressionRef expression(
 	} else {
 		const auto type_mask = calc_type_mask(leaves);
 		switch (type_mask) {
-			case 1L << MachineIntegerType:
+			case MakeTypeMask(MachineIntegerType):
 				return expression(head, PackSlice<machine_integer_t>(
 					collect<MachineInteger, machine_integer_t>(leaves)));
-			case 1L << MachineRealType:
+			case MakeTypeMask(MachineRealType):
 				return expression(head, PackSlice<machine_real_t>(
 					collect<MachineReal, machine_real_t>(leaves)));
-			case 1L << StringType:
+			case MakeTypeMask(StringType):
 				return expression(head, PackSlice<std::string>(
 					collect<String, std::string>(leaves)));
 			default:

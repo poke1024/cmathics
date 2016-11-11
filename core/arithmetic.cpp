@@ -24,13 +24,13 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
             return expr->leaf(0);
     }
 
-	constexpr TypeMask int_mask = (1 << BigIntegerType) | (1 << MachineIntegerType);
+	constexpr TypeMask int_mask = MakeTypeMask(BigIntegerType) | MakeTypeMask(MachineIntegerType);
 
 	// bit field to determine which types are present
 	TypeMask types_seen = expr->type_mask();
 
 	// expression is all MachineReals
-	if (types_seen == (1 << MachineRealType)) {
+	if (types_seen == MakeTypeMask(MachineRealType)) {
 		return expr->add_only_machine_reals();
 	}
 
@@ -40,7 +40,7 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
 	}
 
 	// expression contains a Real
-    if (types_seen & (1 << MachineRealType)) {
+    if (types_seen & MakeTypeMask(MachineRealType)) {
         return expr->add_machine_inexact();
     }
 
@@ -60,23 +60,23 @@ BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) 
 template<typename F>
 BaseExpressionRef compute(TypeMask mask, const F &f) {
 	// expression contains a Real
-	if (mask & (1 << MachineRealType)) {
+	if (mask & MakeTypeMask(MachineRealType)) {
 		return f.template compute<double>();
 	}
 
-	constexpr TypeMask machine_int_mask = (1 << MachineIntegerType);
+	constexpr TypeMask machine_int_mask = MakeTypeMask(MachineIntegerType);
 	// expression is all MachineIntegers
 	if ((mask & machine_int_mask) == mask) {
 		return f.template compute<int64_t>();
 	}
 
-	constexpr TypeMask int_mask = (1 << BigIntegerType) | (1 << MachineIntegerType);
+	constexpr TypeMask int_mask = MakeTypeMask(BigIntegerType) | MakeTypeMask(MachineIntegerType);
 	// expression is all Integers
 	if ((mask & int_mask) == mask) {
 		return f.template compute<mpz_class>();
 	}
 
-	constexpr TypeMask rational_mask = (1 << RationalType);
+	constexpr TypeMask rational_mask = MakeTypeMask(RationalType);
 	// expression is all Rationals
 	if ((mask & rational_mask) == mask) {
 		return f.template compute<mpq_class>();

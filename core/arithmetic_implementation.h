@@ -71,6 +71,9 @@ BaseExpressionRef ArithmeticOperationsImplementation<T>::add_machine_inexact() c
 			case StringType:
 				symbolics.push_back(leaf);
 				break;
+
+			default:
+				throw std::runtime_error("unsupported types"); // FIXME
 		}
 	}
 

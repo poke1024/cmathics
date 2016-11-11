@@ -15,18 +15,32 @@ typedef const BaseExpression* BaseExpressionPtr;
 typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
 
 enum Type {
-    MachineIntegerType,
-    BigIntegerType,
-    MachineRealType,
-    BigRealType,
-    RationalType,
-    ComplexType,
-    ExpressionType,
-    SymbolType,
-    StringType
+    SubTypeMask = 31,
+    SymbolBlank = 1,
+    SymbolBlankSequence = 2,
+    SymbolBlankNullSequence = 3,
+    SymbolPattern = 4,
+    SymbolSlot = 5,
+    SymbolSlotSequence = 6,
+    SymbolFunction = 7,
+
+    MainTypeMask = 31 << 5,
+    MachineIntegerType = 32,
+    BigIntegerType = 33,
+    MachineRealType = 34,
+    BigRealType = 35,
+    RationalType = 36,
+    ComplexType = 37,
+    ExpressionType = 38,
+    SymbolType = 39, // FIXME
+    StringType = 40
 };
 
-typedef uint16_t TypeMask;
+typedef uint64_t TypeMask;
+
+constexpr TypeMask MakeTypeMask(Type type) {
+    return ((TypeMask)1) << type;
+}
 
 inline bool is_homogenous(TypeMask mask) {
 	return __builtin_popcount(mask) <= 1; // TypeMask contains only 0 or 1 types

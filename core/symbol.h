@@ -63,6 +63,8 @@ typedef std::vector<Rule> Rules;
 class Definitions;
 
 enum class SymbolId : uint8_t {
+    // FIXME: this should become obsolete; should really be handled inside regular Type
+
 	None,
 
 	Blank,

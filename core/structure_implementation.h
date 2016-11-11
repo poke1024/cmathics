@@ -62,7 +62,7 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
         [&slots, n_slots, &evaluation] (const BaseExpressionRef &ref) {
 			return static_cast<const Expression*>(ref.get())->replace_slots(slots, n_slots, evaluation);
         },
-		(1 << ExpressionType));
+		MakeTypeMask(ExpressionType));
 }
 
 #endif //CMATHICS_STRUCTURE_IMPLEMENTATION_H
