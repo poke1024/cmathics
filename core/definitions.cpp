@@ -24,20 +24,6 @@ Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
     options = empty_list;*/
 }
 
-BaseExpressionRef Symbol::evaluated_form() const {
-    // return NULL if nothing changed
-    BaseExpressionRef result;
-
-    // try all the own values until one applies
-    /*for (auto leaf : own_values->_leaves) {
-        result = replace(leaf);
-        if (result != NULL)
-            break;
-    }*/
-
-    return result;
-}
-
 void Symbol::add_down_rule(const Rule &rule) {
     down_rules.push_back(rule);
 }
@@ -54,6 +40,17 @@ BaseExpressionRef Symbol::replace_all(const Match &match) const {
 	}
 }
 
+/*void Symbol::update_evaluator() {
+	evaluate<>;
+
+	ExpressionRef evaluate(
+			const BaseExpressionRef &self,
+			const BaseExpressionRef &head,
+			const Slice &slice,
+			const Evaluation &evaluation) {
+
+	}
+}*/
 
 Definitions::Definitions() {
     // construct common `List[]` for bootstrapping

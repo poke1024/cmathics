@@ -80,7 +80,9 @@ set(SOURCE_FILES
     core/heap.cpp
     core/heap.h
     core/promote.h
-    core/structure.h core/structure_implementation.h)
+    core/structure.h
+    core/structure_implementation.h
+    core/evaluate.h)
 
 add_custom_target(standalone)
 

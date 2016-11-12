@@ -108,7 +108,19 @@ public:
 		return _name;
 	}
 
-	BaseExpressionRef evaluated_form() const;
+	inline BaseExpressionRef evaluated_form() const {
+		// return NULL if nothing changed
+		BaseExpressionRef result;
+
+		// try all the own values until one applies
+		/*for (auto leaf : own_values->_leaves) {
+			result = replace(leaf);
+			if (result != NULL)
+				break;
+		}*/
+
+		return result;
+	}
 
 	void add_down_rule(const Rule &rule);
 	void add_sub_rule(const Rule &rule);
@@ -195,5 +207,46 @@ inline BaseExpressionRef BaseExpression::evaluate(const BaseExpressionRef &self,
 
 	return result;
 }
+
+inline BaseExpressionRef Expression::evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const {
+	// Evaluate the head
+
+	auto head = _head;
+
+	while (true) {
+		auto new_head = head->evaluate(head, evaluation);
+		if (new_head) {
+			head = new_head;
+		} else {
+			break;
+		}
+	}
+
+	// Evaluate the leaves from left to right (according to Hold values).
+	BaseExpressionRef result;
+
+	if (head->type() != SymbolType) {
+		if (head != _head) {
+			ExpressionRef temp = boost::static_pointer_cast<const Expression>(clone(head));
+			result = temp->evaluate_from_expression_head(temp, evaluation);
+		} else {
+			result = evaluate_from_expression_head(boost::static_pointer_cast<const Expression>(self), evaluation);
+		}
+	} else {
+		/*const auto head_symbol = static_cast<const Symbol *>(head.get());
+		const auto attributes = head_symbol->attributes;*/
+
+		result = evaluate_from_symbol_head(boost::static_pointer_cast<const Expression>(self), evaluation);
+	}
+
+	if (result) {
+		return result;
+	} else if (head != _head) {
+		return clone(head);
+	} else {
+		return BaseExpressionRef();
+	}
+}
+
 
 #endif //CMATHICS_SYMBOL_H_H

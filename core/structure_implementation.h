@@ -3,6 +3,7 @@
 
 #include "structure.h"
 #include "expression.h"
+#include "evaluate.h"
 
 template<typename T>
 BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
@@ -48,17 +49,17 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
 	BaseExpressionRef new_head;
 	if (head->type() == ExpressionType) {
 		new_head = static_cast<const Expression*>(head.get())->replace_slots(slots, n_slots, evaluation);
-	} else {
-		new_head = head;
 	}
 
-	return self.apply(
-		new_head,
+	return apply(
+		new_head ? new_head : head,
+		leaves,
         0,
 		leaves.size(),
         [&slots, n_slots, &evaluation] (const BaseExpressionRef &ref) {
 			return static_cast<const Expression*>(ref.get())->replace_slots(slots, n_slots, evaluation);
         },
+		(bool)new_head,
 		MakeTypeMask(ExpressionType));
 }
 

@@ -308,9 +308,11 @@ public:
 		return _head->extended_type() == SymbolSequence;
 	}
 
-	virtual BaseExpressionRef evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const = 0;
+	virtual BaseExpressionRef evaluate_from_symbol_head(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
-	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
+	virtual BaseExpressionRef evaluate_from_expression_head(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
+
+	inline BaseExpressionRef evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
 
