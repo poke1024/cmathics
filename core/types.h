@@ -193,13 +193,7 @@ public:
 
     virtual std::string fullform() const = 0;
 
-    virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, const Evaluation &evaluation) const {
-        return BaseExpressionRef(); // atomic expressions remain unchanged
-    }
-
-    virtual BaseExpressionRef evaluate_once(const BaseExpressionRef &self, const Evaluation &evaluation) const {
-        return BaseExpressionRef(); // atomic expressions remain unchanged
-    }
+	inline BaseExpressionRef evaluate(const BaseExpressionRef &self, const Evaluation &evaluation) const;
 
     // various getters
 
@@ -313,6 +307,8 @@ public:
 	virtual bool is_sequence() const {
 		return _head->extended_type() == SymbolSequence;
 	}
+
+	virtual BaseExpressionRef evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const = 0;
 
 	virtual BaseExpressionRef evaluate_values(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 

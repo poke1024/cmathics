@@ -108,7 +108,7 @@ public:
 		return _name;
 	}
 
-	virtual BaseExpressionRef evaluate();
+	BaseExpressionRef evaluated_form() const;
 
 	void add_down_rule(const Rule &rule);
 	void add_sub_rule(const Rule &rule);
@@ -167,5 +167,33 @@ public:
 	Sequence(Definitions *definitions) : Symbol(definitions, "System`Sequence", SymbolSequence) {
 	}
 };
+
+inline BaseExpressionRef BaseExpression::evaluate(const BaseExpressionRef &self, const Evaluation &evaluation) const {
+	BaseExpressionRef result;
+
+	while (true) {
+		BaseExpressionRef form;
+
+		const BaseExpressionRef &expr = result ? result : self;
+		switch (expr->type()) {
+			case ExpressionType:
+				form = static_cast<const Expression*>(expr.get())->evaluated_form(expr, evaluation);
+				break;
+			case SymbolType:
+				form = static_cast<const Symbol*>(expr.get())->evaluated_form();
+				break;
+			default:
+				return result;
+		}
+
+		if (form) {
+			result = form;
+		} else {
+			break;
+		}
+	}
+
+	return result;
+}
 
 #endif //CMATHICS_SYMBOL_H_H

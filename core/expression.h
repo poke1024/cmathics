@@ -252,20 +252,7 @@ public:
 		return result.str();
 	}
 
-	virtual BaseExpressionRef evaluate(const BaseExpressionRef &self, const Evaluation &evaluation) const {
-		BaseExpressionRef expr = self;
-		while (true) {
-			BaseExpressionRef evaluated = expr->evaluate_once(expr, evaluation);
-			if (evaluated) {
-				expr = evaluated;
-			} else {
-				break;
-			}
-		}
-		return expr == self ? BaseExpressionRef() : expr;
-	}
-
-	virtual BaseExpressionRef evaluate_once(const BaseExpressionRef &self, const Evaluation &evaluation) const {
+	virtual BaseExpressionRef evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const {
 		// returns empty BaseExpressionRef() if nothing changed
 
 		// Step 1, 2

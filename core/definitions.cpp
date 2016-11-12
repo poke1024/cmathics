@@ -24,7 +24,7 @@ Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
     options = empty_list;*/
 }
 
-BaseExpressionRef Symbol::evaluate() {
+BaseExpressionRef Symbol::evaluated_form() const {
     // return NULL if nothing changed
     BaseExpressionRef result;
 
