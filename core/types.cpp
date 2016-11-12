@@ -1,5 +1,6 @@
 #include "types.h"
 #include "pattern.h"
+#include "evaluate.h"
 
 const char *type_name(Type type) {
     switch (type) {
@@ -45,4 +46,48 @@ std::ostream &operator<<(std::ostream &s, const Match &m) {
     s << "}";
     s << ">";
     return s;
+}
+
+BaseExpressionRef Expression::evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const {
+	// Evaluate the head
+
+	auto head = _head;
+
+	while (true) {
+		auto new_head = head->evaluate(head, evaluation);
+		if (new_head) {
+			head = new_head;
+		} else {
+			break;
+		}
+	}
+
+	// Evaluate the leaves from left to right (according to Hold values).
+	BaseExpressionRef result;
+
+	if (head->type() != SymbolType) {
+		if (head != _head) {
+			ExpressionRef temp = boost::static_pointer_cast<const Expression>(clone(head));
+			result = temp->evaluate_from_expression_head(temp, evaluation);
+		} else {
+			result = evaluate_from_expression_head(boost::static_pointer_cast<const Expression>(self), evaluation);
+		}
+	} else {
+		const auto head_symbol = static_cast<const Symbol *>(head.get());
+
+		return head_symbol->evaluate_with_head()(
+			boost::static_pointer_cast<const Expression>(self),
+			head,
+			_slice_id,
+			_slice_ptr,
+			evaluation);
+	}
+
+	if (result) {
+		return result;
+	} else if (head != _head) {
+		return clone(head);
+	} else {
+		return BaseExpressionRef();
+	}
 }

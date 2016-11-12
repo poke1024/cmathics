@@ -6,6 +6,7 @@
 #include <gmp.h>
 #include <iostream>
 #include <sstream>
+#include <vector>
 
 #include "core/misc.h"
 #include "core/expression.h"
@@ -17,9 +18,9 @@
 #include "core/real.h"
 #include "core/rational.h"
 #include "core/arithmetic.h"
-#include <vector>
 #include "core/string.h"
 #include "core/builtin.h"
+#include "core/evaluate.h"
 
 #include <Python.h>
 #include <stdlib.h>
@@ -716,6 +717,7 @@ void mini_console() {
 
 int main() {
     Heap::init();
+	EvaluateDispatch::init();
 
     python::Context context;
 

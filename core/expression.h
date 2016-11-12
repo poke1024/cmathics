@@ -33,18 +33,18 @@ public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
 
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &slice) :
-        Expression(head),
+        Expression(head, Slice::type_id, &_leaves),
         _leaves(slice) {
 		assert(head);
 	}
 
 	inline ExpressionImplementation(const BaseExpressionRef &head) :
-		Expression(head) {
+		Expression(head, Slice::type_id, &_leaves) {
 		assert(head);
 	}
 
 	inline ExpressionImplementation(ExpressionImplementation<Slice> &&expr) :
-		Expression(expr._head), _leaves(expr.leaves) {
+		Expression(expr._head, Slice::type_id, &_leaves), _leaves(expr.leaves) {
 	}
 
 	virtual BaseExpressionRef leaf(size_t i) const {
@@ -132,7 +132,7 @@ public:
 		return result.str();
 	}
 
-	virtual BaseExpressionRef evaluate_from_symbol_head(const ExpressionRef &self, const Evaluation &evaluation) const;
+	// virtual BaseExpressionRef evaluate_from_symbol_head(const ExpressionRef &self, const Evaluation &evaluation) const;
 
 	virtual BaseExpressionRef evaluate_from_expression_head(const ExpressionRef &self, const Evaluation &evaluation) const {
 		// Step 4
@@ -175,7 +175,7 @@ public:
 	virtual size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const;
 
 	virtual SliceTypeId slice_type_id() const {
-		return _leaves.type_id();
+		return Slice::type_id;
 	}
 
 	virtual const Symbol *lookup_name() const {
@@ -302,11 +302,11 @@ RefsExpressionRef ExpressionImplementation<Slice>::to_refs_expression(const Base
 
 #include "evaluate.h"
 
-template<typename Slice>
+/*template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::evaluate_from_symbol_head(
 	const ExpressionRef &self, const Evaluation &evaluation) const {
 	return ::evaluate(self, _head, _leaves, evaluation);
-}
+}*/
 
 template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const Match &match) const {

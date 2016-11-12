@@ -1,9 +1,61 @@
 #ifndef CMATHICS_EVALUATE_H
 #define CMATHICS_EVALUATE_H
 
-template<typename Slice>
-using Evaluator = std::function<BaseExpressionRef(
-	const BaseExpressionRef &head, const Slice &slice)>;
+#include "leaves.h"
+
+typedef std::function<BaseExpressionRef(
+	const ExpressionRef &self,
+	const BaseExpressionRef &head,
+	const void *slice_ptr,
+	const Evaluation &evaluation)> Evaluator;
+
+typedef std::pair<size_t, size_t> eval_range;
+
+struct _HoldNone {
+	static bool const do_eval = true;
+
+	template<typename Slice>
+	static inline eval_range eval(const Slice &slice) {
+		return eval_range(0, slice.size());
+	}
+};
+
+struct _HoldFirst {
+	static bool const do_eval = true;
+
+	template<typename Slice>
+	static inline eval_range eval(const Slice &slice) {
+		return eval_range(1, slice.size());
+	}
+};
+
+struct _HoldRest {
+	static bool const do_eval = true;
+
+	template<typename Slice>
+	static inline eval_range eval(const Slice &slice) {
+		return eval_range(0, 1);
+	}
+};
+
+struct _HoldAll {
+	static bool const do_eval = true;
+
+	template<typename Slice>
+	static inline eval_range eval(const Slice &slice) {
+		// TODO flatten sequences
+		return eval_range(0, 0);
+	}
+};
+
+struct _HoldAllComplete {
+	static bool const do_eval = false;
+
+	template<typename Slice>
+	static inline eval_range eval(const Slice &slice) {
+		return eval_range(0, 0);
+	}
+};
 
 class heap_storage {
 private:
@@ -149,53 +201,33 @@ ExpressionRef apply(
 	}
 }
 
-template<typename Slice>
+template<typename Slice, typename Hold>
 BaseExpressionRef evaluate(
 	const ExpressionRef &self,
 	const BaseExpressionRef &head,
-	const Slice &slice,
+	const void *slice_ptr,
 	const Evaluation &evaluation) {
 
-	const auto head_symbol = static_cast<const Symbol *>(head.get());
-	const auto attributes = head_symbol->attributes;
-
-	// only one type of Hold attribute can be set at a time
-	assert(count(
-			attributes,
-			Attributes::HoldFirst +
-			Attributes::HoldRest +
-			Attributes::HoldAll +
-			Attributes::HoldAllComplete) <= 1);
-
-	size_t eval_leaf_start, eval_leaf_stop;
-
-	if (attributes & Attributes::HoldFirst) {
-		eval_leaf_start = 1;
-		eval_leaf_stop = slice.size();
-	} else if (attributes & Attributes::HoldRest) {
-		eval_leaf_start = 0;
-		eval_leaf_stop = 1;
-	} else if (attributes & Attributes::HoldAll) {
-		// TODO flatten sequences
-		eval_leaf_start = 0;
-		eval_leaf_stop = 0;
-	} else if (attributes & Attributes::HoldAllComplete) {
+	if (!Hold::do_eval) {
 		// no more evaluation is applied
 		return RefsExpressionRef();
-	} else {
-		eval_leaf_start = 0;
-		eval_leaf_stop = slice.size();
 	}
 
-	assert(0 <= eval_leaf_start);
-	assert(eval_leaf_start <= eval_leaf_stop);
-	assert(eval_leaf_stop <= slice.size());
+	const Slice &slice = *static_cast<const Slice*>(slice_ptr);
+
+	const auto head_symbol = static_cast<const Symbol *>(head.get());
+
+	const eval_range eval_leaf(Hold::eval(slice));
+
+	assert(0 <= eval_leaf.first);
+	assert(eval_leaf.first <= eval_leaf.second);
+	assert(eval_leaf.second <= slice.size());
 
 	ExpressionRef intermediate_form = apply(
 		head,
 		slice,
-		eval_leaf_start,
-		eval_leaf_stop,
+		eval_leaf.first,
+		eval_leaf.second,
 		[&evaluation](const BaseExpressionRef &leaf) {
 			return leaf->evaluate(leaf, evaluation);
 		},
@@ -222,16 +254,56 @@ BaseExpressionRef evaluate(
 	return BaseExpressionRef();
 }
 
-/*template<
-	bool HoldFirst>
-void fill_evaluators(Evaluator[n_slice_types] &evaluators) {
-	Evaluator[] evaluators = {
-		evaluate<RefsSlice, HoldFirst>,
-		evaluate<InPlaceRefsSlice<0>, HoldFirst>,
-		evaluate<InPlaceRefsSlice<1>, HoldFirst>,
-		evaluate<InPlaceRefsSlice<2>, HoldFirst>,
-		evaluate<InPlaceRefsSlice<3>, HoldFirst>,
+class Evaluate {
+private:
+	Evaluator _vtable[NumberOfSliceTypes];
+
+public:
+	template<typename Hold>
+	void fill() {
+		static_assert(1 + InPlaceSlice3Code - RefsSliceCode == NumberOfSliceTypes, "slice code ids error");
+		_vtable[RefsSliceCode] = ::evaluate<RefsSlice, Hold>;
+		_vtable[PackSliceMachineIntegerCode] = ::evaluate<PackSlice<machine_integer_t>, Hold>;
+		_vtable[PackSliceMachineRealCode] = ::evaluate<PackSlice<machine_real_t>, Hold>;
+		_vtable[PackSliceBigIntegerCode] = ::evaluate<PackSlice<mpz_class>, Hold>;
+		_vtable[PackSliceRationalCode] = ::evaluate<PackSlice<mpq_class>, Hold>;
+		_vtable[PackSliceStringCode] = ::evaluate<PackSlice<std::string>, Hold>;
+		_vtable[InPlaceSlice0Code] = ::evaluate<InPlaceRefsSlice<0>, Hold>;
+		_vtable[InPlaceSlice1Code] = ::evaluate<InPlaceRefsSlice<1>, Hold>;
+		_vtable[InPlaceSlice2Code] = ::evaluate<InPlaceRefsSlice<2>, Hold>;
+		_vtable[InPlaceSlice3Code] = ::evaluate<InPlaceRefsSlice<3>, Hold>;
 	}
-}*/
+
+	inline BaseExpressionRef operator()(
+		const ExpressionRef &self,
+		const BaseExpressionRef &head,
+		SliceTypeId slice_id,
+		const void *slice_ptr,
+		const Evaluation &evaluation) const {
+
+		return _vtable[slice_id](self, head, slice_ptr, evaluation);
+	}
+};
+
+class EvaluateDispatch {
+private:
+	static EvaluateDispatch *s_instance;
+
+public:
+
+private:
+	Evaluate _hold_none;
+	Evaluate _hold_first;
+	Evaluate _hold_rest;
+	Evaluate _hold_all;
+	Evaluate _hold_all_complete;
+
+	EvaluateDispatch();
+
+public:
+	static void init();
+
+	static const Evaluate &pick(Attributes attributes);
+};
 
 #endif //CMATHICS_EVALUATE_H

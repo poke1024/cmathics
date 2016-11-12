@@ -33,8 +33,8 @@ void Heap::release(BaseExpression *expr) {
 
         case ExpressionType: {
             const SliceTypeId type_id = static_cast<const class Expression*>(expr)->slice_type_id();
-            if (is_in_place(type_id)) {
-                switch (in_place_size(type_id)) {
+            if (is_in_place_slice(type_id)) {
+                switch (in_place_slice_size(type_id)) {
                     case 0:
                         _s_instance->_expression0.free(
                             static_cast<ExpressionImplementation<InPlaceRefsSlice<0>>*>(expr));
@@ -57,7 +57,7 @@ void Heap::release(BaseExpression *expr) {
             } else if (type_id == SliceTypeId::RefsSliceCode) {
                 _s_instance->_expression_refs.free(
                     static_cast<ExpressionImplementation<RefsSlice>*>(expr));
-            } else if (type_id == SliceTypeId::PackSliceCode) {
+            } else if (is_pack_slice(type_id)) {
                 delete expr;
             } else {
                 throw std::runtime_error("encountered unsupported slice type id");

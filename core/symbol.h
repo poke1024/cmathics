@@ -62,6 +62,8 @@ typedef std::vector<Rule> Rules;
 
 class Definitions;
 
+class Evaluate;
+
 class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
@@ -84,6 +86,8 @@ public:
 	Expression* default_values;
 	Expression* messages;
 	Expression* options;*/
+
+	const Evaluate &evaluate_with_head() const;
 
 	Rules sub_rules;
 	Rules up_rules;
@@ -207,46 +211,5 @@ inline BaseExpressionRef BaseExpression::evaluate(const BaseExpressionRef &self,
 
 	return result;
 }
-
-inline BaseExpressionRef Expression::evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const {
-	// Evaluate the head
-
-	auto head = _head;
-
-	while (true) {
-		auto new_head = head->evaluate(head, evaluation);
-		if (new_head) {
-			head = new_head;
-		} else {
-			break;
-		}
-	}
-
-	// Evaluate the leaves from left to right (according to Hold values).
-	BaseExpressionRef result;
-
-	if (head->type() != SymbolType) {
-		if (head != _head) {
-			ExpressionRef temp = boost::static_pointer_cast<const Expression>(clone(head));
-			result = temp->evaluate_from_expression_head(temp, evaluation);
-		} else {
-			result = evaluate_from_expression_head(boost::static_pointer_cast<const Expression>(self), evaluation);
-		}
-	} else {
-		/*const auto head_symbol = static_cast<const Symbol *>(head.get());
-		const auto attributes = head_symbol->attributes;*/
-
-		result = evaluate_from_symbol_head(boost::static_pointer_cast<const Expression>(self), evaluation);
-	}
-
-	if (result) {
-		return result;
-	} else if (head != _head) {
-		return clone(head);
-	} else {
-		return BaseExpressionRef();
-	}
-}
-
 
 #endif //CMATHICS_SYMBOL_H_H

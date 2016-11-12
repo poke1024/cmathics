@@ -45,11 +45,13 @@ enum Type : uint8_t {
 
 typedef uint16_t TypeMask;
 
+constexpr uint8_t CoreTypeMask = ((1 << TypeBits) - 1);
+
 static_assert((1 << TypeBits) == sizeof(TypeMask) * 8,
 	"TypeMask should have one bit for each of the 2^TypeBits basic types");
 
 constexpr TypeMask MakeTypeMask(Type type) {
-    return ((TypeMask)1) << (type & 15);
+    return ((TypeMask)1) << (type & CoreTypeMask);
 }
 
 inline bool is_homogenous(TypeMask mask) {
@@ -140,21 +142,35 @@ class Evaluation;
 
 enum SliceTypeId : uint8_t {
 	RefsSliceCode = 0,
-	PackSliceCode = 1,
-	InPlaceSliceCode = 128,
-	InPlaceSliceLastCode = 255,
+	PackSliceMachineIntegerCode = 1,
+	PackSliceMachineRealCode = 2,
+	PackSliceBigIntegerCode = 3,
+	PackSliceRationalCode = 4,
+	PackSliceStringCode = 5,
+	InPlaceSlice0Code = 6,
+	InPlaceSlice1Code = 7,
+	InPlaceSlice2Code = 8,
+	InPlaceSlice3Code = 9,
+	InPlaceSliceNCode = 9,
+	NumberOfSliceTypes = 10
 };
 
-constexpr SliceTypeId in_place_slice_type_id(size_t n) {
-	return SliceTypeId(SliceTypeId::InPlaceSliceCode + n);
+inline bool is_pack_slice(SliceTypeId id) {
+	return id >= PackSliceMachineIntegerCode && id <= PackSliceStringCode;
 }
 
-inline bool is_in_place(SliceTypeId code) {
-	return code >= InPlaceSliceCode && code <= InPlaceSliceLastCode;
+inline constexpr SliceTypeId in_place_slice_type_id(size_t n) {
+	const SliceTypeId code = SliceTypeId(SliceTypeId::InPlaceSlice0Code + n);
+	assert(code <= InPlaceSliceNCode);
+	return code;
 }
 
-inline size_t in_place_size(SliceTypeId code) {
-	return size_t(code) - size_t(InPlaceSliceCode);
+inline bool is_in_place_slice(SliceTypeId code) {
+	return code >= InPlaceSlice0Code && code <= InPlaceSliceNCode;
+}
+
+inline size_t in_place_slice_size(SliceTypeId code) {
+	return size_t(code) - size_t(InPlaceSlice0Code);
 }
 
 class BaseExpression {
@@ -172,7 +188,7 @@ public:
     }
 
     inline Type type() const {
-	    return Type(((uint8_t)_extended_type) & 15); // basic type, e.g. MachineIntegerType, SymbolType, ...
+	    return Type(((uint8_t)_extended_type) & CoreTypeMask); // basic type, e.g. MachineIntegerType, SymbolType, ...
     }
 
 	inline Type extended_type() const {
@@ -283,11 +299,19 @@ class OperationsInterface :
 };
 
 class Expression : public BaseExpression, virtual public OperationsInterface {
+private:
+	const SliceTypeId _slice_id;
+	const void *_slice_ptr;
+
 public:
 	const BaseExpressionRef _head;
 
-	inline Expression(const BaseExpressionRef &head) :
-		BaseExpression(ExpressionType), _head(head) {
+	inline Expression(const BaseExpressionRef &head, SliceTypeId slice_id, const void *slice_ptr) :
+		BaseExpression(ExpressionType), _head(head), _slice_id(slice_id), _slice_ptr(slice_ptr) {
+	}
+
+	inline SliceTypeId slice_type_id() const {
+		return _slice_id;
 	}
 
 	virtual size_t size() const = 0;
@@ -308,17 +332,15 @@ public:
 		return _head->extended_type() == SymbolSequence;
 	}
 
-	virtual BaseExpressionRef evaluate_from_symbol_head(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
+	// virtual BaseExpressionRef evaluate_from_symbol_head(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
 	virtual BaseExpressionRef evaluate_from_expression_head(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
-	inline BaseExpressionRef evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const;
+	BaseExpressionRef evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
 
 	virtual size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const = 0;
-
-	virtual SliceTypeId slice_type_id() const = 0;
 };
 
 /*class ExpressionIterator {

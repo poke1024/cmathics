@@ -169,6 +169,8 @@ protected:
 	const Size _size;
 
 public:
+	static constexpr SliceTypeId type_id = _type_id;
+
 	inline Slice(size_t size) : _size(size) {
 		assert(static_cast<Size>(size) == size);
 	}
@@ -177,9 +179,9 @@ public:
 		return _size;
 	}
 
-	inline SliceTypeId type_id() const {
+	/*inline constexpr SliceTypeId type_id() const {
 		return _type_id;
-	}
+	}*/
 };
 
 template<typename U>
@@ -210,7 +212,36 @@ public:
 };
 
 template<typename U>
-class PackSlice : public Slice<size_t, SliceTypeId::PackSliceCode> {
+struct PackSliceTypeId {
+};
+
+template<>
+struct PackSliceTypeId<machine_integer_t> {
+	static const SliceTypeId id = PackSliceMachineIntegerCode;
+};
+
+template<>
+struct PackSliceTypeId<machine_real_t> {
+	static const SliceTypeId id = PackSliceMachineRealCode;
+};
+
+template<>
+struct PackSliceTypeId<mpz_class> {
+	static const SliceTypeId id = PackSliceBigIntegerCode;
+};
+
+template<>
+struct PackSliceTypeId<mpq_class> {
+	static const SliceTypeId id = PackSliceRationalCode;
+};
+
+template<>
+struct PackSliceTypeId<std::string> {
+	static const SliceTypeId id = PackSliceStringCode;
+};
+
+template<typename U>
+class PackSlice : public Slice<size_t, PackSliceTypeId<U>::id> {
 private:
 	typename PackExtent<U>::Ref _extent;
 	const U * const _begin;
@@ -221,30 +252,40 @@ public:
 
 	using LeafCollection = PointerCollection<U, PrimitiveToBaseExpression<U>>;
 
+	using BaseSlice = Slice<size_t, PackSliceTypeId<U>::id>;
+
 public:
 	inline PackSlice(const std::vector<U> &data) :
-		_extent(std::make_shared<PackExtent<U>>(data)), _begin(_extent->address()), Slice(data.size()) {
+		_extent(std::make_shared<PackExtent<U>>(data)),
+		_begin(_extent->address()),
+		BaseSlice(data.size()) {
 	}
 
 	inline PackSlice(std::vector<U> &&data) :
-		_extent(std::make_shared<PackExtent<U>>(data)), _begin(_extent->address()), Slice(data.size()) {
+		_extent(std::make_shared<PackExtent<U>>(data)),
+		_begin(_extent->address()),
+		BaseSlice(data.size()) {
 	}
 
 	inline PackSlice(const typename PackExtent<U>::Ref &extent, const U *begin, size_t size) :
-		_extent(extent), _begin(begin), Slice(size) {
+		_extent(extent),
+		_begin(begin),
+		BaseSlice(size) {
 	}
 
-    inline TypeMask type_mask() const {
-        return _size > 0 ? MakeTypeMask(TypeFromPrimitive<U>::type) : 0;
+    inline constexpr TypeMask type_mask() const {
+	    // constexpr is important here, as it allows apply() to optimize this for most cases that
+	    // need specific type masks (e.g. optimize evaluate of leaves on PackSlices to a noop).
+        return MakeTypeMask(TypeFromPrimitive<U>::type);
     }
 
 	template<typename V>
 	PrimitiveCollection<V> primitives() const {
-		return PrimitiveCollection<V>(_begin, _size, PromotePrimitive<V>());
+		return PrimitiveCollection<V>(_begin, BaseSlice::_size, PromotePrimitive<V>());
 	}
 
 	LeafCollection leaves() const {
-		return LeafCollection(_begin, _size, PrimitiveToBaseExpression<U>());
+		return LeafCollection(_begin, BaseSlice::_size, PrimitiveToBaseExpression<U>());
 	}
 
 	inline BaseExpressionRef operator[](size_t i) const {
@@ -252,7 +293,7 @@ public:
 	}
 
 	PackSlice<U> slice(index_t begin, index_t end = INDEX_MAX) const {
-        const size_t size = _size;
+        const size_t size = BaseSlice::_size;
 
         if (begin < 0) {
             begin = size - (-begin % size);

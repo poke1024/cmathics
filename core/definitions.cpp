@@ -40,17 +40,10 @@ BaseExpressionRef Symbol::replace_all(const Match &match) const {
 	}
 }
 
-/*void Symbol::update_evaluator() {
-	evaluate<>;
+const Evaluate &Symbol::evaluate_with_head() const {
+	return EvaluateDispatch::pick(attributes);
+}
 
-	ExpressionRef evaluate(
-			const BaseExpressionRef &self,
-			const BaseExpressionRef &head,
-			const Slice &slice,
-			const Evaluation &evaluation) {
-
-	}
-}*/
 
 Definitions::Definitions() {
     // construct common `List[]` for bootstrapping
