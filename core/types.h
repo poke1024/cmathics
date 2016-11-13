@@ -263,6 +263,10 @@ public:
 		throw std::runtime_error(std::string("cannot create refs expression for ") + typeid(this).name());
 	}
 
+	virtual size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
+		return 0;
+	}
+
 	virtual const Symbol *lookup_name() const {
 		return nullptr;
 	}
@@ -342,8 +346,6 @@ public:
 		const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
-
-	virtual size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const = 0;
 };
 
 /*class ExpressionIterator {

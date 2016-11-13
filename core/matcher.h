@@ -120,25 +120,18 @@ inline typename BaseExpressionTuple<N>::type Match::get() const {
 
 class RefsSlice;
 
-inline const Symbol *blank_head(RefsExpressionPtr patt) {
-	switch (patt->_leaves.size()) {
-		case 0:
-			return nullptr;
-
-		case 1: {
-			auto symbol = patt->leaf(0);
-			if (symbol->type() == SymbolType) {
-				// ok to get Symbol's address here as "symbol" gets out of
-				// scope, as we got this symbol from a RefsExpression that
-				// keeps on referencing this Symbol.
-				return static_cast<const Symbol *>(symbol.get());
-			}
+inline const Symbol *blank_head(const BaseExpressionRef *begin, const BaseExpressionRef *end) {
+	if (end - begin == 1) { // exactly one leaf?
+		const BaseExpressionRef &symbol = *begin;
+		if (symbol->type() == SymbolType) {
+			// ok to get Symbol's address here as "symbol" gets out of
+			// scope, as we got this symbol from a begin pointer that
+			// keeps on referencing this Symbol.
+			return static_cast<const Symbol *>(symbol.get());
 		}
-			// fallthrough
-
-		default:
-			return nullptr;
 	}
+
+	return nullptr;
 }
 
 template<typename Slice>
@@ -146,8 +139,9 @@ class Matcher {
 private:
 	MatchContext &_context;
 	Symbol *_variable;
-	const BaseExpressionRef &_this_pattern;
-	const RefsSlice &_next_pattern;
+	const BaseExpressionRef *_curr_pattern;
+	const BaseExpressionRef *_rest_pattern_begin;
+	const BaseExpressionRef *_rest_pattern_end;
 	const Slice &_sequence;
 
 	bool heads(size_t n, const Symbol *head) const;
@@ -159,47 +153,58 @@ private:
 public:
 	inline Matcher(
 		MatchContext &context,
-		const BaseExpressionRef &this_pattern,
-		const RefsSlice &next_pattern,
+		const BaseExpressionRef *curr_pattern,
+		const BaseExpressionRef *rest_pattern_begin,
+		const BaseExpressionRef *rest_pattern_end,
 		const Slice &sequence) :
 		_context(context),
 		_variable(nullptr),
-		_this_pattern(this_pattern),
-		_next_pattern(next_pattern),
+		_curr_pattern(curr_pattern),
+		_rest_pattern_begin(rest_pattern_begin),
+		_rest_pattern_end(rest_pattern_end),
 		_sequence(sequence) {
 	}
 
 	inline Matcher(
 		MatchContext &context,
 		Symbol *variable,
-		const BaseExpressionRef &this_pattern,
-		const RefsSlice &next_pattern,
+		const BaseExpressionRef *curr_pattern,
+		const BaseExpressionRef *rest_pattern_begin,
+		const BaseExpressionRef *rest_pattern_end,
 		const Slice &sequence) :
 		_context(context),
 		_variable(variable),
-		_this_pattern(this_pattern),
-		_next_pattern(next_pattern),
+		_curr_pattern(curr_pattern),
+		_rest_pattern_begin(rest_pattern_begin),
+		_rest_pattern_end(rest_pattern_end),
 		_sequence(sequence) {
 	}
 
 	bool shift(size_t match_size, const Symbol *head, bool make_sequence=false) const;
 
-	bool shift(Symbol *var, const BaseExpressionRef &pattern) const;
+	bool shift(Symbol *var, const BaseExpressionRef *curr_pattern) const;
 
 	bool blank_sequence(match_size_t k, const Symbol *head) const;
 
 	bool match_sequence() const {
-		switch (_this_pattern->type()) {
+		const BaseExpressionRef &patt = *_curr_pattern;
+
+		switch (patt->type()) {
 			case ExpressionType: {
-				auto patt_expr = _this_pattern->to_refs_expression(_this_pattern);
-				return match_sequence_with_head(patt_expr.get());
+				const Expression *patt_expr = static_cast<const Expression*>(patt.get());
+
+				BaseExpressionRef patt_unpacked;
+				const BaseExpressionRef *patt_leaves;
+				const size_t size = patt_expr->unpack(patt_unpacked, patt_leaves);
+
+				return match_sequence_with_head(patt_expr->_head, patt_leaves, patt_leaves + size);
 			}
 
 			default:
 				// expr is always pattern[0].
 				if ( _sequence.size() == 0) {
 					return false;
-				} else if (_this_pattern->same(_sequence[0])) {
+				} else if (patt->same(_sequence[0])) {
 					return shift(1, nullptr);
 				} else {
 					return false;
@@ -207,24 +212,29 @@ public:
 		}
 	}
 
-	bool match_sequence_with_head(RefsExpressionPtr patt) const {
-		const auto patt_head = patt->_head;
+	bool match_sequence_with_head(
+		const BaseExpressionRef &patt_head,
+		const BaseExpressionRef *patt_begin,
+	    const BaseExpressionRef *patt_end) const {
 
 		switch (patt_head->extended_type()) {
 			case SymbolBlank:
-				return shift(1, blank_head(patt));
+				return shift(1, blank_head(patt_begin, patt_end));
 
 			case SymbolBlankSequence:
-				return blank_sequence(1, blank_head(patt));
+				return blank_sequence(1, blank_head(patt_begin, patt_end));
 
 			case SymbolBlankNullSequence:
-				return blank_sequence(0, blank_head(patt));
+				return blank_sequence(0, blank_head(patt_begin, patt_end));
 
 			case SymbolPattern: {
-				auto var_expr = patt->_leaves[0].get();
-				if (var_expr->type() == SymbolType) {
-					Symbol *var = const_cast<Symbol*>(static_cast<const Symbol*>(var_expr));
-					return shift(var, patt->_leaves[1]);
+				if (patt_end - patt_begin == 2) { // 2 leaves?
+					const BaseExpressionRef &leaf_1 = *patt_begin;
+					if (leaf_1->type() == SymbolType) {
+						Symbol *var = const_cast<Symbol*>(static_cast<const Symbol*>(leaf_1.get()));
+						const BaseExpressionRef *leaf_2 = patt_begin + 1;
+						return shift(var, leaf_2);
+					}
 				}
 			}
 			// fallthrough
@@ -251,7 +261,7 @@ public:
                             VariableList matched_variables(_context.matched_variables);
                             _context.matched_variables.reset();
 
-                            if (!next->match_leaves(_context, _this_pattern)) {
+                            if (!next->match_leaves(_context, *_curr_pattern)) {
                                 return false;
                             }
 
@@ -262,7 +272,7 @@ public:
                             _context.matched_variables.prepend(matched_variables);
                             return true;
 						} else {
-                            if (!next->match_leaves(_context, _this_pattern)) {
+                            if (!next->match_leaves(_context, *_curr_pattern)) {
                                 return false;
                             }
 
@@ -286,7 +296,7 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
 	MatchContext context(patt, item, definitions);
 	{
 		Matcher<InPlaceRefsSlice<1>> matcher(
-			context, patt, RefsSlice(), InPlaceRefsSlice<1>(&item, 1, item->type_mask()));
+			context, &patt, nullptr, nullptr, InPlaceRefsSlice<1>(&item, 1, item->type_mask()));
 
 		if (matcher.match_sequence()) {
 			return Match(true, context);
@@ -315,17 +325,15 @@ template<typename Slice>
 bool Matcher<Slice>::consume(size_t n) const {
 	assert(_sequence.size() >= n);
 
-	if (_next_pattern.size() == 0) {
+	if (_rest_pattern_end == _rest_pattern_begin) {
 		if (_sequence.size() == n) {
 			return true;
 		} else {
 			return false;
 		}
 	} else {
-		auto next = _next_pattern[0];
-		auto rest = _next_pattern.slice(1);
-
-		Matcher<Slice> matcher(_context, next, rest, _sequence.slice(n));
+		Matcher<Slice> matcher(
+			_context, _rest_pattern_begin, _rest_pattern_begin + 1, _rest_pattern_end, _sequence.slice(n));
 		return matcher.match_sequence();
 	}
 }
@@ -337,7 +345,9 @@ bool Matcher<Slice>::blank_sequence(match_size_t k, const Symbol *head) const {
 	match_size_t min_remaining = n;
 	match_size_t max_remaining = n;
 
-	for (auto patt : _next_pattern) {
+	for (const BaseExpressionRef *it = _rest_pattern_begin; it < _rest_pattern_end; it++) {
+		const BaseExpressionRef &patt = *it;
+
 		size_t min_args, max_args;
 		std::tie(min_args, max_args) = patt->match_num_args();
 
@@ -352,8 +362,7 @@ bool Matcher<Slice>::blank_sequence(match_size_t k, const Symbol *head) const {
 	min_remaining = std::max(min_remaining, k);
 
 	if (head) {
-		max_remaining = std::min(
-				max_remaining, (match_size_t)heads(max_remaining, head));
+		max_remaining = std::min(max_remaining, (match_size_t)heads(max_remaining, head));
 	}
 
 	for (size_t l = max_remaining; l >= min_remaining; l--) {
@@ -421,17 +430,18 @@ bool Matcher<Slice>::shift(size_t match_size, const Symbol *head, bool make_sequ
 }
 
 template<typename Slice>
-bool Matcher<Slice>::shift(Symbol *var, const BaseExpressionRef &pattern) const {
-	Matcher<Slice> matcher(_context, var, pattern, _next_pattern, _sequence);
+bool Matcher<Slice>::shift(Symbol *var, const BaseExpressionRef *curr_pattern) const {
+	Matcher<Slice> matcher(_context, var, curr_pattern, _rest_pattern_begin, _rest_pattern_end, _sequence);
 	return matcher.match_sequence();
 }
 
 template<typename Slice>
 bool ExpressionImplementation<Slice>::match_leaves(MatchContext &context, const BaseExpressionRef &patt) const {
-	auto patt_expr = patt->to_refs_expression(patt);
-	auto patt_sequence = patt_expr->_leaves;
+	BaseExpressionRef patt_unpacked;
+	const BaseExpressionRef *patt_leaves;
+	const size_t size = patt->unpack(patt_unpacked, patt_leaves);
 
-	Matcher <Slice> matcher(context, patt_sequence[0], patt_sequence.slice(1), _leaves);
+	Matcher<Slice> matcher(context, patt_leaves, patt_leaves + 1, patt_leaves + size, _leaves);
 	return matcher.match_sequence();
 }
 
