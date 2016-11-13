@@ -17,7 +17,7 @@ EvaluateDispatch::EvaluateDispatch() {
 	_hold_all_complete.fill<_HoldAllComplete>();
 }
 
-const Evaluate &EvaluateDispatch::pick(Attributes attributes) {
+const Evaluate *EvaluateDispatch::pick(Attributes attributes) {
 	// only one type of Hold attribute can be set at a time
 	assert(count(
 		attributes,
@@ -27,14 +27,14 @@ const Evaluate &EvaluateDispatch::pick(Attributes attributes) {
 		Attributes::HoldAllComplete) <= 1);
 
 	if (attributes & Attributes::HoldFirst) {
-		return s_instance->_hold_first;
+		return &s_instance->_hold_first;
 	} else if (attributes & Attributes::HoldRest) {
-		return s_instance->_hold_rest;
+		return &s_instance->_hold_rest;
 	} else if (attributes & Attributes::HoldAll) {
-		return s_instance->_hold_all;
+		return &s_instance->_hold_all;
 	} else if (attributes & Attributes::HoldAllComplete) {
-		return s_instance->_hold_all_complete;
+		return &s_instance->_hold_all_complete;
 	} else {
-		return s_instance->_hold_none;
+		return &s_instance->_hold_none;
 	}
 }

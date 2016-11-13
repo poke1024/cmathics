@@ -132,9 +132,9 @@ public:
 		return result.str();
 	}
 
-	// virtual BaseExpressionRef evaluate_from_symbol_head(const ExpressionRef &self, const Evaluation &evaluation) const;
+	virtual BaseExpressionRef evaluate_expression_with_non_symbol_head(
+		const ExpressionRef &self, const Evaluation &evaluation) const {
 
-	virtual BaseExpressionRef evaluate_from_expression_head(const ExpressionRef &self, const Evaluation &evaluation) const {
 		// Step 4
 		// Apply SubValues
 		if (_head->type() == ExpressionType) {

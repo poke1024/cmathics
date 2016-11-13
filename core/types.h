@@ -14,7 +14,7 @@ class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
 typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
 
-constexpr int TypeBits = 4;
+constexpr int CoreTypeBits = 4;
 
 enum Type : uint8_t {
 	// only the values 0 - 15 end up as bits in TypeMasks.
@@ -27,27 +27,31 @@ enum Type : uint8_t {
 	RationalType = 5,
 	ComplexType = 6,
 	ExpressionType = 7,
-	StringType = 8,
-
-	// the following values are not represented in TypeMasks.
-
-	SymbolSequence = SymbolType + (0 << TypeBits),
-
-	SymbolBlank = SymbolType + (1 << TypeBits),
-    SymbolBlankSequence = SymbolType + (2 << TypeBits),
-    SymbolBlankNullSequence = SymbolType + (3 << TypeBits),
-    SymbolPattern = SymbolType + (4 << TypeBits),
-
-    SymbolSlot = SymbolType + (5 << TypeBits),
-    SymbolSlotSequence = SymbolType + (6 << TypeBits),
-    SymbolFunction = SymbolType + (7 << TypeBits)
+	StringType = 8
 };
+
+constexpr Type build_extended_type(Type core, uint8_t extended) {
+	return Type(core + (extended << CoreTypeBits));
+}
+
+// the following values are not represented in TypeMasks.
+
+constexpr Type SymbolSequence = build_extended_type(SymbolType, 0);
+
+constexpr Type SymbolBlank = build_extended_type(SymbolType, 1);
+constexpr Type SymbolBlankSequence = build_extended_type(SymbolType, 2);
+constexpr Type SymbolBlankNullSequence = build_extended_type(SymbolType, 3);
+constexpr Type SymbolPattern = build_extended_type(SymbolType, 4);
+
+constexpr Type SymbolSlot = build_extended_type(SymbolType, 5);
+constexpr Type SymbolSlotSequence = build_extended_type(SymbolType, 6);
+constexpr Type SymbolFunction = build_extended_type(SymbolType, 7);
 
 typedef uint16_t TypeMask;
 
-constexpr uint8_t CoreTypeMask = ((1 << TypeBits) - 1);
+constexpr uint8_t CoreTypeMask = ((1 << CoreTypeBits) - 1);
 
-static_assert((1 << TypeBits) == sizeof(TypeMask) * 8,
+static_assert((1 << CoreTypeBits) == sizeof(TypeMask) * 8,
 	"TypeMask should have one bit for each of the 2^TypeBits basic types");
 
 constexpr TypeMask MakeTypeMask(Type type) {
@@ -174,7 +178,7 @@ inline size_t in_place_slice_size(SliceTypeId code) {
 }
 
 class BaseExpression {
-private:
+protected:
 	const Type _extended_type;
 
 protected:
@@ -300,18 +304,17 @@ class OperationsInterface :
 
 class Expression : public BaseExpression, virtual public OperationsInterface {
 private:
-	const SliceTypeId _slice_id;
 	const void *_slice_ptr;
 
 public:
 	const BaseExpressionRef _head;
 
 	inline Expression(const BaseExpressionRef &head, SliceTypeId slice_id, const void *slice_ptr) :
-		BaseExpression(ExpressionType), _head(head), _slice_id(slice_id), _slice_ptr(slice_ptr) {
+		BaseExpression(build_extended_type(ExpressionType, slice_id)), _head(head), _slice_ptr(slice_ptr) {
 	}
 
 	inline SliceTypeId slice_type_id() const {
-		return _slice_id;
+		return SliceTypeId(_extended_type >> CoreTypeBits);
 	}
 
 	virtual size_t size() const = 0;
@@ -332,11 +335,11 @@ public:
 		return _head->extended_type() == SymbolSequence;
 	}
 
-	// virtual BaseExpressionRef evaluate_from_symbol_head(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
+	BaseExpressionRef evaluate_expression(
+		const BaseExpressionRef &self, const Evaluation &evaluation) const;
 
-	virtual BaseExpressionRef evaluate_from_expression_head(const ExpressionRef &self, const Evaluation &evaluation) const = 0;
-
-	BaseExpressionRef evaluated_form(const BaseExpressionRef &self, const Evaluation &evaluation) const;
+	virtual BaseExpressionRef evaluate_expression_with_non_symbol_head(
+		const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
 

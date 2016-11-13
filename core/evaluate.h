@@ -303,7 +303,7 @@ private:
 public:
 	static void init();
 
-	static const Evaluate &pick(Attributes attributes);
+	static const Evaluate *pick(Attributes attributes);
 };
 
 #endif //CMATHICS_EVALUATE_H

@@ -7,8 +7,9 @@
 Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
     BaseExpression(symbol),
     _name(name),
-    _linked_variable(nullptr),
-    attributes(Attributes::None) {
+    _linked_variable(nullptr) {
+
+	set_attributes(Attributes::None);
 
 	// initialise a definition entry
 
@@ -40,10 +41,10 @@ BaseExpressionRef Symbol::replace_all(const Match &match) const {
 	}
 }
 
-const Evaluate &Symbol::evaluate_with_head() const {
-	return EvaluateDispatch::pick(attributes);
+void Symbol::set_attributes(Attributes a) {
+	_attributes = a;
+	_evaluate_with_head = EvaluateDispatch::pick(_attributes);
 }
-
 
 Definitions::Definitions() {
     // construct common `List[]` for bootstrapping

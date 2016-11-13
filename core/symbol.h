@@ -74,6 +74,9 @@ protected:
 	mutable BaseExpressionRef _match_value;
 	mutable Symbol *_linked_variable;
 
+	Attributes _attributes;
+	const Evaluate *_evaluate_with_head;
+
 public:
 	Symbol(Definitions *new_definitions, const char *name, Type symbol = SymbolType);
 
@@ -87,13 +90,13 @@ public:
 	Expression* messages;
 	Expression* options;*/
 
-	const Evaluate &evaluate_with_head() const;
+	inline const Evaluate &evaluate_with_head() const {
+		return *_evaluate_with_head;
+	}
 
 	Rules sub_rules;
 	Rules up_rules;
 	Rules down_rules;
-
-	Attributes attributes;
 
 	virtual bool same(const BaseExpression &expr) const {
 		// compare as pointers: Symbol instances are unique
@@ -112,7 +115,7 @@ public:
 		return _name;
 	}
 
-	inline BaseExpressionRef evaluated_form() const {
+	inline BaseExpressionRef evaluate_symbol() const {
 		// return NULL if nothing changed
 		BaseExpressionRef result;
 
@@ -169,9 +172,7 @@ public:
 		return _linked_variable;
 	}
 
-	inline void set_attributes(Attributes a) {
-		attributes = a;
-	}
+	void set_attributes(Attributes a);
 
 	virtual const Symbol *lookup_name() const {
 		return this;
@@ -184,7 +185,9 @@ public:
 	}
 };
 
-inline BaseExpressionRef BaseExpression::evaluate(const BaseExpressionRef &self, const Evaluation &evaluation) const {
+inline BaseExpressionRef BaseExpression::evaluate(
+	const BaseExpressionRef &self, const Evaluation &evaluation) const {
+
 	BaseExpressionRef result;
 
 	while (true) {
@@ -193,10 +196,10 @@ inline BaseExpressionRef BaseExpression::evaluate(const BaseExpressionRef &self,
 		const BaseExpressionRef &expr = result ? result : self;
 		switch (expr->type()) {
 			case ExpressionType:
-				form = static_cast<const Expression*>(expr.get())->evaluated_form(expr, evaluation);
+				form = static_cast<const Expression*>(expr.get())->evaluate_expression(expr, evaluation);
 				break;
 			case SymbolType:
-				form = static_cast<const Symbol*>(expr.get())->evaluated_form();
+				form = static_cast<const Symbol*>(expr.get())->evaluate_symbol();
 				break;
 			default:
 				return result;
