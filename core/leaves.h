@@ -190,14 +190,13 @@ public:
 };
 
 template<SliceTypeId _type_id>
-class Slice {
+class TypedSlice : public Slice {
 public:
-	static constexpr SliceTypeId type_id = _type_id;
+	inline TypedSlice(const BaseExpressionRef *address, size_t size) : Slice(address, size) {
+	}
 
-	const size_t _size;
-	const BaseExpressionRef * const _address;
-
-	inline Slice(const BaseExpressionRef *address, size_t size) : _address(address), _size(size) {
+	static constexpr SliceTypeId type_id() {
+		return _type_id;
 	}
 };
 
@@ -258,7 +257,7 @@ struct PackSliceTypeId<std::string> {
 };
 
 template<typename U>
-class PackedSlice : public Slice<PackSliceTypeId<U>::id> {
+class PackedSlice : public TypedSlice<PackSliceTypeId<U>::id> {
 private:
 	typename PackExtent<U>::Ref _extent;
 	const U * const _begin;
@@ -269,7 +268,7 @@ public:
 
 	using LeafCollection = PointerCollection<U, PrimitiveToBaseExpression<U>>;
 
-	using BaseSlice = Slice<PackSliceTypeId<U>::id>;
+	using BaseSlice = TypedSlice<PackSliceTypeId<U>::id>;
 
 public:
 	inline size_t size() const {
@@ -350,7 +349,7 @@ public:
 };
 
 template<SliceTypeId _type_id>
-class BaseRefsSlice : public Slice<_type_id> {
+class BaseRefsSlice : public TypedSlice<_type_id> {
 protected:
     mutable OptionalTypeMask _type_mask;
 
@@ -373,8 +372,8 @@ public:
         if (_type_mask) {
 	        return *_type_mask;
         } else {
-	        const BaseExpressionRef *p = Slice<_type_id>::_address;
-	        const BaseExpressionRef *p_end = p + Slice<_type_id>::_size;
+	        const BaseExpressionRef *p = Slice::_address;
+	        const BaseExpressionRef *p_end = p + Slice::_size;
 	        TypeMask mask = 0;
 	        while (p != p_end) {
 		        mask |= (*p++)->type_mask();
@@ -386,7 +385,7 @@ public:
 
 public:
     inline BaseRefsSlice(const BaseExpressionRef *address, size_t size, OptionalTypeMask type_mask) :
-        Slice<_type_id>(address, size), _type_mask(type_mask) {
+	    TypedSlice<_type_id>(address, size), _type_mask(type_mask) {
     }
 
 };

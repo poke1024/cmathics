@@ -33,18 +33,18 @@ public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
 
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &slice) :
-        Expression(head, Slice::type_id, &_leaves),
+        Expression(head, Slice::type_id(), &_leaves),
         _leaves(slice) {
 		assert(head);
 	}
 
 	inline ExpressionImplementation(const BaseExpressionRef &head) :
-		Expression(head, Slice::type_id, &_leaves) {
+		Expression(head, Slice::type_id(), &_leaves) {
 		assert(head);
 	}
 
 	inline ExpressionImplementation(ExpressionImplementation<Slice> &&expr) :
-		Expression(expr._head, Slice::type_id, &_leaves), _leaves(expr.leaves) {
+		Expression(expr._head, Slice::type_id(), &_leaves), _leaves(expr.leaves) {
 	}
 
 	virtual BaseExpressionRef leaf(size_t i) const {
@@ -58,18 +58,6 @@ public:
 	template<typename T>
 	inline auto primitives() const {
 		return _leaves.template primitives<T>();
-	}
-
-	inline auto begin() const {
-		return _leaves.begin();
-	}
-
-	inline auto end() const {
-		return _leaves.begin();
-	}
-
-	virtual size_t size() const {
-		return _leaves.size();
 	}
 
 	virtual TypeMask type_mask() const {
@@ -172,14 +160,20 @@ public:
 
 	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const;
 
-	virtual size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const;
-
 	virtual SliceTypeId slice_type_id() const {
-		return Slice::type_id;
+		return Slice::type_id();
 	}
 
 	virtual const Symbol *lookup_name() const {
 		return _head->lookup_name();
+	}
+
+protected:
+	virtual size_t slow_unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
+		auto expr = Heap::Expression(_head, _leaves.unpack());
+		unpacked = expr;
+		leaves = expr->_leaves.refs();
+		return expr->_leaves.size();
 	}
 };
 
@@ -295,22 +289,6 @@ ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end)
 			return tiny_expression<3>(head, generate_leaves);
 		default:
 			return expression(head, generate_leaves, size);
-	}
-}
-
-template<typename Slice>
-size_t ExpressionImplementation<Slice>::unpack(
-	BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
-
-	const auto &slice = _leaves;
-	if (slice.is_packed()) {
-		auto expr = Heap::Expression(_head, slice.unpack());
-		unpacked = expr;
-		leaves = expr->_leaves.refs();
-		return expr->_leaves.size();
-	} else {
-		leaves = slice.refs();
-		return slice.size();
 	}
 }
 

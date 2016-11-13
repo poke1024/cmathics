@@ -263,16 +263,14 @@ public:
 		throw std::runtime_error(std::string("cannot create refs expression for ") + typeid(this).name());
 	}
 
-	virtual size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
-		return 0;
-	}
-
 	virtual const Symbol *lookup_name() const {
 		return nullptr;
 	}
 
 	friend void intrusive_ptr_add_ref(const BaseExpression *expr);
     friend void intrusive_ptr_release(const BaseExpression *expr);
+
+	inline size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const;
 };
 
 #include "heap.h"
@@ -306,14 +304,26 @@ class OperationsInterface :
 	virtual public StructureOperations {
 };
 
+class Slice {
+public:
+	const size_t _size;
+	const BaseExpressionRef * const _address;
+
+	inline Slice(const BaseExpressionRef *address, size_t size) : _address(address), _size(size) {
+	}
+};
+
 class Expression : public BaseExpression, virtual public OperationsInterface {
 private:
-	const void *_slice_ptr;
+	const Slice *_slice_ptr;
+
+protected:
+	virtual size_t slow_unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const = 0;
 
 public:
 	const BaseExpressionRef _head;
 
-	inline Expression(const BaseExpressionRef &head, SliceTypeId slice_id, const void *slice_ptr) :
+	inline Expression(const BaseExpressionRef &head, SliceTypeId slice_id, const Slice *slice_ptr) :
 		BaseExpression(build_extended_type(ExpressionType, slice_id)), _head(head), _slice_ptr(slice_ptr) {
 	}
 
@@ -321,7 +331,19 @@ public:
 		return SliceTypeId(_extended_type >> CoreTypeBits);
 	}
 
-	virtual size_t size() const = 0;
+	inline size_t size() const {
+		return _slice_ptr->_size;
+	}
+
+	inline size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
+		const BaseExpressionRef *address = _slice_ptr->_address;
+		if (address) {
+			leaves = address;
+			return _slice_ptr->_size;
+		} else {
+			return slow_unpack(unpacked, leaves);
+		}
+	}
 
 	virtual BaseExpressionRef leaf(size_t i) const = 0;
 
@@ -389,5 +411,14 @@ inline ExpressionIterator Expression::begin() const {
 inline ExpressionIterator Expression::end() const {
 	return ExpressionIterator(this, size());
 }*/
+
+inline size_t BaseExpression::unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
+	if (type() != ExpressionType) {
+		return 0;
+	} else {
+		return static_cast<const Expression*>(this)->unpack(unpacked, leaves);
+	}
+}
+
 
 #endif
