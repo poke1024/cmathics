@@ -168,12 +168,11 @@ public:
 		return _head->lookup_name();
 	}
 
-protected:
-	virtual size_t slow_unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
+	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const {
 		auto expr = Heap::Expression(_head, _leaves.unpack());
-		unpacked = expr;
-		leaves = expr->_leaves.refs();
-		return expr->_leaves.size();
+		materialized = expr;
+		return expr->_leaves.refs();
+
 	}
 };
 

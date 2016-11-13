@@ -199,12 +199,11 @@ public:
 		switch (patt->type()) {
 			case ExpressionType: {
 				const Expression *patt_expr = static_cast<const Expression*>(patt.get());
+				const Matcher *matcher = this;
 
-				BaseExpressionRef patt_unpacked;
-				const BaseExpressionRef *patt_leaves;
-				const size_t size = patt_expr->unpack(patt_unpacked, patt_leaves);
-
-				return match_sequence_with_head(patt_expr->_head, patt_leaves, patt_leaves + size);
+				return patt_expr->with_leaves_array([matcher, patt_expr] (const BaseExpressionRef *patt_leaves, size_t size) {
+					return matcher->match_sequence_with_head(patt_expr->_head, patt_leaves, patt_leaves + size);
+				});
 			}
 
 			default:
@@ -451,12 +450,17 @@ bool Matcher<Slice>::shift(Symbol *var, const BaseExpressionRef *curr_pattern) c
 
 template<typename Slice>
 bool ExpressionImplementation<Slice>::match_leaves(MatchContext &context, const BaseExpressionRef &patt) const {
-	BaseExpressionRef patt_unpacked;
-	const BaseExpressionRef *patt_leaves;
-	const size_t size = patt->unpack(patt_unpacked, patt_leaves);
+	if (patt->type() != ExpressionType) {
+		return false;
+	}
 
-	Matcher<Slice> matcher(context, patt_leaves, patt_leaves + 1, patt_leaves + size, _leaves, 0);
-	return matcher.match_sequence();
+	const Expression *patt_expr = static_cast<const Expression*>(patt.get());
+	const Slice &leaves = _leaves;
+
+	return patt_expr->with_leaves_array([&context, &leaves] (const BaseExpressionRef *patt_leaves, size_t size) {
+		Matcher<Slice> matcher(context, patt_leaves, patt_leaves + 1, patt_leaves + size, leaves, 0);
+		return matcher.match_sequence();
+	});
 }
 
 #endif //CMATHICS_MATCHER_H

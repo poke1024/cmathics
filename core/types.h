@@ -269,8 +269,6 @@ public:
 
 	friend void intrusive_ptr_add_ref(const BaseExpression *expr);
     friend void intrusive_ptr_release(const BaseExpression *expr);
-
-	inline size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const;
 };
 
 #include "heap.h"
@@ -317,9 +315,6 @@ class Expression : public BaseExpression, virtual public OperationsInterface {
 private:
 	const Slice *_slice_ptr;
 
-protected:
-	virtual size_t slow_unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const = 0;
-
 public:
 	const BaseExpressionRef _head;
 
@@ -335,15 +330,20 @@ public:
 		return _slice_ptr->_size;
 	}
 
-	inline size_t unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
-		const BaseExpressionRef *address = _slice_ptr->_address;
-		if (address) {
-			leaves = address;
-			return _slice_ptr->_size;
+	template<typename F>
+	inline auto with_leaves_array(const F &f) const {
+		const BaseExpressionRef *leaves = _slice_ptr->_address;
+
+		if (leaves) {
+			return f(leaves, size());
 		} else {
-			return slow_unpack(unpacked, leaves);
+			BaseExpressionRef materialized;
+			leaves = materialize(materialized);
+			return f(leaves, size());
 		}
 	}
+
+	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 
 	virtual BaseExpressionRef leaf(size_t i) const = 0;
 
@@ -411,14 +411,5 @@ inline ExpressionIterator Expression::begin() const {
 inline ExpressionIterator Expression::end() const {
 	return ExpressionIterator(this, size());
 }*/
-
-inline size_t BaseExpression::unpack(BaseExpressionRef &unpacked, const BaseExpressionRef *&leaves) const {
-	if (type() != ExpressionType) {
-		return 0;
-	} else {
-		return static_cast<const Expression*>(this)->unpack(unpacked, leaves);
-	}
-}
-
 
 #endif

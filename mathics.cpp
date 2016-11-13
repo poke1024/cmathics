@@ -636,12 +636,11 @@ public:
 				    [](const BaseExpressionRef &body, const BaseExpressionRef &args, const Evaluation &evaluation) {
 					    if (args->type() == ExpressionType && body->type() == ExpressionType) {
 						    const Expression *slots_expr = static_cast<const Expression *>(args.get());
-						    BaseExpressionRef unpacked;
-						    const BaseExpressionRef *slots;
-						    const size_t n_slots = slots_expr->unpack(unpacked, slots);
-
 						    const Expression *body_expr = static_cast<const Expression *>(body.get());
-						    return body_expr->replace_slots(slots, n_slots, evaluation);
+						    return slots_expr->with_leaves_array([body_expr, &evaluation] (
+								    const BaseExpressionRef *slots, size_t n_slots) {
+							    return body_expr->replace_slots(slots, n_slots, evaluation);
+						    });
 					    } else {
 						    return BaseExpressionRef();
 					    }
