@@ -163,25 +163,42 @@ public:
 	}
 };
 
-template<typename Size, SliceTypeId _type_id>
-class Slice {
-protected:
-	const Size _size;
+template<int N, typename T, typename TypeConverter>
+class FixedSizePointerCollection {
+private:
+	const TypeConverter _converter;
+	const T * const _data;
 
+public:
+	using Iterator = PointerIterator<T, TypeConverter>;
+
+	inline FixedSizePointerCollection(const T *data, const TypeConverter &converter) :
+		_converter(converter), _data(data) {
+	}
+
+	inline Iterator begin() const {
+		return PointerIterator<T, TypeConverter>(_converter, _data);
+	}
+
+	inline Iterator end() const {
+		return PointerIterator<T, TypeConverter>(_converter, _data + N);
+	}
+
+	inline auto operator[](size_t i) const {
+		return *Iterator(_converter, _data + i);
+	}
+};
+
+template<SliceTypeId _type_id>
+class Slice {
 public:
 	static constexpr SliceTypeId type_id = _type_id;
 
-	inline Slice(size_t size) : _size(size) {
-		assert(static_cast<Size>(size) == size);
-	}
+	const size_t _size;
+	const BaseExpressionRef * const _address;
 
-	inline size_t size() const {
-		return _size;
+	inline Slice(const BaseExpressionRef *address, size_t size) : _address(address), _size(size) {
 	}
-
-	/*inline constexpr SliceTypeId type_id() const {
-		return _type_id;
-	}*/
 };
 
 template<typename U>
@@ -241,7 +258,7 @@ struct PackSliceTypeId<std::string> {
 };
 
 template<typename U>
-class PackSlice : public Slice<size_t, PackSliceTypeId<U>::id> {
+class PackedSlice : public Slice<PackSliceTypeId<U>::id> {
 private:
 	typename PackExtent<U>::Ref _extent;
 	const U * const _begin;
@@ -252,25 +269,29 @@ public:
 
 	using LeafCollection = PointerCollection<U, PrimitiveToBaseExpression<U>>;
 
-	using BaseSlice = Slice<size_t, PackSliceTypeId<U>::id>;
+	using BaseSlice = Slice<PackSliceTypeId<U>::id>;
 
 public:
-	inline PackSlice(const std::vector<U> &data) :
-		_extent(std::make_shared<PackExtent<U>>(data)),
-		_begin(_extent->address()),
-		BaseSlice(data.size()) {
+	inline size_t size() const {
+		return BaseSlice::_size;
 	}
 
-	inline PackSlice(std::vector<U> &&data) :
+	inline PackedSlice(const std::vector<U> &data) :
 		_extent(std::make_shared<PackExtent<U>>(data)),
 		_begin(_extent->address()),
-		BaseSlice(data.size()) {
+		BaseSlice(nullptr, data.size()) {
 	}
 
-	inline PackSlice(const typename PackExtent<U>::Ref &extent, const U *begin, size_t size) :
+	inline PackedSlice(std::vector<U> &&data) :
+		_extent(std::make_shared<PackExtent<U>>(data)),
+		_begin(_extent->address()),
+		BaseSlice(nullptr, data.size()) {
+	}
+
+	inline PackedSlice(const typename PackExtent<U>::Ref &extent, const U *begin, size_t size) :
 		_extent(extent),
 		_begin(begin),
-		BaseSlice(size) {
+		BaseSlice(nullptr, size) {
 	}
 
     inline constexpr TypeMask type_mask() const {
@@ -281,46 +302,22 @@ public:
 
 	template<typename V>
 	PrimitiveCollection<V> primitives() const {
-		return PrimitiveCollection<V>(_begin, BaseSlice::_size, PromotePrimitive<V>());
+		return PrimitiveCollection<V>(_begin, size(), PromotePrimitive<V>());
 	}
 
 	LeafCollection leaves() const {
-		return LeafCollection(_begin, BaseSlice::_size, PrimitiveToBaseExpression<U>());
+		return LeafCollection(_begin, size(), PrimitiveToBaseExpression<U>());
 	}
 
 	inline BaseExpressionRef operator[](size_t i) const {
 		return from_primitive(_begin[i]);
 	}
 
-	PackSlice<U> slice(index_t begin, index_t end = INDEX_MAX) const {
-        const size_t size = BaseSlice::_size;
-
-        if (begin < 0) {
-            begin = size - (-begin % size);
-        }
-        if (end < 0) {
-            end = size - (-end % size);
-        }
-
-		const index_t offset = _begin - _extent->address();
-		const index_t n = _extent->size();
-		assert(offset <= n);
-
-		end = std::min(end, n - offset);
-		begin = std::min(begin, end);
-
-        if (end <= begin) {
-            return PackSlice<U>(_extent, _begin, 0);
-        }
-
-		return PackSlice<U>(_extent, _begin + begin, end - begin);
-	}
-
 	inline bool is_packed() const {
 		return true;
 	}
 
-	RefsSlice unpack() const;
+	DynamicSlice unpack() const;
 
 	inline const BaseExpressionRef *refs() const {
 		throw std::runtime_error("cannot get refs on PackSlice");
@@ -352,29 +349,12 @@ public:
 	}
 };
 
-template<typename Size, SliceTypeId _type_id>
-class BaseRefsSlice : public Slice<Size, _type_id> {
+template<SliceTypeId _type_id>
+class BaseRefsSlice : public Slice<_type_id> {
 protected:
-    const BaseExpressionRef * const _begin;
     mutable OptionalTypeMask _type_mask;
 
 public:
-    template<typename V>
-    using PrimitiveCollection = PointerCollection<BaseExpressionRef, BaseExpressionToPrimitive<V>>;
-
-public:
-    using LeafCollection = PointerCollection<BaseExpressionRef, PassBaseExpression>;
-
-public:
-    template<typename V>
-    inline PrimitiveCollection<V> primitives() const {
-        return PrimitiveCollection<V>(_begin, Slice<Size, _type_id>::size(), BaseExpressionToPrimitive<V>());
-    }
-
-    inline LeafCollection leaves() const {
-        return LeafCollection(_begin, Slice<Size, _type_id>::size(), PassBaseExpression());
-    }
-
 	inline OptionalTypeMask sliced_type_mask(size_t new_size) const {
 		if (new_size == 0) {
 			return OptionalTypeMask(0);
@@ -393,8 +373,8 @@ public:
         if (_type_mask) {
 	        return *_type_mask;
         } else {
-	        const BaseExpressionRef *p = _begin;
-	        const BaseExpressionRef *p_end = p + Slice<Size, _type_id>::size();
+	        const BaseExpressionRef *p = Slice<_type_id>::_address;
+	        const BaseExpressionRef *p_end = p + Slice<_type_id>::_size;
 	        TypeMask mask = 0;
 	        while (p != p_end) {
 		        mask |= (*p++)->type_mask();
@@ -405,54 +385,75 @@ public:
     }
 
 public:
-    inline BaseRefsSlice(const BaseExpressionRef *begin, size_t size, OptionalTypeMask type_mask) :
-        _begin(begin), Slice<Size, _type_id>(size), _type_mask(type_mask) {
+    inline BaseRefsSlice(const BaseExpressionRef *address, size_t size, OptionalTypeMask type_mask) :
+        Slice<_type_id>(address, size), _type_mask(type_mask) {
     }
 
-    inline const BaseExpressionRef *begin() const {
-        return _begin;
-    }
-
-    inline const BaseExpressionRef *end() const {
-        return _begin + Slice<Size, _type_id>::size();
-    }
-
-    inline const BaseExpressionRef &operator[](size_t i) const {
-        return _begin[i];
-    }
 };
 
-class RefsSlice : public BaseRefsSlice<size_t, SliceTypeId::RefsSliceCode> {
+class DynamicSlice : public BaseRefsSlice<SliceTypeId::RefsSliceCode> {
 private:
 	typename RefsExtent::Ref _extent;
 
-    inline RefsSlice(const typename RefsExtent::Ref &extent, OptionalTypeMask type_mask) :
+    inline DynamicSlice(const typename RefsExtent::Ref &extent, OptionalTypeMask type_mask) :
         BaseRefsSlice(extent->address(), extent->size(), type_mask),
         _extent(extent) {
     }
 
 public:
-    inline RefsSlice(const RefsSlice &slice) :
-        BaseRefsSlice(slice._begin, slice._size, slice._type_mask),
+	inline const BaseExpressionRef *begin() const {
+		return _address;
+	}
+
+	inline const BaseExpressionRef *end() const {
+		return _address + _size;
+	}
+
+	inline const BaseExpressionRef &operator[](size_t i) const {
+		return _address[i];
+	}
+
+	inline size_t size() const {
+		return _size;
+	}
+
+public:
+	template<typename V>
+	using PrimitiveCollection = PointerCollection<BaseExpressionRef, BaseExpressionToPrimitive<V>>;
+
+	using LeafCollection = PointerCollection<BaseExpressionRef, PassBaseExpression>;
+
+	inline LeafCollection leaves() const {
+		return LeafCollection(begin(), size(), PassBaseExpression());
+	}
+
+	template<typename V>
+	inline PrimitiveCollection<V> primitives() const {
+		return PrimitiveCollection<V>(begin(), size(), BaseExpressionToPrimitive<V>());
+	}
+
+public:
+	inline DynamicSlice(const DynamicSlice &slice) :
+        BaseRefsSlice(slice.begin(), slice.size(), slice._type_mask),
         _extent(slice._extent) {
 	}
 
-	inline RefsSlice() : BaseRefsSlice(nullptr, 0, 0) {
+	inline DynamicSlice() : BaseRefsSlice(nullptr, 0, 0) {
 	}
 
-    inline RefsSlice(const std::vector<BaseExpressionRef> &data, OptionalTypeMask type_mask) :
-        RefsSlice(std::make_shared<RefsExtent>(data), type_mask) {
+    inline DynamicSlice(const std::vector<BaseExpressionRef> &data, OptionalTypeMask type_mask) :
+		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
 	}
 
-	inline RefsSlice(std::vector<BaseExpressionRef> &&data, OptionalTypeMask type_mask) :
-        RefsSlice(std::make_shared<RefsExtent>(data), type_mask) {
+	inline DynamicSlice(std::vector<BaseExpressionRef> &&data, OptionalTypeMask type_mask) :
+		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
 	}
 
-	inline RefsSlice(const std::initializer_list<BaseExpressionRef> &data, OptionalTypeMask type_mask) :
-        RefsSlice(std::make_shared<RefsExtent>(data), type_mask) {
+	inline DynamicSlice(const std::initializer_list<BaseExpressionRef> &data, OptionalTypeMask type_mask) :
+		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
 	}
 
-	inline RefsSlice(
+	inline DynamicSlice(
         const typename RefsExtent::Ref &extent,
 		const BaseExpressionRef * const begin,
         const BaseExpressionRef * const end,
@@ -461,112 +462,95 @@ public:
 		_extent(extent) {
 	}
 
-	inline RefsSlice slice(index_t begin, index_t end = INDEX_MAX) const {
-        const size_t size = _size;
-
-        if (begin < 0) {
-            begin = size - (-begin % size);
-        }
-        if (end < 0) {
-            end = size - (-end % size);
-        }
-
-		const index_t offset = _begin - _extent->address();
-		const index_t n = _extent->size();
-		assert(offset <= n);
-
-		end = std::min(end, n - offset);
-		begin = std::min(begin, end);
-
-        if (end <= begin) {
-            return RefsSlice();
-        } else if (begin == 0 && end == size) {
-			return *this;
-		} else {
-	        return RefsSlice(_extent, _begin + begin, _begin + end, sliced_type_mask(end - begin));
-        }
-	}
-
 	inline bool is_packed() const {
 		return false;
 	}
 
-	inline RefsSlice unpack() const {
+	inline DynamicSlice unpack() const {
 		return *this;
 	}
 
 	inline const BaseExpressionRef *refs() const {
-		return _begin;
+		return begin();
 	}
 };
 
 template<size_t N>
-class InPlaceRefsSlice : public BaseRefsSlice<uint8_t, in_place_slice_type_id(N)> {
+class StaticSlice : public BaseRefsSlice<in_place_slice_type_id(N)> {
 private:
     mutable BaseExpressionRef _refs[N];
 
-	typedef BaseRefsSlice<uint8_t, in_place_slice_type_id(N)> BaseSlice;
+	typedef BaseRefsSlice<in_place_slice_type_id(N)> BaseSlice;
 
 public:
-	inline InPlaceRefsSlice() :
+	inline const BaseExpressionRef *begin() const {
+		return &_refs[0];
+	}
+
+	inline const BaseExpressionRef *end() const {
+		return &_refs[N];
+	}
+
+	inline const BaseExpressionRef &operator[](size_t i) const {
+		return _refs[i];
+	}
+
+	constexpr size_t size() const {
+		return N;
+	}
+
+public:
+	template<typename V>
+	using PrimitiveCollection = FixedSizePointerCollection<N, BaseExpressionRef, BaseExpressionToPrimitive<V>>;
+
+	using LeafCollection = FixedSizePointerCollection<N, BaseExpressionRef, PassBaseExpression>;
+
+	inline LeafCollection leaves() const {
+		return LeafCollection(begin(), PassBaseExpression());
+	}
+
+	template<typename V>
+	inline PrimitiveCollection<V> primitives() const {
+		return PrimitiveCollection<V>(begin(), BaseExpressionToPrimitive<V>());
+	}
+
+public:
+	inline StaticSlice() :
 		BaseSlice(&_refs[0], N, N == 0 ? OptionalTypeMask(0) : OptionalTypeMask()) {
 	}
 
-    inline InPlaceRefsSlice(const InPlaceRefsSlice<N> &slice) :
-		BaseSlice(&_refs[0], slice.size(), slice._type_mask) {
+    inline StaticSlice(const StaticSlice<N> &slice) :
+		BaseSlice(&_refs[0], N, slice._type_mask) {
         // mighty important to provide a copy iterator so that _begin won't get copied from other slice.
-        std::copy(slice._refs, slice._refs + slice.size(), _refs);
+        std::copy(slice._refs, slice._refs + N, _refs);
     }
 
-    inline InPlaceRefsSlice(const std::vector<BaseExpressionRef> &refs, OptionalTypeMask type_mask) :
+    inline StaticSlice(const std::vector<BaseExpressionRef> &refs, OptionalTypeMask type_mask) :
 		BaseSlice(&_refs[0], N, type_mask) {
         assert(refs.size() == N);
         std::copy(refs.begin(), refs.end(), _refs);
     }
 
-	inline InPlaceRefsSlice(const std::initializer_list<BaseExpressionRef> &refs, OptionalTypeMask type_mask) :
+	inline StaticSlice(const std::initializer_list<BaseExpressionRef> &refs, OptionalTypeMask type_mask) :
 		BaseSlice(&_refs[0], N, type_mask) {
 		assert(refs.size() == N);
 		std::copy(refs.begin(), refs.end(), _refs);
 	}
 
-    inline InPlaceRefsSlice(const BaseExpressionRef *refs, size_t size, OptionalTypeMask type_mask) :
-		BaseSlice(&_refs[0], size, type_mask) {
-        assert(size <= N);
-        std::copy(refs, refs + size, _refs);
+    inline StaticSlice(const BaseExpressionRef *refs, OptionalTypeMask type_mask) :
+		BaseSlice(&_refs[0], N, type_mask) {
+        std::copy(refs, refs + N, _refs);
     }
 
 	BaseExpressionRef *late_init() const {
 		return &_refs[0];
 	}
 
-    inline InPlaceRefsSlice<N> slice(index_t begin, index_t end = INDEX_MAX) const {
-        const size_t size = BaseSlice::size();
-
-        if (begin < 0) {
-            begin = size - (-begin % size);
-        }
-        if (end < 0) {
-            end = size - (-end % size);
-        }
-
-        end = std::min(end, (index_t)size);
-        begin = std::min(begin, end);
-
-        if (end <= begin) {
-            return InPlaceRefsSlice<N>(nullptr, 0, 0);
-        } else if (begin == 0 && end == size) {
-	        return *this;
-        } else {
-            return InPlaceRefsSlice<N>(&_refs[begin], end - begin, BaseSlice::sliced_type_mask(end - begin));
-        }
-    }
-
 	inline bool is_packed() const {
 		return false;
 	}
 
-	inline InPlaceRefsSlice<N> unpack() const {
+	inline StaticSlice<N> unpack() const {
 		return *this;
 	}
 
@@ -575,15 +559,15 @@ public:
 	}
 };
 
-typedef InPlaceRefsSlice<0> EmptySlice;
+typedef StaticSlice<0> EmptySlice;
 
 template<typename U>
-inline RefsSlice PackSlice<U>::unpack() const {
+inline DynamicSlice PackedSlice<U>::unpack() const {
 	std::vector<BaseExpressionRef> leaves;
 	for (auto leaf : this->leaves()) {
 		leaves.push_back(leaf);
 	}
-	return RefsSlice(std::move(leaves), type_mask());
+	return DynamicSlice(std::move(leaves), type_mask());
 }
 
 

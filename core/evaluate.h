@@ -90,7 +90,7 @@ protected:
 
 public:
 	inline direct_storage(const BaseExpressionRef &head) :
-		_expr(Heap::Expression(head, InPlaceRefsSlice<N>())),
+		_expr(Heap::Expression(head, StaticSlice<N>())),
 		_addr(_expr->_leaves.late_init()), _end(_addr + N) {
 	}
 
@@ -152,7 +152,7 @@ ExpressionRef apply(
 			if (leaf0) { // copy is needed now
 				const size_t size = slice.size();
 
-				auto generate_leaves = [i0, end, size, type_mask, &slice, &f, &leaf0] (auto storage) {
+				auto generate_leaves = [i0, end, size, type_mask, &slice, &f, &leaf0] (auto &storage) {
 					for (size_t j = 0; j < i0; j++) {
 						storage << slice[j];
 					}
@@ -262,16 +262,16 @@ public:
 	template<typename Hold>
 	void fill() {
 		static_assert(1 + InPlaceSlice3Code - RefsSliceCode == NumberOfSliceTypes, "slice code ids error");
-		_vtable[RefsSliceCode] = ::evaluate<RefsSlice, Hold>;
-		_vtable[PackSliceMachineIntegerCode] = ::evaluate<PackSlice<machine_integer_t>, Hold>;
-		_vtable[PackSliceMachineRealCode] = ::evaluate<PackSlice<machine_real_t>, Hold>;
-		_vtable[PackSliceBigIntegerCode] = ::evaluate<PackSlice<mpz_class>, Hold>;
-		_vtable[PackSliceRationalCode] = ::evaluate<PackSlice<mpq_class>, Hold>;
-		_vtable[PackSliceStringCode] = ::evaluate<PackSlice<std::string>, Hold>;
-		_vtable[InPlaceSlice0Code] = ::evaluate<InPlaceRefsSlice<0>, Hold>;
-		_vtable[InPlaceSlice1Code] = ::evaluate<InPlaceRefsSlice<1>, Hold>;
-		_vtable[InPlaceSlice2Code] = ::evaluate<InPlaceRefsSlice<2>, Hold>;
-		_vtable[InPlaceSlice3Code] = ::evaluate<InPlaceRefsSlice<3>, Hold>;
+		_vtable[RefsSliceCode] = ::evaluate<DynamicSlice, Hold>;
+		_vtable[PackSliceMachineIntegerCode] = ::evaluate<PackedSlice<machine_integer_t>, Hold>;
+		_vtable[PackSliceMachineRealCode] = ::evaluate<PackedSlice<machine_real_t>, Hold>;
+		_vtable[PackSliceBigIntegerCode] = ::evaluate<PackedSlice<mpz_class>, Hold>;
+		_vtable[PackSliceRationalCode] = ::evaluate<PackedSlice<mpq_class>, Hold>;
+		_vtable[PackSliceStringCode] = ::evaluate<PackedSlice<std::string>, Hold>;
+		_vtable[InPlaceSlice0Code] = ::evaluate<StaticSlice<0>, Hold>;
+		_vtable[InPlaceSlice1Code] = ::evaluate<StaticSlice<1>, Hold>;
+		_vtable[InPlaceSlice2Code] = ::evaluate<StaticSlice<2>, Hold>;
+		_vtable[InPlaceSlice3Code] = ::evaluate<StaticSlice<3>, Hold>;
 	}
 
 	inline BaseExpressionRef operator()(

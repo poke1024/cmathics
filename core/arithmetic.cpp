@@ -111,7 +111,7 @@ public:
 			leaves.push_back(x);
 		}
 
-		return expression(_evaluation.definitions.List(), PackSlice<T>(std::move(leaves)));
+		return expression(_evaluation.definitions.List(), PackedSlice<T>(std::move(leaves)));
 	}
 };
 

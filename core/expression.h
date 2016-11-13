@@ -184,7 +184,7 @@ public:
 };
 
 template<typename U>
-inline PackExpressionRef<U> expression(const BaseExpressionRef &head, const PackSlice<U> &slice) {
+inline PackExpressionRef<U> expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
 	return Heap::Expression(head, slice);
 }
 
@@ -205,11 +205,11 @@ inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const T &lea
 		case 0: // e.g. {}
 			return Heap::EmptyExpression0(head);
 		case 1:
-			return Heap::Expression(head, InPlaceRefsSlice<1>(leaves, OptionalTypeMask()));
+			return Heap::Expression(head, StaticSlice<1>(leaves, OptionalTypeMask()));
 		case 2:
-			return Heap::Expression(head, InPlaceRefsSlice<2>(leaves, OptionalTypeMask()));
+			return Heap::Expression(head, StaticSlice<2>(leaves, OptionalTypeMask()));
 		case 3:
-			return Heap::Expression(head, InPlaceRefsSlice<3>(leaves, OptionalTypeMask()));
+			return Heap::Expression(head, StaticSlice<3>(leaves, OptionalTypeMask()));
 		default:
 			throw std::runtime_error("whoever called us should have known better.");
 	}
@@ -227,16 +227,16 @@ inline ExpressionRef expression(
 		const auto type_mask = calc_type_mask(leaves);
 		switch (type_mask) {
 			case MakeTypeMask(MachineIntegerType):
-				return expression(head, PackSlice<machine_integer_t>(
+				return expression(head, PackedSlice<machine_integer_t>(
 					collect<MachineInteger, machine_integer_t>(leaves)));
 			case MakeTypeMask(MachineRealType):
-				return expression(head, PackSlice<machine_real_t>(
+				return expression(head, PackedSlice<machine_real_t>(
 					collect<MachineReal, machine_real_t>(leaves)));
 			case MakeTypeMask(StringType):
-				return expression(head, PackSlice<std::string>(
+				return expression(head, PackedSlice<std::string>(
 					collect<String, std::string>(leaves)));
 			default:
-				return Heap::Expression(head, RefsSlice(leaves, type_mask));
+				return Heap::Expression(head, DynamicSlice(leaves, type_mask));
 		}
 	}
 }
@@ -248,22 +248,54 @@ inline ExpressionRef expression(
 	if (leaves.size() < 4) {
 		return tiny_expression(head, leaves);
 	} else {
-		return Heap::Expression(head, RefsSlice(leaves, OptionalTypeMask()));
+		return Heap::Expression(head, DynamicSlice(leaves, OptionalTypeMask()));
 	}
 }
 
-inline ExpressionRef expression(const BaseExpressionRef &head, const RefsSlice &slice) {
+inline ExpressionRef expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
 	return Heap::Expression(head, slice);
 }
 
 template<size_t N>
-inline ExpressionRef expression(const BaseExpressionRef &head, const InPlaceRefsSlice<N> &slice) {
+inline ExpressionRef expression(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
     return Heap::Expression(head, slice);
 }
 
 template<typename Slice>
 ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end) const {
-	return expression(_head, _leaves.slice(begin, end));
+	const index_t size = index_t(_leaves.size());
+
+	if (begin < 0) {
+		begin = size - (-begin % size);
+	}
+	if (end < 0) {
+		end = size - (-end % size);
+	}
+
+	end = std::min(end, size);
+	begin = std::min(begin, end);
+
+	const BaseExpressionRef &head = _head;
+	const Slice &slice = _leaves;
+
+	auto generate_leaves = [begin, end, &head, &slice] (auto &storage) {
+		for (size_t i = begin; i < end; i++) {
+			storage << slice[i];
+		}
+	};
+
+	switch (end - begin) {
+		case 0:
+			return tiny_expression<0>(head, generate_leaves);
+		case 1:
+			return tiny_expression<1>(head, generate_leaves);
+		case 2:
+			return tiny_expression<2>(head, generate_leaves);
+		case 3:
+			return tiny_expression<3>(head, generate_leaves);
+		default:
+			return expression(head, generate_leaves, size);
+	}
 }
 
 template<typename Slice>
@@ -284,7 +316,7 @@ size_t ExpressionImplementation<Slice>::unpack(
 
 template<typename Slice>
 RefsExpressionRef ExpressionImplementation<Slice>::to_refs_expression(const BaseExpressionRef &self) const {
-	if (std::is_same<Slice, RefsSlice>()) {
+	if (std::is_same<Slice, DynamicSlice>()) {
 		return boost::static_pointer_cast<RefsExpression>(self);
 	} else {
 		std::vector<BaseExpressionRef> leaves;
@@ -292,7 +324,7 @@ RefsExpressionRef ExpressionImplementation<Slice>::to_refs_expression(const Base
 		for (auto leaf : _leaves.leaves()) {
 			leaves.push_back(leaf);
 		}
-		return Heap::Expression(_head, RefsSlice(std::move(leaves), _leaves.type_mask()));
+		return Heap::Expression(_head, DynamicSlice(std::move(leaves), _leaves.type_mask()));
 
 	}
 }

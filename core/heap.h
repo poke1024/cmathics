@@ -13,19 +13,19 @@ class MachineReal;
 class BigReal;
 
 template<size_t N>
-class InPlaceRefsSlice;
+class StaticSlice;
 
 template<typename U>
-class PackSlice;
+class PackedSlice;
 
 template<typename Slice>
 class ExpressionImplementation;
 
 template<typename U>
-using PackExpressionRef = boost::intrusive_ptr<ExpressionImplementation<PackSlice<U>>>;
+using PackExpressionRef = boost::intrusive_ptr<ExpressionImplementation<PackedSlice<U>>>;
 
 template<size_t N>
-using InPlaceExpressionRef = boost::intrusive_ptr<ExpressionImplementation<InPlaceRefsSlice<N>>>;
+using InPlaceExpressionRef = boost::intrusive_ptr<ExpressionImplementation<StaticSlice<N>>>;
 
 class Heap {
 private:
@@ -37,12 +37,12 @@ private:
     boost::object_pool<MachineReal> _machine_reals;
     boost::object_pool<BigReal> _big_reals;
 
-    boost::object_pool<ExpressionImplementation<InPlaceRefsSlice<0>>> _expression0;
-    boost::object_pool<ExpressionImplementation<InPlaceRefsSlice<1>>> _expression1;
-    boost::object_pool<ExpressionImplementation<InPlaceRefsSlice<2>>> _expression2;
-    boost::object_pool<ExpressionImplementation<InPlaceRefsSlice<3>>> _expression3;
+    boost::object_pool<ExpressionImplementation<StaticSlice<0>>> _expression0;
+    boost::object_pool<ExpressionImplementation<StaticSlice<1>>> _expression1;
+    boost::object_pool<ExpressionImplementation<StaticSlice<2>>> _expression2;
+    boost::object_pool<ExpressionImplementation<StaticSlice<3>>> _expression3;
 
-    boost::object_pool<ExpressionImplementation<RefsSlice>> _expression_refs;
+    boost::object_pool<ExpressionImplementation<DynamicSlice>> _expression_refs;
 
 public:
     static void init();
@@ -61,16 +61,16 @@ public:
 	static InPlaceExpressionRef<2> EmptyExpression2(const BaseExpressionRef &head);
 	static InPlaceExpressionRef<3> EmptyExpression3(const BaseExpressionRef &head);
 
-	static InPlaceExpressionRef<0> Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<0> &slice);
-    static InPlaceExpressionRef<1> Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<1> &slice);
-    static InPlaceExpressionRef<2> Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<2> &slice);
-    static InPlaceExpressionRef<3> Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<3> &slice);
+	static InPlaceExpressionRef<0> Expression(const BaseExpressionRef &head, const StaticSlice<0> &slice);
+    static InPlaceExpressionRef<1> Expression(const BaseExpressionRef &head, const StaticSlice<1> &slice);
+    static InPlaceExpressionRef<2> Expression(const BaseExpressionRef &head, const StaticSlice<2> &slice);
+    static InPlaceExpressionRef<3> Expression(const BaseExpressionRef &head, const StaticSlice<3> &slice);
 
-    static RefsExpressionRef Expression(const BaseExpressionRef &head, const RefsSlice &slice);
+    static RefsExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);
 
     template<typename U>
-    static PackExpressionRef<U> Expression(const BaseExpressionRef &head, const PackSlice<U> &slice) {
-        return PackExpressionRef<U>(new ExpressionImplementation<PackSlice<U>>(head, slice));
+    static PackExpressionRef<U> Expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
+        return PackExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
     }
 };
 

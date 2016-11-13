@@ -118,7 +118,7 @@ inline typename BaseExpressionTuple<N>::type Match::get() const {
 	return t;
 };
 
-class RefsSlice;
+class DynamicSlice;
 
 inline const Symbol *blank_head(const BaseExpressionRef *begin, const BaseExpressionRef *end) {
 	if (end - begin == 1) { // exactly one leaf?
@@ -139,10 +139,13 @@ class Matcher {
 private:
 	MatchContext &_context;
 	Symbol *_variable;
+
 	const BaseExpressionRef *_curr_pattern;
 	const BaseExpressionRef *_rest_pattern_begin;
 	const BaseExpressionRef *_rest_pattern_end;
+
 	const Slice &_sequence;
+	const size_t _sequence_offset;
 
 	bool heads(size_t n, const Symbol *head) const;
 
@@ -156,13 +159,15 @@ public:
 		const BaseExpressionRef *curr_pattern,
 		const BaseExpressionRef *rest_pattern_begin,
 		const BaseExpressionRef *rest_pattern_end,
-		const Slice &sequence) :
+		const Slice &sequence,
+		size_t sequence_offset) :
 		_context(context),
 		_variable(nullptr),
 		_curr_pattern(curr_pattern),
 		_rest_pattern_begin(rest_pattern_begin),
 		_rest_pattern_end(rest_pattern_end),
-		_sequence(sequence) {
+		_sequence(sequence),
+		_sequence_offset(sequence_offset) {
 	}
 
 	inline Matcher(
@@ -171,13 +176,15 @@ public:
 		const BaseExpressionRef *curr_pattern,
 		const BaseExpressionRef *rest_pattern_begin,
 		const BaseExpressionRef *rest_pattern_end,
-		const Slice &sequence) :
+		const Slice &sequence,
+		size_t sequence_offset) :
 		_context(context),
 		_variable(variable),
 		_curr_pattern(curr_pattern),
 		_rest_pattern_begin(rest_pattern_begin),
 		_rest_pattern_end(rest_pattern_end),
-		_sequence(sequence) {
+		_sequence(sequence),
+		_sequence_offset(sequence_offset) {
 	}
 
 	bool shift(size_t match_size, const Symbol *head, bool make_sequence=false) const;
@@ -202,9 +209,9 @@ public:
 
 			default:
 				// expr is always pattern[0].
-				if ( _sequence.size() == 0) {
+				if ( _sequence.size() <= _sequence_offset) {
 					return false;
-				} else if (patt->same(_sequence[0])) {
+				} else if (patt->same(_sequence[_sequence_offset])) {
 					return shift(1, nullptr);
 				} else {
 					return false;
@@ -240,10 +247,10 @@ public:
 			// fallthrough
 
 			default:
-				if (_sequence.size() == 0) {
+				if (_sequence.size() <= _sequence_offset) {
 					return false;
 				} else {
-					auto next = _sequence[0];
+					auto next = _sequence[_sequence_offset];
 					if (next->type() == ExpressionType) {
 						auto next_expr = boost::static_pointer_cast<const Expression>(next);
 
@@ -295,8 +302,8 @@ public:
 inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &definitions) {
 	MatchContext context(patt, item, definitions);
 	{
-		Matcher<InPlaceRefsSlice<1>> matcher(
-			context, &patt, nullptr, nullptr, InPlaceRefsSlice<1>(&item, 1, item->type_mask()));
+		Matcher<StaticSlice<1>> matcher(
+			context, &patt, nullptr, nullptr, StaticSlice<1>(&item, item->type_mask()), 0);
 
 		if (matcher.match_sequence()) {
 			return Match(true, context);
@@ -310,10 +317,10 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
 template<typename Slice>
 bool Matcher<Slice>::heads(size_t n, const Symbol *head) const {
 	const BaseExpressionPtr head_expr =
-			static_cast<BaseExpressionPtr>(head);
+		static_cast<BaseExpressionPtr>(head);
 
 	for (size_t i = 0; i < n; i++) {
-		if (head_expr != _sequence[i]->head_ptr()) {
+		if (head_expr != _sequence[_sequence_offset + i]->head_ptr()) {
 			return i;
 		}
 	}
@@ -323,17 +330,23 @@ bool Matcher<Slice>::heads(size_t n, const Symbol *head) const {
 
 template<typename Slice>
 bool Matcher<Slice>::consume(size_t n) const {
-	assert(_sequence.size() >= n);
+	assert(_sequence.size() >= _sequence_offset + n);
 
 	if (_rest_pattern_end == _rest_pattern_begin) {
-		if (_sequence.size() == n) {
+		if (_sequence.size() == _sequence_offset + n) {
 			return true;
 		} else {
 			return false;
 		}
 	} else {
 		Matcher<Slice> matcher(
-			_context, _rest_pattern_begin, _rest_pattern_begin + 1, _rest_pattern_end, _sequence.slice(n));
+			_context,
+			_rest_pattern_begin,
+			_rest_pattern_begin + 1,
+			_rest_pattern_end,
+			_sequence,
+			_sequence_offset + n);
+
 		return matcher.match_sequence();
 	}
 }
@@ -421,17 +434,18 @@ bool Matcher<Slice>::shift(size_t match_size, const Symbol *head, bool make_sequ
 	}
 
 	if (match_size == 1 && !make_sequence) {
-		return match_variable(match_size, _sequence[0]);
+		return match_variable(match_size, _sequence[_sequence_offset]);
 	} else {
 		return match_variable(match_size, expression(
 			_context.definitions.Sequence(),
-			_sequence.slice(0, match_size)));
+			_sequence)->slice(0, match_size));
 	}
 }
 
 template<typename Slice>
 bool Matcher<Slice>::shift(Symbol *var, const BaseExpressionRef *curr_pattern) const {
-	Matcher<Slice> matcher(_context, var, curr_pattern, _rest_pattern_begin, _rest_pattern_end, _sequence);
+	Matcher<Slice> matcher(
+		_context, var, curr_pattern, _rest_pattern_begin, _rest_pattern_end, _sequence, _sequence_offset);
 	return matcher.match_sequence();
 }
 
@@ -441,7 +455,7 @@ bool ExpressionImplementation<Slice>::match_leaves(MatchContext &context, const 
 	const BaseExpressionRef *patt_leaves;
 	const size_t size = patt->unpack(patt_unpacked, patt_leaves);
 
-	Matcher<Slice> matcher(context, patt_leaves, patt_leaves + 1, patt_leaves + size, _leaves);
+	Matcher<Slice> matcher(context, patt_leaves, patt_leaves + 1, patt_leaves + size, _leaves, 0);
 	return matcher.match_sequence();
 }
 

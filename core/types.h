@@ -131,8 +131,8 @@ typedef const Expression *ExpressionPtr;
 
 template<typename S>
 class ExpressionImplementation;
-class RefsSlice;
-typedef const ExpressionImplementation<RefsSlice> RefsExpression;
+class DynamicSlice;
+typedef const ExpressionImplementation<DynamicSlice> RefsExpression;
 typedef const RefsExpression* RefsExpressionPtr;
 typedef boost::intrusive_ptr<const RefsExpression> RefsExpressionRef;
 

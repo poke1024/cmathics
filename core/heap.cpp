@@ -37,26 +37,26 @@ void Heap::release(BaseExpression *expr) {
                 switch (in_place_slice_size(type_id)) {
                     case 0:
                         _s_instance->_expression0.free(
-                            static_cast<ExpressionImplementation<InPlaceRefsSlice<0>>*>(expr));
+                            static_cast<ExpressionImplementation<StaticSlice<0>>*>(expr));
                         break;
                     case 1:
                         _s_instance->_expression1.free(
-                            static_cast<ExpressionImplementation<InPlaceRefsSlice<1>>*>(expr));
+                            static_cast<ExpressionImplementation<StaticSlice<1>>*>(expr));
                         break;
                     case 2:
                         _s_instance->_expression2.free(
-                            static_cast<ExpressionImplementation<InPlaceRefsSlice<2>>*>(expr));
+                            static_cast<ExpressionImplementation<StaticSlice<2>>*>(expr));
                         break;
                     case 3:
                         _s_instance->_expression3.free(
-                            static_cast<ExpressionImplementation<InPlaceRefsSlice<3>>*>(expr));
+                            static_cast<ExpressionImplementation<StaticSlice<3>>*>(expr));
                         break;
                     default:
                         throw std::runtime_error("encountered unsupported in-place-slice size");
                 }
             } else if (type_id == SliceTypeId::RefsSliceCode) {
                 _s_instance->_expression_refs.free(
-                    static_cast<ExpressionImplementation<RefsSlice>*>(expr));
+                    static_cast<ExpressionImplementation<DynamicSlice>*>(expr));
             } else if (is_pack_slice(type_id)) {
                 delete expr;
             } else {
@@ -116,27 +116,27 @@ InPlaceExpressionRef<3> Heap::EmptyExpression3(const BaseExpressionRef &head) {
     return InPlaceExpressionRef<3>(_s_instance->_expression3.construct(head));
 }
 
-InPlaceExpressionRef<0> Heap::Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<0> &slice) {
+InPlaceExpressionRef<0> Heap::Expression(const BaseExpressionRef &head, const StaticSlice<0> &slice) {
     assert(_s_instance);
     return InPlaceExpressionRef<0>(_s_instance->_expression0.construct(head));
 }
 
-InPlaceExpressionRef<1> Heap::Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<1> &slice) {
+InPlaceExpressionRef<1> Heap::Expression(const BaseExpressionRef &head, const StaticSlice<1> &slice) {
     assert(_s_instance);
     return InPlaceExpressionRef<1>(_s_instance->_expression1.construct(head, slice));
 }
 
-InPlaceExpressionRef<2> Heap::Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<2> &slice) {
+InPlaceExpressionRef<2> Heap::Expression(const BaseExpressionRef &head, const StaticSlice<2> &slice) {
     assert(_s_instance);
     return InPlaceExpressionRef<2>(_s_instance->_expression2.construct(head, slice));
 }
 
-InPlaceExpressionRef<3> Heap::Expression(const BaseExpressionRef &head, const InPlaceRefsSlice<3> &slice) {
+InPlaceExpressionRef<3> Heap::Expression(const BaseExpressionRef &head, const StaticSlice<3> &slice) {
     assert(_s_instance);
     return InPlaceExpressionRef<3>(_s_instance->_expression3.construct(head, slice));
 }
 
-RefsExpressionRef Heap::Expression(const BaseExpressionRef &head, const RefsSlice &slice) {
+RefsExpressionRef Heap::Expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
     assert(_s_instance);
     return RefsExpressionRef(_s_instance->_expression_refs.construct(head, slice));
 }
