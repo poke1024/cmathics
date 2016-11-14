@@ -3,6 +3,7 @@
 
 #include <boost/pool/object_pool.hpp>
 #include <mpfrcxx/mpreal.h>
+#include <static_if/static_if.hpp>
 
 #include "gmpxx.h"
 
@@ -22,14 +23,51 @@ template<typename Slice>
 class ExpressionImplementation;
 
 template<typename U>
-using PackExpressionRef = boost::intrusive_ptr<ExpressionImplementation<PackedSlice<U>>>;
+using PackedExpressionRef = boost::intrusive_ptr<ExpressionImplementation<PackedSlice<U>>>;
 
 template<size_t N>
-using InPlaceExpressionRef = boost::intrusive_ptr<ExpressionImplementation<StaticSlice<N>>>;
+using StaticExpressionRef = boost::intrusive_ptr<ExpressionImplementation<StaticSlice<N>>>;
+
+template<int N>
+struct StaticExpressionPool {
+	static boost::object_pool<ExpressionImplementation<StaticSlice<N>>> pool;
+};
+
+template<int UpToSize>
+class FreeStaticExpression {
+private:
+	void *_pools[UpToSize + 1];
+	std::function<void(BaseExpression*)> _alloc[UpToSize + 1];
+	std::function<void(BaseExpression*)> _free[UpToSize + 1];
+
+	template<int N>
+	void fill() {
+		_pools[N] = new boost::object_pool<ExpressionImplementation<StaticSlice<N>>>;
+
+		_free[N] = [](BaseExpression *expr) {
+			StaticExpressionPool<N>::pool.free(
+				static_cast<ExpressionImplementation<StaticSlice<N>>*>(expr));
+		};
+		STATIC_IF (N >= 1) {
+			fill<N-1>();
+		} STATIC_ENDIF
+	}
+
+public:
+	inline FreeStaticExpression() {
+		fill<UpToSize>();
+	}
+
+	inline void operator()(BaseExpression *expr, SliceTypeId slice_id) const {
+		const size_t i = in_place_slice_size(slice_id);
+		assert(i <= UpToSize);
+		_functions[i](expr);
+	}
+};
 
 class Heap {
 private:
-    static Heap *_s_instance;
+	static Heap *_s_instance;
 
     boost::object_pool<MachineInteger> _machine_integers;
     boost::object_pool<BigInteger> _big_integers;
@@ -37,12 +75,11 @@ private:
     boost::object_pool<MachineReal> _machine_reals;
     boost::object_pool<BigReal> _big_reals;
 
-    boost::object_pool<ExpressionImplementation<StaticSlice<0>>> _expression0;
-    boost::object_pool<ExpressionImplementation<StaticSlice<1>>> _expression1;
-    boost::object_pool<ExpressionImplementation<StaticSlice<2>>> _expression2;
-    boost::object_pool<ExpressionImplementation<StaticSlice<3>>> _expression3;
+	FreeStaticExpression<3> _free_static_expression;
 
     boost::object_pool<ExpressionImplementation<DynamicSlice>> _expression_refs;
+
+	Heap();
 
 public:
     static void init();
@@ -56,21 +93,19 @@ public:
     static BaseExpressionRef BigReal(const mpfr::mpreal &value);
     static BaseExpressionRef BigReal(double prec, machine_real_t value);
 
-	static InPlaceExpressionRef<0> EmptyExpression0(const BaseExpressionRef &head);
-	static InPlaceExpressionRef<1> EmptyExpression1(const BaseExpressionRef &head);
-	static InPlaceExpressionRef<2> EmptyExpression2(const BaseExpressionRef &head);
-	static InPlaceExpressionRef<3> EmptyExpression3(const BaseExpressionRef &head);
+	static StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
 
-	static InPlaceExpressionRef<0> Expression(const BaseExpressionRef &head, const StaticSlice<0> &slice);
-    static InPlaceExpressionRef<1> Expression(const BaseExpressionRef &head, const StaticSlice<1> &slice);
-    static InPlaceExpressionRef<2> Expression(const BaseExpressionRef &head, const StaticSlice<2> &slice);
-    static InPlaceExpressionRef<3> Expression(const BaseExpressionRef &head, const StaticSlice<3> &slice);
+	template<int N>
+	static StaticExpressionRef<N> StaticExpression(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
+		assert(_s_instance);
+		return StaticExpressionRef<N>(StaticExpressionPool<N>::pool.construct(head, slice));
+	}
 
-    static RefsExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);
+    static DynamicExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);
 
     template<typename U>
-    static PackExpressionRef<U> Expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
-        return PackExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
+    static PackedExpressionRef<U> Expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
+        return PackedExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
     }
 };
 

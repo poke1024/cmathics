@@ -132,9 +132,9 @@ typedef const Expression *ExpressionPtr;
 template<typename S>
 class ExpressionImplementation;
 class DynamicSlice;
-typedef const ExpressionImplementation<DynamicSlice> RefsExpression;
-typedef const RefsExpression* RefsExpressionPtr;
-typedef boost::intrusive_ptr<const RefsExpression> RefsExpressionRef;
+typedef const ExpressionImplementation<DynamicSlice> DynamicExpression;
+typedef const DynamicExpression* DynamicExpressionPtr;
+typedef boost::intrusive_ptr<const DynamicExpression> DynamicExpressionRef;
 
 class Symbol;
 
@@ -259,7 +259,7 @@ public:
 		throw std::runtime_error("cannot clone with head");
 	}
 
-	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const {
+	virtual DynamicExpressionRef to_dynamic_expression(const BaseExpressionRef &self) const {
 		throw std::runtime_error(std::string("cannot create refs expression for ") + typeid(this).name());
 	}
 

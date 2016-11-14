@@ -7,8 +7,6 @@
 
 class Definitions {
 private:
-    Heap _heap;
-
     std::map<std::string,SymbolRef> _definitions;
     ExpressionRef _empty_list;
 

@@ -37,7 +37,7 @@ public:
         Symbol(definitions, "System`Pattern", SymbolPattern) {
     }
 
-    virtual match_sizes_t match_num_args_with_head(RefsExpressionPtr patt) const {
+    virtual match_sizes_t match_num_args_with_head(DynamicExpressionPtr patt) const {
         if (patt->_leaves.size() == 2) {
             // Pattern is only valid with two arguments
             return patt->_leaves[1]->match_num_args();
@@ -53,7 +53,7 @@ public:
         Symbol(definitions, "System`Alternatives") {
     }
 
-    virtual match_sizes_t match_num_args_with_head(RefsExpressionPtr patt) const {
+    virtual match_sizes_t match_num_args_with_head(DynamicExpressionPtr patt) const {
         auto leaves = patt->_leaves;
 
         if (leaves.size() == 0) {
@@ -80,7 +80,7 @@ public:
         Symbol(definitions, "System`Repeated") {
     }
 
-    virtual match_sizes_t match_num_args_with_head(RefsExpressionPtr patt) const {
+    virtual match_sizes_t match_num_args_with_head(DynamicExpressionPtr patt) const {
         switch(patt->_leaves.size()) {
             case 1:
                 return std::make_tuple(1, MATCH_MAX);

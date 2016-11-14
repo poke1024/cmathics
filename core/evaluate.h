@@ -84,13 +84,13 @@ public:
 template<size_t N>
 class direct_storage {
 protected:
-	InPlaceExpressionRef<N> _expr;
+	StaticExpressionRef<N> _expr;
 	BaseExpressionRef *_addr;
 	BaseExpressionRef *_end;
 
 public:
 	inline direct_storage(const BaseExpressionRef &head) :
-		_expr(Heap::Expression(head, StaticSlice<N>())),
+		_expr(Heap::StaticExpression<N>(head, StaticSlice<N>())),
 		_addr(_expr->_leaves.late_init()), _end(_addr + N) {
 	}
 
@@ -197,7 +197,7 @@ ExpressionRef apply(
 	if (apply_head) {
 		return expression(head, slice);
 	} else {
-		return RefsExpressionRef();
+		return DynamicExpressionRef();
 	}
 }
 
@@ -210,7 +210,7 @@ BaseExpressionRef evaluate(
 
 	if (!Hold::do_eval) {
 		// no more evaluation is applied
-		return RefsExpressionRef();
+		return DynamicExpressionRef();
 	}
 
 	const Slice &slice = *static_cast<const Slice*>(slice_ptr);

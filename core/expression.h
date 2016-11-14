@@ -144,19 +144,15 @@ public:
 
 	virtual BaseExpressionRef replace_all(const Match &match) const;
 
-	virtual BaseExpressionRef clone() const {
-		return Heap::Expression(_head, _leaves);
-	}
+	virtual BaseExpressionRef clone() const;
 
-	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const {
-		return Heap::Expression(head, _leaves);
-	}
+	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const;
 
 	virtual match_sizes_t match_num_args() const {
 		return _head->match_num_args_with_head(this);
 	}
 
-	virtual RefsExpressionRef to_refs_expression(const BaseExpressionRef &self) const;
+	virtual DynamicExpressionRef to_dynamic_expression(const BaseExpressionRef &self) const;
 
 	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const;
 
@@ -168,16 +164,11 @@ public:
 		return _head->lookup_name();
 	}
 
-	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const {
-		auto expr = Heap::Expression(_head, _leaves.unpack());
-		materialized = expr;
-		return expr->_leaves.refs();
-
-	}
+	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const;
 };
 
 template<typename U>
-inline PackExpressionRef<U> expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
+inline PackedExpressionRef<U> expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
 	return Heap::Expression(head, slice);
 }
 
@@ -196,13 +187,13 @@ inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const T &lea
 	const auto size = leaves.size();
 	switch (size) {
 		case 0: // e.g. {}
-			return Heap::EmptyExpression0(head);
+			return Heap::EmptyExpression(head);
 		case 1:
-			return Heap::Expression(head, StaticSlice<1>(leaves, OptionalTypeMask()));
+			return Heap::StaticExpression<1>(head, StaticSlice<1>(leaves, OptionalTypeMask()));
 		case 2:
-			return Heap::Expression(head, StaticSlice<2>(leaves, OptionalTypeMask()));
+			return Heap::StaticExpression<2>(head, StaticSlice<2>(leaves, OptionalTypeMask()));
 		case 3:
-			return Heap::Expression(head, StaticSlice<3>(leaves, OptionalTypeMask()));
+			return Heap::StaticExpression<3>(head, StaticSlice<3>(leaves, OptionalTypeMask()));
 		default:
 			throw std::runtime_error("whoever called us should have known better.");
 	}
@@ -245,13 +236,13 @@ inline ExpressionRef expression(
 	}
 }
 
-inline ExpressionRef expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
+inline DynamicExpressionRef expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
 	return Heap::Expression(head, slice);
 }
 
 template<size_t N>
-inline ExpressionRef expression(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
-    return Heap::Expression(head, slice);
+inline StaticExpressionRef<N> expression(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
+    return Heap::StaticExpression<N>(head, slice);
 }
 
 template<typename Slice>
@@ -292,9 +283,9 @@ ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end)
 }
 
 template<typename Slice>
-RefsExpressionRef ExpressionImplementation<Slice>::to_refs_expression(const BaseExpressionRef &self) const {
+DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(const BaseExpressionRef &self) const {
 	if (std::is_same<Slice, DynamicSlice>()) {
-		return boost::static_pointer_cast<RefsExpression>(self);
+		return boost::static_pointer_cast<DynamicExpression>(self);
 	} else {
 		std::vector<BaseExpressionRef> leaves;
 		leaves.reserve(_leaves.size());
@@ -331,6 +322,23 @@ BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const Match &matc
 		},
 		(bool)new_head,
 		MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType));
+}
+
+template<typename Slice>
+BaseExpressionRef ExpressionImplementation<Slice>::clone() const {
+	return expression(_head, _leaves);
+}
+
+template<typename Slice>
+BaseExpressionRef ExpressionImplementation<Slice>::clone(const BaseExpressionRef &head) const {
+	return expression(head, _leaves);
+}
+
+template<typename Slice>
+const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(BaseExpressionRef &materialized) const {
+	auto expr = expression(_head, _leaves.unpack());
+	materialized = expr;
+	return expr->_leaves.refs();
 }
 
 #endif
