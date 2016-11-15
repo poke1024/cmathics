@@ -33,18 +33,18 @@ public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
 
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &slice) :
-        Expression(head, Slice::type_id(), &_leaves),
+        Expression(head, Slice::code(), &_leaves),
         _leaves(slice) {
 		assert(head);
 	}
 
 	inline ExpressionImplementation(const BaseExpressionRef &head) :
-		Expression(head, Slice::type_id(), &_leaves) {
+		Expression(head, Slice::code(), &_leaves) {
 		assert(head);
 	}
 
 	inline ExpressionImplementation(ExpressionImplementation<Slice> &&expr) :
-		Expression(expr._head, Slice::type_id(), &_leaves), _leaves(expr.leaves) {
+		Expression(expr._head, Slice::code(), &_leaves), _leaves(expr.leaves) {
 	}
 
 	virtual BaseExpressionRef leaf(size_t i) const {
@@ -156,8 +156,8 @@ public:
 
 	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const;
 
-	virtual SliceTypeId slice_type_id() const {
-		return Slice::type_id();
+	virtual SliceCode slice_code() const {
+		return Slice::code();
 	}
 
 	virtual const Symbol *lookup_name() const {

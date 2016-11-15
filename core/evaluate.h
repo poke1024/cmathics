@@ -256,32 +256,41 @@ BaseExpressionRef evaluate(
 
 class Evaluate {
 private:
-	Evaluator _vtable[NumberOfSliceTypes];
+	Evaluator _vtable[NumberOfSliceCodes];
 
 public:
+	template<typename Hold, int N>
+	void initialize_static_slice() {
+		_vtable[StaticSlice0Code + N] = ::evaluate<StaticSlice<N>, Hold>;
+
+		STATIC_IF (N >= 1) {
+			initialize_static_slice<Hold, N-1>();
+		} STATIC_ENDIF
+	}
+
 	template<typename Hold>
-	void fill() {
-		static_assert(1 + InPlaceSlice3Code - RefsSliceCode == NumberOfSliceTypes, "slice code ids error");
-		_vtable[RefsSliceCode] = ::evaluate<DynamicSlice, Hold>;
-		_vtable[PackSliceMachineIntegerCode] = ::evaluate<PackedSlice<machine_integer_t>, Hold>;
-		_vtable[PackSliceMachineRealCode] = ::evaluate<PackedSlice<machine_real_t>, Hold>;
-		_vtable[PackSliceBigIntegerCode] = ::evaluate<PackedSlice<mpz_class>, Hold>;
-		_vtable[PackSliceRationalCode] = ::evaluate<PackedSlice<mpq_class>, Hold>;
-		_vtable[PackSliceStringCode] = ::evaluate<PackedSlice<std::string>, Hold>;
-		_vtable[InPlaceSlice0Code] = ::evaluate<StaticSlice<0>, Hold>;
-		_vtable[InPlaceSlice1Code] = ::evaluate<StaticSlice<1>, Hold>;
-		_vtable[InPlaceSlice2Code] = ::evaluate<StaticSlice<2>, Hold>;
-		_vtable[InPlaceSlice3Code] = ::evaluate<StaticSlice<3>, Hold>;
+	void initialize() {
+		static_assert(1 + StaticSliceNCode - DynamicSliceCode == NumberOfSliceCodes, "slice code ids error");
+
+		_vtable[DynamicSliceCode] = ::evaluate<DynamicSlice, Hold>;
+
+		_vtable[PackedSliceMachineIntegerCode] = ::evaluate<PackedSlice<machine_integer_t>, Hold>;
+		_vtable[PackedSliceMachineRealCode] = ::evaluate<PackedSlice<machine_real_t>, Hold>;
+		_vtable[PackedSliceBigIntegerCode] = ::evaluate<PackedSlice<mpz_class>, Hold>;
+		_vtable[PackedSliceRationalCode] = ::evaluate<PackedSlice<mpq_class>, Hold>;
+		_vtable[PackedSliceStringCode] = ::evaluate<PackedSlice<std::string>, Hold>;
+
+		initialize_static_slice<Hold, MaxStaticSliceSize>();
 	}
 
 	inline BaseExpressionRef operator()(
 		const ExpressionRef &self,
 		const BaseExpressionRef &head,
-		SliceTypeId slice_id,
+		SliceCode slice_code,
 		const void *slice_ptr,
 		const Evaluation &evaluation) const {
 
-		return _vtable[slice_id](self, head, slice_ptr, evaluation);
+		return _vtable[slice_code](self, head, slice_ptr, evaluation);
 	}
 };
 

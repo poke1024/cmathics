@@ -40,7 +40,7 @@ BaseExpressionRef Expression::evaluate_expression(
 		return head_symbol->evaluate_with_head()(
 			boost::static_pointer_cast<const Expression>(self),
 			head,
-			slice_type_id(),
+			slice_code(),
 			_slice_ptr,
 			evaluation);
 	}

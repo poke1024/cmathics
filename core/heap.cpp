@@ -36,13 +36,13 @@ void Heap::release(BaseExpression *expr) {
             break;
 
         case ExpressionType: {
-            const SliceTypeId type_id = static_cast<const class Expression*>(expr)->slice_type_id();
-            if (is_in_place_slice(type_id)) {
-	            _s_instance->_static_expression_heap.free(expr, type_id);
-            } else if (type_id == SliceTypeId::RefsSliceCode) {
+            const SliceCode code = static_cast<const class Expression*>(expr)->slice_code();
+            if (is_static_slice(code)) {
+	            _s_instance->_static_expression_heap.free(expr, code);
+            } else if (code == SliceCode::DynamicSliceCode) {
                 _s_instance->_expression_refs.free(
                     static_cast<ExpressionImplementation<DynamicSlice>*>(expr));
-            } else if (is_pack_slice(type_id)) {
+            } else if (is_packed_slice(code)) {
                 delete expr;
             } else {
                 throw std::runtime_error("encountered unsupported slice type id");

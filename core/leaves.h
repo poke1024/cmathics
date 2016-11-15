@@ -189,14 +189,14 @@ public:
 	}
 };
 
-template<SliceTypeId _type_id>
+template<SliceCode _code>
 class TypedSlice : public Slice {
 public:
 	inline TypedSlice(const BaseExpressionRef *address, size_t size) : Slice(address, size) {
 	}
 
-	static constexpr SliceTypeId type_id() {
-		return _type_id;
+	static constexpr SliceCode code() {
+		return _code;
 	}
 };
 
@@ -228,36 +228,36 @@ public:
 };
 
 template<typename U>
-struct PackSliceTypeId {
+struct PackedSliceCode {
 };
 
 template<>
-struct PackSliceTypeId<machine_integer_t> {
-	static const SliceTypeId id = PackSliceMachineIntegerCode;
+struct PackedSliceCode<machine_integer_t> {
+	static const SliceCode code = PackedSliceMachineIntegerCode;
 };
 
 template<>
-struct PackSliceTypeId<machine_real_t> {
-	static const SliceTypeId id = PackSliceMachineRealCode;
+struct PackedSliceCode<machine_real_t> {
+	static const SliceCode code = PackedSliceMachineRealCode;
 };
 
 template<>
-struct PackSliceTypeId<mpz_class> {
-	static const SliceTypeId id = PackSliceBigIntegerCode;
+struct PackedSliceCode<mpz_class> {
+	static const SliceCode code = PackedSliceBigIntegerCode;
 };
 
 template<>
-struct PackSliceTypeId<mpq_class> {
-	static const SliceTypeId id = PackSliceRationalCode;
+struct PackedSliceCode<mpq_class> {
+	static const SliceCode code = PackedSliceRationalCode;
 };
 
 template<>
-struct PackSliceTypeId<std::string> {
-	static const SliceTypeId id = PackSliceStringCode;
+struct PackedSliceCode<std::string> {
+	static const SliceCode code = PackedSliceStringCode;
 };
 
 template<typename U>
-class PackedSlice : public TypedSlice<PackSliceTypeId<U>::id> {
+class PackedSlice : public TypedSlice<PackedSliceCode<U>::code> {
 private:
 	typename PackExtent<U>::Ref _extent;
 	const U * const _begin;
@@ -268,7 +268,7 @@ public:
 
 	using LeafCollection = PointerCollection<U, PrimitiveToBaseExpression<U>>;
 
-	using BaseSlice = TypedSlice<PackSliceTypeId<U>::id>;
+	using BaseSlice = TypedSlice<PackedSliceCode<U>::code>;
 
 public:
 	inline size_t size() const {
@@ -348,8 +348,8 @@ public:
 	}
 };
 
-template<SliceTypeId _type_id>
-class BaseRefsSlice : public TypedSlice<_type_id> {
+template<SliceCode _code>
+class BaseRefsSlice : public TypedSlice<_code> {
 protected:
     mutable OptionalTypeMask _type_mask;
 
@@ -385,12 +385,12 @@ public:
 
 public:
     inline BaseRefsSlice(const BaseExpressionRef *address, size_t size, OptionalTypeMask type_mask) :
-	    TypedSlice<_type_id>(address, size), _type_mask(type_mask) {
+	    TypedSlice<_code>(address, size), _type_mask(type_mask) {
     }
 
 };
 
-class DynamicSlice : public BaseRefsSlice<SliceTypeId::RefsSliceCode> {
+class DynamicSlice : public BaseRefsSlice<SliceCode::DynamicSliceCode> {
 private:
 	typename RefsExtent::Ref _extent;
 
@@ -475,11 +475,11 @@ public:
 };
 
 template<size_t N>
-class StaticSlice : public BaseRefsSlice<in_place_slice_type_id(N)> {
+class StaticSlice : public BaseRefsSlice<static_slice_code(N)> {
 private:
     mutable BaseExpressionRef _refs[N];
 
-	typedef BaseRefsSlice<in_place_slice_type_id(N)> BaseSlice;
+	typedef BaseRefsSlice<static_slice_code(N)> BaseSlice;
 
 public:
 	inline const BaseExpressionRef *begin() const {

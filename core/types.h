@@ -144,37 +144,39 @@ typedef boost::intrusive_ptr<Symbol> SymbolRef;
 
 class Evaluation;
 
-enum SliceTypeId : uint8_t {
-	RefsSliceCode = 0,
-	PackSliceMachineIntegerCode = 1,
-	PackSliceMachineRealCode = 2,
-	PackSliceBigIntegerCode = 3,
-	PackSliceRationalCode = 4,
-	PackSliceStringCode = 5,
-	InPlaceSlice0Code = 6,
-	InPlaceSlice1Code = 7,
-	InPlaceSlice2Code = 8,
-	InPlaceSlice3Code = 9,
-	InPlaceSliceNCode = 9,
-	NumberOfSliceTypes = 10
+constexpr int MaxStaticSliceSize = 3;
+
+enum SliceCode : uint8_t {
+	DynamicSliceCode = 0,
+
+	PackedSliceMachineIntegerCode = 1,
+	PackedSliceMachineRealCode = 2,
+	PackedSliceBigIntegerCode = 3,
+	PackedSliceRationalCode = 4,
+	PackedSliceStringCode = 5,
+
+	StaticSlice0Code = 6,
+	StaticSliceNCode = 6 + MaxStaticSliceSize,
+
+	NumberOfSliceCodes = StaticSliceNCode + 1
 };
 
-inline bool is_pack_slice(SliceTypeId id) {
-	return id >= PackSliceMachineIntegerCode && id <= PackSliceStringCode;
+inline bool is_packed_slice(SliceCode id) {
+	return id >= PackedSliceMachineIntegerCode && id <= PackedSliceStringCode;
 }
 
-inline constexpr SliceTypeId in_place_slice_type_id(size_t n) {
-	const SliceTypeId code = SliceTypeId(SliceTypeId::InPlaceSlice0Code + n);
-	assert(code <= InPlaceSliceNCode);
+inline constexpr SliceCode static_slice_code(size_t n) {
+	const SliceCode code = SliceCode(SliceCode::StaticSlice0Code + n);
+	assert(code <= StaticSliceNCode);
 	return code;
 }
 
-inline bool is_in_place_slice(SliceTypeId code) {
-	return code >= InPlaceSlice0Code && code <= InPlaceSliceNCode;
+inline bool is_static_slice(SliceCode code) {
+	return code >= StaticSlice0Code && code <= StaticSliceNCode;
 }
 
-inline size_t in_place_slice_size(SliceTypeId code) {
-	return size_t(code) - size_t(InPlaceSlice0Code);
+inline size_t static_slice_size(SliceCode code) {
+	return size_t(code) - size_t(StaticSlice0Code);
 }
 
 class BaseExpression {
@@ -318,12 +320,12 @@ private:
 public:
 	const BaseExpressionRef _head;
 
-	inline Expression(const BaseExpressionRef &head, SliceTypeId slice_id, const Slice *slice_ptr) :
+	inline Expression(const BaseExpressionRef &head, SliceCode slice_id, const Slice *slice_ptr) :
 		BaseExpression(build_extended_type(ExpressionType, slice_id)), _head(head), _slice_ptr(slice_ptr) {
 	}
 
-	inline SliceTypeId slice_type_id() const {
-		return SliceTypeId(_extended_type >> CoreTypeBits);
+	inline SliceCode slice_code() const {
+		return SliceCode(_extended_type >> CoreTypeBits);
 	}
 
 	inline size_t size() const {

@@ -61,8 +61,8 @@ public:
   		    _pool[N])->construct(head, slice));
 	}
 
-	inline void free(BaseExpression *expr, SliceTypeId slice_id) const {
-		const size_t i = in_place_slice_size(slice_id);
+	inline void free(BaseExpression *expr, SliceCode slice_id) const {
+		const size_t i = static_slice_size(slice_id);
 		assert(i <= UpToSize);
 		_free[i](expr);
 	}
@@ -78,7 +78,7 @@ private:
     boost::object_pool<MachineReal> _machine_reals;
     boost::object_pool<BigReal> _big_reals;
 
-	StaticExpressionHeap<3> _static_expression_heap;
+	StaticExpressionHeap<MaxStaticSliceSize> _static_expression_heap;
 
     boost::object_pool<ExpressionImplementation<DynamicSlice>> _expression_refs;
 
