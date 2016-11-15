@@ -28,40 +28,43 @@ using PackedExpressionRef = boost::intrusive_ptr<ExpressionImplementation<Packed
 template<size_t N>
 using StaticExpressionRef = boost::intrusive_ptr<ExpressionImplementation<StaticSlice<N>>>;
 
-template<int N>
-struct StaticExpressionPool {
-	static boost::object_pool<ExpressionImplementation<StaticSlice<N>>> pool;
-};
-
 template<int UpToSize>
-class FreeStaticExpression {
+class StaticExpressionHeap {
 private:
-	void *_pools[UpToSize + 1];
-	std::function<void(BaseExpression*)> _alloc[UpToSize + 1];
+	void *_pool[UpToSize + 1];
 	std::function<void(BaseExpression*)> _free[UpToSize + 1];
 
 	template<int N>
-	void fill() {
-		_pools[N] = new boost::object_pool<ExpressionImplementation<StaticSlice<N>>>;
+	void initialize() {
+		const auto pool = new boost::object_pool<ExpressionImplementation<StaticSlice<N>>>;
 
-		_free[N] = [](BaseExpression *expr) {
-			StaticExpressionPool<N>::pool.free(
-				static_cast<ExpressionImplementation<StaticSlice<N>>*>(expr));
+		_pool[N] = pool;
+
+		_free[N] = [pool] (BaseExpression *expr) {
+			pool->free(static_cast<ExpressionImplementation<StaticSlice<N>>*>(expr));
 		};
+
 		STATIC_IF (N >= 1) {
-			fill<N-1>();
+			initialize<N-1>();
 		} STATIC_ENDIF
 	}
 
 public:
-	inline FreeStaticExpression() {
-		fill<UpToSize>();
+	inline StaticExpressionHeap() {
+		initialize<UpToSize>();
 	}
 
-	inline void operator()(BaseExpression *expr, SliceTypeId slice_id) const {
+	template<int N>
+	StaticExpressionRef<N> allocate(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
+		static_assert(N <= UpToSize, "N must be be greater than UpToSize");
+		return StaticExpressionRef<N>(static_cast<boost::object_pool<ExpressionImplementation<StaticSlice<N>>>*>(
+  		    _pool[N])->construct(head, slice));
+	}
+
+	inline void free(BaseExpression *expr, SliceTypeId slice_id) const {
 		const size_t i = in_place_slice_size(slice_id);
 		assert(i <= UpToSize);
-		_functions[i](expr);
+		_free[i](expr);
 	}
 };
 
@@ -75,7 +78,7 @@ private:
     boost::object_pool<MachineReal> _machine_reals;
     boost::object_pool<BigReal> _big_reals;
 
-	FreeStaticExpression<3> _free_static_expression;
+	StaticExpressionHeap<3> _static_expression_heap;
 
     boost::object_pool<ExpressionImplementation<DynamicSlice>> _expression_refs;
 
@@ -89,7 +92,7 @@ public:
     static BaseExpressionRef MachineInteger(machine_integer_t value);
     static BaseExpressionRef BigInteger(const mpz_class &value);
 
-    static BaseExpressionRef MachineReal(machine_real_t value);
+    static BaseExpressionRef MachineReal(machine_real_t vTalue);
     static BaseExpressionRef BigReal(const mpfr::mpreal &value);
     static BaseExpressionRef BigReal(double prec, machine_real_t value);
 
@@ -98,7 +101,7 @@ public:
 	template<int N>
 	static StaticExpressionRef<N> StaticExpression(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
 		assert(_s_instance);
-		return StaticExpressionRef<N>(StaticExpressionPool<N>::pool.construct(head, slice));
+		return _s_instance->_static_expression_heap.allocate<N>(head, slice);
 	}
 
     static DynamicExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);
