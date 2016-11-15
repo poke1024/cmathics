@@ -244,7 +244,7 @@ BaseExpressionRef evaluate(
 	// Step 4
 	// Evaluate the head with leaves. (DownValue)
 
-	for (const Rule &rule : head_symbol->down_rules) {
+	for (const Rule &rule : head_symbol->down_rules[Slice::code()]) {
 		auto result = rule(intermediate_form, evaluation);
 		if (result) {
 			return result;

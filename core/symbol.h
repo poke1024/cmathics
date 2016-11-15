@@ -58,7 +58,7 @@ operator+(Attributes x, Attributes y)  {
 
 typedef std::function<BaseExpressionRef(const ExpressionRef &expr, const Evaluation &evaluation)> Rule;
 
-typedef std::vector<Rule> Rules;
+typedef std::vector<Rule> RuleTable[NumberOfSliceCodes];
 
 class Definitions;
 
@@ -94,9 +94,9 @@ public:
 		return *_evaluate_with_head;
 	}
 
-	Rules sub_rules;
-	Rules up_rules;
-	Rules down_rules;
+	RuleTable sub_rules;
+	RuleTable up_rules;
+	RuleTable down_rules;
 
 	virtual bool same(const BaseExpression &expr) const {
 		// compare as pointers: Symbol instances are unique
