@@ -3,10 +3,13 @@
 
 #include "types.h"
 #include "operations.h"
+#include "rule.h"
 
-BaseExpressionRef Plus(
-	const ExpressionRef &expr,
-	const Evaluation &evaluation);
+class Plus : public QuickBuiltinRule {
+public:
+	virtual BaseExpressionRef try_apply(
+		const ExpressionRef &expr, const Evaluation &evaluation) const;
+};
 
 BaseExpressionRef Range(
 	const BaseExpressionRef &imin,

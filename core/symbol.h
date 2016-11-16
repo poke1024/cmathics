@@ -2,6 +2,7 @@
 #define CMATHICS_SYMBOL_H_H
 
 #include "types.h"
+#include "rule.h"
 
 #include <string>
 #include <vector>
@@ -55,10 +56,6 @@ inline constexpr Attributes
 operator+(Attributes x, Attributes y)  {
 	return static_cast<Attributes>(static_cast<attributes_bitmask_t>(x) & static_cast<attributes_bitmask_t>(y));
 }
-
-typedef std::function<BaseExpressionRef(const ExpressionRef &expr, const Evaluation &evaluation)> Rule;
-
-typedef std::vector<Rule> RuleTable[NumberOfSliceCodes];
 
 class Definitions;
 
@@ -129,8 +126,9 @@ public:
 		return result;
 	}
 
-	void add_down_rule(const Rule &rule);
-	void add_sub_rule(const Rule &rule);
+	void add_down_rule(const RuleRef &rule);
+
+	void add_sub_rule(const RuleRef &rule);
 
 	virtual bool match(const BaseExpression &expr) const {
 		return same(expr);

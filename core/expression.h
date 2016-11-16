@@ -130,8 +130,8 @@ public:
 			if (head_head->type() == SymbolType) {
 				auto head_symbol = static_cast<const Symbol *>(head_head);
 
-				for (const Rule &rule : head_symbol->sub_rules[Slice::code()]) {
-					auto child_result = rule(self, evaluation);
+				for (const RuleRef &rule : head_symbol->sub_rules[Slice::code()]) {
+					auto child_result = rule->try_apply(self, evaluation);
 					if (child_result) {
 						return child_result;
 					}

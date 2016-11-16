@@ -100,7 +100,7 @@ set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test_integer.cpp
     tests/test_rational.cpp
     tests/test_real.cpp
-    tests/test_string.cpp)
+    tests/test_string.cpp core/rule.h)
 
 include_directories("$ENV{HOME}/googletest/googletest/include")
 link_directories("$ENV{HOME}/googletest/googletest/lib")

@@ -25,14 +25,14 @@ Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
     options = empty_list;*/
 }
 
-void Symbol::add_down_rule(const Rule &rule) {
+void Symbol::add_down_rule(const RuleRef &rule) {
 	// FIXME: filter which slice codes to fill here.
 	for (size_t i = 0; i < NumberOfSliceCodes; i++) {
 		down_rules[i].push_back(rule);
 	}
 }
 
-void Symbol::add_sub_rule(const Rule &rule) {
+void Symbol::add_sub_rule(const RuleRef &rule) {
 	// FIXME: filter which slice codes to fill here.
 	for (size_t i = 0; i < NumberOfSliceCodes; i++) {
 		sub_rules[i].push_back(rule);

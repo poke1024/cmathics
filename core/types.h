@@ -74,6 +74,20 @@ typedef int64_t match_size_t; // needs to be signed
 typedef std::tuple<match_size_t, match_size_t> match_sizes_t;
 constexpr match_size_t MATCH_MAX = INT64_MAX;
 
+class MatchSize {
+private:
+	match_size_t _min;
+	match_size_t _max;
+
+public:
+	inline MatchSize(match_size_t min, match_size_t max = MATCH_MAX) : _min(min), _max(max) {
+	}
+
+	inline bool contains(match_size_t s) const {
+		return s >= _min && s <= _max;
+	}
+};
+
 class Definitions;
 class Symbol;
 

@@ -13,7 +13,7 @@
 #include "rational.h"
 #include "primitives.h"
 
-BaseExpressionRef Plus(const ExpressionRef &expr, const Evaluation &evaluation) {
+BaseExpressionRef Plus::try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
     switch (expr->size()) {
         case 0:
             // Plus[] -> 0

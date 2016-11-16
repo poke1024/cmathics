@@ -472,7 +472,7 @@ public:
 
 struct RuleData {
 	BaseExpressionRef pattern;
-	Rule rule;
+	RuleRef rule;
 };
 
 class Runtime {
@@ -496,43 +496,45 @@ public:
         return _parser.parse(s);
     }
 
-    void add(const char *name, Attributes attributes, const std::initializer_list<RuleData> &rules) {
-        std::string full_down = std::string("System`") + name;
-        SymbolRef symbol = _definitions.lookup(full_down.c_str());
+    void add(const char *name, Attributes attributes, const std::initializer_list<RuleRef> &rules) {
+        const std::string full_down = std::string("System`") + name;
+        const SymbolRef symbol = _definitions.lookup(full_down.c_str());
 		symbol->set_attributes(attributes);
-        for (const auto &rule_data : rules) {
+        for (const RuleRef &rule : rules) {
 	        // see core/definitions.py:get_tag_position()
-	        if (rule_data.pattern->head() == symbol) {
-		        symbol->add_down_rule(rule_data.rule);
-	        } else if (rule_data.pattern->lookup_name() == symbol) {
-		        symbol->add_sub_rule(rule_data.rule);
+	        switch (rule->get_definitions_pos(symbol)) {
+		        case DefinitionsPos::None:
+			        break;
+		        case DefinitionsPos::Down:
+			        symbol->add_down_rule(rule);
+			        break;
+		        case DefinitionsPos::Sub:
+			        symbol->add_sub_rule(rule);
+			        break;
 	        }
         }
     }
 
-	RuleData rule(const char *pattern, Rule rule) {
+	/*RuleData rule(const char *pattern, Rule rule) {
 		BaseExpressionRef parsed = _parser.parse(pattern);
 		return RuleData{parsed, rule};
-	}
+	}*/
 
     template<int N>
-    RuleData rule(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
-	    BaseExpressionRef parsed = _parser.parse(pattern);
-        return RuleData{parsed, make_builtin_rule<N>(parsed, func)};
+    RuleRef rule(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
+	    BaseExpressionRef parsed_pattern = _parser.parse(pattern);
+	    return make_builtin_rule<N>(parsed_pattern, func);
     }
 
-	RuleData rewrite(const char *pattern, const char *into) {
-		BaseExpressionRef parsed =_parser.parse(pattern);
-		return RuleData{parsed, make_rewrite_rule(parsed, _parser.parse(into))};
+	RuleRef rewrite(const char *pattern, const char *into) {
+		BaseExpressionRef parsed_pattern =_parser.parse(pattern);
+		return make_rewrite_rule(parsed_pattern, _parser.parse(into));
 	}
 
     void initialize() {
         add("Plus",
             Attributes::None, {
-            rule(
-		        "Plus[]",
-		        Plus
-            )
+	        std::make_shared<Plus>()
         });
 
         add("Apply",

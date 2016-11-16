@@ -20,8 +20,6 @@ decltype(auto) apply_from_tuple(F&& fn, Tuple&& t)
                             std::make_index_sequence<tSize>());
 }
 
-// BuiltinRule is a special form of Rule for builtin functions.
-
 template<int N, typename... refs>
 struct BuiltinFunctionArguments {
     typedef typename BuiltinFunctionArguments<N - 1, BaseExpressionRef, refs...>::type type;
@@ -32,30 +30,88 @@ struct BuiltinFunctionArguments<0, refs...> {
     typedef std::function<BaseExpressionRef(refs..., const Evaluation&)> type;
 };
 
+// note: PatternMatchedBuiltinRule is only provided here for compatibility reasons. for new builtin functions,
+// you should always use BuiltinRule, as it's faster than PatternMatchedBuiltinRule.
+
 template<int N>
-inline Rule make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
-    return [patt, func](const ExpressionRef &expr, const Evaluation &evaluation) {
-        const Match m = match(patt, expr, evaluation.definitions);
-        if (m) {
-            return apply_from_tuple(func, std::tuple_cat(m.get<N>(), std::make_tuple(evaluation)));
-        } else {
-            return BaseExpressionRef();
-        }
-    };
+class PatternMatchedBuiltinRule : public Rule {
+private:
+	const BaseExpressionRef _patt;
+	typename BuiltinFunctionArguments<N>::type _func;
+
+public:
+	PatternMatchedBuiltinRule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) :
+		_patt(patt), _func(func) {
+	}
+
+	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
+		const Match m = match(_patt, expr, evaluation.definitions);
+		if (m) {
+			return apply_from_tuple(_func, std::tuple_cat(m.get<N>(), std::make_tuple(evaluation)));
+		} else {
+			return BaseExpressionRef();
+		}
+	}
+
+	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
+		if (_patt->head() == symbol) {
+			return DefinitionsPos::Down;
+		} else if ( _patt->lookup_name() == symbol) {
+			return DefinitionsPos::Sub;
+		} else {
+			return DefinitionsPos::None;
+		}
+	}
+
+	virtual MatchSize match_size() const {
+		return MatchSize(0); // FIXME; inspect _patt
+	}
+};
+
+template<int N>
+inline RuleRef make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
+	return std::make_shared<PatternMatchedBuiltinRule<N>>(patt, func);
 }
 
-inline Rule make_rewrite_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
-	return [patt, into](const ExpressionRef &expr, const Evaluation &evaluation) {
-		const Match m = match(patt, expr, evaluation.definitions);
+class RewriteRule : public Rule {
+private:
+	const BaseExpressionRef _patt;
+	const BaseExpressionRef _into;
+
+public:
+	RewriteRule(const BaseExpressionRef &patt, const BaseExpressionRef &into) :
+		_patt(patt), _into(into) {
+	}
+
+	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
+		const Match m = match(_patt, expr, evaluation.definitions);
 		if (m) {
-			auto replaced = into->replace_all(m);
+			const BaseExpressionRef replaced = _into->replace_all(m);
 			if (!replaced) {
-				return into;
+				return _into;
 			} else {
 				return replaced;
 			}
 		} else {
 			return BaseExpressionRef();
 		}
-	};
+	}
+
+	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
+		if (_patt->head() == symbol) {
+			return DefinitionsPos::Down;
+		} else if ( _patt->lookup_name() == symbol) {
+			return DefinitionsPos::Sub;
+		} else {
+			return DefinitionsPos::None;
+		}
+	}
+
+	virtual MatchSize match_size() const {
+		return MatchSize(0); // FIXME; inspect _patt
+	}
+};
+
+inline RuleRef make_rewrite_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
+	return std::make_shared<RewriteRule>(patt, into);
 }
