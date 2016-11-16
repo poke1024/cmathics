@@ -95,6 +95,21 @@ public:
 };
 
 template<int M, int N>
+struct unpack_leaves {
+	void operator()(const BaseExpressionRef *leaves, typename BaseExpressionTuple<M>::type &t) {
+		// symbols are already ordered in the order of their (first) appearance in the original pattern.
+		std::get<N>(t) = *leaves;
+		unpack_leaves<M, N + 1>()(leaves + 1, t);
+	}
+};
+
+template<int M>
+struct unpack_leaves<M, M> {
+	void operator()(const BaseExpressionRef *leaves, typename BaseExpressionTuple<M>::type &t) {
+	}
+};
+
+template<int M, int N>
 struct unpack_symbols {
 	void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
 		// symbols are already ordered in the order of their (first) appearance in the original pattern.
@@ -359,14 +374,12 @@ bool Matcher<Slice>::blank_sequence(match_size_t k, const Symbol *head) const {
 
 	for (const BaseExpressionRef *it = _rest_pattern_begin; it < _rest_pattern_end; it++) {
 		const BaseExpressionRef &patt = *it;
+		const MatchSize &size = patt->match_size();
 
-		size_t min_args, max_args;
-		std::tie(min_args, max_args) = patt->match_num_args();
-
-		if ((max_remaining -= min_args) < k) {
+		if ((max_remaining -= size.min()) < k) {
 			return false;
 		}
-		if ((min_remaining -= max_args) < 0) {
+		if ((min_remaining -= size.max()) < 0) {
 			min_remaining = 0;
 		}
 	}

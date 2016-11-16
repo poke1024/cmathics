@@ -515,16 +515,16 @@ public:
         }
     }
 
-	/*RuleData rule(const char *pattern, Rule rule) {
-		BaseExpressionRef parsed = _parser.parse(pattern);
-		return RuleData{parsed, rule};
-	}*/
-
-    template<int N>
-    RuleRef rule(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
-	    BaseExpressionRef parsed_pattern = _parser.parse(pattern);
-	    return make_builtin_rule<N>(parsed_pattern, func);
+    template<int N, typename F>
+    RuleRef builtin(F func) {
+	    return make_builtin_rule<N, F>(func);
     }
+
+	template<int N>
+	RuleRef pattern_matched_builtin(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
+		BaseExpressionRef parsed_pattern = _parser.parse(pattern);
+		return make_pattern_matched_builtin_rule<N>(parsed_pattern, func);
+	}
 
 	RuleRef rewrite(const char *pattern, const char *into) {
 		BaseExpressionRef parsed_pattern =_parser.parse(pattern);
@@ -539,8 +539,7 @@ public:
 
         add("Apply",
             Attributes::None, {
-	            rule<2>(
-	                "Apply[f_, x_]",
+		        builtin<2>(
 	                [](const BaseExpressionRef &f, const BaseExpressionRef &x, const Evaluation &evaluation) {
 	                    if (x->type() != ExpressionType) {
 	                        throw std::runtime_error("expected Expression at position 2");
@@ -552,31 +551,31 @@ public:
 
 	    add("First",
 	        Attributes::None, {
-		        rule<1>(
-			        "First[x_]",
+		        builtin<1>(
 			        [](const BaseExpressionRef &x, const Evaluation &evaluation) {
 				        if (x->type() != ExpressionType) {
 					        throw std::runtime_error("expected Expression at position 1");
 				        }
-				        auto list = boost::static_pointer_cast<const Expression>(x);
-				        if (list->size() < 1) {
-					        throw std::runtime_error("Expression is empty");
-				        }
-						return list->leaf(0);
+				        const Expression *list = static_cast<const Expression*>(x.get());
+				        return list->with_leaves_array([] (const BaseExpressionRef *leaves, size_t size) {
+					        if (size < 1) {
+						        throw std::runtime_error("Expression is empty");
+					        }
+					        return leaves[0];
+				        });
 			        }
 		        )
 	        });
 
 	    add("Length",
 	        Attributes::None, {
-		        rule<1>(
-				    "Length[x_]",
+			    builtin<1>(
 			        [](const BaseExpressionRef &x, const Evaluation &evaluation) {
 				        if (x->type() != ExpressionType) {
 					        return from_primitive(static_cast<machine_integer_t>(0));
 				        } else {
-					        auto list = boost::static_pointer_cast<const Expression>(x);
-					        return from_primitive(static_cast<machine_integer_t>(list->size()));
+					        const Expression *list = static_cast<const Expression*>(x.get());
+					        return from_primitive(machine_integer_t(list->size()));
 				        }
 			        }
 		        )
@@ -584,8 +583,7 @@ public:
 
         add("Most",
             Attributes::None, {
-	            rule<1>(
-	                "Most[x_List]",
+	            builtin<1>(
 	                [](const BaseExpressionRef &x, const Evaluation &evaluation) {
 	                    auto list = boost::static_pointer_cast<const Expression>(x);
 	                    return list->slice(0, -1);
@@ -597,8 +595,7 @@ public:
             Attributes::None, {
 		        rewrite("Range[imax_]", "Range[1, imax, 1]"),
 		        rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]"),
-	            rule<3>(
-	                "Range[imin_, imax_, di_]",
+		        builtin<3>(
 	                Range
 	            )
             });
@@ -616,8 +613,7 @@ public:
 
 	    add("Timing",
 	        Attributes::HoldAll, {
-		        rule<1>(
-				    "Timing[expr_]",
+			    builtin<1>(
 				    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
 					    const auto list_symbol = evaluation.definitions.List();
 					    const auto start_time = std::chrono::steady_clock::now();
@@ -633,7 +629,7 @@ public:
 
 	    add("Function",
 	        Attributes::HoldAll, {
-		        rule<2>(
+			    pattern_matched_builtin<2>(
 				    "Function[body_][args___]",
 				    [](const BaseExpressionRef &body, const BaseExpressionRef &args, const Evaluation &evaluation) {
 					    if (args->type() == ExpressionType && body->type() == ExpressionType) {

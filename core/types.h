@@ -7,6 +7,7 @@
 #include <vector>
 #include <cstdlib>
 #include <boost/intrusive_ptr.hpp>
+#include <experimental/optional>
 
 #include "hash.h"
 
@@ -70,8 +71,42 @@ const char *type_name(Type type);
 typedef int64_t machine_integer_t;
 typedef double machine_real_t;
 
+constexpr int MaxStaticSliceSize = 3;
+
+enum SliceCode : uint8_t {
+	DynamicSliceCode = 0,
+
+	PackedSliceMachineIntegerCode = 1,
+	PackedSliceMachineRealCode = 2,
+	PackedSliceBigIntegerCode = 3,
+	PackedSliceRationalCode = 4,
+	PackedSliceStringCode = 5,
+
+	StaticSlice0Code = 6,
+	StaticSliceNCode = 6 + MaxStaticSliceSize,
+
+	NumberOfSliceCodes = StaticSliceNCode + 1
+};
+
+inline bool is_packed_slice(SliceCode id) {
+	return id >= PackedSliceMachineIntegerCode && id <= PackedSliceStringCode;
+}
+
+inline constexpr SliceCode static_slice_code(size_t n) {
+	const SliceCode code = SliceCode(SliceCode::StaticSlice0Code + n);
+	assert(code <= StaticSliceNCode);
+	return code;
+}
+
+inline bool is_static_slice(SliceCode code) {
+	return code >= StaticSlice0Code && code <= StaticSliceNCode;
+}
+
+inline size_t static_slice_size(SliceCode code) {
+	return size_t(code) - size_t(StaticSlice0Code);
+}
+
 typedef int64_t match_size_t; // needs to be signed
-typedef std::tuple<match_size_t, match_size_t> match_sizes_t;
 constexpr match_size_t MATCH_MAX = INT64_MAX;
 
 class MatchSize {
@@ -79,14 +114,56 @@ private:
 	match_size_t _min;
 	match_size_t _max;
 
+	inline MatchSize(match_size_t min, match_size_t max) : _min(min), _max(max) {
+	}
+
 public:
-	inline MatchSize(match_size_t min, match_size_t max = MATCH_MAX) : _min(min), _max(max) {
+	static inline MatchSize exactly(match_size_t n) {
+		return MatchSize(n, n);
+	}
+
+	static inline MatchSize at_least(match_size_t n) {
+		return MatchSize(n, MATCH_MAX);
+	}
+
+	static inline MatchSize between(match_size_t min, match_size_t max) {
+		return MatchSize(min, max);
+	}
+
+	inline match_size_t min() const {
+		return _min;
+	}
+
+	inline match_size_t max() const {
+		return _max;
 	}
 
 	inline bool contains(match_size_t s) const {
 		return s >= _min && s <= _max;
 	}
+
+	inline bool matches(SliceCode code) const {
+		if (is_static_slice(code)) {
+			return contains(static_slice_size(code));
+		} else {
+			// inspect wrt minimum size of non-static slice
+			const size_t min_size = MaxStaticSliceSize + 1;
+			return _max >= min_size;
+		}
+	}
+
+	inline MatchSize &operator+=(const MatchSize &size) {
+		_min += size._min;
+		if (_max == MATCH_MAX || size._max == MATCH_MAX) {
+			_max = MATCH_MAX;
+		} else {
+			_max += size._max;
+		}
+		return *this;
+	}
 };
+
+typedef std::experimental::optional<MatchSize> OptionalMatchSize;
 
 class Definitions;
 class Symbol;
@@ -158,41 +235,6 @@ typedef boost::intrusive_ptr<Symbol> SymbolRef;
 
 class Evaluation;
 
-constexpr int MaxStaticSliceSize = 3;
-
-enum SliceCode : uint8_t {
-	DynamicSliceCode = 0,
-
-	PackedSliceMachineIntegerCode = 1,
-	PackedSliceMachineRealCode = 2,
-	PackedSliceBigIntegerCode = 3,
-	PackedSliceRationalCode = 4,
-	PackedSliceStringCode = 5,
-
-	StaticSlice0Code = 6,
-	StaticSliceNCode = 6 + MaxStaticSliceSize,
-
-	NumberOfSliceCodes = StaticSliceNCode + 1
-};
-
-inline bool is_packed_slice(SliceCode id) {
-	return id >= PackedSliceMachineIntegerCode && id <= PackedSliceStringCode;
-}
-
-inline constexpr SliceCode static_slice_code(size_t n) {
-	const SliceCode code = SliceCode(SliceCode::StaticSlice0Code + n);
-	assert(code <= StaticSliceNCode);
-	return code;
-}
-
-inline bool is_static_slice(SliceCode code) {
-	return code >= StaticSlice0Code && code <= StaticSliceNCode;
-}
-
-inline size_t static_slice_size(SliceCode code) {
-	return size_t(code) - size_t(StaticSlice0Code);
-}
-
 class BaseExpression {
 protected:
 	const Type _extended_type;
@@ -255,12 +297,12 @@ public:
 		throw std::runtime_error("need an Expression to match leaves");
 	}
 
-	virtual match_sizes_t match_num_args() const {
-        return std::make_tuple(1, 1); // default
+	virtual MatchSize match_size() const {
+        return MatchSize::exactly(1); // default
     }
 
-    virtual match_sizes_t match_num_args_with_head(ExpressionPtr patt) const {
-        return std::make_tuple(1, 1); // default for non-symbol heads
+    virtual OptionalMatchSize match_size_with_head(ExpressionPtr patt) const {
+	    return OptionalMatchSize();
     }
 
     virtual BaseExpressionRef replace_all(const Match &match) const {

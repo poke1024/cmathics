@@ -148,8 +148,17 @@ public:
 
 	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const;
 
-	virtual match_sizes_t match_num_args() const {
-		return _head->match_num_args_with_head(this);
+	virtual MatchSize match_size() const {
+		const OptionalMatchSize patt_size = _head->match_size_with_head(this);
+		if (patt_size) {
+			return *patt_size;
+		} else {
+			MatchSize size = MatchSize::exactly(0);
+			for (const auto &leaf : _leaves.leaves()) {
+				size += leaf->match_size();
+			}
+			return size;
+		}
 	}
 
 	virtual DynamicExpressionRef to_dynamic_expression(const BaseExpressionRef &self) const;

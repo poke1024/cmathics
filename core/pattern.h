@@ -15,6 +15,10 @@ public:
 	Blank(Definitions *definitions) :
 		Symbol(definitions, "System`Blank", SymbolBlank) {
 	}
+
+	virtual OptionalMatchSize match_size_with_head(ExpressionPtr patt) const {
+		return MatchSize::exactly(1);
+	}
 };
 
 class BlankSequence : public Symbol {
@@ -22,6 +26,10 @@ public:
     BlankSequence(Definitions *definitions) :
 	    Symbol(definitions, "System`BlankSequence", SymbolBlankSequence) {
     }
+
+	virtual OptionalMatchSize match_size_with_head(ExpressionPtr patt) const {
+		return MatchSize::at_least(1);
+	}
 };
 
 class BlankNullSequence : public Symbol {
@@ -29,6 +37,10 @@ public:
     BlankNullSequence(Definitions *definitions) :
 	    Symbol(definitions, "System`BlankNullSequence", SymbolBlankNullSequence) {
     }
+
+	virtual OptionalMatchSize match_size_with_head(ExpressionPtr patt) const {
+		return MatchSize::at_least(0);
+	}
 };
 
 class Pattern : public Symbol {
@@ -37,12 +49,12 @@ public:
         Symbol(definitions, "System`Pattern", SymbolPattern) {
     }
 
-    virtual match_sizes_t match_num_args_with_head(DynamicExpressionPtr patt) const {
-        if (patt->_leaves.size() == 2) {
+    virtual OptionalMatchSize match_size_with_head(ExpressionPtr patt) const {
+        if (patt->size() == 2) {
             // Pattern is only valid with two arguments
-            return patt->_leaves[1]->match_num_args();
+            return patt->leaf(1)->match_size();
         } else {
-            return std::make_tuple(1, 1);
+            return MatchSize::exactly(1);
         }
     }
 };
@@ -53,24 +65,24 @@ public:
         Symbol(definitions, "System`Alternatives") {
     }
 
-    virtual match_sizes_t match_num_args_with_head(DynamicExpressionPtr patt) const {
-        auto leaves = patt->_leaves;
+    virtual OptionalMatchSize match_size_with_head(ExpressionPtr patt) const {
+	    const size_t n = patt->size();
 
-        if (leaves.size() == 0) {
-            return std::make_tuple(1, 1);
+        if (n == 0) {
+            return MatchSize::exactly(1);
         }
 
-        size_t min_p, max_p;
-        std::tie(min_p, max_p) = leaves[0]->match_num_args();
+        const MatchSize size = patt->leaf(0)->match_size();
+        match_size_t min_p = size.min();
+	    match_size_t max_p = size.max();
 
-        for (auto i = std::begin(leaves) + 1; i != std::end(leaves); i++) {
-            size_t min_leaf, max_leaf;
-            std::tie(min_leaf, max_leaf) = (*i)->match_num_args();
-            max_p = std::max(max_p, max_leaf);
-            min_p = std::min(min_p, min_leaf);
+        for (size_t i = 1; i < n; i++) {
+	        const MatchSize leaf_size = patt->leaf(i)->match_size();
+            max_p = std::max(max_p, leaf_size.max());
+            min_p = std::min(min_p, leaf_size.min());
         }
 
-        return std::make_tuple(min_p, max_p);
+        return MatchSize::between(min_p, max_p);
     }
 };
 
@@ -80,15 +92,15 @@ public:
         Symbol(definitions, "System`Repeated") {
     }
 
-    virtual match_sizes_t match_num_args_with_head(DynamicExpressionPtr patt) const {
-        switch(patt->_leaves.size()) {
+    virtual OptionalMatchSize match_size_with_head(ExpressionPtr patt) const {
+        switch(patt->size()) {
             case 1:
-                return std::make_tuple(1, MATCH_MAX);
+                return MatchSize::at_least(1);
             case 2:
                 // TODO inspect second arg
-                return std::make_tuple(1, MATCH_MAX);
+                return MatchSize::at_least(1);
             default:
-                return std::make_tuple(1, 1);
+                return MatchSize::exactly(1);
         }
     }
 };

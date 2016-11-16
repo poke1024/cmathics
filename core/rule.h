@@ -25,7 +25,7 @@ private:
 	}
 
 	virtual MatchSize match_size() const {
-		return MatchSize(0); // override if this is too broad
+		return MatchSize::at_least(0); // override if this is too broad
 	}
 };
 

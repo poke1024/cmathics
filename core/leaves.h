@@ -11,7 +11,6 @@
 #include <assert.h>
 #include <climits>
 #include <vector>
-#include <experimental/optional>
 
 #include "primitives.h"
 #include "string.h"

@@ -30,8 +30,47 @@ struct BuiltinFunctionArguments<0, refs...> {
     typedef std::function<BaseExpressionRef(refs..., const Evaluation&)> type;
 };
 
-// note: PatternMatchedBuiltinRule is only provided here for compatibility reasons. for new builtin functions,
-// you should always use BuiltinRule, as it's faster than PatternMatchedBuiltinRule.
+template<int N, typename F>
+class BuiltinRule : public Rule {
+private:
+	const F _func;
+
+public:
+	BuiltinRule(const F &func) : _func(func) {
+	}
+
+	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
+		if (N <= MaxStaticSliceSize || expr->size() == N) {
+			const F &func = _func;
+			return expr->with_leaves_array([&func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
+				typename BaseExpressionTuple<N>::type t;
+				unpack_leaves<N, 0>()(leaves, t);
+				return apply_from_tuple(
+					func,
+					std::tuple_cat(t, std::make_tuple(evaluation)));
+			});
+		} else {
+			return BaseExpressionRef();
+		}
+	}
+
+	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
+		return DefinitionsPos::Down;
+	}
+
+	virtual MatchSize match_size() const {
+		return MatchSize::exactly(N);
+	}
+};
+
+template<int N, typename F>
+inline RuleRef make_builtin_rule(const F &func) {
+	return std::make_shared<BuiltinRule<N, F>>(func);
+}
+
+// note: PatternMatchedBuiltinRule should only be used for builtins that match non-down values (e.g. sub values).
+// if you write builtins that match down values, always use BuiltinRule, since it's faster (it doesn't involve the
+// pattern matcher).
 
 template<int N>
 class PatternMatchedBuiltinRule : public Rule {
@@ -64,12 +103,14 @@ public:
 	}
 
 	virtual MatchSize match_size() const {
-		return MatchSize(0); // FIXME; inspect _patt
+		return _patt->match_size();
 	}
 };
 
 template<int N>
-inline RuleRef make_builtin_rule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
+inline RuleRef make_pattern_matched_builtin_rule(
+	const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
+
 	return std::make_shared<PatternMatchedBuiltinRule<N>>(patt, func);
 }
 
@@ -108,7 +149,7 @@ public:
 	}
 
 	virtual MatchSize match_size() const {
-		return MatchSize(0); // FIXME; inspect _patt
+		return MatchSize::at_least(0); // FIXME; inspect _patt
 	}
 };
 

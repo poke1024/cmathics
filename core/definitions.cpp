@@ -26,16 +26,20 @@ Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
 }
 
 void Symbol::add_down_rule(const RuleRef &rule) {
-	// FIXME: filter which slice codes to fill here.
-	for (size_t i = 0; i < NumberOfSliceCodes; i++) {
-		down_rules[i].push_back(rule);
+	const MatchSize match_size = rule->match_size();
+	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
+		if (match_size.matches(SliceCode(code))) {
+			down_rules[code].push_back(rule);
+		}
 	}
 }
 
 void Symbol::add_sub_rule(const RuleRef &rule) {
-	// FIXME: filter which slice codes to fill here.
-	for (size_t i = 0; i < NumberOfSliceCodes; i++) {
-		sub_rules[i].push_back(rule);
+	const MatchSize match_size = rule->match_size();
+	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
+		if (match_size.matches(SliceCode(code))) {
+			sub_rules[code].push_back(rule);
+		}
 	}
 }
 
