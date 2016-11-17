@@ -350,12 +350,10 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
     if (expr) {
         s << expr->fullform();
     } else {
-        //s << "(no expression)";
+        s << "IDENTITY";
     }
     return s;
 }
-
-// class ExpressionIterator;
 
 #include "arithmetic.h"
 #include "structure.h"
@@ -375,11 +373,9 @@ public:
 };
 
 class Expression : public BaseExpression, virtual public OperationsInterface {
-private:
-	const Slice *_slice_ptr;
-
 public:
 	const BaseExpressionRef _head;
+	const Slice * const _slice_ptr;
 
 	inline Expression(const BaseExpressionRef &head, SliceCode slice_id, const Slice *slice_ptr) :
 		BaseExpression(build_extended_type(ExpressionType, slice_id)), _head(head), _slice_ptr(slice_ptr) {
@@ -396,6 +392,11 @@ public:
 	template<SliceCode SliceCode = SliceCode::Unknown, typename F>
 	inline auto with_leaves_array(const F &f) const {
 		const BaseExpressionRef *leaves = _slice_ptr->_address;
+
+		// the check with slice_needs_no_materialize() here is really just an additional
+		// optimization that allows the compiler to reduce this code to the first case
+		// alone if it's statically clear that we're always dealing with a non-packed
+		// slice.
 
 		if (slice_needs_no_materialize(SliceCode) || leaves) {
 			return f(leaves, size());
@@ -433,46 +434,9 @@ public:
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
 };
 
-/*class ExpressionIterator {
-private:
-	const Expression * const _expr;
-	size_t _pos;
-
-public:
-	inline ExpressionIterator() : _expr(nullptr) {
-	}
-
-	inline explicit ExpressionIterator(const Expression *expr, size_t pos) : _expr(expr), _pos(pos) {
-	}
-
-	inline auto operator*() const {
-		return _expr->leaf(_pos);
-	}
-
-	inline bool operator==(const ExpressionIterator &other) const {
-		return _expr == other._expr && _pos == other._pos;
-	}
-
-	inline bool operator!=(const ExpressionIterator &other) const {
-		return _expr != other._expr || _pos != other._pos;
-	}
-
-	inline ExpressionIterator &operator++() {
-		_pos += 1;
-		return *this;
-	}
-
-	inline ExpressionIterator operator++(int) const {
-		return ExpressionIterator(_expr, _pos + 1);
-	}
-};
-
-inline ExpressionIterator Expression::begin() const {
-	return ExpressionIterator(this, 0);
+inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
+	s << boost::static_pointer_cast<const BaseExpression>(expr);
+	return s;
 }
-
-inline ExpressionIterator Expression::end() const {
-	return ExpressionIterator(this, size());
-}*/
 
 #endif

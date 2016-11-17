@@ -277,18 +277,7 @@ ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end)
 		}
 	};
 
-	switch (end - begin) {
-		case 0:
-			return tiny_expression<0>(head, generate_leaves);
-		case 1:
-			return tiny_expression<1>(head, generate_leaves);
-		case 2:
-			return tiny_expression<2>(head, generate_leaves);
-		case 3:
-			return tiny_expression<3>(head, generate_leaves);
-		default:
-			return expression(head, generate_leaves, size);
-	}
+	return expression(head, generate_leaves, end - begin);
 }
 
 template<typename Slice>

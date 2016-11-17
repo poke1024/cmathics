@@ -555,6 +555,10 @@ public:
 	inline const BaseExpressionRef *refs() const {
 		return &_refs[0];
 	}
+
+	inline BaseExpressionRef leaf(size_t i) const {
+		return _refs[i];
+	}
 };
 
 typedef StaticSlice<0> EmptySlice;

@@ -572,7 +572,7 @@ public:
 			    builtin<1>(
 			        [](const BaseExpressionRef &x, const Evaluation &evaluation) {
 				        if (x->type() != ExpressionType) {
-					        return from_primitive(static_cast<machine_integer_t>(0));
+					        return from_primitive(machine_integer_t(0));
 				        } else {
 					        const Expression *list = static_cast<const Expression*>(x.get());
 					        return from_primitive(machine_integer_t(list->size()));
@@ -581,11 +581,27 @@ public:
 		        )
 	        });
 
+	    add("Map",
+	        Attributes::None, {
+			    builtin<2>(
+					[](const BaseExpressionRef &f, const BaseExpressionRef &expr, const Evaluation &evaluation) {
+						if (expr->type() != ExpressionType) {
+							return BaseExpressionRef();
+						}
+						const Expression *list = static_cast<const Expression*>(expr.get());
+						return list->map(f, evaluation);
+					}
+			    )
+	        });
+
         add("Most",
             Attributes::None, {
 	            builtin<1>(
-	                [](const BaseExpressionRef &x, const Evaluation &evaluation) {
-	                    auto list = boost::static_pointer_cast<const Expression>(x);
+	                [](const BaseExpressionRef &x, const Evaluation &evaluation) -> BaseExpressionRef {
+		                if (x->type() != ExpressionType) {
+			                return BaseExpressionRef();
+		                }
+	                    const Expression *list = static_cast<const Expression*>(x.get());
 	                    return list->slice(0, -1);
 	                }
 	            )
@@ -629,21 +645,7 @@ public:
 
 	    add("Function",
 	        Attributes::HoldAll, {
-			    pattern_matched_builtin<2>(
-				    "Function[body_][args___]",
-				    [](const BaseExpressionRef &body, const BaseExpressionRef &args, const Evaluation &evaluation) {
-					    if (args->type() == ExpressionType && body->type() == ExpressionType) {
-						    const Expression *slots_expr = static_cast<const Expression *>(args.get());
-						    const Expression *body_expr = static_cast<const Expression *>(body.get());
-						    return slots_expr->with_leaves_array([body_expr, &evaluation] (
-								    const BaseExpressionRef *slots, size_t n_slots) {
-							    return body_expr->replace_slots(slots, n_slots, evaluation);
-						    });
-					    } else {
-						    return BaseExpressionRef();
-					    }
-				    }
-		        )
+			    std::make_shared<FunctionRule>()
 	        }
 	    );
     }

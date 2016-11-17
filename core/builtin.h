@@ -151,10 +151,44 @@ public:
 	}
 
 	virtual MatchSize match_size() const {
-		return MatchSize::at_least(0); // FIXME; inspect _patt
+		return _patt->match_size();
 	}
 };
 
 inline RuleRef make_rewrite_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
 	return std::make_shared<RewriteRule>(patt, into);
 }
+
+// as Function is a very important pattern, we provide a special optimized Rule for it.
+
+class FunctionRule : public Rule {
+public:
+	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
+		// match and unpack Function[body_][args___]
+
+		const BaseExpressionRef &head = expr->_head;
+		if (head->type() != ExpressionType) {
+			return BaseExpressionRef();
+		}
+		const Expression *expr_head = static_cast<const Expression*>(head.get());
+		if (expr_head->slice_code() != SliceCode::StaticSlice0Code + 1) {
+			return BaseExpressionRef();
+		}
+		const BaseExpressionRef &body = static_cast<const StaticSlice<1>*>(expr_head->_slice_ptr)->leaf(0);
+		if (body->type() != ExpressionType) {
+			return BaseExpressionRef();
+		}
+
+		const Expression *expr_body = static_cast<const Expression*>(body.get());
+		return expr->with_leaves_array([expr_body, &evaluation] (const BaseExpressionRef *slots, size_t n_slots) {
+			return expr_body->replace_slots(slots, n_slots, evaluation);
+		});
+	}
+
+	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
+		return DefinitionsPos::Sub; // assuming "symbol" is Function
+	}
+
+	virtual MatchSize match_size() const {
+		return MatchSize::at_least(0);
+	}};

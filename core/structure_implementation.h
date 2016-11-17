@@ -6,6 +6,20 @@
 #include "evaluate.h"
 
 template<typename T>
+BaseExpressionRef StructureOperationsImplementation<T>::map(
+	const BaseExpressionRef &f, const Evaluation &evaluation) const {
+
+	const T &self = this->expr();
+	const auto &leaves = self._leaves;
+
+	return expression(self._head, [&f, &leaves] (auto &storage) {
+		for (const BaseExpressionRef &leaf : leaves.leaves()) {
+			storage << expression(f, StaticSlice<1>(&leaf, leaf->type_mask()));
+		}
+	}, leaves.size());
+}
+
+template<typename T>
 BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
 	const BaseExpressionRef *slots, size_t n_slots, const Evaluation &evaluation) const {
 

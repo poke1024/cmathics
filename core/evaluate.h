@@ -120,9 +120,19 @@ inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const F &gen
 
 template<typename F>
 inline ExpressionRef expression(const BaseExpressionRef &head, const F &generate, size_t size) {
-	heap_storage storage(size);
-	generate(storage);
-	return storage.to_expression(head);
+	switch (size) {
+		case 1:
+			return tiny_expression<1>(head, generate);
+		case 2:
+			return tiny_expression<2>(head, generate);
+		case 3:
+			return tiny_expression<3>(head, generate);
+		default: {
+			heap_storage storage(size);
+			generate(storage);
+			return storage.to_expression(head);
+		}
+	}
 }
 
 template<typename Slice, typename F>
@@ -180,16 +190,7 @@ ExpressionRef apply(
 
 				};
 
-				switch (size) {
-					case 1:
-						return tiny_expression<1>(head, generate_leaves);
-					case 2:
-						return tiny_expression<2>(head, generate_leaves);
-					case 3:
-						return tiny_expression<3>(head, generate_leaves);
-					default:
-						return expression(head, generate_leaves, size);
-				}
+				return expression(head, generate_leaves, size);
 			}
 		}
 	}
@@ -197,7 +198,7 @@ ExpressionRef apply(
 	if (apply_head) {
 		return expression(head, slice);
 	} else {
-		return DynamicExpressionRef();
+		return ExpressionRef();
 	}
 }
 
@@ -210,12 +211,12 @@ BaseExpressionRef evaluate(
 
 	if (!Hold::do_eval) {
 		// no more evaluation is applied
-		return DynamicExpressionRef();
+		return BaseExpressionRef();
 	}
 
 	const Slice &slice = *static_cast<const Slice*>(slice_ptr);
 
-	const auto head_symbol = static_cast<const Symbol *>(head.get());
+	const auto head_symbol = static_cast<const Symbol*>(head.get());
 
 	const eval_range eval_leaf(Hold::eval(slice));
 
@@ -223,7 +224,7 @@ BaseExpressionRef evaluate(
 	assert(eval_leaf.first <= eval_leaf.second);
 	assert(eval_leaf.second <= slice.size());
 
-	ExpressionRef intermediate_form = apply(
+	const ExpressionRef intermediate_form = apply(
 		head,
 		slice,
 		eval_leaf.first,
@@ -234,9 +235,18 @@ BaseExpressionRef evaluate(
 		head != self->_head,
 		MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType));
 
-	if (!intermediate_form) {
-		intermediate_form = boost::static_pointer_cast<const Expression>(self);
+	if (false) { // debug
+		std::cout
+			<< "EVALUATED " << self
+			<< " AT [" << eval_leaf.first << ", " << eval_leaf.second << "]"
+			<< " TO " << intermediate_form << std::endl;
 	}
+
+	const ExpressionRef safe_intermediate_form =
+		intermediate_form ?
+			intermediate_form :
+			boost::static_pointer_cast<const Expression>(self);
+
 	// Step 3
 	// Apply UpValues for leaves
 	// TODO
@@ -245,13 +255,13 @@ BaseExpressionRef evaluate(
 	// Evaluate the head with leaves. (DownValue)
 
 	for (const RuleRef &rule : head_symbol->down_rules[Slice::code()]) {
-		auto result = rule->try_apply(intermediate_form, evaluation);
+		auto result = rule->try_apply(safe_intermediate_form, evaluation);
 		if (result) {
 			return result;
 		}
 	}
 
-	return BaseExpressionRef();
+	return intermediate_form;
 }
 
 class Evaluate {

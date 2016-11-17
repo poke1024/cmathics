@@ -1,6 +1,8 @@
 #include "types.h"
 #include "expression.h"
 #include "evaluate.h"
+#include "definitions.h"
+#include "matcher.h"
 
 EvaluateDispatch *EvaluateDispatch::s_instance = nullptr;
 
