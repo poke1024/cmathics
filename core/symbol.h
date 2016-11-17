@@ -28,16 +28,16 @@ enum class Attributes : attributes_bitmask_t {
 	// evaluation hold attributes
 	HoldFirst = 1 << 9,
 	HoldRest = 1 << 10,
-	HoldAll = 1 << 11,
-	HoldAllComplete = 1 << 12,
+	HoldAll = HoldFirst + HoldRest,
+	HoldAllComplete = 1 << 11,
 	// evaluation nhold attributes
-	NHoldFirst = 1 << 13,
-	NHholdRest = 1 << 14,
-	NHoldAll = 1 << 15,
+	NHoldFirst = 1 << 12,
+	NHoldRest = 1 << 13,
+	NHoldAll = NHoldFirst + NHoldRest,
 	// misc attributes
-	SequenceHold = 1 << 16,
-	Temporary = 1 << 17,
-	Stub = 1 << 18
+	SequenceHold = 1 << 14,
+	Temporary = 1 << 15,
+	Stub = 1 << 16
 };
 
 inline bool
