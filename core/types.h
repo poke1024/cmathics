@@ -262,7 +262,7 @@ public:
 		return _extended_type; // extended type, e.g. SymbolBlank
 	}
 
-	inline TypeMask type_mask() const {
+	inline TypeMask base_type_mask() const {
 		return ((TypeMask)1) << type();
 	}
 
@@ -411,7 +411,7 @@ public:
 
 	virtual BaseExpressionRef leaf(size_t i) const = 0;
 
-	virtual TypeMask type_mask() const = 0;
+	virtual TypeMask type_mask() const = 0; // FIXME; change to _type_mask
 
 	virtual BaseExpressionRef head() const {
 		return _head;

@@ -22,7 +22,7 @@ template<typename T>
 inline TypeMask calc_type_mask(const T &container) {
 	TypeMask mask = 0;
 	for (auto leaf : container) {
-		mask |= leaf->type_mask();
+		mask |= leaf->base_type_mask();
 	}
 	return mask;
 }
@@ -375,7 +375,7 @@ public:
 	        const BaseExpressionRef *p_end = p + Slice::_size;
 	        TypeMask mask = 0;
 	        while (p != p_end) {
-		        mask |= (*p++)->type_mask();
+		        mask |= (*p++)->base_type_mask();
 	        }
 	        _type_mask = mask;
 	        return mask;

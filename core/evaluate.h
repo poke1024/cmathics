@@ -68,13 +68,13 @@ public:
 	}
 
 	inline heap_storage &operator<<(const BaseExpressionRef &expr) {
-		_type_mask |= expr->type_mask();
+		_type_mask |= expr->base_type_mask();
 		_leaves.push_back(expr);
 		return *this;
 	}
 
 	inline heap_storage &operator<<(BaseExpressionRef &&expr) {
-		_type_mask |= expr->type_mask();
+		_type_mask |= expr->base_type_mask();
 		_leaves.push_back(expr);
 		return *this;
 	}
@@ -149,7 +149,7 @@ ExpressionRef apply(
 		for (size_t i0 = begin; i0 < end; i0++) {
 			const auto &leaf = slice[i0];
 
-			if ((leaf->type_mask() & type_mask) == 0) {
+			if ((leaf->base_type_mask() & type_mask) == 0) {
 				continue;
 			}
 
@@ -168,7 +168,7 @@ ExpressionRef apply(
 					for (size_t j = i0 + 1; j < end; j++) {
 						const auto &old_leaf = slice[j];
 
-						if ((old_leaf->type_mask() & type_mask) == 0) {
+						if ((old_leaf->base_type_mask() & type_mask) == 0) {
 							storage << old_leaf;
 						} else {
 							auto new_leaf = f(old_leaf);

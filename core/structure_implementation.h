@@ -14,7 +14,7 @@ BaseExpressionRef StructureOperationsImplementation<T>::map(
 
 	return expression(self._head, [&f, &leaves] (auto &storage) {
 		for (const BaseExpressionRef &leaf : leaves.leaves()) {
-			storage << expression(f, StaticSlice<1>(&leaf, leaf->type_mask()));
+			storage << expression(f, StaticSlice<1>(&leaf, leaf->base_type_mask()));
 		}
 	}, leaves.size());
 }

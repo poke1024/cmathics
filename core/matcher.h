@@ -317,7 +317,7 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
 	MatchContext context(patt, item, definitions);
 	{
 		Matcher<StaticSlice<1>> matcher(
-			context, &patt, nullptr, nullptr, StaticSlice<1>(&item, item->type_mask()), 0);
+			context, &patt, nullptr, nullptr, StaticSlice<1>(&item, item->base_type_mask()), 0);
 
 		if (matcher.match_sequence()) {
 			return Match(true, context);

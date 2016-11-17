@@ -121,6 +121,6 @@ BaseExpressionRef Range(
     const BaseExpressionRef &di,
 	const Evaluation &evaluation) {
 	return compute(
-		imin->type_mask() | imax->type_mask() | di->type_mask(),
+		imin->base_type_mask() | imax->base_type_mask() | di->base_type_mask(),
 		RangeComputation(imin, imax, di, evaluation));
 }
