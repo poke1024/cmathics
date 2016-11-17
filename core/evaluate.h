@@ -60,38 +60,40 @@ struct _HoldAllComplete {
 class heap_storage {
 private:
 	std::vector<BaseExpressionRef> _leaves;
+	TypeMask _type_mask;
 
 public:
-	inline heap_storage(size_t size) {
+	inline heap_storage(size_t size) : _type_mask(0) {
 		_leaves.reserve(size);
 	}
 
 	inline heap_storage &operator<<(const BaseExpressionRef &expr) {
+		_type_mask |= expr->type_mask();
 		_leaves.push_back(expr);
 		return *this;
 	}
 
 	inline heap_storage &operator<<(BaseExpressionRef &&expr) {
+		_type_mask |= expr->type_mask();
 		_leaves.push_back(expr);
 		return *this;
 	}
 
 	inline ExpressionRef to_expression(const BaseExpressionRef &head) {
-		return expression(head, std::move(_leaves));
+		return expression(head, std::move(_leaves), _type_mask);
 	}
 };
 
-template<size_t N>
 class direct_storage {
 protected:
-	StaticExpressionRef<N> _expr;
+	ExpressionRef _expr;
 	BaseExpressionRef *_addr;
 	BaseExpressionRef *_end;
 
 public:
-	inline direct_storage(const BaseExpressionRef &head) :
-		_expr(Heap::StaticExpression<N>(head, StaticSlice<N>())),
-		_addr(_expr->_leaves.late_init()), _end(_addr + N) {
+	inline direct_storage(const BaseExpressionRef &head, size_t n) {
+		std::tie(_expr, _addr) = Heap::StaticExpression(head, n);
+		_end = _addr + n;
 	}
 
 	inline direct_storage &operator<<(const BaseExpressionRef &expr) {
@@ -111,27 +113,21 @@ public:
 	}
 };
 
-template<size_t N, typename F>
-inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const F &generate) {
-	direct_storage<N> storage(head);
+template<typename F>
+inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const F &generate, size_t N) {
+	direct_storage storage(head, N);
 	generate(storage);
 	return storage.to_expression();
 }
 
 template<typename F>
 inline ExpressionRef expression(const BaseExpressionRef &head, const F &generate, size_t size) {
-	switch (size) {
-		case 1:
-			return tiny_expression<1>(head, generate);
-		case 2:
-			return tiny_expression<2>(head, generate);
-		case 3:
-			return tiny_expression<3>(head, generate);
-		default: {
-			heap_storage storage(size);
-			generate(storage);
-			return storage.to_expression(head);
-		}
+	if (size <= MaxStaticSliceSize) {
+		return tiny_expression(head, generate, size);
+	} else {
+		heap_storage storage(size);
+		generate(storage);
+		return storage.to_expression(head);
 	}
 }
 

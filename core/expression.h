@@ -191,33 +191,17 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 	return values;
 }
 
-template<typename T>
-inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const T &leaves) {
-	const auto size = leaves.size();
-	switch (size) {
-		case 0: // e.g. {}
-			return Heap::EmptyExpression(head);
-		case 1:
-			return Heap::StaticExpression<1>(head, StaticSlice<1>(leaves, OptionalTypeMask()));
-		case 2:
-			return Heap::StaticExpression<2>(head, StaticSlice<2>(leaves, OptionalTypeMask()));
-		case 3:
-			return Heap::StaticExpression<3>(head, StaticSlice<3>(leaves, OptionalTypeMask()));
-		default:
-			throw std::runtime_error("whoever called us should have known better.");
-	}
-}
-
 inline ExpressionRef expression(
 	const BaseExpressionRef &head,
-	std::vector<BaseExpressionRef> &&leaves) {
+	std::vector<BaseExpressionRef> &&leaves,
+	OptionalTypeMask in_type_mask = OptionalTypeMask()) {
 	// we expect our callers to move their leaves vector to us. if you cannot move, you
 	// should really recheck your design at the site of call.
 
-	if (leaves.size() < 4) {
-		return tiny_expression(head, leaves);
+	if (leaves.size() <= MaxStaticSliceSize) {
+		return Heap::StaticExpression(head, leaves);
 	} else {
-		const auto type_mask = calc_type_mask(leaves);
+		const TypeMask type_mask = in_type_mask ? *in_type_mask : calc_type_mask(leaves);
 		switch (type_mask) {
 			case MakeTypeMask(MachineIntegerType):
 				return expression(head, PackedSlice<machine_integer_t>(
@@ -238,8 +222,8 @@ inline ExpressionRef expression(
 	const BaseExpressionRef &head,
 	const std::initializer_list<BaseExpressionRef> &leaves) {
 
-	if (leaves.size() < 4) {
-		return tiny_expression(head, leaves);
+	if (leaves.size() <= MaxStaticSliceSize) {
+		return Heap::StaticExpression(head, leaves);
 	} else {
 		return Heap::Expression(head, DynamicSlice(leaves, OptionalTypeMask()));
 	}

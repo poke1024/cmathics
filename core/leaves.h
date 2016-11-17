@@ -523,20 +523,29 @@ public:
         std::copy(slice._refs, slice._refs + N, _refs);
     }
 
-    inline StaticSlice(const std::vector<BaseExpressionRef> &refs, OptionalTypeMask type_mask) :
-		BaseSlice(&_refs[0], N, type_mask) {
+    inline StaticSlice(
+	    const std::vector<BaseExpressionRef> &refs,
+	    OptionalTypeMask type_mask = OptionalTypeMask()) :
+
+	    BaseSlice(&_refs[0], N, type_mask) {
         assert(refs.size() == N);
         std::copy(refs.begin(), refs.end(), _refs);
     }
 
-	inline StaticSlice(const std::initializer_list<BaseExpressionRef> &refs, OptionalTypeMask type_mask) :
+	inline StaticSlice(
+		const std::initializer_list<BaseExpressionRef> &refs,
+		OptionalTypeMask type_mask = OptionalTypeMask()) :
+
 		BaseSlice(&_refs[0], N, type_mask) {
 		assert(refs.size() == N);
 		std::copy(refs.begin(), refs.end(), _refs);
 	}
 
-    inline StaticSlice(const BaseExpressionRef *refs, OptionalTypeMask type_mask) :
-		BaseSlice(&_refs[0], N, type_mask) {
+    inline StaticSlice(
+	    const BaseExpressionRef *refs,
+        OptionalTypeMask type_mask = OptionalTypeMask()) :
+
+	    BaseSlice(&_refs[0], N, type_mask) {
         std::copy(refs, refs + N, _refs);
     }
 

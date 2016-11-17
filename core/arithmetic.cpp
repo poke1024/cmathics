@@ -27,7 +27,7 @@ BaseExpressionRef Plus::try_apply(const ExpressionRef &expr, const Evaluation &e
 	constexpr TypeMask int_mask = MakeTypeMask(BigIntegerType) | MakeTypeMask(MachineIntegerType);
 
 	// bit field to determine which types are present
-	TypeMask types_seen = expr->type_mask();
+	const TypeMask types_seen = expr->type_mask();
 
 	// expression is all MachineReals
 	if (types_seen == MakeTypeMask(MachineRealType)) {

@@ -31,7 +31,22 @@ using StaticExpressionRef = boost::intrusive_ptr<ExpressionImplementation<Static
 template<int UpToSize>
 class StaticExpressionHeap {
 private:
+	typedef
+	std::function<ExpressionRef(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves)>
+	MakeFromVector;
+
+	typedef
+	std::function<ExpressionRef(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves)>
+	MakeFromInitializerList;
+
+	typedef
+	std::function<std::tuple<ExpressionRef, BaseExpressionRef*>(const BaseExpressionRef &head)>
+	MakeLateInit;
+
 	void *_pool[UpToSize + 1];
+	MakeFromVector _make_from_vector[UpToSize + 1];
+	MakeFromInitializerList _make_from_initializer_list[UpToSize + 1];
+	MakeLateInit _make_late_init[UpToSize + 1];
 	std::function<void(BaseExpression*)> _free[UpToSize + 1];
 
 	template<int N>
@@ -39,6 +54,38 @@ private:
 		const auto pool = new boost::object_pool<ExpressionImplementation<StaticSlice<N>>>;
 
 		_pool[N] = pool;
+
+		if (N == 0) {
+			_make_from_vector[N] = [pool] (
+				const BaseExpressionRef &head,
+				const std::vector<BaseExpressionRef> &leaves) {
+
+				return pool->construct(head);
+			};
+			_make_from_initializer_list[N] = [pool] (
+				const BaseExpressionRef &head,
+				const std::initializer_list<BaseExpressionRef> &leaves) {
+
+				return pool->construct(head);
+			};
+		} else {
+			_make_from_vector[N] = [pool] (
+				const BaseExpressionRef &head,
+				const std::vector<BaseExpressionRef> &leaves) {
+
+				return pool->construct(head, StaticSlice<N>(leaves));
+			};
+			_make_from_initializer_list[N] = [pool] (
+				const BaseExpressionRef &head,
+				const std::initializer_list<BaseExpressionRef> &leaves) {
+
+				return pool->construct(head, StaticSlice<N>(leaves));
+			};
+			_make_late_init[N] = [pool] (const BaseExpressionRef &head) {
+				StaticExpressionRef<N> expr = pool->construct(head, StaticSlice<N>());
+				return std::make_tuple(expr, expr->_leaves.late_init());
+			};
+		}
 
 		_free[N] = [pool] (BaseExpression *expr) {
 			pool->free(static_cast<ExpressionImplementation<StaticSlice<N>>*>(expr));
@@ -56,9 +103,24 @@ public:
 
 	template<int N>
 	StaticExpressionRef<N> allocate(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
-		static_assert(N <= UpToSize, "N must be be greater than UpToSize");
+		static_assert(N <= UpToSize, "N must not be be greater than UpToSize");
 		return StaticExpressionRef<N>(static_cast<boost::object_pool<ExpressionImplementation<StaticSlice<N>>>*>(
   		    _pool[N])->construct(head, slice));
+	}
+
+	ExpressionRef make(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
+		assert(leaves.size() <= UpToSize);
+		return _make_from_vector[leaves.size()](head, leaves);
+	}
+
+	ExpressionRef make(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves) {
+		assert(leaves.size() <= UpToSize);
+		return _make_from_initializer_list[leaves.size()](head, leaves);
+	}
+
+	std::tuple<ExpressionRef, BaseExpressionRef*> make_late_init(const BaseExpressionRef &head, size_t N) {
+		assert(N <= UpToSize);
+		return _make_late_init[N](head);
 	}
 
 	inline void free(BaseExpression *expr, SliceCode slice_id) const {
@@ -99,12 +161,39 @@ public:
 	static StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
 
 	template<int N>
-	static StaticExpressionRef<N> StaticExpression(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
+	static inline StaticExpressionRef<N> StaticExpression(
+		const BaseExpressionRef &head,
+		const StaticSlice<N> &slice) {
+
 		assert(_s_instance);
 		return _s_instance->_static_expression_heap.allocate<N>(head, slice);
 	}
 
-    static DynamicExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);
+	static inline ExpressionRef StaticExpression(
+		const BaseExpressionRef &head,
+		const std::vector<BaseExpressionRef> &leaves) {
+
+		assert(_s_instance);
+		return _s_instance->_static_expression_heap.make(head, leaves);
+	}
+
+	static inline ExpressionRef StaticExpression(
+		const BaseExpressionRef &head,
+		const std::initializer_list<BaseExpressionRef> &leaves) {
+
+		assert(_s_instance);
+		return _s_instance->_static_expression_heap.make(head, leaves);
+	}
+
+	static inline std::tuple<ExpressionRef, BaseExpressionRef*> StaticExpression(
+		const BaseExpressionRef &head,
+		size_t N) {
+
+		assert(_s_instance);
+		return _s_instance->_static_expression_heap.make_late_init(head, N);
+	}
+
+	static DynamicExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);
 
     template<typename U>
     static PackedExpressionRef<U> Expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
