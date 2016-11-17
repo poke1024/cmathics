@@ -41,14 +41,16 @@ public:
 
 	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
 		if (N <= MaxStaticSliceSize || expr->size() == N) {
+			constexpr SliceCode slice_code = N <= MaxStaticSliceSize ? static_slice_code(N) : SliceCode::Unknown;
 			const F &func = _func;
-			return expr->with_leaves_array([&func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
-				typename BaseExpressionTuple<N>::type t;
-				unpack_leaves<N, 0>()(leaves, t);
-				return apply_from_tuple(
-					func,
-					std::tuple_cat(t, std::make_tuple(evaluation)));
-			});
+			return expr->with_leaves_array<slice_code>(
+				[&func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
+					typename BaseExpressionTuple<N>::type t;
+					unpack_leaves<N, 0>()(leaves, t);
+					return apply_from_tuple(
+						func,
+						std::tuple_cat(t, std::make_tuple(evaluation)));
+				});
 		} else {
 			return BaseExpressionRef();
 		}

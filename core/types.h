@@ -74,35 +74,40 @@ typedef double machine_real_t;
 constexpr int MaxStaticSliceSize = 3;
 
 enum SliceCode : uint8_t {
-	DynamicSliceCode = 0,
+	StaticSlice0Code = 0,
+	StaticSliceNCode = StaticSlice0Code + MaxStaticSliceSize,
 
-	PackedSliceMachineIntegerCode = 1,
-	PackedSliceMachineRealCode = 2,
-	PackedSliceBigIntegerCode = 3,
-	PackedSliceRationalCode = 4,
-	PackedSliceStringCode = 5,
+	DynamicSliceCode = StaticSliceNCode + 1,
 
-	StaticSlice0Code = 6,
-	StaticSliceNCode = 6 + MaxStaticSliceSize,
+	PackedSliceMachineIntegerCode = DynamicSliceCode + 1,
+	PackedSliceMachineRealCode = DynamicSliceCode + 2,
+	PackedSliceBigIntegerCode = DynamicSliceCode + 3,
+	PackedSliceRationalCode = DynamicSliceCode + 4,
+	PackedSliceStringCode = DynamicSliceCode + 5,
 
-	NumberOfSliceCodes = StaticSliceNCode + 1
+	NumberOfSliceCodes = PackedSliceStringCode + 1,
+	Unknown = 255
 };
 
-inline bool is_packed_slice(SliceCode id) {
+constexpr inline bool is_packed_slice(SliceCode id) {
 	return id >= PackedSliceMachineIntegerCode && id <= PackedSliceStringCode;
 }
 
-inline constexpr SliceCode static_slice_code(size_t n) {
+constexpr inline bool is_static_slice(SliceCode code) {
+	return code >= StaticSlice0Code && code <= StaticSliceNCode;
+}
+
+constexpr inline bool slice_needs_no_materialize(SliceCode id) {
+	return is_static_slice(id) || id == SliceCode::DynamicSliceCode;
+}
+
+constexpr inline SliceCode static_slice_code(size_t n) {
 	const SliceCode code = SliceCode(SliceCode::StaticSlice0Code + n);
 	assert(code <= StaticSliceNCode);
 	return code;
 }
 
-inline bool is_static_slice(SliceCode code) {
-	return code >= StaticSlice0Code && code <= StaticSliceNCode;
-}
-
-inline size_t static_slice_size(SliceCode code) {
+constexpr inline size_t static_slice_size(SliceCode code) {
 	return size_t(code) - size_t(StaticSlice0Code);
 }
 
@@ -388,11 +393,11 @@ public:
 		return _slice_ptr->_size;
 	}
 
-	template<typename F>
+	template<SliceCode SliceCode = SliceCode::Unknown, typename F>
 	inline auto with_leaves_array(const F &f) const {
 		const BaseExpressionRef *leaves = _slice_ptr->_address;
 
-		if (leaves) {
+		if (slice_needs_no_materialize(SliceCode) || leaves) {
 			return f(leaves, size());
 		} else {
 			BaseExpressionRef materialized;

@@ -270,7 +270,7 @@ public:
 
 	template<typename Hold>
 	void initialize() {
-		static_assert(1 + StaticSliceNCode - DynamicSliceCode == NumberOfSliceCodes, "slice code ids error");
+		static_assert(1 + PackedSliceStringCode - StaticSlice0Code == NumberOfSliceCodes, "slice code ids error");
 
 		_vtable[DynamicSliceCode] = ::evaluate<DynamicSlice, Hold>;
 
