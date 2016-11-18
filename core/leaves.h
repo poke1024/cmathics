@@ -292,6 +292,10 @@ public:
 		BaseSlice(nullptr, size) {
 	}
 
+	inline PackedSlice<U> slice(size_t begin, size_t end) const {
+		return PackedSlice<U>(_extent, _begin + begin, end - begin);
+	}
+
     inline constexpr TypeMask type_mask() const {
 	    // constexpr is important here, as it allows apply() to optimize this for most cases that
 	    // need specific type masks (e.g. optimize evaluate of leaves on PackSlices to a noop).
@@ -460,6 +464,10 @@ public:
 		_extent(extent) {
 	}
 
+	inline DynamicSlice slice(size_t begin, size_t end) const {
+		return DynamicSlice(_extent, _address + begin, _address + end, sliced_type_mask(end - begin));
+	}
+
 	inline bool is_packed() const {
 		return false;
 	}
@@ -548,6 +556,10 @@ public:
 	    BaseSlice(&_refs[0], N, type_mask) {
         std::copy(refs, refs + N, _refs);
     }
+
+	inline StaticSlice slice(size_t begin, size_t end) const {
+		throw std::runtime_error("cannot slice a StaticSlice");
+	}
 
 	BaseExpressionRef *late_init() const {
 		return &_refs[0];

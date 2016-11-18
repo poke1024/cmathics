@@ -252,16 +252,23 @@ ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end)
 	end = std::min(end, size);
 	begin = std::min(begin, end);
 
+	const size_t new_size = end - begin;
+	constexpr SliceCode slice_code = Slice::code();
 	const BaseExpressionRef &head = _head;
-	const Slice &slice = _leaves;
 
-	auto generate_leaves = [begin, end, &head, &slice] (auto &storage) {
-		for (size_t i = begin; i < end; i++) {
-			storage << slice[i];
-		}
-	};
+	if (new_size > MaxStaticSliceSize && (slice_code == DynamicSliceCode || is_packed_slice(slice_code))) {
+		return expression(head, _leaves.slice(begin, end));
+	} else {
+		const Slice &slice = _leaves;
 
-	return expression(head, generate_leaves, end - begin);
+		auto generate_leaves = [begin, end, &head, &slice] (auto &storage) {
+			for (size_t i = begin; i < end; i++) {
+				storage << slice[i];
+			}
+		};
+
+		return expression(head, generate_leaves, new_size);
+	}
 }
 
 template<typename Slice>
