@@ -40,7 +40,7 @@ private:
 	MakeFromInitializerList;
 
 	typedef
-	std::function<std::tuple<ExpressionRef, BaseExpressionRef*>(const BaseExpressionRef &head)>
+	std::function<std::tuple<ExpressionRef, BaseExpressionRef*, TypeMask*>(const BaseExpressionRef &head)>
 	MakeLateInit;
 
 	void *_pool[UpToSize + 1];
@@ -83,7 +83,7 @@ private:
 			};
 			_make_late_init[N] = [pool] (const BaseExpressionRef &head) {
 				StaticExpressionRef<N> expr = pool->construct(head, StaticSlice<N>());
-				return std::make_tuple(expr, expr->_leaves.late_init());
+				return std::tuple_cat(std::make_tuple(expr), expr->_leaves.late_init());
 			};
 		}
 
@@ -118,7 +118,7 @@ public:
 		return _make_from_initializer_list[leaves.size()](head, leaves);
 	}
 
-	std::tuple<ExpressionRef, BaseExpressionRef*> make_late_init(const BaseExpressionRef &head, size_t N) {
+	std::tuple<ExpressionRef, BaseExpressionRef*, TypeMask*> make_late_init(const BaseExpressionRef &head, size_t N) {
 		assert(N <= UpToSize);
 		return _make_late_init[N](head);
 	}
@@ -185,7 +185,7 @@ public:
 		return _s_instance->_static_expression_heap.make(head, leaves);
 	}
 
-	static inline std::tuple<ExpressionRef, BaseExpressionRef*> StaticExpression(
+	static inline std::tuple<ExpressionRef, BaseExpressionRef*, TypeMask*> StaticExpression(
 		const BaseExpressionRef &head,
 		size_t N) {
 

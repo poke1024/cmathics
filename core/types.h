@@ -48,12 +48,26 @@ constexpr Type SymbolSlot = build_extended_type(SymbolType, 5);
 constexpr Type SymbolSlotSequence = build_extended_type(SymbolType, 6);
 constexpr Type SymbolFunction = build_extended_type(SymbolType, 7);
 
-typedef uint16_t TypeMask;
+typedef uint32_t TypeMask;
+
+// the presence of TypeMaskIsInexact indicates that the TypeMask may contain
+// bits (types) that are not actually present (it will never miss a type though,
+// i.e. not contain a bit for the type that is present).
+constexpr TypeMask TypeMaskIsInexact = 1 << 31;
+
+constexpr TypeMask UnknownTypeMask = TypeMask(-1); // inexact, all type bits set
 
 constexpr uint8_t CoreTypeMask = ((1 << CoreTypeBits) - 1);
 
-static_assert((1 << CoreTypeBits) == sizeof(TypeMask) * 8,
-	"TypeMask should have one bit for each of the 2^TypeBits basic types");
+constexpr inline bool is_exact_type_mask(TypeMask type_mask) {
+	return (type_mask & TypeMaskIsInexact) == 0;
+}
+
+static_assert((TypeMaskIsInexact >> CoreTypeBits) != 0,
+	"CoreTypeBits is too large as it hides TypeMaskIsInexact");
+
+static_assert(sizeof(TypeMask) * 8 >= (1 << CoreTypeBits),
+	"TypeMask is too small; needs one bit for each of the 2^TypeBits basic types");
 
 constexpr TypeMask MakeTypeMask(Type type) {
     return ((TypeMask)1) << (type & CoreTypeMask);

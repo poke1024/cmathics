@@ -16,10 +16,8 @@
 #include "string.h"
 #include "promote.h"
 
-typedef std::experimental::optional<TypeMask> OptionalTypeMask;
-
 template<typename T>
-inline TypeMask calc_type_mask(const T &container) {
+inline TypeMask exact_type_mask(const T &container) {
 	TypeMask mask = 0;
 	for (auto leaf : container) {
 		mask |= leaf->base_type_mask();
@@ -302,6 +300,14 @@ public:
         return MakeTypeMask(TypeFromPrimitive<U>::type);
     }
 
+	inline constexpr TypeMask exact_type_mask() const {
+		return type_mask();
+	}
+
+	inline void init_type_mask(TypeMask type_mask) const {
+		// noop
+	}
+
 	template<typename V>
 	PrimitiveCollection<V> primitives() const {
 		return PrimitiveCollection<V>(_begin, size(), PromotePrimitive<V>());
@@ -353,27 +359,31 @@ public:
 
 template<SliceCode _code>
 class BaseRefsSlice : public TypedSlice<_code> {
-protected:
-    mutable OptionalTypeMask _type_mask;
+public:
+    mutable TypeMask _type_mask;
 
 public:
-	inline OptionalTypeMask sliced_type_mask(size_t new_size) const {
+	inline TypeMask sliced_type_mask(size_t new_size) const {
 		if (new_size == 0) {
-			return OptionalTypeMask(0);
-		} else if (_type_mask) {
-			if (is_homogenous(*_type_mask)) {
+			return 0;
+		} else if (is_exact_type_mask(_type_mask)) {
+			if (is_homogenous(_type_mask)) {
 				return _type_mask;
 			} else {
-				return OptionalTypeMask();
+				return _type_mask | TypeMaskIsInexact;
 			}
 		} else {
-			return OptionalTypeMask();
+			return _type_mask;
 		}
 	}
 
-    inline TypeMask type_mask() const {
-        if (_type_mask) {
-	        return *_type_mask;
+	inline TypeMask type_mask() const {
+		return _type_mask;
+	}
+
+	inline TypeMask exact_type_mask() const {
+        if (is_exact_type_mask(_type_mask)) {
+	        return _type_mask;
         } else {
 	        const BaseExpressionRef *p = Slice::_address;
 	        const BaseExpressionRef *p_end = p + Slice::_size;
@@ -386,8 +396,12 @@ public:
         }
     }
 
+	inline void init_type_mask(TypeMask type_mask) const {
+		_type_mask = type_mask;
+	}
+
 public:
-    inline BaseRefsSlice(const BaseExpressionRef *address, size_t size, OptionalTypeMask type_mask) :
+    inline BaseRefsSlice(const BaseExpressionRef *address, size_t size, TypeMask type_mask) :
 	    TypedSlice<_code>(address, size), _type_mask(type_mask) {
     }
 
@@ -397,7 +411,7 @@ class DynamicSlice : public BaseRefsSlice<SliceCode::DynamicSliceCode> {
 private:
 	typename RefsExtent::Ref _extent;
 
-    inline DynamicSlice(const typename RefsExtent::Ref &extent, OptionalTypeMask type_mask) :
+    inline DynamicSlice(const typename RefsExtent::Ref &extent, TypeMask type_mask) :
         BaseRefsSlice(extent->address(), extent->size(), type_mask),
         _extent(extent) {
     }
@@ -443,15 +457,15 @@ public:
 	inline DynamicSlice() : BaseRefsSlice(nullptr, 0, 0) {
 	}
 
-    inline DynamicSlice(const std::vector<BaseExpressionRef> &data, OptionalTypeMask type_mask) :
+    inline DynamicSlice(const std::vector<BaseExpressionRef> &data, TypeMask type_mask) :
 		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
 	}
 
-	inline DynamicSlice(std::vector<BaseExpressionRef> &&data, OptionalTypeMask type_mask) :
+	inline DynamicSlice(std::vector<BaseExpressionRef> &&data, TypeMask type_mask) :
 		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
 	}
 
-	inline DynamicSlice(const std::initializer_list<BaseExpressionRef> &data, OptionalTypeMask type_mask) :
+	inline DynamicSlice(const std::initializer_list<BaseExpressionRef> &data, TypeMask type_mask) :
 		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
 	}
 
@@ -459,7 +473,7 @@ public:
         const typename RefsExtent::Ref &extent,
 		const BaseExpressionRef * const begin,
         const BaseExpressionRef * const end,
-        OptionalTypeMask type_mask) :
+        TypeMask type_mask) :
         BaseRefsSlice(begin, end - begin, type_mask),
 		_extent(extent) {
 	}
@@ -522,7 +536,7 @@ public:
 
 public:
 	inline StaticSlice() :
-		BaseSlice(&_refs[0], N, N == 0 ? OptionalTypeMask(0) : OptionalTypeMask()) {
+		BaseSlice(&_refs[0], N, N == 0 ? 0 : UnknownTypeMask) {
 	}
 
     inline StaticSlice(const StaticSlice<N> &slice) :
@@ -533,7 +547,7 @@ public:
 
     inline StaticSlice(
 	    const std::vector<BaseExpressionRef> &refs,
-	    OptionalTypeMask type_mask = OptionalTypeMask()) :
+	    TypeMask type_mask = UnknownTypeMask) :
 
 	    BaseSlice(&_refs[0], N, type_mask) {
         assert(refs.size() == N);
@@ -542,7 +556,7 @@ public:
 
 	inline StaticSlice(
 		const std::initializer_list<BaseExpressionRef> &refs,
-		OptionalTypeMask type_mask = OptionalTypeMask()) :
+		TypeMask type_mask = UnknownTypeMask) :
 
 		BaseSlice(&_refs[0], N, type_mask) {
 		assert(refs.size() == N);
@@ -551,7 +565,7 @@ public:
 
     inline StaticSlice(
 	    const BaseExpressionRef *refs,
-        OptionalTypeMask type_mask = OptionalTypeMask()) :
+        TypeMask type_mask = UnknownTypeMask) :
 
 	    BaseSlice(&_refs[0], N, type_mask) {
         std::copy(refs, refs + N, _refs);
@@ -561,8 +575,8 @@ public:
 		throw std::runtime_error("cannot slice a StaticSlice");
 	}
 
-	BaseExpressionRef *late_init() const {
-		return &_refs[0];
+	std::tuple<BaseExpressionRef*, TypeMask*> late_init() const {
+		return std::make_tuple(&_refs[0], &this->_type_mask);
 	}
 
 	inline bool is_packed() const {

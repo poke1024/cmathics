@@ -64,6 +64,14 @@ public:
 		return _leaves.type_mask();
 	}
 
+	inline TypeMask exact_type_mask() const {
+		return _leaves.exact_type_mask();
+	}
+
+	inline void init_type_mask(TypeMask type_mask) const {
+		_leaves.init_type_mask(type_mask);
+	}
+
 	virtual bool same(const BaseExpression &item) const {
 		if (this == &item) {
 			return true;
@@ -194,14 +202,15 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 inline ExpressionRef expression(
 	const BaseExpressionRef &head,
 	std::vector<BaseExpressionRef> &&leaves,
-	OptionalTypeMask in_type_mask = OptionalTypeMask()) {
+	TypeMask some_type_mask = UnknownTypeMask) {
 	// we expect our callers to move their leaves vector to us. if you cannot move, you
 	// should really recheck your design at the site of call.
 
 	if (leaves.size() <= MaxStaticSliceSize) {
 		return Heap::StaticExpression(head, leaves);
 	} else {
-		const TypeMask type_mask = in_type_mask ? *in_type_mask : calc_type_mask(leaves);
+		const TypeMask type_mask = is_exact_type_mask(some_type_mask) ?
+            some_type_mask : exact_type_mask(leaves);
 		switch (type_mask) {
 			case MakeTypeMask(MachineIntegerType):
 				return expression(head, PackedSlice<machine_integer_t>(
@@ -225,7 +234,7 @@ inline ExpressionRef expression(
 	if (leaves.size() <= MaxStaticSliceSize) {
 		return Heap::StaticExpression(head, leaves);
 	} else {
-		return Heap::Expression(head, DynamicSlice(leaves, OptionalTypeMask()));
+		return Heap::Expression(head, DynamicSlice(leaves, UnknownTypeMask));
 	}
 }
 

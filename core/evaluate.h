@@ -89,26 +89,31 @@ protected:
 	ExpressionRef _expr;
 	BaseExpressionRef *_addr;
 	BaseExpressionRef *_end;
+	TypeMask _type_mask;
+	TypeMask *_type_mask_ptr;
 
 public:
-	inline direct_storage(const BaseExpressionRef &head, size_t n) {
-		std::tie(_expr, _addr) = Heap::StaticExpression(head, n);
+	inline direct_storage(const BaseExpressionRef &head, size_t n) : _type_mask(0) {
+		std::tie(_expr, _addr, _type_mask_ptr) = Heap::StaticExpression(head, n);
 		_end = _addr + n;
 	}
 
 	inline direct_storage &operator<<(const BaseExpressionRef &expr) {
 		assert(_addr < _end);
+		_type_mask |= expr->base_type_mask();
 		*_addr++ = expr;
 		return *this;
 	}
 
 	inline direct_storage &operator<<(BaseExpressionRef &&expr) {
 		assert(_addr < _end);
+		_type_mask |= expr->base_type_mask();
 		*_addr++ = expr;
 		return *this;
 	}
 
 	inline ExpressionRef to_expression() {
+		*_type_mask_ptr = _type_mask;
 		return _expr;
 	}
 };
@@ -141,7 +146,11 @@ ExpressionRef apply(
 	bool apply_head,
 	TypeMask type_mask) {
 
+	// check against the (possibly inexact) type mask to exit early.
+	// if no decision can be made, do not compute the type mask here,
+	// as this corresponds to iterating all leaves, which we do anyway.
 	if ((type_mask & slice.type_mask()) != 0) {
+
 		/*if (_extent.use_count() == 1) {
 			// FIXME. optimize this case. we do not need to copy here.
 		}*/
@@ -251,7 +260,7 @@ BaseExpressionRef evaluate(
 	// Evaluate the head with leaves. (DownValue)
 
 	for (const RuleRef &rule : head_symbol->down_rules[Slice::code()]) {
-		const BaseExpression result = rule->try_apply(safe_intermediate_form, evaluation);
+		const BaseExpressionRef result = rule->try_apply(safe_intermediate_form, evaluation);
 		if (result) {
 			return result;
 		}
