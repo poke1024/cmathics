@@ -534,10 +534,20 @@ public:
     void initialize() {
         add("Plus",
             Attributes::None, {
-	        std::make_shared<Plus>()
+	            std::make_shared<Plus>()
         });
 
-        add("Apply",
+	    add("Less",
+	        Attributes::None, {
+			    std::make_shared<Less>()
+	        });
+
+	    add("Greater",
+	        Attributes::None, {
+			    std::make_shared<Greater>()
+	        });
+
+	    add("Apply",
             Attributes::None, {
 		        builtin<2>(
 	                [](const BaseExpressionRef &f, const BaseExpressionRef &x, const Evaluation &evaluation) {
@@ -615,6 +625,7 @@ public:
 	                Range
 	            )
             });
+
 
 	    add("Mean",
 	        Attributes::None, {

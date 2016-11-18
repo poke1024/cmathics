@@ -173,9 +173,9 @@ public:
 
 	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const;
 
-	virtual SliceCode slice_code() const {
+	/*virtual SliceCode slice_code() const {
 		return Slice::code();
-	}
+	}*/
 
 	virtual const Symbol *lookup_name() const {
 		return _head->lookup_name();
@@ -294,6 +294,9 @@ DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(cons
 
 	}
 }
+
+#include "definitions.h"
+#include "evaluation.h"
 
 #include "arithmetic_implementation.h"
 #include "structure_implementation.h"

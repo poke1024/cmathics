@@ -43,6 +43,10 @@ public:
     inline const SymbolRef &True() const {
         return _true;
     }
+
+    inline const SymbolRef &Boolean(bool x) const {
+        return x ? _true : _false;
+    }
 };
 
 #endif

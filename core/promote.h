@@ -3,16 +3,16 @@
 
 // rules for type promotion
 
-template<typename U, typename V>
+template<typename V, typename U>
 inline V promote(const U &u) {
     throw std::runtime_error("unsupported promotion");
 }
 
 #define PROMOTE(U, V) template<> \
-    inline V promote<U, V>(const U &x)
+    inline V promote<V, U>(const U &x)
 
 #define NO_PROMOTE(U, V) template<> \
-    inline V promote<U, V>(const U &x) { \
+    inline V promote<V, U>(const U &x) { \
     throw std::runtime_error("unsupported promotion"); }
 
 // mpint
@@ -25,12 +25,28 @@ PROMOTE(machine_integer_t, mpint) {
     return mpint(x);
 }
 
+PROMOTE(machine_integer_t, mpfr::mpreal) {
+	return x;
+}
+
+PROMOTE(machine_integer_t, mpz_class) {
+	mpz_t big_value;
+	mpz_init_set_si(big_value, x);
+	const mpz_class y(big_value);
+	mpz_clear(big_value);
+	return y;
+}
+
 NO_PROMOTE(mpq_class, mpint)
 NO_PROMOTE(std::string, mpint)
 
 // machine_real_t
 
 PROMOTE(machine_real_t, machine_real_t) {
+    return x;
+}
+
+PROMOTE(machine_real_t, mpfr::mpreal) {
     return x;
 }
 

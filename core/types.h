@@ -31,6 +31,8 @@ enum Type : uint8_t {
 	StringType = 8
 };
 
+constexpr int NumTypes = 9;
+
 constexpr Type build_extended_type(Type core, uint8_t extended) {
 	return Type(core + (extended << CoreTypeBits));
 }

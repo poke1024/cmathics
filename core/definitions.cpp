@@ -1,6 +1,7 @@
 #include <assert.h>
 
-#include "definitions.h"
+#include "types.h"
+#include "expression.h"
 #include "evaluation.h"
 #include "pattern.h"
 

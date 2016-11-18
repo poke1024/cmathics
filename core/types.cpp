@@ -1,4 +1,5 @@
 #include "types.h"
+#include "expression.h"
 #include "pattern.h"
 #include "evaluate.h"
 

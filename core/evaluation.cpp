@@ -3,8 +3,8 @@
 #include <assert.h>
 
 #include "types.h"
-#include "definitions.h"
 #include "expression.h"
+#include "definitions.h"
 #include "evaluation.h"
 #include "pattern.h"
 

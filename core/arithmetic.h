@@ -11,6 +11,18 @@ public:
 		const ExpressionRef &expr, const Evaluation &evaluation) const;
 };
 
+class Less : public QuickBuiltinRule {
+public:
+	virtual BaseExpressionRef try_apply(
+		const ExpressionRef &expr, const Evaluation &evaluation) const;
+};
+
+class Greater : public QuickBuiltinRule {
+public:
+	virtual BaseExpressionRef try_apply(
+		const ExpressionRef &expr, const Evaluation &evaluation) const;
+};
+
 BaseExpressionRef Range(
 	const BaseExpressionRef &imin,
 	const BaseExpressionRef &imax,
@@ -19,10 +31,9 @@ BaseExpressionRef Range(
 
 class ArithmeticOperations {
 public:
-	virtual BaseExpressionRef plus() const = 0;
-	virtual BaseExpressionRef add_only_integers() const = 0;
-	virtual BaseExpressionRef add_only_machine_reals() const = 0;
-	virtual BaseExpressionRef add_machine_inexact() const = 0;
+	virtual BaseExpressionRef Plus() const = 0;
+	virtual BaseExpressionRef Less(const Evaluation &evaluation) const = 0;
+	virtual BaseExpressionRef Greater(const Evaluation &evaluation) const = 0;
 };
 
 template<typename T>
@@ -30,10 +41,9 @@ class ArithmeticOperationsImplementation :
 	virtual public ArithmeticOperations,
 	virtual public OperationsImplementation<T> {
 public:
-	virtual BaseExpressionRef plus() const;
-	virtual BaseExpressionRef add_only_integers() const;
-	virtual BaseExpressionRef add_only_machine_reals() const;
-	virtual BaseExpressionRef add_machine_inexact() const;
+	virtual BaseExpressionRef Plus() const;
+	virtual BaseExpressionRef Less(const Evaluation &evaluation) const;
+	virtual BaseExpressionRef Greater(const Evaluation &evaluation) const;
 };
 
 #endif

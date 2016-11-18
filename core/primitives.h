@@ -59,7 +59,7 @@ inline machine_real_t to_primitive<machine_real_t>(const BaseExpressionRef &expr
 		case MachineRealType:
 			return boost::static_pointer_cast<const MachineReal>(expr)->value;
 		case BigRealType:
-			return boost::static_pointer_cast<const BigReal>(expr)->_value.toDouble();
+			return boost::static_pointer_cast<const BigReal>(expr)->value.toDouble();
 		default:
 			throw to_primitive_error(expr->type(), "machine_real_t");
 	}
@@ -75,7 +75,7 @@ inline mpfr::mpreal to_primitive<mpfr::mpreal>(const BaseExpressionRef &expr) {
 		case MachineRealType:
 			return mpfr::mpreal(boost::static_pointer_cast<const MachineReal>(expr)->value);
 		case BigRealType:
-			return boost::static_pointer_cast<const BigReal>(expr)->_value;
+			return boost::static_pointer_cast<const BigReal>(expr)->value;
 		default:
 			throw to_primitive_error(expr->type(), "mpreal");
 	}

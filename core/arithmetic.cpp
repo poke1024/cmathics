@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "types.h"
+#include "expression.h"
 #include "pattern.h"
 #include "integer.h"
 #include "arithmetic.h"
@@ -13,10 +14,28 @@
 #include "rational.h"
 #include "primitives.h"
 
+PlusArithmetic g_plus;
+LessComparison g_less;
+GreaterComparison g_greater;
+
 BaseExpressionRef Plus::try_apply(
 	const ExpressionRef &expr, const Evaluation &evaluation) const {
+	if (expr->slice_code() == StaticSlice0Code + 2) {
+		// the binary case is probably the most common special case, thus optimized.
+		return g_plus(evaluation.definitions, expr->_slice_ptr->_address);
+	} else {
+		return expr->Plus();
+	}
+}
 
-	return expr->plus();
+BaseExpressionRef Less::try_apply(
+	const ExpressionRef &expr, const Evaluation &evaluation) const {
+	return expr->Less(evaluation);
+}
+
+BaseExpressionRef Greater::try_apply(
+	const ExpressionRef &expr, const Evaluation &evaluation) const {
+	return expr->Greater(evaluation);
 }
 
 template<typename F>

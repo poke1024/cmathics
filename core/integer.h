@@ -15,6 +15,8 @@ public:
 
 class MachineInteger : public Integer {
 public:
+    static constexpr Type Type = MachineIntegerType;
+
     const machine_integer_t value;
 
     inline MachineInteger(machine_integer_t new_value) :
@@ -44,6 +46,8 @@ public:
 
 class BigInteger : public Integer {
 public:
+	static constexpr Type Type = BigIntegerType;
+
 	mpz_class value;
 
     inline BigInteger(const mpz_class &new_value) : Integer(BigIntegerType), value(new_value) {

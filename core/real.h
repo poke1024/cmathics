@@ -10,6 +10,8 @@
 
 class MachineReal : public BaseExpression {
 public:
+	static constexpr Type Type = MachineRealType;
+
     const machine_real_t value;
 
     explicit MachineReal(machine_real_t new_value) : BaseExpression(MachineRealType), value(new_value) {
@@ -49,20 +51,22 @@ inline mp_prec_t from_bits_prec(mp_prec_t bits_prec) {
 
 class BigReal : public BaseExpression {
 public:
-    mpfr::mpreal _value;
-	const double _prec;
+	static constexpr Type Type = BigRealType;
 
-	explicit inline BigReal(double prec, double value) :
-		BaseExpression(BigRealType), _value(value, bits_prec(prec), MPFR_RNDN), _prec(prec) {
+    mpfr::mpreal value;
+	const double prec;
+
+	explicit inline BigReal(double new_prec, double new_value) :
+		BaseExpression(BigRealType), value(new_value, bits_prec(new_prec), MPFR_RNDN), prec(new_prec) {
 	}
 
-	explicit inline BigReal(const mpfr::mpreal &value) :
-		BaseExpression(BigRealType), _value(value), _prec(from_bits_prec(value.get_prec())) {
+	explicit inline BigReal(const mpfr::mpreal &new_value) :
+		BaseExpression(BigRealType), value(new_value), prec(from_bits_prec(value.get_prec())) {
 	}
 
 	virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == BigRealType) {
-            return _value == static_cast<const BigReal*>(&expr)->_value;
+            return value == static_cast<const BigReal*>(&expr)->value;
         } else {
             return false;
         }
@@ -75,7 +79,7 @@ public:
 
     virtual std::string fullform() const {
 	    std::stringstream s; // FIXME
-	    s << _value;
+	    s << value;
         return s.str();
     }
 };

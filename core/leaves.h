@@ -53,7 +53,7 @@ class PromotePrimitive {
 public:
     template<typename U>
     inline V convert(const U &x) const {
-        return promote<U, V>(x);
+        return promote<V>(x);
     }
 };
 
