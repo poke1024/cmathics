@@ -13,48 +13,10 @@
 #include "rational.h"
 #include "primitives.h"
 
-BaseExpressionRef Plus::try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
-    switch (expr->size()) {
-        case 0:
-            // Plus[] -> 0
-            return from_primitive(0LL);
+BaseExpressionRef Plus::try_apply(
+	const ExpressionRef &expr, const Evaluation &evaluation) const {
 
-        case 1:
-            // Plus[a_] -> a
-            return expr->leaf(0);
-    }
-
-	constexpr TypeMask int_mask = MakeTypeMask(BigIntegerType) | MakeTypeMask(MachineIntegerType);
-
-	// bit field to determine which types are present
-	const TypeMask types_seen = expr->type_mask();
-
-	// expression is all MachineReals
-	if (types_seen == MakeTypeMask(MachineRealType)) {
-		return expr->add_only_machine_reals();
-	}
-
-	// expression is all Integers
-	if ((types_seen & int_mask) == types_seen) {
-		return expr->add_only_integers();
-	}
-
-	// expression contains a Real
-    if (types_seen & MakeTypeMask(MachineRealType)) {
-        return expr->add_machine_inexact();
-    }
-
-    // expression contains an Integer
-    /*if (types_seen & int_mask) {
-        auto integer_result = expr->operations().add_integers();
-        // FIXME return Plus[symbolics__, integer_result]
-        return integer_result;
-    }*/
-
-    // TODO rational and complex
-
-    // expression is symbolic
-    return BaseExpressionRef();
+	return expr->plus();
 }
 
 template<typename F>

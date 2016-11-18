@@ -19,6 +19,7 @@ BaseExpressionRef Range(
 
 class ArithmeticOperations {
 public:
+	virtual BaseExpressionRef plus() const = 0;
 	virtual BaseExpressionRef add_only_integers() const = 0;
 	virtual BaseExpressionRef add_only_machine_reals() const = 0;
 	virtual BaseExpressionRef add_machine_inexact() const = 0;
@@ -29,6 +30,7 @@ class ArithmeticOperationsImplementation :
 	virtual public ArithmeticOperations,
 	virtual public OperationsImplementation<T> {
 public:
+	virtual BaseExpressionRef plus() const;
 	virtual BaseExpressionRef add_only_integers() const;
 	virtual BaseExpressionRef add_only_machine_reals() const;
 	virtual BaseExpressionRef add_machine_inexact() const;

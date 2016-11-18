@@ -60,7 +60,7 @@ public:
 		return _leaves.template primitives<T>();
 	}
 
-	virtual TypeMask type_mask() const {
+	inline TypeMask type_mask() const {
 		return _leaves.type_mask();
 	}
 
