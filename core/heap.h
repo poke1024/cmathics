@@ -23,7 +23,13 @@ template<typename Slice>
 class ExpressionImplementation;
 
 template<typename U>
+using PackedExpression = ExpressionImplementation<PackedSlice<U>>;
+
+template<typename U>
 using PackedExpressionRef = boost::intrusive_ptr<ExpressionImplementation<PackedSlice<U>>>;
+
+template<size_t N>
+using StaticExpression = ExpressionImplementation<StaticSlice<N>>;
 
 template<size_t N>
 using StaticExpressionRef = boost::intrusive_ptr<ExpressionImplementation<StaticSlice<N>>>;

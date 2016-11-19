@@ -534,7 +534,8 @@ public:
     void initialize() {
         add("Plus",
             Attributes::None, {
-	            std::make_shared<Plus>()
+		        std::make_shared<Plus2>(),
+		        std::make_shared<Plus3>()
         });
 
 	    add("Less",
