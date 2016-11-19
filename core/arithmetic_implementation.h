@@ -152,7 +152,7 @@ struct plus {
 	template<typename T>
 	static BaseExpressionRef calculate(const T &u, const T &v) {
 		const T x = u + v;
-		return from_primitive(x);
+		return from_primitive(std::move(x));
 	}
 };
 
@@ -200,7 +200,7 @@ inline BaseExpressionRef add_only_integers(const T &self) {
 		result += value;
 	}
 
-	return from_primitive(result.to_primitive());
+	return from_primitive(std::move(result.to_primitive()));
 }
 
 template<typename T>

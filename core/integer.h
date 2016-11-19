@@ -50,7 +50,12 @@ public:
 
 	mpz_class value;
 
-    inline BigInteger(const mpz_class &new_value) : Integer(BigIntegerType), value(new_value) {
+	inline BigInteger(const mpz_class &new_value) :
+		Integer(BigIntegerType), value(new_value) {
+	}
+
+	inline BigInteger(mpz_class &&new_value) :
+	    Integer(BigIntegerType), value(new_value) {
     }
 
     virtual bool same(const BaseExpression &expr) const {
@@ -167,7 +172,7 @@ public:
 
 inline BaseExpressionRef from_primitive(const mpint &value) {
 	if (value.is_big) {
-		return from_primitive(mpz_class(value.big_value));
+		return from_primitive(std::move(mpz_class(value.big_value)));
 	} else {
 		return from_primitive(machine_integer_t(value.machine_value));
 	}

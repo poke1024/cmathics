@@ -159,6 +159,7 @@ public:
 
     static BaseExpressionRef MachineInteger(machine_integer_t value);
     static BaseExpressionRef BigInteger(const mpz_class &value);
+	static BaseExpressionRef BigInteger(mpz_class &&value);
 
     static BaseExpressionRef MachineReal(machine_real_t vTalue);
     static BaseExpressionRef BigReal(const mpfr::mpreal &value);
@@ -211,8 +212,18 @@ inline BaseExpressionRef from_primitive(machine_integer_t value) {
     return BaseExpressionRef(Heap::MachineInteger(value));
 }
 
+static_assert(sizeof(long) == sizeof(machine_integer_t),
+	"types long and machine_integer_t must not differ");
+
 inline BaseExpressionRef from_primitive(const mpz_class &value) {
-    static_assert(sizeof(long) == sizeof(machine_integer_t), "types long and machine_integer_t differ");
+	if (value.fits_slong_p()) {
+		return from_primitive(static_cast<machine_integer_t>(value.get_si()));
+	} else {
+		return BaseExpressionRef(Heap::BigInteger(value));
+	}
+}
+
+inline BaseExpressionRef from_primitive(mpz_class &&value) {
     if (value.fits_slong_p()) {
         return from_primitive(static_cast<machine_integer_t>(value.get_si()));
     } else {

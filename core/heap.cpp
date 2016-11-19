@@ -66,6 +66,11 @@ BaseExpressionRef Heap::BigInteger(const mpz_class &value) {
     return BaseExpressionRef(_s_instance->_big_integers.construct(value));
 }
 
+BaseExpressionRef Heap::BigInteger(mpz_class &&value) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_big_integers.construct(value));
+}
+
 BaseExpressionRef Heap::MachineReal(machine_real_t value) {
     assert(_s_instance);
     return BaseExpressionRef(_s_instance->_machine_reals.construct(value));
