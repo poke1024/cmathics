@@ -1,6 +1,8 @@
 #ifndef CMATHICS_PROMOTE_H
 #define CMATHICS_PROMOTE_H
 
+#include "integer.h"
+
 // rules for type promotion
 
 template<typename V, typename U>
