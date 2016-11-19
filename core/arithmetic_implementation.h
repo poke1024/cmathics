@@ -46,15 +46,16 @@ protected:
 
 	typedef std::function<IntermediateType(const BaseExpression *a, const BaseExpression *b)> Function;
 
-	Function _functions[1 << (2 * CoreTypeBits)];
+	Function _functions[1LL << (2 * CoreTypeBits)];
 
 	template<typename U, typename V, typename W>
 	void init() {
-		_functions[U::Type + (V::Type << CoreTypeBits)] = [] (const BaseExpression *a, const BaseExpression *b) {
-			constexpr bool ia = std::is_same<decltype(static_cast<const U*>(a)->value), const W>::value;
-			constexpr bool ib = std::is_same<decltype(static_cast<const V*>(b)->value), const W>::value;
-			return calculate<F, U, V, W, ia, ib>()(a, b);
-		};
+		_functions[U::Type | (size_t(V::Type) << CoreTypeBits)] =
+			[] (const BaseExpression *a, const BaseExpression *b) {
+				constexpr bool ia = std::is_same<decltype(static_cast<const U*>(a)->value), const W>::value;
+				constexpr bool ib = std::is_same<decltype(static_cast<const V*>(b)->value), const W>::value;
+				return calculate<F, U, V, W, ia, ib>()(a, b);
+			};
 	};
 
 	static inline BaseExpressionRef result(const Definitions &definitions, const BaseExpressionRef &result) {
@@ -73,7 +74,7 @@ public:
 	inline BaseExpressionRef operator()(const Definitions &definitions, const BaseExpressionRef *leaves) const {
 		const BaseExpression * const a = leaves[0].get();
 		const BaseExpression * const b = leaves[1].get();
-		const Function f = _functions[a->type() | (b->type() << CoreTypeBits)];
+		const Function f = _functions[a->type() | (size_t(b->type()) << CoreTypeBits)];
 		if (f) {
 			return result(definitions, f(a, b));
 		} else {
@@ -86,12 +87,12 @@ template<typename F>
 class BinaryArithmetic : public BinaryOperator<F> {
 public:
 	BinaryArithmetic() {
-		BinaryOperator<F>::template init<MachineInteger, MachineInteger, mpz_class>();
-		BinaryOperator<F>::template init<MachineInteger, BigInteger, mpz_class>();
+		BinaryOperator<F>::template init<MachineInteger, MachineInteger, mpint>();
+		BinaryOperator<F>::template init<MachineInteger, BigInteger, mpint>();
 		BinaryOperator<F>::template init<MachineInteger, MachineReal, mpfr::mpreal>();
 		BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
 
-		BinaryOperator<F>::template init<BigInteger, MachineInteger, mpz_class>();
+		BinaryOperator<F>::template init<BigInteger, MachineInteger, mpint>();
 		BinaryOperator<F>::template init<BigInteger, BigInteger, mpz_class>();
 		BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
 		BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
@@ -158,16 +159,18 @@ struct plus {
 template<typename Operator>
 class BinaryOperatorRule : public QuickBuiltinRule {
 private:
-	Operator _operator;
+	const Operator _operator;
 
 public:
 	virtual BaseExpressionRef try_apply(
-			const ExpressionRef &expr, const Evaluation &evaluation) const {
+		const ExpressionRef &expr, const Evaluation &evaluation) const {
+
 		const StaticExpression<2>* expr2 = static_cast<const StaticExpression<2>*>(expr.get());
 		return _operator(evaluation.definitions, expr2->_leaves.refs());
 	}
 
 	virtual MatchSize match_size() const {
+		// guarantees that we receive a StaticExpression<2> in try_apply()
 		return MatchSize::exactly(2);
 	}
 };

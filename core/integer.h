@@ -77,7 +77,7 @@ public:
     mpz_t big_value;
     bool is_big;
 
-    static_assert(sizeof(machine_integer_t) == sizeof(machine_value),
+    static_assert(sizeof(machine_integer_t) == sizeof(decltype(machine_value)),
         "machine integer type must equivalent to long");
 
     inline mpint(machine_integer_t value = 0) : machine_value(value), is_big(false) {
@@ -89,6 +89,7 @@ public:
             std::memcpy(&big_value, &x.big_value, sizeof(mpz_t));
             x.is_big = false;
         } else {
+	        is_big = false;
             machine_value = x.machine_value;
         }
     }
@@ -98,6 +99,7 @@ public:
             is_big = true;
             mpz_init_set(big_value, x.big_value);
         } else {
+	        is_big = false;
             machine_value = x.machine_value;
         }
     }
@@ -162,5 +164,13 @@ public:
         }
     }
 };
+
+inline BaseExpressionRef from_primitive(const mpint &value) {
+	if (value.is_big) {
+		return from_primitive(mpz_class(value.big_value));
+	} else {
+		return from_primitive(machine_integer_t(value.machine_value));
+	}
+}
 
 #endif
