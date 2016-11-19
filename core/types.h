@@ -88,6 +88,8 @@ typedef int64_t machine_integer_t;
 typedef double machine_real_t;
 
 constexpr int MaxStaticSliceSize = 3;
+// do not set below 3 as code like Plus[] relies on perfect
+// matching of sizes up to 3.
 
 enum SliceCode : uint8_t {
 	StaticSlice0Code = 0,

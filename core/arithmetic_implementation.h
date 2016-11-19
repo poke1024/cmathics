@@ -156,6 +156,42 @@ struct plus {
 	}
 };
 
+struct times {
+	template<typename T>
+	static BaseExpressionRef calculate(const T &u, const T &v) {
+		const T x = u * v;
+		return from_primitive(std::move(x));
+	}
+};
+
+template<machine_integer_t Value>
+class EmptyConstantRule : public QuickBuiltinRule {
+public:
+	virtual BaseExpressionRef try_apply(
+		const ExpressionRef &expr, const Evaluation &evaluation) const {
+		return Heap::MachineInteger(Value);
+	}
+
+	virtual MatchSize match_size() const {
+		return MatchSize::exactly(0);
+	}
+};
+
+class IdentityRule : public QuickBuiltinRule {
+public:
+	virtual BaseExpressionRef try_apply(
+		const ExpressionRef &expr, const Evaluation &evaluation) const {
+
+		const StaticExpression<1>* expr1 = static_cast<const StaticExpression<1>*>(expr.get());
+		return expr1->_leaves.refs()[0];
+	}
+
+	virtual MatchSize match_size() const {
+		return MatchSize::exactly(1);
+	}
+};
+
+
 template<typename Operator>
 class BinaryOperatorRule : public QuickBuiltinRule {
 private:
@@ -175,7 +211,10 @@ public:
 	}
 };
 
+typedef EmptyConstantRule<0> Plus0;
+typedef IdentityRule Plus1;
 typedef BinaryOperatorRule<BinaryArithmetic<plus>> Plus2;
+typedef BinaryOperatorRule<BinaryArithmetic<times>> Times2;
 
 class Plus3 : public QuickBuiltinRule {
 public:
@@ -184,6 +223,28 @@ public:
 
 	virtual MatchSize match_size() const {
 		return MatchSize::at_least(3);
+	}
+};
+
+class Power : public QuickBuiltinRule {
+public:
+	virtual BaseExpressionRef try_apply(
+		const ExpressionRef &expr, const Evaluation &evaluation) const {
+
+		const StaticExpression<2>* expr2 = static_cast<const StaticExpression<2>*>(expr.get());
+		const BaseExpressionRef *refs = expr2->_leaves.refs();
+		const BaseExpressionRef &a = refs[0];
+		const BaseExpressionRef &b = refs[1];
+
+		if (b->type() == MachineIntegerType) {
+			const machine_integer_t integer_exponent = static_cast<const MachineInteger*>(b.get())->value;
+		}
+
+		return BaseExpressionRef();
+	}
+
+	virtual MatchSize match_size() const {
+		return MatchSize::exactly(2);
 	}
 };
 
@@ -281,15 +342,8 @@ template<typename T>
 BaseExpressionRef ArithmeticOperationsImplementation<T>::Plus() const {
 	const T &expr = this->expr();
 
-	switch (expr.size()) {
-		case 0:
-			// Plus[] -> 0
-			return from_primitive(0LL);
-
-		case 1:
-			// Plus[a_] -> a
-			return expr.leaf(0);
-	}
+	// we guarantee that expr.size() >= 3 through the given match_size() in the corresponding
+	// Rule.
 
 	constexpr TypeMask int_mask = MakeTypeMask(BigIntegerType) | MakeTypeMask(MachineIntegerType);
 

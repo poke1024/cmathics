@@ -77,6 +77,61 @@ public:
 };
 
 class mpint {
+private:
+	template<bool c_is_a>
+	inline static void add(mpint &c, const mpint &a, const mpint &b) {
+		if (!a.is_big) {
+			if (!b.is_big) {
+				long r;
+				if (!__builtin_saddl_overflow(a.machine_value, b.machine_value, &r)) {
+					if (!c_is_a) {
+						c.is_big = false;
+					}
+					c.machine_value = r;
+					return;
+				}
+			}
+			mpz_init_set_si(c.big_value, a.machine_value);
+			c.is_big = true;
+		}
+		if (b.is_big) {
+			mpz_add(c.big_value, c.big_value, b.big_value);
+		} else {
+			const auto value = b.machine_value;
+			if (value >= 0) {
+				mpz_add_ui(c.big_value, c.big_value, (unsigned long)value);
+			} else {
+				mpz_sub_ui(c.big_value, c.big_value, (unsigned long)-value);
+			}
+		}
+	}
+
+	template<bool c_is_a>
+	inline static void mul(mpint &c, const mpint &a, const mpint &b) {
+		if (!a.is_big) {
+			/*if (!b.is_big) {
+				long r;
+				if (!__builtin_saddl_overflow(a.machine_value, b.machine_value, &r)) {
+					if (!c_is_a) {
+						c.is_big = false;
+					}
+					c.machine_value = r;
+					return;
+				}
+			}*/
+			mpz_init_set_si(c.big_value, a.machine_value);
+			c.is_big = true;
+		}
+		if (b.is_big) {
+			mpz_mul(c.big_value, c.big_value, b.big_value);
+		} else {
+			mpz_mul_si(c.big_value, c.big_value, b.machine_value);
+		}
+	}
+
+	inline mpint() {
+	}
+
 public:
     long machine_value;
     mpz_t big_value;
@@ -85,7 +140,7 @@ public:
     static_assert(sizeof(machine_integer_t) == sizeof(decltype(machine_value)),
         "machine integer type must equivalent to long");
 
-    inline mpint(machine_integer_t value = 0) : machine_value(value), is_big(false) {
+    inline explicit mpint(machine_integer_t value) : machine_value(value), is_big(false) {
     }
 
     inline mpint(mpint &&x) {
@@ -127,37 +182,27 @@ public:
         }
     }
 
-    mpint operator+(const mpint &y) const {
-        mpint x(*this);
-        x += y;
+    inline mpint operator+(const mpint &other) const {
+	    mpint x;
+	    add<false>(x, *this, other);
         return x;
     }
 
-    mpint &operator+=(const mpint &other) {
-        if (!is_big) {
-            if (!other.is_big) {
-                long r;
-                if (!__builtin_saddl_overflow(machine_value, other.machine_value, &r)) {
-                    machine_value = r;
-                    return *this;
-                }
-            }
-            mpz_init_set_si(big_value, machine_value);
-            is_big = true;
-        }
-        if (other.is_big) {
-            mpz_add(big_value, big_value, other.big_value);
-            return *this;
-        } else {
-            const auto value = other.machine_value;
-            if (value >= 0) {
-                mpz_add_ui(big_value, big_value, (unsigned long)value);
-            } else {
-                mpz_sub_ui(big_value, big_value, (unsigned long)-value);
-            }
-            return *this;
-        }
+	inline mpint &operator+=(const mpint &other) {
+	    add<true>(*this, *this, other);
+	    return *this;
     }
+
+	inline mpint operator*(const mpint &other) const {
+		mpint x;
+		mul<false>(x, *this, other);
+		return x;
+	}
+
+	inline mpint &operator*=(const mpint &other) {
+		mul<true>(*this, *this, other);
+		return *this;
+	}
 
     mpz_class to_primitive() const {
         if (!is_big) {

@@ -534,9 +534,21 @@ public:
     void initialize() {
         add("Plus",
             Attributes::None, {
+		        std::make_shared<Plus0>(),
+		        std::make_shared<Plus1>(),
 		        std::make_shared<Plus2>(),
 		        std::make_shared<Plus3>()
         });
+
+	    add("Times",
+	        Attributes::None, {
+		        std::make_shared<Times2>()
+	        });
+
+	    add("Power",
+	        Attributes::None, {
+			    std::make_shared<Power>()
+	        });
 
 	    add("Less",
 	        Attributes::None, {
