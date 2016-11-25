@@ -181,6 +181,60 @@ public:
 	}
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const;
+
+	virtual SortKey pattern_key() const {
+		switch (_head->extended_type()) {
+			case SymbolBlank:
+				return SortKey::Blank(1, size() > 0, this);
+			case SymbolBlankSequence:
+				return SortKey::Blank(2, size() > 0, this);
+			case SymbolBlankNullSequence:
+				return SortKey::Blank(3, size() > 0, this);
+			case SymbolPatternTest:
+				if (size() != 2) {
+					return SortKey::NotAPattern(this);
+				} else {
+					SortKey key = _leaves[0]->pattern_key();
+					key.pattern_test = 0;
+					return key;
+				}
+			case SymbolCondition:
+				if (size() != 2) {
+					return SortKey::NotAPattern(this);
+				} else {
+					SortKey key = _leaves[0]->pattern_key();
+					key.condition = 0;
+					return key;
+				}
+			case SymbolPattern:
+				if (size() != 2) {
+					return SortKey::NotAPattern(this);
+				} else {
+					SortKey key = _leaves[1]->pattern_key();
+					key.pattern = 0;
+					return key;
+				}
+			case SymbolOptional:
+				if (size() < 1 || size() > 2) {
+					return SortKey::NotAPattern(this);
+				} else {
+					SortKey key = _leaves[0]->pattern_key();
+					key.optional = 1;
+					return key;
+				}
+			case SymbolAlternatives:
+				// FIXME
+			case SymbolVerbatim:
+				// FIXME
+			case SymbolOptionsPattern:
+				// FIXME
+			default: {
+				SortKey key(2, 0, 1, 1, 0, this, 1);
+				key.leaf_precedence = true;
+				return key;
+			}
+		}
+	}
 };
 
 template<typename U>

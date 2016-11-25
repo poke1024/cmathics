@@ -616,6 +616,26 @@ public:
 		        )
 	        });
 
+	    add("SetDelayed",
+	        Attributes::HoldAll + Attributes::SequenceHold, {
+			    builtin<2>(
+				    [](const BaseExpressionRef &lhs, const BaseExpressionRef &rhs, const Evaluation &evaluation) {
+						// FIXME this is just a super simple example implementation.
+
+					    if (lhs->type() == ExpressionType) {
+						    const Expression *target = static_cast<const Expression*>(lhs.get());
+						    const auto &head = target->head();
+						    if (head->type() == SymbolType) {
+							    const RuleRef rule = make_rewrite_rule(lhs, rhs);
+							    const_cast<Symbol*>(static_cast<const Symbol*>(head.get()))->add_down_rule(rule);
+						    }
+					    }
+
+					    return evaluation.definitions.Null();
+			        }
+		        )
+	        });
+
 	    add("Apply",
             Attributes::None, {
 		        builtin<2>(

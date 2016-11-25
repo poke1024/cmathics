@@ -107,6 +107,10 @@ public:
 	virtual MatchSize match_size() const {
 		return _patt->match_size();
 	}
+
+	virtual SortKey pattern_key() const {
+		return _patt->pattern_key();
+	}
 };
 
 template<int N>
@@ -152,6 +156,10 @@ public:
 
 	virtual MatchSize match_size() const {
 		return _patt->match_size();
+	}
+
+	virtual SortKey pattern_key() const {
+		return _patt->pattern_key();
 	}
 };
 

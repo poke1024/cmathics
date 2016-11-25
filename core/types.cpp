@@ -3,6 +3,18 @@
 #include "pattern.h"
 #include "evaluate.h"
 
+SortKey Rule::pattern_key() const {
+	return SortKey(0, 0, 1, 1, 0, nullptr, 1);
+}
+
+SortKey BaseExpression::sort_key() const {
+	throw std::runtime_error("not implemented");
+}
+
+SortKey BaseExpression::pattern_key() const {
+	return SortKey(0, 0, 1, 1, 0, nullptr, 1);
+}
+
 const char *type_name(Type type) {
     switch (type) {
 	    case MachineIntegerType:

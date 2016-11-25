@@ -9,6 +9,8 @@ enum class DefinitionsPos : int {
 	Sub
 };
 
+class SortKey;
+
 class Rule {
 public:
 	virtual MatchSize match_size() const = 0;
@@ -16,6 +18,8 @@ public:
 	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const = 0;
 
 	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const = 0;
+
+	virtual SortKey pattern_key() const;
 };
 
 class QuickBuiltinRule : public Rule {

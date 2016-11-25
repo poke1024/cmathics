@@ -17,7 +17,7 @@ typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
 
 constexpr int CoreTypeBits = 4;
 
-enum Type : uint8_t {
+enum Type : uint16_t {
 	// only the values 0 - 15 end up as bits in TypeMasks.
 
 	SymbolType = 0,
@@ -48,11 +48,16 @@ constexpr Type SymbolBlank = build_extended_type(SymbolType, 3);
 constexpr Type SymbolBlankSequence = build_extended_type(SymbolType, 4);
 constexpr Type SymbolBlankNullSequence = build_extended_type(SymbolType, 5);
 constexpr Type SymbolPattern = build_extended_type(SymbolType, 6);
-
-constexpr Type SymbolSlot = build_extended_type(SymbolType, 7);
-constexpr Type SymbolSlotSequence = build_extended_type(SymbolType, 8);
-constexpr Type SymbolFunction = build_extended_type(SymbolType, 9);
-constexpr Type SymbolModule = build_extended_type(SymbolType, 10);
+constexpr Type SymbolPatternTest = build_extended_type(SymbolType, 7);
+constexpr Type SymbolCondition = build_extended_type(SymbolType, 8);
+constexpr Type SymbolOptional = build_extended_type(SymbolType, 9);
+constexpr Type SymbolAlternatives = build_extended_type(SymbolType, 10);
+constexpr Type SymbolVerbatim = build_extended_type(SymbolType, 11);
+constexpr Type SymbolOptionsPattern = build_extended_type(SymbolType, 12);
+constexpr Type SymbolSlot = build_extended_type(SymbolType, 13);
+constexpr Type SymbolSlotSequence = build_extended_type(SymbolType, 14);
+constexpr Type SymbolFunction = build_extended_type(SymbolType, 15);
+constexpr Type SymbolModule = build_extended_type(SymbolType, 16);
 
 typedef uint32_t TypeMask;
 
@@ -264,6 +269,8 @@ typedef boost::intrusive_ptr<Symbol> SymbolRef;
 
 class Evaluation;
 
+class SortKey;
+
 class BaseExpression {
 protected:
 	const Type _extended_type;
@@ -353,6 +360,9 @@ public:
 	virtual const Symbol *lookup_name() const {
 		return nullptr;
 	}
+
+	virtual SortKey sort_key() const;
+	virtual SortKey pattern_key() const;
 
 	friend void intrusive_ptr_add_ref(const BaseExpression *expr);
     friend void intrusive_ptr_release(const BaseExpression *expr);
@@ -483,5 +493,7 @@ inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
 	s << boost::static_pointer_cast<const BaseExpression>(expr);
 	return s;
 }
+
+#include "sort.h"
 
 #endif

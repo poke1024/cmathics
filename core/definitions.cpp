@@ -27,11 +27,21 @@ Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
     options = empty_list;*/
 }
 
+static struct {
+	bool operator()(const RuleRef &rule, const SortKey &key) const {
+		return rule->pattern_key().compare(key) < 0;
+	}
+} CompareSortKey;
+
 void Symbol::add_down_rule(const RuleRef &rule) {
 	const MatchSize match_size = rule->match_size();
 	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
 		if (match_size.matches(SliceCode(code))) {
-			down_rules[code].push_back(rule);
+			auto &rules = down_rules[code];
+			const SortKey key = rule->pattern_key();
+			const auto i = std::lower_bound(
+				rules.begin(), rules.end(), key, CompareSortKey);
+			rules.insert(i, rule);
 		}
 	}
 }

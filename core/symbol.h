@@ -54,7 +54,8 @@ count(Attributes x, Attributes y) {
 
 inline constexpr Attributes
 operator+(Attributes x, Attributes y)  {
-	return static_cast<Attributes>(static_cast<attributes_bitmask_t>(x) & static_cast<attributes_bitmask_t>(y));
+	return static_cast<Attributes>(
+		static_cast<attributes_bitmask_t>(x) | static_cast<attributes_bitmask_t>(y));
 }
 
 class Definitions;
