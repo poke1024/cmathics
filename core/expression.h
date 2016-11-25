@@ -33,8 +33,7 @@ public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
 
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &slice) :
-        Expression(head, Slice::code(), &_leaves),
-        _leaves(slice) {
+        Expression(head, Slice::code(), &_leaves), _leaves(slice) {
 		assert(head);
 	}
 

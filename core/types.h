@@ -41,14 +41,18 @@ constexpr Type build_extended_type(Type core, uint8_t extended) {
 
 constexpr Type SymbolSequence = build_extended_type(SymbolType, 0);
 
-constexpr Type SymbolBlank = build_extended_type(SymbolType, 1);
-constexpr Type SymbolBlankSequence = build_extended_type(SymbolType, 2);
-constexpr Type SymbolBlankNullSequence = build_extended_type(SymbolType, 3);
-constexpr Type SymbolPattern = build_extended_type(SymbolType, 4);
+constexpr Type SymbolTrue = build_extended_type(SymbolType, 1);
+constexpr Type SymbolFalse = build_extended_type(SymbolType, 2);
 
-constexpr Type SymbolSlot = build_extended_type(SymbolType, 5);
-constexpr Type SymbolSlotSequence = build_extended_type(SymbolType, 6);
-constexpr Type SymbolFunction = build_extended_type(SymbolType, 7);
+constexpr Type SymbolBlank = build_extended_type(SymbolType, 3);
+constexpr Type SymbolBlankSequence = build_extended_type(SymbolType, 4);
+constexpr Type SymbolBlankNullSequence = build_extended_type(SymbolType, 5);
+constexpr Type SymbolPattern = build_extended_type(SymbolType, 6);
+
+constexpr Type SymbolSlot = build_extended_type(SymbolType, 7);
+constexpr Type SymbolSlotSequence = build_extended_type(SymbolType, 8);
+constexpr Type SymbolFunction = build_extended_type(SymbolType, 9);
+constexpr Type SymbolModule = build_extended_type(SymbolType, 10);
 
 typedef uint32_t TypeMask;
 
@@ -88,11 +92,13 @@ typedef int64_t machine_integer_t;
 typedef double machine_real_t;
 
 constexpr int MaxStaticSliceSize = 3;
-// do not set below 3 as code like Plus[] relies on perfect
-// matching of sizes up to 3.
+static_assert(MaxStaticSliceSize >= 3, "must be >= 3");
 
 enum SliceCode : uint8_t {
 	StaticSlice0Code = 0,
+	StaticSlice1Code = 1,
+	StaticSlice2Code = 2,
+	StaticSlice3Code = 3,
 	StaticSliceNCode = StaticSlice0Code + MaxStaticSliceSize,
 
 	DynamicSliceCode = StaticSliceNCode + 1,
@@ -391,12 +397,22 @@ public:
 };
 
 class Expression : public BaseExpression, virtual public OperationsInterface {
+private:
+	mutable Cache *_cache;
+
 public:
 	const BaseExpressionRef _head;
 	const Slice * const _slice_ptr;
 
 	inline Expression(const BaseExpressionRef &head, SliceCode slice_id, const Slice *slice_ptr) :
-		BaseExpression(build_extended_type(ExpressionType, slice_id)), _head(head), _slice_ptr(slice_ptr) {
+		BaseExpression(build_extended_type(ExpressionType, slice_id)),
+		_head(head), _slice_ptr(slice_ptr), _cache(nullptr) {
+	}
+
+	inline ~Expression() {
+		if (_cache) {
+			Heap::release_cache(_cache);
+		}
 	}
 
 	inline SliceCode slice_code() const {
@@ -448,6 +464,19 @@ public:
 		const ExpressionRef &self, const Evaluation &evaluation) const = 0;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
+
+	inline bool has_cache() const {
+		return _cache;
+	}
+
+	inline Cache *cache() const {
+		Cache *cache = _cache;
+		if (!cache) {
+			cache = Heap::new_cache();
+			_cache = cache;
+		}
+		return cache;
+	}
 };
 
 inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {

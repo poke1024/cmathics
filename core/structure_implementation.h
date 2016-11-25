@@ -24,6 +24,11 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
 	const BaseExpressionRef *slots, size_t n_slots, const Evaluation &evaluation) const {
 
 	const T &self = this->expr();
+
+	if (self.has_cache() && self.cache()->skip_slots) {
+		return BaseExpressionRef();
+	}
+
 	const BaseExpressionRef &head = self._head;
 	const auto &leaves = self._leaves;
 
@@ -65,7 +70,7 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
 		new_head = static_cast<const Expression*>(head.get())->replace_slots(slots, n_slots, evaluation);
 	}
 
-	return apply(
+	const ExpressionRef result = apply(
 		new_head ? new_head : head,
 		leaves,
         0,
@@ -75,6 +80,58 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
         },
 		(bool)new_head,
 		MakeTypeMask(ExpressionType));
+
+	if (!result) {
+		self.cache()->skip_slots = true;
+	}
+
+	return result;
+}
+
+template<typename T>
+BaseExpressionRef StructureOperationsImplementation<T>::replace_vars(Name name) const {
+
+	const T &self = this->expr();
+
+	if (self.has_cache() && self.cache()->skip_replace_vars.contains(name)) {
+		return BaseExpressionRef();
+	}
+
+	const BaseExpressionRef &head = self._head;
+	const auto &leaves = self._leaves;
+
+	auto replace = [name] (const BaseExpressionRef &expr) {
+		const Type type = expr->type();
+
+		if (type == SymbolType) {
+			const BaseExpressionRef * const r =
+				static_cast<const Symbol*>(expr.get())->replacement();
+			if (r) {
+				return *r;
+			}
+		} else if (type == ExpressionType) {
+			return static_cast<const Expression*>(expr.get())->replace_vars(name);
+		}
+
+		return BaseExpressionRef();
+	};
+
+	const BaseExpressionRef new_head = replace(head);
+
+	const ExpressionRef result = apply(
+		new_head ? new_head : head,
+		leaves,
+		0,
+		leaves.size(),
+		replace,
+		(bool)new_head,
+		MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType));
+
+	if (!result) {
+		self.cache()->skip_replace_vars.add(name);
+	}
+
+	return result;
 }
 
 #endif //CMATHICS_STRUCTURE_IMPLEMENTATION_H

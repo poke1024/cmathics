@@ -8,7 +8,8 @@
 Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
     BaseExpression(symbol),
     _name(name),
-    _linked_variable(nullptr) {
+    _linked_variable(nullptr),
+    _replacement(nullptr) {
 
 	set_attributes(Attributes::None);
 
@@ -68,8 +69,9 @@ Definitions::Definitions() {
     add_internal_symbol(sequence);
     _sequence = sequence;
 
-    _true = new_symbol("System`True");
-    _false = new_symbol("System`False");
+    _true = new_symbol("System`True", SymbolTrue);
+    _false = new_symbol("System`False", SymbolFalse);
+	_null = new_symbol("System`Null");
 
     // bootstrap pattern matching symbols
     add_internal_symbol(SymbolRef(new Blank(this)));

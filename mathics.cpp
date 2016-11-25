@@ -560,6 +560,62 @@ public:
 			    std::make_shared<Greater>()
 	        });
 
+	    add("If",
+	        Attributes::HoldRest, {
+		        builtin<2>([](
+			 		const BaseExpressionRef &cond,
+		            const BaseExpressionRef &t,
+		            const Evaluation &evaluation) {
+					    const Type type = cond->extended_type();
+					    if (type == SymbolTrue) {
+						    const BaseExpressionRef r = t->evaluate(t, evaluation);
+						    return r ? r : t;
+					    } else if (type == SymbolFalse) {
+						    const Definitions &definitions = evaluation.definitions;
+						    return boost::static_pointer_cast<const BaseExpression>(definitions.Null());
+					    } else {
+						    return BaseExpressionRef();
+					    }
+			        }
+		        ),
+		        builtin<3>([](
+				    const BaseExpressionRef &cond,
+				    const BaseExpressionRef &t,
+			        const BaseExpressionRef &f,
+			        const Evaluation &evaluation) {
+			        const Type type = cond->extended_type();
+				        if (type == SymbolTrue) {
+					        const BaseExpressionRef r = t->evaluate(t, evaluation);
+					        return r ? r : t;
+				        } else if (type == SymbolFalse) {
+					        const BaseExpressionRef r = f->evaluate(f, evaluation);
+					        return r ? r : f;
+				        } else {
+						    return BaseExpressionRef();
+					    }
+			        }
+		        ),
+		        builtin<4>([](
+				    const BaseExpressionRef &cond,
+			        const BaseExpressionRef &t,
+			        const BaseExpressionRef &f,
+			        const BaseExpressionRef &u,
+			        const Evaluation &evaluation) {
+				        const Type type = cond->extended_type();
+				        if (type == SymbolTrue) {
+					        const BaseExpressionRef r = t->evaluate(t, evaluation);
+					        return r ? r : t;
+				        } else if (type == SymbolFalse) {
+					        const BaseExpressionRef r = f->evaluate(f, evaluation);
+					        return r ? r : f;
+				        } else {
+					        const BaseExpressionRef r = u->evaluate(u, evaluation);
+					        return r ? r : u;
+				        }
+			        }
+		        )
+	        });
+
 	    add("Apply",
             Attributes::None, {
 		        builtin<2>(

@@ -11,6 +11,8 @@ public:
 
 	virtual BaseExpressionRef replace_slots(
 		const BaseExpressionRef *slots, size_t n_slots, const Evaluation &evaluation) const = 0;
+
+	virtual BaseExpressionRef replace_vars(Name name) const = 0;
 };
 
 template<typename T>
@@ -23,6 +25,8 @@ public:
 
 	virtual BaseExpressionRef replace_slots(
 		const BaseExpressionRef *slots, size_t n_slots, const Evaluation &evaluation) const;
+
+	virtual BaseExpressionRef replace_vars(Name name) const;
 };
 
 #endif //CMATHICS_STRUCTURE_H

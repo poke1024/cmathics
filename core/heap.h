@@ -7,6 +7,8 @@
 
 #include "gmpxx.h"
 
+#include "cache.h"
+
 class MachineInteger;
 class BigInteger;
 
@@ -150,6 +152,8 @@ private:
 
     boost::object_pool<ExpressionImplementation<DynamicSlice>> _expression_refs;
 
+	boost::object_pool<Cache> _caches;
+
 	Heap();
 
 public:
@@ -206,6 +210,14 @@ public:
     static PackedExpressionRef<U> Expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
         return PackedExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
     }
+
+	static Cache *new_cache() {
+		return _s_instance->_caches.construct();
+	}
+
+	static void release_cache(Cache *cache) {
+		_s_instance->_caches.free(cache);
+	}
 };
 
 inline BaseExpressionRef from_primitive(machine_integer_t value) {

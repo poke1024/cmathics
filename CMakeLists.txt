@@ -83,7 +83,7 @@ set(SOURCE_FILES
     core/promote.h
     core/structure.h
     core/structure_implementation.h
-    core/evaluate.h core/evaluate.cpp)
+    core/evaluate.h core/evaluate.cpp core/cache.h)
 
 add_custom_target(standalone)
 

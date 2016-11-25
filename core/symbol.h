@@ -74,6 +74,8 @@ protected:
 	Attributes _attributes;
 	const Evaluate *_evaluate_with_head;
 
+	mutable const BaseExpressionRef *_replacement;
+
 public:
 	Symbol(Definitions *new_definitions, const char *name, Type symbol = SymbolType);
 
@@ -168,6 +170,18 @@ public:
 
 	inline Symbol *next_variable() const {
 		return _linked_variable;
+	}
+
+	inline void set_replacement(const BaseExpressionRef *r) const {
+		_replacement = r;
+	}
+
+	inline void clear_replacement() const {
+		_replacement = nullptr;
+	}
+
+	inline const BaseExpressionRef *replacement() const {
+		return _replacement;
 	}
 
 	void set_attributes(Attributes a);

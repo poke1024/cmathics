@@ -14,6 +14,7 @@ private:
     SymbolRef _sequence;
     SymbolRef _false;
     SymbolRef _true;
+	SymbolRef _null;
 
     void add_internal_symbol(const SymbolRef &symbol);
 
@@ -42,6 +43,10 @@ public:
 
     inline const SymbolRef &True() const {
         return _true;
+    }
+
+    inline const SymbolRef &Null() const {
+        return _null;
     }
 
     inline const SymbolRef &Boolean(bool x) const {
