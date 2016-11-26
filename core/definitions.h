@@ -5,53 +5,49 @@
 #include "expression.h"
 #include "heap.h"
 
+class Definitions;
+
+class Symbols {
+public:
+	Symbol *List;
+	Symbol *Sequence;
+
+	Symbol *False;
+	Symbol *True;
+	Symbol *Null;
+
+	Symbol *Blank;
+	Symbol *BlankSequence;
+	Symbol *BlankNullSequence;
+	Symbol *Pattern;
+	Symbol *Alternatives;
+	Symbol *Repeated;
+
+	Symbol *Slot;
+	Symbol *SlotSequence;
+	Symbol *Function;
+
+	inline Symbol *Boolean(bool x) const {
+		return x ? True : False;
+	}
+};
+
 class Definitions {
 private:
     std::map<std::string,SymbolRef> _definitions;
-    ExpressionRef _empty_list;
+	Symbols _symbols;
 
-	SymbolRef _list;
-    SymbolRef _sequence;
-    SymbolRef _false;
-    SymbolRef _true;
-	SymbolRef _null;
-
-    void add_internal_symbol(const SymbolRef &symbol);
+    Symbol *add_internal_symbol(const SymbolRef &symbol);
+	SymbolRef new_symbol(const char *name, Type symbol = SymbolType);
 
 public:
     Definitions();
 
-    SymbolRef new_symbol(const char *name, Type symbol = SymbolType);
-
     SymbolRef lookup(const char *name);
 
-    inline const ExpressionRef &empty_list() const {
-        return _empty_list;
-    }
-
-    inline const SymbolRef &List() const {
-        return _list;
-    }
-
-    inline const SymbolRef &Sequence() const {
-        return _sequence;
-    }
-
-    inline const SymbolRef &False() const {
-        return _false;
-    }
-
-    inline const SymbolRef &True() const {
-        return _true;
-    }
-
-    inline const SymbolRef &Null() const {
-        return _null;
-    }
-
-    inline const SymbolRef &Boolean(bool x) const {
-        return x ? _true : _false;
-    }
+	inline const Symbols &symbols() const {
+		return _symbols;
+	}
 };
 
 #endif

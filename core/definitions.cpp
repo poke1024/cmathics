@@ -29,19 +29,22 @@ Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
 
 static struct {
 	bool operator()(const RuleRef &rule, const SortKey &key) const {
-		return rule->pattern_key().compare(key) < 0;
+		return rule->key.compare(key) < 0;
 	}
 } CompareSortKey;
+
+inline void insert_rule(std::vector<RuleRef> &rules, const RuleRef &rule) {
+	const SortKey key = rule->key;
+	const auto i = std::lower_bound(
+			rules.begin(), rules.end(), key, CompareSortKey);
+	rules.insert(i, rule);
+}
 
 void Symbol::add_down_rule(const RuleRef &rule) {
 	const MatchSize match_size = rule->match_size();
 	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
 		if (match_size.matches(SliceCode(code))) {
-			auto &rules = down_rules[code];
-			const SortKey key = rule->pattern_key();
-			const auto i = std::lower_bound(
-				rules.begin(), rules.end(), key, CompareSortKey);
-			rules.insert(i, rule);
+			insert_rule(down_rules[code], rule);
 		}
 	}
 }
@@ -50,7 +53,7 @@ void Symbol::add_sub_rule(const RuleRef &rule) {
 	const MatchSize match_size = rule->match_size();
 	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
 		if (match_size.matches(SliceCode(code))) {
-			sub_rules[code].push_back(rule);
+			insert_rule(sub_rules[code], rule);
 		}
 	}
 }
@@ -71,25 +74,23 @@ void Symbol::set_attributes(Attributes a) {
 Definitions::Definitions() {
     // construct common `List[]` for bootstrapping
     auto list = new_symbol("System`List");
-	_empty_list = expression(list, {});
-	_list = list;
+	_symbols.List = list.get();
 
     // add important system symbols
     auto sequence = SymbolRef(new ::Sequence(this));
-    add_internal_symbol(sequence);
-    _sequence = sequence;
+	_symbols.Sequence = add_internal_symbol(sequence);
 
-    _true = new_symbol("System`True", SymbolTrue);
-    _false = new_symbol("System`False", SymbolFalse);
-	_null = new_symbol("System`Null");
+	_symbols.True = new_symbol("System`True", SymbolTrue).get();
+	_symbols.False = new_symbol("System`False", SymbolFalse).get();
+	_symbols.Null = new_symbol("System`Null").get();
 
     // bootstrap pattern matching symbols
-    add_internal_symbol(SymbolRef(new Blank(this)));
-    add_internal_symbol(SymbolRef(new BlankSequence(this)));
-    add_internal_symbol(SymbolRef(new BlankNullSequence(this)));
-    add_internal_symbol(SymbolRef(new Pattern(this)));
-    add_internal_symbol(SymbolRef(new Alternatives(this)));
-    add_internal_symbol(SymbolRef(new Repeated(this)));
+	_symbols.Blank = add_internal_symbol(SymbolRef(new class Blank(this)));
+	_symbols.BlankSequence = add_internal_symbol(SymbolRef(new class BlankSequence(this)));
+	_symbols.BlankNullSequence = add_internal_symbol(SymbolRef(new class BlankNullSequence(this)));
+	_symbols.Pattern = add_internal_symbol(SymbolRef(new class Pattern(this)));
+	_symbols.Alternatives = add_internal_symbol(SymbolRef(new class Alternatives(this)));
+	_symbols.Repeated = add_internal_symbol(SymbolRef(new class Repeated(this)));
     /*new_symbol("System`RepeatedNull", RepeatedNull);
     new_symbol("System`Except", Except);
     new_symbol("System`Longest", Longest);
@@ -104,9 +105,9 @@ Definitions::Definitions() {
     new_symbol("System`PatternTest", PatternTest);
     new_symbol("System`Optional", Optional);*/
 
-	new_symbol("System`Slot", SymbolSlot);
-	new_symbol("System`SlotSequence", SymbolSequence);
-	new_symbol("System`Function", SymbolFunction);
+	_symbols.Slot = new_symbol("System`Slot", SymbolSlot).get();
+	_symbols.SlotSequence = new_symbol("System`SlotSequence", SymbolSequence).get();
+	_symbols.Function = new_symbol("System`Function", SymbolFunction).get();
 }
 
 SymbolRef Definitions::new_symbol(const char *name, Type type) {
@@ -126,6 +127,7 @@ SymbolRef Definitions::lookup(const char *name) {
     }
 }
 
-void Definitions::add_internal_symbol(const SymbolRef &symbol) {
+Symbol *Definitions::add_internal_symbol(const SymbolRef &symbol) {
     _definitions[symbol->_name] = symbol;
+	return symbol.get();
 }

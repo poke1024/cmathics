@@ -56,6 +56,10 @@ public:
     Evaluation(Definitions &definitions, bool new_catch_interrupts);
 
     BaseExpressionRef evaluate(BaseExpressionRef expression);
+
+    inline const Symbols &symbols() const {
+        return definitions.symbols();
+    }
 };
 
 

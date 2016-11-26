@@ -3,8 +3,47 @@
 #include "pattern.h"
 #include "evaluate.h"
 
-SortKey Rule::pattern_key() const {
-	return SortKey(0, 0, 1, 1, 0, nullptr, 1);
+BaseExpressionRef exactly_n_pattern(
+	const SymbolRef &head, size_t n, const Definitions &definitions) {
+
+	const auto &Blank = definitions.symbols().Blank;
+	return expression(head, [n, &Blank] (auto &storage) {
+		for (size_t i = 0; i < n; i++) {
+			storage << Blank;
+		}
+	}, n);
+}
+
+BaseExpressionRef at_least_n_pattern(
+	const SymbolRef &head, size_t n, const Definitions &definitions) {
+
+	const auto &Blank = definitions.symbols().Blank;
+	const auto &BlankNullSequence = definitions.symbols().BlankNullSequence;
+
+	return expression(head, [n, &Blank, &BlankNullSequence] (auto &storage) {
+		for (size_t i = 0; i < n; i++) {
+			storage << Blank;
+		}
+		storage << BlankNullSequence;
+	}, n + 1);
+}
+
+DefinitionsPos Rule::get_definitions_pos(const SymbolRef &symbol) const {
+	if (pattern == symbol) {
+		return DefinitionsPos::Own;
+	} else if (pattern->type() != ExpressionType) {
+		return DefinitionsPos::None;
+	} else if (pattern->head() == symbol) {
+		return DefinitionsPos::Down;
+	} else if (pattern->lookup_name() == symbol) {
+		return DefinitionsPos::Sub;
+	} else {
+		return DefinitionsPos::None;
+	}
+}
+
+MatchSize Rule::match_size() const {
+	return pattern->match_size();
 }
 
 SortKey BaseExpression::sort_key() const {

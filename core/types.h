@@ -99,6 +99,9 @@ typedef double machine_real_t;
 constexpr int MaxStaticSliceSize = 3;
 static_assert(MaxStaticSliceSize >= 3, "must be >= 3");
 
+constexpr int MinPackedSliceSize = 16;
+static_assert(MinPackedSliceSize > MaxStaticSliceSize, "MinPackedSliceSize too small");
+
 enum SliceCode : uint8_t {
 	StaticSlice0Code = 0,
 	StaticSlice1Code = 1,
@@ -493,7 +496,5 @@ inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
 	s << boost::static_pointer_cast<const BaseExpression>(expr);
 	return s;
 }
-
-#include "sort.h"
 
 #endif

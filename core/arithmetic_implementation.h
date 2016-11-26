@@ -63,7 +63,7 @@ protected:
 	}
 
 	static inline BaseExpressionRef result(const Definitions &definitions, bool result) {
-		return definitions.Boolean(result);
+		return definitions.symbols().Boolean(result);
 	}
 
 public:
@@ -165,69 +165,77 @@ struct times {
 };
 
 template<machine_integer_t Value>
-class EmptyConstantRule : public QuickBuiltinRule {
+class EmptyConstantRule : public ExactlyNRule<0> {
 public:
+	EmptyConstantRule(const SymbolRef &head, const Definitions &definitions) :
+		ExactlyNRule<0>(head, definitions) {
+	}
+
 	virtual BaseExpressionRef try_apply(
 		const ExpressionRef &expr, const Evaluation &evaluation) const {
 		return Heap::MachineInteger(Value);
 	}
-
-	virtual MatchSize match_size() const {
-		return MatchSize::exactly(0);
-	}
 };
 
-class IdentityRule : public QuickBuiltinRule {
+class IdentityRule : public ExactlyNRule<1> {
 public:
+	IdentityRule(const SymbolRef &head, const Definitions &definitions) :
+		ExactlyNRule<1>(head, definitions) {
+	}
+
 	virtual BaseExpressionRef try_apply(
 		const ExpressionRef &expr, const Evaluation &evaluation) const {
 
 		const StaticExpression<1>* expr1 = static_cast<const StaticExpression<1>*>(expr.get());
 		return expr1->_leaves.refs()[0];
 	}
-
-	virtual MatchSize match_size() const {
-		return MatchSize::exactly(1);
-	}
 };
 
 
 template<typename Operator>
-class BinaryOperatorRule : public QuickBuiltinRule {
+class BinaryOperatorRule : public ExactlyNRule<2> {
 private:
 	const Operator _operator;
 
 public:
+	BinaryOperatorRule(const SymbolRef &head, const Definitions &definitions) :
+		ExactlyNRule<2>(head, definitions) {
+	}
+
 	virtual BaseExpressionRef try_apply(
 		const ExpressionRef &expr, const Evaluation &evaluation) const {
 
+		// match_size() guarantees that we receive a StaticExpression<2> here in try_apply().
 		const StaticExpression<2>* expr2 = static_cast<const StaticExpression<2>*>(expr.get());
 		return _operator(evaluation.definitions, expr2->_leaves.refs());
 	}
-
-	virtual MatchSize match_size() const {
-		// guarantees that we receive a StaticExpression<2> in try_apply()
-		return MatchSize::exactly(2);
-	}
 };
 
-typedef EmptyConstantRule<0> Plus0;
-typedef IdentityRule Plus1;
-typedef BinaryOperatorRule<BinaryArithmetic<plus>> Plus2;
-typedef BinaryOperatorRule<BinaryArithmetic<times>> Times2;
+template<typename T>
+RuleRef NewRule(const SymbolRef &head, const Definitions &definitions) {
+	return std::make_shared<T>(head, definitions);
+}
 
-class Plus3 : public QuickBuiltinRule {
+constexpr auto Plus0 = NewRule<EmptyConstantRule<0>>;
+constexpr auto Plus1 = NewRule<IdentityRule>;
+constexpr auto Plus2 = NewRule<BinaryOperatorRule<BinaryArithmetic<plus>>>;
+
+constexpr auto Times2 = NewRule<BinaryOperatorRule<BinaryArithmetic<times>>>;
+
+class Plus3Rule : public AtLeastNRule<3> {
 public:
+	using AtLeastNRule<3>::AtLeastNRule;
+
 	virtual BaseExpressionRef try_apply(
 		const ExpressionRef &expr, const Evaluation &evaluation) const;
-
-	virtual MatchSize match_size() const {
-		return MatchSize::at_least(3);
-	}
 };
 
-class Power : public QuickBuiltinRule {
+constexpr auto Plus3 = NewRule<Plus3Rule>;
+
+class PowerRule : public ExactlyNRule<2> {
 public:
+	using ExactlyNRule<2>::ExactlyNRule;
+
 	virtual BaseExpressionRef try_apply(
 		const ExpressionRef &expr, const Evaluation &evaluation) const {
 
@@ -237,19 +245,18 @@ public:
 		const BaseExpressionRef &b = refs[1];
 
 		if (b->type() == MachineIntegerType) {
-			const machine_integer_t integer_exponent = static_cast<const MachineInteger*>(b.get())->value;
+			const machine_integer_t integer_exponent =
+				static_cast<const MachineInteger*>(b.get())->value;
 		}
 
 		return BaseExpressionRef();
 	}
-
-	virtual MatchSize match_size() const {
-		return MatchSize::exactly(2);
-	}
 };
 
-typedef BinaryOperatorRule<BinaryComparison<less>> Less;
-typedef BinaryOperatorRule<BinaryComparison<greater>> Greater;
+constexpr auto Power = NewRule<PowerRule>;
+
+constexpr auto Less = NewRule<BinaryOperatorRule<BinaryComparison<less>>>;
+constexpr auto Greater = NewRule<BinaryOperatorRule<BinaryComparison<greater>>>;
 
 template<typename T>
 inline BaseExpressionRef add_only_integers(const T &self) {

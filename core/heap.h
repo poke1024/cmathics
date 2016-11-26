@@ -76,6 +76,10 @@ private:
 
 				return pool->construct(head);
 			};
+			_make_late_init[N] = [pool] (const BaseExpressionRef &head) {
+				StaticExpressionRef<N> expr = pool->construct(head);
+				return std::tuple_cat(std::make_tuple(expr), expr->_leaves.late_init());
+			};
 		} else {
 			_make_from_vector[N] = [pool] (
 				const BaseExpressionRef &head,

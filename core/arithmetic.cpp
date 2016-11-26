@@ -14,8 +14,9 @@
 #include "rational.h"
 #include "primitives.h"
 
-BaseExpressionRef Plus3::try_apply(
+BaseExpressionRef Plus3Rule::try_apply(
 	const ExpressionRef &expr, const Evaluation &evaluation) const {
+
 	return expr->Plus();
 }
 
@@ -73,7 +74,7 @@ public:
 			leaves.push_back(x);
 		}
 
-		return expression(_evaluation.definitions.List(), PackedSlice<T>(std::move(leaves)));
+		return expression(_evaluation.symbols().List, PackedSlice<T>(std::move(leaves)));
 	}
 };
 

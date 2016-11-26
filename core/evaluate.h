@@ -6,7 +6,7 @@
 typedef std::function<BaseExpressionRef(
 	const ExpressionRef &self,
 	const BaseExpressionRef &head,
-	const void *slice_ptr,
+	const Slice &slice,
 	const Evaluation &evaluation)> Evaluator;
 
 typedef std::pair<size_t, size_t> eval_range;
@@ -207,11 +207,13 @@ ExpressionRef apply(
 	}
 }
 
+typedef Slice GenericSlice;
+
 template<typename Slice, typename Hold>
 BaseExpressionRef evaluate(
 	const ExpressionRef &self,
 	const BaseExpressionRef &head,
-	const void *slice_ptr,
+	const GenericSlice &generic_slice,
 	const Evaluation &evaluation) {
 
 	if (!Hold::do_eval) {
@@ -219,9 +221,9 @@ BaseExpressionRef evaluate(
 		return BaseExpressionRef();
 	}
 
-	const Slice &slice = *static_cast<const Slice*>(slice_ptr);
+	const Slice &slice = static_cast<const Slice&>(generic_slice);
 
-	const auto head_symbol = static_cast<const Symbol*>(head.get());
+	const Symbol *head_symbol = static_cast<const Symbol*>(head.get());
 
 	const eval_range eval_leaf(Hold::eval(slice));
 
@@ -302,10 +304,10 @@ public:
 		const ExpressionRef &self,
 		const BaseExpressionRef &head,
 		SliceCode slice_code,
-		const void *slice_ptr,
+		const Slice &slice,
 		const Evaluation &evaluation) const {
 
-		return _vtable[slice_code](self, head, slice_ptr, evaluation);
+		return _vtable[slice_code](self, head, slice, evaluation);
 	}
 };
 

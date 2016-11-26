@@ -5,31 +5,63 @@
 
 enum class DefinitionsPos : int {
 	None,
+	Own,
 	Down,
 	Sub
 };
 
-class SortKey;
+#include "sort.h"
 
 class Rule {
 public:
-	virtual MatchSize match_size() const = 0;
+	const BaseExpressionRef pattern;
+	const SortKey key;
+
+	Rule(const BaseExpressionRef &patt) : pattern(patt), key(patt->pattern_key()) {
+	}
 
 	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const = 0;
 
-	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const = 0;
+	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const;
 
-	virtual SortKey pattern_key() const;
+	virtual MatchSize match_size() const;
 };
 
-class QuickBuiltinRule : public Rule {
-private:
+BaseExpressionRef exactly_n_pattern(
+	const SymbolRef &head, size_t n, const Definitions &definitions);
+
+BaseExpressionRef at_least_n_pattern(
+	const SymbolRef &head, size_t n, const Definitions &definitions);
+
+template<size_t N>
+class ExactlyNRule : public Rule {
+public:
+	ExactlyNRule(const SymbolRef &head, const Definitions &definitions) :
+		Rule(exactly_n_pattern(head, N, definitions)) {
+	}
+
 	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
 		return DefinitionsPos::Down;
 	}
 
 	virtual MatchSize match_size() const {
-		return MatchSize::at_least(0); // override if this is too broad
+		return MatchSize::exactly(N);
+	}
+};
+
+template<size_t N>
+class AtLeastNRule : public Rule {
+public:
+	AtLeastNRule(const SymbolRef &head, const Definitions &definitions) :
+		Rule(at_least_n_pattern(head, N, definitions)) {
+	}
+
+	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
+		return DefinitionsPos::Down;
+	}
+
+	virtual MatchSize match_size() const {
+		return MatchSize::at_least(N);
 	}
 };
 

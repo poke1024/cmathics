@@ -31,17 +31,19 @@ struct BuiltinFunctionArguments<0, refs...> {
 };
 
 template<int N, typename F>
-class BuiltinRule : public Rule {
+class BuiltinRule : public ExactlyNRule<N> {
 private:
 	const F _func;
 
 public:
-	BuiltinRule(const F &func) : _func(func) {
+	BuiltinRule(const SymbolRef &head, const Definitions &definitions, const F &func) :
+		ExactlyNRule<N>(head, definitions), _func(func) {
 	}
 
 	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
 		if (N <= MaxStaticSliceSize || expr->size() == N) {
-			constexpr SliceCode slice_code = N <= MaxStaticSliceSize ? static_slice_code(N) : SliceCode::Unknown;
+			constexpr SliceCode slice_code =
+				N <= MaxStaticSliceSize ? static_slice_code(N) : SliceCode::Unknown;
 			const F &func = _func;
 			return expr->with_leaves_array<slice_code>(
 				[&func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
@@ -55,19 +57,15 @@ public:
 			return BaseExpressionRef();
 		}
 	}
-
-	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
-		return DefinitionsPos::Down;
-	}
-
-	virtual MatchSize match_size() const {
-		return MatchSize::exactly(N);
-	}
 };
 
+typedef std::function<RuleRef(const SymbolRef &head, const Definitions &definitions)> NewRuleRef;
+
 template<int N, typename F>
-inline RuleRef make_builtin_rule(const F &func) {
-	return std::make_shared<BuiltinRule<N, F>>(func);
+inline NewRuleRef make_builtin_rule(const F &func) {
+	return [func] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
+		return std::make_shared<BuiltinRule<N, F>>(head, definitions, func);
+	};
 }
 
 // note: PatternMatchedBuiltinRule should only be used for builtins that match non-down values (e.g. sub values).
@@ -114,24 +112,25 @@ public:
 };
 
 template<int N>
-inline RuleRef make_pattern_matched_builtin_rule(
+inline NewRuleRef make_pattern_matched_builtin_rule(
 	const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
 
-	return std::make_shared<PatternMatchedBuiltinRule<N>>(patt, func);
+	return [patt, func] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
+		return std::make_shared<PatternMatchedBuiltinRule<N>>(patt, func);
+	};
 }
 
 class RewriteRule : public Rule {
 private:
-	const BaseExpressionRef _patt;
 	const BaseExpressionRef _into;
 
 public:
 	RewriteRule(const BaseExpressionRef &patt, const BaseExpressionRef &into) :
-		_patt(patt), _into(into) {
+		Rule(patt), _into(into) {
 	}
 
 	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
-		const Match m = match(_patt, expr, evaluation.definitions);
+		const Match m = match(pattern, expr, evaluation.definitions);
 		if (m) {
 			const BaseExpressionRef replaced = _into->replace_all(m);
 			if (!replaced) {
@@ -143,34 +142,20 @@ public:
 			return BaseExpressionRef();
 		}
 	}
-
-	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
-		if (_patt->head() == symbol) {
-			return DefinitionsPos::Down;
-		} else if ( _patt->lookup_name() == symbol) {
-			return DefinitionsPos::Sub;
-		} else {
-			return DefinitionsPos::None;
-		}
-	}
-
-	virtual MatchSize match_size() const {
-		return _patt->match_size();
-	}
-
-	virtual SortKey pattern_key() const {
-		return _patt->pattern_key();
-	}
 };
 
-inline RuleRef make_rewrite_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
-	return std::make_shared<RewriteRule>(patt, into);
+inline NewRuleRef make_rewrite_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
+	return [patt, into] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
+		return std::make_shared<RewriteRule>(patt, into);
+	};
 }
 
 // as Function is a very important pattern, we provide a special optimized Rule for it.
 
-class FunctionRule : public Rule {
+class FunctionRule : public AtLeastNRule<0> {
 public:
+	using AtLeastNRule<0>::AtLeastNRule;
+
 	virtual BaseExpressionRef try_apply(const ExpressionRef &args, const Evaluation &evaluation) const {
 		const BaseExpressionRef &head = args->_head;
 		if (head->type() != ExpressionType) {
@@ -260,7 +245,4 @@ public:
 	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
 		return DefinitionsPos::Sub; // assuming "symbol" is Function
 	}
-
-	virtual MatchSize match_size() const {
-		return MatchSize::at_least(0);
-	}};
+};

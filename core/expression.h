@@ -259,8 +259,12 @@ inline ExpressionRef expression(
 	// we expect our callers to move their leaves vector to us. if you cannot move, you
 	// should really recheck your design at the site of call.
 
-	if (leaves.size() <= MaxStaticSliceSize) {
+	const size_t size = leaves.size();
+
+	if (size <= MaxStaticSliceSize) {
 		return Heap::StaticExpression(head, leaves);
+	} else if (size < MinPackedSliceSize) {
+		return Heap::Expression(head, DynamicSlice(leaves, some_type_mask));
 	} else {
 		const TypeMask type_mask = is_exact_type_mask(some_type_mask) ?
             some_type_mask : exact_type_mask(leaves);
@@ -355,12 +359,6 @@ DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(cons
 #include "structure_implementation.h"
 
 #include "evaluate.h"
-
-/*template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::evaluate_from_symbol_head(
-	const ExpressionRef &self, const Evaluation &evaluation) const {
-	return ::evaluate(self, _head, _leaves, evaluation);
-}*/
 
 template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const Match &match) const {

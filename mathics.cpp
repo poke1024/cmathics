@@ -496,11 +496,13 @@ public:
         return _parser.parse(s);
     }
 
-    void add(const char *name, Attributes attributes, const std::initializer_list<RuleRef> &rules) {
+    void add(const char *name, Attributes attributes, const std::initializer_list<NewRuleRef> &rules) {
         const std::string full_down = std::string("System`") + name;
         const SymbolRef symbol = _definitions.lookup(full_down.c_str());
 		symbol->set_attributes(attributes);
-        for (const RuleRef &rule : rules) {
+        for (const NewRuleRef &new_rule : rules) {
+	        const RuleRef rule = new_rule(symbol, _definitions);
+
 	        // see core/definitions.py:get_tag_position()
 	        switch (rule->get_definitions_pos(symbol)) {
 		        case DefinitionsPos::None:
@@ -511,22 +513,25 @@ public:
 		        case DefinitionsPos::Sub:
 			        symbol->add_sub_rule(rule);
 			        break;
+		        case DefinitionsPos::Own:
+			        // FIXME
+			        break;
 	        }
         }
     }
 
     template<int N, typename F>
-    RuleRef builtin(F func) {
+    NewRuleRef builtin(F func) {
 	    return make_builtin_rule<N, F>(func);
     }
 
 	template<int N>
-	RuleRef pattern_matched_builtin(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
+	NewRuleRef pattern_matched_builtin(const char *pattern, typename BuiltinFunctionArguments<N>::type func) {
 		BaseExpressionRef parsed_pattern = _parser.parse(pattern);
 		return make_pattern_matched_builtin_rule<N>(parsed_pattern, func);
 	}
 
-	RuleRef rewrite(const char *pattern, const char *into) {
+	NewRuleRef rewrite(const char *pattern, const char *into) {
 		BaseExpressionRef parsed_pattern =_parser.parse(pattern);
 		return make_rewrite_rule(parsed_pattern, _parser.parse(into));
 	}
@@ -534,30 +539,30 @@ public:
     void initialize() {
         add("Plus",
             Attributes::None, {
-		        std::make_shared<Plus0>(),
-		        std::make_shared<Plus1>(),
-		        std::make_shared<Plus2>(),
-		        std::make_shared<Plus3>()
+		        Plus0,
+		        Plus1,
+		        Plus2,
+		        Plus3
         });
 
 	    add("Times",
 	        Attributes::None, {
-		        std::make_shared<Times2>()
+		        Times2
 	        });
 
 	    add("Power",
 	        Attributes::None, {
-			    std::make_shared<Power>()
+			    Power
 	        });
 
 	    add("Less",
 	        Attributes::None, {
-			    std::make_shared<Less>()
+			    Less
 	        });
 
 	    add("Greater",
 	        Attributes::None, {
-			    std::make_shared<Greater>()
+			    Greater
 	        });
 
 	    add("If",
@@ -572,7 +577,7 @@ public:
 						    return r ? r : t;
 					    } else if (type == SymbolFalse) {
 						    const Definitions &definitions = evaluation.definitions;
-						    return boost::static_pointer_cast<const BaseExpression>(definitions.Null());
+						    return BaseExpressionRef(definitions.symbols().Null);
 					    } else {
 						    return BaseExpressionRef();
 					    }
@@ -626,12 +631,12 @@ public:
 						    const Expression *target = static_cast<const Expression*>(lhs.get());
 						    const auto &head = target->head();
 						    if (head->type() == SymbolType) {
-							    const RuleRef rule = make_rewrite_rule(lhs, rhs);
+							    const RuleRef rule = std::make_shared<RewriteRule>(lhs, rhs);
 							    const_cast<Symbol*>(static_cast<const Symbol*>(head.get()))->add_down_rule(rule);
 						    }
 					    }
 
-					    return evaluation.definitions.Null();
+					    return BaseExpressionRef(evaluation.symbols().Null);
 			        }
 		        )
 	        });
@@ -731,13 +736,13 @@ public:
 	        Attributes::HoldAll, {
 			    builtin<1>(
 				    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
-					    const auto list_symbol = evaluation.definitions.List();
+					    const auto &List = evaluation.symbols().List;
 					    const auto start_time = std::chrono::steady_clock::now();
 					    const auto evaluated = expr->evaluate(expr, evaluation);
 					    const auto end_time = std::chrono::steady_clock::now();
 					    const auto microseconds = std::chrono::duration_cast<
 						    std::chrono::microseconds>(end_time - start_time).count();
-					    return expression(list_symbol, {
+					    return expression(List, {
 							from_primitive(double(microseconds) / 1000000.0), evaluated});
 				    }
 		        )
@@ -745,7 +750,7 @@ public:
 
 	    add("Function",
 	        Attributes::HoldAll, {
-			    std::make_shared<FunctionRule>()
+			    NewRule<FunctionRule>
 	        }
 	    );
     }
@@ -766,7 +771,7 @@ void python_test(const char *input) {
     std::cout << evaluated << std::endl;
 }
 
-void pattern_test() {
+/*void pattern_test() {
     Definitions definitions;
 
     auto x = definitions.new_symbol("System`x");
@@ -787,7 +792,7 @@ void pattern_test() {
 
     Match m2 = match(patt, some_expr, definitions);
     std::cout << m2 << std::endl;
-}
+}*/
 
 void mini_console() {
     Runtime runtime;
