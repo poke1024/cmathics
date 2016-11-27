@@ -6,7 +6,25 @@
 #include "pattern.h"
 #include "builtin.h"
 
-Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
+inline DefinitionsPos get_definitions_pos(
+	const BaseExpressionRef &pattern,
+	const Symbol *symbol) {
+
+	// see core/definitions.py:get_tag_position()
+	if (pattern == symbol) {
+		return DefinitionsPos::Own;
+	} else if (pattern->type() != ExpressionType) {
+		return DefinitionsPos::None;
+	} else if (pattern->head() == symbol) {
+		return DefinitionsPos::Down;
+	} else if (pattern->lookup_name() == symbol) {
+		return DefinitionsPos::Sub;
+	} else {
+		return DefinitionsPos::None;
+	}
+}
+
+Symbol::Symbol(const char *name, ExtendedType symbol) :
     BaseExpression(symbol),
     _name(name),
     _linked_variable(nullptr),
@@ -109,25 +127,21 @@ void Symbol::add_rule(const RuleRef &rule) {
 }
 
 Definitions::Definitions() {
-    // construct common `List[]` for bootstrapping
-    auto list = new_symbol("System`List");
-	_symbols.List = list.get();
-
-    // add important system symbols
-    auto sequence = SymbolRef(new ::Sequence(this));
-	_symbols.Sequence = add_internal_symbol(sequence);
+	// bootstrap symbols
+	_symbols.List = new_symbol("System`List").get();
+	_symbols.Sequence = new_symbol("System`Sequence", SymbolSequence).get();
 
 	_symbols.True = new_symbol("System`True", SymbolTrue).get();
 	_symbols.False = new_symbol("System`False", SymbolFalse).get();
 	_symbols.Null = new_symbol("System`Null").get();
 
-    // bootstrap pattern matching symbols
-	_symbols.Blank = add_internal_symbol(SymbolRef(new class Blank(this)));
-	_symbols.BlankSequence = add_internal_symbol(SymbolRef(new class BlankSequence(this)));
-	_symbols.BlankNullSequence = add_internal_symbol(SymbolRef(new class BlankNullSequence(this)));
-	_symbols.Pattern = add_internal_symbol(SymbolRef(new class Pattern(this)));
-	_symbols.Alternatives = add_internal_symbol(SymbolRef(new class Alternatives(this)));
-	_symbols.Repeated = add_internal_symbol(SymbolRef(new class Repeated(this)));
+    // pattern matching symbols
+	_symbols.Blank = add_internal_symbol(SymbolRef(new class Blank()));
+	_symbols.BlankSequence = add_internal_symbol(SymbolRef(new class BlankSequence()));
+	_symbols.BlankNullSequence = add_internal_symbol(SymbolRef(new class BlankNullSequence()));
+	_symbols.Pattern = add_internal_symbol(SymbolRef(new class Pattern()));
+	_symbols.Alternatives = add_internal_symbol(SymbolRef(new class Alternatives()));
+	_symbols.Repeated = add_internal_symbol(SymbolRef(new class Repeated()));
     /*new_symbol("System`RepeatedNull", RepeatedNull);
     new_symbol("System`Except", Except);
     new_symbol("System`Longest", Longest);
@@ -147,9 +161,9 @@ Definitions::Definitions() {
 	_symbols.Function = new_symbol("System`Function", SymbolFunction).get();
 }
 
-SymbolRef Definitions::new_symbol(const char *name, Type type) {
+SymbolRef Definitions::new_symbol(const char *name, ExtendedType type) {
     assert(_definitions.find(name) == _definitions.end());
-    auto symbol = SymbolRef(new Symbol(this, name, type));
+    auto symbol = SymbolRef(new Symbol(name, type));
     _definitions[name] = symbol;
     return symbol;
 }

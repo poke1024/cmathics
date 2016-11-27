@@ -72,13 +72,13 @@ protected:
 	mutable BaseExpressionRef _match_value;
 	mutable Symbol *_linked_variable;
 
+	mutable const BaseExpressionRef *_replacement;
+
 	Attributes _attributes;
 	const Evaluate *_evaluate_with_head;
 
-	mutable const BaseExpressionRef *_replacement;
-
 public:
-	Symbol(Definitions *new_definitions, const char *name, Type symbol = SymbolType);
+	Symbol(const char *name, ExtendedType symbol = SymbolExtendedType);
 
 	/*Expression* own_values;
 	Expression* sub_values;
@@ -185,12 +185,6 @@ public:
 	void add_rule(const BaseExpressionRef &lhs, const BaseExpressionRef &rhs);
 
 	void add_rule(const RuleRef &rule);
-};
-
-class Sequence : public Symbol {
-public:
-	Sequence(Definitions *definitions) : Symbol(definitions, "System`Sequence", SymbolSequence) {
-	}
 };
 
 inline BaseExpressionRef BaseExpression::evaluate(

@@ -40,24 +40,6 @@ BaseExpressionRef function_pattern(
 	return expression(expression(head, {BlankSequence}), {BlankNullSequence});
 }
 
-DefinitionsPos get_definitions_pos(
-	const BaseExpressionRef &pattern,
-	const Symbol *symbol) {
-
-	// see core/definitions.py:get_tag_position()
-	if (pattern == symbol) {
-		return DefinitionsPos::Own;
-	} else if (pattern->type() != ExpressionType) {
-		return DefinitionsPos::None;
-	} else if (pattern->head() == symbol) {
-		return DefinitionsPos::Down;
-	} else if (pattern->lookup_name() == symbol) {
-		return DefinitionsPos::Sub;
-	} else {
-		return DefinitionsPos::None;
-	}
-}
-
 MatchSize Rule::match_size() const {
 	return pattern->match_size();
 }

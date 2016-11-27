@@ -156,15 +156,57 @@ public:
 	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const;
 
 	virtual MatchSize match_size() const {
-		const OptionalMatchSize patt_size = _head->match_size_with_head(this);
-		if (patt_size) {
-			return *patt_size;
-		} else {
-			MatchSize size = MatchSize::exactly(0);
-			for (const auto &leaf : _leaves.leaves()) {
-				size += leaf->match_size();
+		switch (_head->extended_type()) {
+			case SymbolBlank:
+				return MatchSize::exactly(1);
+			case SymbolBlankSequence:
+				return MatchSize::at_least(1);
+			case SymbolBlankNullSequence:
+				return MatchSize::at_least(0);
+			case SymbolPattern:
+				if (size() == 2) {
+					// Pattern is only valid with two arguments
+					return _leaves[1]->match_size();
+				} else {
+					return MatchSize::exactly(1);
+				}
+			case SymbolAlternatives: {
+				const size_t n = size();
+
+				if (n == 0) {
+					return MatchSize::exactly(1);
+				}
+
+				const MatchSize size = _leaves[0]->match_size();
+				match_size_t min_p = size.min();
+				match_size_t max_p = size.max();
+
+				for (size_t i = 1; i < n; i++) {
+					const MatchSize leaf_size = _leaves[i]->match_size();
+					max_p = std::max(max_p, leaf_size.max());
+					min_p = std::min(min_p, leaf_size.min());
+				}
+
+				return MatchSize::between(min_p, max_p);
 			}
-			return size;
+			case SymbolRepeated:
+				switch(size()) {
+					case 1:
+						return MatchSize::at_least(1);
+					case 2:
+						// TODO inspect second arg
+						return MatchSize::at_least(1);
+					default:
+						return MatchSize::exactly(1);
+				}
+
+			default: {
+				MatchSize size = MatchSize::exactly(0);
+				for (const auto &leaf : _leaves.leaves()) {
+					size += leaf->match_size();
+				}
+				return size;
+			}
 		}
 	}
 

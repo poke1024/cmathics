@@ -45,7 +45,7 @@ private:
 	Symbols _symbols;
 
     Symbol *add_internal_symbol(const SymbolRef &symbol);
-	SymbolRef new_symbol(const char *name, Type symbol = SymbolType);
+	SymbolRef new_symbol(const char *name, ExtendedType symbol = SymbolExtendedType);
 
 public:
     Definitions();

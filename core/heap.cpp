@@ -56,6 +56,10 @@ void Heap::release(BaseExpression *expr) {
     }
 }
 
+SymbolRef Symbol(const char *name, Type type) {
+    return SymbolRef(); // FIXME
+}
+
 BaseExpressionRef Heap::MachineInteger(machine_integer_t value) {
     assert(_s_instance);
     return BaseExpressionRef(_s_instance->_machine_integers.construct(value));

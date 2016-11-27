@@ -165,6 +165,8 @@ public:
 
     static void release(BaseExpression *expr);
 
+	static SymbolRef Symbol(const char *name, Type type);
+
     static BaseExpressionRef MachineInteger(machine_integer_t value);
     static BaseExpressionRef BigInteger(const mpz_class &value);
 	static BaseExpressionRef BigInteger(mpz_class &&value);

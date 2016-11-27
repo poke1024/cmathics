@@ -15,11 +15,7 @@ class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
 typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
 
-constexpr int CoreTypeBits = 4;
-
-enum Type : uint16_t {
-	// only the values 0 - 15 end up as bits in TypeMasks.
-
+enum Type : uint8_t { // values represented as bits in TypeMasks
 	SymbolType = 0,
 	MachineIntegerType = 1,
 	BigIntegerType = 2,
@@ -31,33 +27,57 @@ enum Type : uint16_t {
 	StringType = 8
 };
 
-constexpr int NumTypes = 9;
+// CoreTypeBits is the number of bits needed to represent every value in
+// Type, i.e. SymbolType, MachineIntegerType, ..., StringType
+constexpr int CoreTypeBits = 4;
 
-constexpr Type build_extended_type(Type core, uint8_t extended) {
-	return Type(core + (extended << CoreTypeBits));
+// CoreTypeShift is the number of bits needed to represent the additional
+// extended type information attached to a core type.
+constexpr int CoreTypeShift = 5;
+
+enum ExtendedType : uint16_t {
+	SymbolExtendedType = SymbolType << CoreTypeShift,
+	MachineIntegerExtendedType = MachineIntegerType << CoreTypeShift,
+	BigIntegerExtendedType = BigIntegerType << CoreTypeShift,
+	MachineRealExtendedType = MachineRealType << CoreTypeShift,
+	BigRealExtendedType = BigRealType << CoreTypeShift,
+	RationalExtendedType = RationalType << CoreTypeShift,
+	ComplexExtendedType = ComplexType << CoreTypeShift,
+	ExpressionExtendedType = ExpressionType << CoreTypeShift,
+	StringExtendedType = StringType << CoreTypeShift
+};
+
+constexpr inline ExtendedType build_extended_type(Type core, uint8_t extended) {
+	return ExtendedType((ExtendedType(core) << CoreTypeShift) | extended);
+}
+
+constexpr inline auto extended_type_info(ExtendedType type) {
+	return type & ((ExtendedType(1) << CoreTypeShift) - 1);
 }
 
 // the following values are not represented in TypeMasks.
 
-constexpr Type SymbolSequence = build_extended_type(SymbolType, 0);
+constexpr ExtendedType SymbolSequence = build_extended_type(SymbolType, 1);
 
-constexpr Type SymbolTrue = build_extended_type(SymbolType, 1);
-constexpr Type SymbolFalse = build_extended_type(SymbolType, 2);
+constexpr ExtendedType SymbolTrue = build_extended_type(SymbolType, 2);
+constexpr ExtendedType SymbolFalse = build_extended_type(SymbolType, 3);
 
-constexpr Type SymbolBlank = build_extended_type(SymbolType, 3);
-constexpr Type SymbolBlankSequence = build_extended_type(SymbolType, 4);
-constexpr Type SymbolBlankNullSequence = build_extended_type(SymbolType, 5);
-constexpr Type SymbolPattern = build_extended_type(SymbolType, 6);
-constexpr Type SymbolPatternTest = build_extended_type(SymbolType, 7);
-constexpr Type SymbolCondition = build_extended_type(SymbolType, 8);
-constexpr Type SymbolOptional = build_extended_type(SymbolType, 9);
-constexpr Type SymbolAlternatives = build_extended_type(SymbolType, 10);
-constexpr Type SymbolVerbatim = build_extended_type(SymbolType, 11);
-constexpr Type SymbolOptionsPattern = build_extended_type(SymbolType, 12);
-constexpr Type SymbolSlot = build_extended_type(SymbolType, 13);
-constexpr Type SymbolSlotSequence = build_extended_type(SymbolType, 14);
-constexpr Type SymbolFunction = build_extended_type(SymbolType, 15);
-constexpr Type SymbolModule = build_extended_type(SymbolType, 16);
+constexpr ExtendedType SymbolBlank = build_extended_type(SymbolType, 4);
+constexpr ExtendedType SymbolBlankSequence = build_extended_type(SymbolType, 5);
+constexpr ExtendedType SymbolBlankNullSequence = build_extended_type(SymbolType, 6);
+constexpr ExtendedType SymbolPattern = build_extended_type(SymbolType, 7);
+constexpr ExtendedType SymbolPatternTest = build_extended_type(SymbolType, 8);
+constexpr ExtendedType SymbolCondition = build_extended_type(SymbolType, 9);
+constexpr ExtendedType SymbolOptional = build_extended_type(SymbolType, 10);
+constexpr ExtendedType SymbolAlternatives = build_extended_type(SymbolType, 11);
+constexpr ExtendedType SymbolRepeated = build_extended_type(SymbolType, 12);
+
+constexpr ExtendedType SymbolVerbatim = build_extended_type(SymbolType, 13);
+constexpr ExtendedType SymbolOptionsPattern = build_extended_type(SymbolType, 14);
+constexpr ExtendedType SymbolSlot = build_extended_type(SymbolType, 15);
+constexpr ExtendedType SymbolSlotSequence = build_extended_type(SymbolType, 16);
+constexpr ExtendedType SymbolFunction = build_extended_type(SymbolType, 17);
+constexpr ExtendedType SymbolModule = build_extended_type(SymbolType, 18);
 
 typedef uint32_t TypeMask;
 
@@ -68,11 +88,12 @@ constexpr TypeMask TypeMaskIsInexact = 1 << 31;
 
 constexpr TypeMask UnknownTypeMask = TypeMask(-1); // inexact, all type bits set
 
-constexpr uint8_t CoreTypeMask = ((1 << CoreTypeBits) - 1);
-
 constexpr inline bool is_exact_type_mask(TypeMask type_mask) {
 	return (type_mask & TypeMaskIsInexact) == 0;
 }
+
+static_assert(TypeMaskIsInexact != 0,
+	"TypeMaskIsInexact must fit into the TypeMask type");
 
 static_assert((TypeMaskIsInexact >> CoreTypeBits) != 0,
 	"CoreTypeBits is too large as it hides TypeMaskIsInexact");
@@ -81,7 +102,7 @@ static_assert(sizeof(TypeMask) * 8 >= (1 << CoreTypeBits),
 	"TypeMask is too small; needs one bit for each of the 2^TypeBits basic types");
 
 constexpr TypeMask MakeTypeMask(Type type) {
-    return ((TypeMask)1) << (type & CoreTypeMask);
+    return TypeMask(1) << type;
 }
 
 inline bool is_homogenous(TypeMask mask) {
@@ -276,23 +297,24 @@ class SortKey;
 
 class BaseExpression {
 protected:
-	const Type _extended_type;
+	const ExtendedType _extended_type;
 
 protected:
     mutable size_t _ref_count;
 
 public:
-    inline BaseExpression(Type type) : _extended_type(type), _ref_count(0) {
+    inline BaseExpression(ExtendedType type) : _extended_type(type), _ref_count(0) {
     }
 
     virtual ~BaseExpression() {
     }
 
     inline Type type() const {
-	    return Type(((uint8_t)_extended_type) & CoreTypeMask); // basic type, e.g. MachineIntegerType, SymbolType, ...
+	    // basic type, e.g. MachineIntegerType, SymbolType, ...
+	    return Type(_extended_type >> CoreTypeShift);
     }
 
-	inline Type extended_type() const {
+	inline ExtendedType extended_type() const {
 		return _extended_type; // extended type, e.g. SymbolBlank
 	}
 
@@ -338,10 +360,6 @@ public:
 
 	virtual MatchSize match_size() const {
         return MatchSize::exactly(1); // default
-    }
-
-    virtual OptionalMatchSize match_size_with_head(ExpressionPtr patt) const {
-	    return OptionalMatchSize();
     }
 
     virtual BaseExpressionRef replace_all(const Match &match) const {
@@ -429,7 +447,7 @@ public:
 	}
 
 	inline SliceCode slice_code() const {
-		return SliceCode(_extended_type >> CoreTypeBits);
+		return SliceCode(extended_type_info(_extended_type));
 	}
 
 	inline size_t size() const {

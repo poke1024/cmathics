@@ -9,7 +9,7 @@
 
 class Integer : public BaseExpression {
 public:
-	inline Integer(Type type) : BaseExpression(type) {
+	inline Integer(ExtendedType type) : BaseExpression(type) {
 	}
 };
 
@@ -20,7 +20,7 @@ public:
     const machine_integer_t value;
 
     inline MachineInteger(machine_integer_t new_value) :
-	    Integer(MachineIntegerType), value(new_value) {
+	    Integer(MachineIntegerExtendedType), value(new_value) {
     }
 
     virtual bool same(const BaseExpression &expr) const {
@@ -51,11 +51,11 @@ public:
 	mpz_class value;
 
 	inline BigInteger(const mpz_class &new_value) :
-		Integer(BigIntegerType), value(new_value) {
+		Integer(BigIntegerExtendedType), value(new_value) {
 	}
 
 	inline BigInteger(mpz_class &&new_value) :
-	    Integer(BigIntegerType), value(new_value) {
+	    Integer(BigIntegerExtendedType), value(new_value) {
     }
 
     virtual bool same(const BaseExpression &expr) const {

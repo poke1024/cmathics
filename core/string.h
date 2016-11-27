@@ -9,7 +9,7 @@ class String : public BaseExpression {
 public:
     const std::string value;
 
-    explicit String(const std::string &new_value) : BaseExpression(StringType), value(new_value) {
+    explicit String(const std::string &new_value) : BaseExpression(StringExtendedType), value(new_value) {
     }
 
     virtual bool same(const BaseExpression &expr) const {

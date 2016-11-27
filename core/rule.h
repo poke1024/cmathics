@@ -10,10 +10,6 @@ enum class DefinitionsPos : int {
 	Sub
 };
 
-DefinitionsPos get_definitions_pos(
-	const BaseExpressionRef &pattern,
-	const Symbol *symbol);
-
 #include "sort.h"
 
 class Rule {

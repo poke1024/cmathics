@@ -10,7 +10,8 @@ class Rational : public BaseExpression {
 public:
     mpq_class value;
 
-    inline Rational(const mpq_class &new_value) : BaseExpression(RationalType), value(new_value) {
+    inline Rational(const mpq_class &new_value) :
+        BaseExpression(RationalExtendedType), value(new_value) {
     }
 
     virtual hash_t hash() const {

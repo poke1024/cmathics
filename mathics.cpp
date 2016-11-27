@@ -572,7 +572,7 @@ public:
 			 		const BaseExpressionRef &cond,
 		            const BaseExpressionRef &t,
 		            const Evaluation &evaluation) {
-					    const Type type = cond->extended_type();
+					    const ExtendedType type = cond->extended_type();
 					    if (type == SymbolTrue) {
 						    const BaseExpressionRef r = t->evaluate(t, evaluation);
 						    return r ? r : t;
@@ -589,7 +589,7 @@ public:
 				    const BaseExpressionRef &t,
 			        const BaseExpressionRef &f,
 			        const Evaluation &evaluation) {
-			        const Type type = cond->extended_type();
+			        const ExtendedType type = cond->extended_type();
 				        if (type == SymbolTrue) {
 					        const BaseExpressionRef r = t->evaluate(t, evaluation);
 					        return r ? r : t;
@@ -607,7 +607,7 @@ public:
 			        const BaseExpressionRef &f,
 			        const BaseExpressionRef &u,
 			        const Evaluation &evaluation) {
-				        const Type type = cond->extended_type();
+				        const ExtendedType type = cond->extended_type();
 				        if (type == SymbolTrue) {
 					        const BaseExpressionRef r = t->evaluate(t, evaluation);
 					        return r ? r : t;

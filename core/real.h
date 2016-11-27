@@ -14,7 +14,8 @@ public:
 
     const machine_real_t value;
 
-    explicit MachineReal(machine_real_t new_value) : BaseExpression(MachineRealType), value(new_value) {
+    explicit MachineReal(machine_real_t new_value) :
+	    BaseExpression(MachineRealExtendedType), value(new_value) {
     }
 
     virtual bool same(const BaseExpression &expr) const {
@@ -57,11 +58,11 @@ public:
 	const double prec;
 
 	explicit inline BigReal(double new_prec, double new_value) :
-		BaseExpression(BigRealType), value(new_value, bits_prec(new_prec), MPFR_RNDN), prec(new_prec) {
+		BaseExpression(BigRealExtendedType), value(new_value, bits_prec(new_prec), MPFR_RNDN), prec(new_prec) {
 	}
 
 	explicit inline BigReal(const mpfr::mpreal &new_value) :
-		BaseExpression(BigRealType), value(new_value), prec(from_bits_prec(value.get_prec())) {
+		BaseExpression(BigRealExtendedType), value(new_value), prec(from_bits_prec(value.get_prec())) {
 	}
 
 	virtual bool same(const BaseExpression &expr) const {
