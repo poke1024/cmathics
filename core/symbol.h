@@ -66,7 +66,8 @@ class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
 
-	const std::string _name;
+	char _short_name[32];
+	std::string _long_name;
 
 	mutable MatchId _match_id;
 	mutable BaseExpressionRef _match_value;
@@ -109,11 +110,15 @@ public:
 	}
 
 	virtual std::string fullform() const {
-		return _name;
+		return name();
 	}
 
-	const std::string &name() const {
-		return _name;
+	const char *name() const {
+		if (_long_name.length() > 0) {
+			return _long_name.c_str();
+		} else {
+			return _short_name;
+		}
 	}
 
 	inline BaseExpressionRef evaluate_symbol() const {
@@ -186,6 +191,58 @@ public:
 
 	void add_rule(const RuleRef &rule);
 };
+
+class SymbolKey {
+private:
+	const SymbolRef _symbol;
+	const char * const _name;
+
+public:
+	inline SymbolKey(SymbolRef symbol) : _symbol(symbol), _name(nullptr) {
+	}
+
+	inline SymbolKey(const char *name) : _name(name) {
+	}
+
+	inline bool operator==(const SymbolKey &key) const {
+		if (_symbol) {
+			if (key._symbol) {
+				return _symbol == key._symbol;
+			} else {
+				return strcmp(_symbol->name(), key._name) == 0;
+			}
+		} else {
+			if (key._symbol) {
+				return strcmp(_name, key._symbol->name()) == 0;
+			} else {
+				return strcmp(_name, key._name) == 0;
+			}
+		}
+	}
+
+	inline const char *c_str() const {
+		return _name ? _name : _symbol->name();
+	}
+};
+
+namespace std {
+	// for the following hash, also see http://stackoverflow.com/questions/98153/
+	// whats-the-best-hashing-algorithm-to-use-on-a-stl-string-when-using-hash-map
+
+	template<>
+	struct hash<SymbolKey> {
+		inline size_t operator()(const SymbolKey &key) const {
+			const char *s = key.c_str();
+
+			size_t hash = 0;
+			while (*s) {
+				hash = hash * 101 + *s++;
+			}
+
+			return hash;
+		}
+	};
+}
 
 inline BaseExpressionRef BaseExpression::evaluate(
 	const BaseExpressionRef &self, const Evaluation &evaluation) const {

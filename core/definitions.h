@@ -4,6 +4,7 @@
 #include "symbol.h"
 #include "expression.h"
 #include "heap.h"
+#include <unordered_map>
 
 class Definitions;
 
@@ -41,7 +42,7 @@ public:
 
 class Definitions {
 private:
-    std::map<std::string,SymbolRef> _definitions;
+    std::unordered_map<SymbolKey,SymbolRef> _definitions;
 	Symbols _symbols;
 
     Symbol *add_internal_symbol(const SymbolRef &symbol);

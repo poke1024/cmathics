@@ -26,9 +26,13 @@ inline DefinitionsPos get_definitions_pos(
 
 Symbol::Symbol(const char *name, ExtendedType symbol) :
     BaseExpression(symbol),
-    _name(name),
     _linked_variable(nullptr),
     _replacement(nullptr) {
+
+	const size_t n = snprintf(_short_name, sizeof(_short_name), "%s", name);
+	if (n >= sizeof(_short_name)) {
+		_long_name = name;
+	}
 
 	set_attributes(Attributes::None);
 
@@ -164,12 +168,12 @@ Definitions::Definitions() {
 SymbolRef Definitions::new_symbol(const char *name, ExtendedType type) {
     assert(_definitions.find(name) == _definitions.end());
     auto symbol = SymbolRef(new Symbol(name, type));
-    _definitions[name] = symbol;
+    _definitions[SymbolKey(symbol)] = symbol;
     return symbol;
 }
 
 SymbolRef Definitions::lookup(const char *name) {
-    auto it = _definitions.find(name);
+    auto it = _definitions.find(SymbolKey(name));
 
     if (it == _definitions.end()) {
         return new_symbol(name); // FIXME do we really want this?
@@ -179,7 +183,7 @@ SymbolRef Definitions::lookup(const char *name) {
 }
 
 Symbol *Definitions::add_internal_symbol(const SymbolRef &symbol) {
-    _definitions[symbol->_name] = symbol;
+    _definitions[SymbolKey(symbol)] = symbol;
 	return symbol.get();
 }
 
