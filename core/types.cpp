@@ -17,8 +17,9 @@ BaseExpressionRef exactly_n_pattern(
 BaseExpressionRef at_least_n_pattern(
 	const SymbolRef &head, size_t n, const Definitions &definitions) {
 
-	const auto &Blank = definitions.symbols().Blank;
-	const auto &BlankNullSequence = definitions.symbols().BlankNullSequence;
+	const auto &symbols = definitions.symbols();
+	const auto &Blank = symbols.Blank;
+	const auto &BlankNullSequence = symbols.BlankNullSequence;
 
 	return expression(head, [n, &Blank, &BlankNullSequence] (auto &storage) {
 		for (size_t i = 0; i < n; i++) {
@@ -28,7 +29,22 @@ BaseExpressionRef at_least_n_pattern(
 	}, n + 1);
 }
 
-DefinitionsPos Rule::get_definitions_pos(const Symbol *symbol) const {
+BaseExpressionRef function_pattern(
+	const SymbolRef &head, const Definitions &definitions) {
+
+	const auto &symbols = definitions.symbols();
+
+	const auto &BlankSequence = symbols.BlankSequence;
+	const auto &BlankNullSequence = symbols.BlankNullSequence;
+
+	return expression(expression(head, {BlankSequence}), {BlankNullSequence});
+}
+
+DefinitionsPos get_definitions_pos(
+	const BaseExpressionRef &pattern,
+	const Symbol *symbol) {
+
+	// see core/definitions.py:get_tag_position()
 	if (pattern == symbol) {
 		return DefinitionsPos::Own;
 	} else if (pattern->type() != ExpressionType) {

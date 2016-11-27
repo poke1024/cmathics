@@ -10,6 +10,10 @@ enum class DefinitionsPos : int {
 	Sub
 };
 
+DefinitionsPos get_definitions_pos(
+	const BaseExpressionRef &pattern,
+	const Symbol *symbol);
+
 #include "sort.h"
 
 class Rule {
@@ -25,8 +29,6 @@ public:
 	virtual BaseExpressionRef rhs() const {
 		throw std::runtime_error("no fixed right hand side is available for this Rule type");
 	}
-
-	virtual DefinitionsPos get_definitions_pos(const Symbol *symbol) const;
 
 	virtual MatchSize match_size() const;
 };
@@ -44,10 +46,6 @@ public:
 		Rule(exactly_n_pattern(head, N, definitions)) {
 	}
 
-	virtual DefinitionsPos get_definitions_pos(const Symbol *symbol) const {
-		return DefinitionsPos::Down;
-	}
-
 	virtual MatchSize match_size() const {
 		return MatchSize::exactly(N);
 	}
@@ -58,10 +56,6 @@ class AtLeastNRule : public Rule {
 public:
 	AtLeastNRule(const SymbolRef &head, const Definitions &definitions) :
 		Rule(at_least_n_pattern(head, N, definitions)) {
-	}
-
-	virtual DefinitionsPos get_definitions_pos(const Symbol *symbol) const {
-		return DefinitionsPos::Down;
 	}
 
 	virtual MatchSize match_size() const {

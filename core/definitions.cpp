@@ -4,6 +4,7 @@
 #include "expression.h"
 #include "evaluation.h"
 #include "pattern.h"
+#include "builtin.h"
 
 Symbol::Symbol(Definitions *definitions, const char *name, Type symbol) :
     BaseExpression(symbol),
@@ -75,9 +76,24 @@ void Symbol::set_attributes(Attributes a) {
 	_evaluate_with_head = EvaluateDispatch::pick(_attributes);
 }
 
+void Symbol::add_rule(const BaseExpressionRef &lhs, const BaseExpressionRef &rhs) {
+	switch (get_definitions_pos(lhs, this)) {
+		case DefinitionsPos::None:
+			break;
+		case DefinitionsPos::Own:
+			own_value = rhs;
+			break;
+		case DefinitionsPos::Down:
+			add_down_rule(std::make_shared<RewriteRule>(lhs, rhs));
+			break;
+		case DefinitionsPos::Sub:
+			add_sub_rule(std::make_shared<RewriteRule>(lhs, rhs));
+			break;
+	}
+}
+
 void Symbol::add_rule(const RuleRef &rule) {
-	// see core/definitions.py:get_tag_position()
-	switch (rule->get_definitions_pos(this)) {
+	switch (get_definitions_pos(rule->pattern, this)) {
 		case DefinitionsPos::None:
 			break;
 		case DefinitionsPos::Own:

@@ -146,9 +146,14 @@ inline NewRuleRef make_rewrite_rule(const BaseExpressionRef &patt, const BaseExp
 
 // as Function is a very important pattern, we provide a special optimized Rule for it.
 
-class FunctionRule : public AtLeastNRule<0> {
+BaseExpressionRef function_pattern(
+	const SymbolRef &head, const Definitions &definitions);
+
+class FunctionRule : public Rule {
 public:
-	using AtLeastNRule<0>::AtLeastNRule;
+	FunctionRule(const SymbolRef &head, const Definitions &definitions) :
+		Rule(function_pattern(head, definitions)) {
+	}
 
 	virtual BaseExpressionRef try_apply(const ExpressionRef &args, const Evaluation &evaluation) const {
 		const BaseExpressionRef &head = args->_head;
@@ -236,7 +241,7 @@ public:
 		return BaseExpressionRef();
 	}
 
-	virtual DefinitionsPos get_definitions_pos(const Symbol *symbol) const {
-		return DefinitionsPos::Sub; // assuming "symbol" is Function
+	virtual MatchSize match_size() const {
+		return MatchSize::at_least(0);
 	}
 };

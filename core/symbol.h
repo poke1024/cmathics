@@ -182,6 +182,8 @@ public:
 		return this;
 	}
 
+	void add_rule(const BaseExpressionRef &lhs, const BaseExpressionRef &rhs);
+
 	void add_rule(const RuleRef &rule);
 };
 

@@ -482,11 +482,9 @@ BaseExpressionRef assign(
 
 	// FIXME this is just a super simple example implementation.
 
-	const RuleRef rule = std::make_shared<RewriteRule>(lhs, rhs);
-
 	const Symbol *name = lhs->lookup_name();
 	if (name) {
-		const_cast<Symbol*>(name)->add_rule(rule);
+		const_cast<Symbol*>(name)->add_rule(lhs, rhs);
 	}
 
 	return BaseExpressionRef(evaluation.Null);
