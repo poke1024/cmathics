@@ -35,17 +35,7 @@ constexpr int CoreTypeBits = 4;
 // extended type information attached to a core type.
 constexpr int CoreTypeShift = 5;
 
-enum ExtendedType : uint16_t {
-	SymbolExtendedType = SymbolType << CoreTypeShift,
-	MachineIntegerExtendedType = MachineIntegerType << CoreTypeShift,
-	BigIntegerExtendedType = BigIntegerType << CoreTypeShift,
-	MachineRealExtendedType = MachineRealType << CoreTypeShift,
-	BigRealExtendedType = BigRealType << CoreTypeShift,
-	RationalExtendedType = RationalType << CoreTypeShift,
-	ComplexExtendedType = ComplexType << CoreTypeShift,
-	ExpressionExtendedType = ExpressionType << CoreTypeShift,
-	StringExtendedType = StringType << CoreTypeShift
-};
+enum ExtendedType : uint16_t;
 
 constexpr inline ExtendedType build_extended_type(Type core, uint8_t extended) {
 	return ExtendedType((ExtendedType(core) << CoreTypeShift) | extended);
@@ -55,29 +45,24 @@ constexpr inline auto extended_type_info(ExtendedType type) {
 	return type & ((ExtendedType(1) << CoreTypeShift) - 1);
 }
 
-// the following values are not represented in TypeMasks.
+// extended type infos are not represented in TypeMasks.
 
-constexpr ExtendedType SymbolSequence = build_extended_type(SymbolType, 1);
+enum ExtendedType : uint16_t {
+	SymbolExtendedType = SymbolType << CoreTypeShift,
 
-constexpr ExtendedType SymbolTrue = build_extended_type(SymbolType, 2);
-constexpr ExtendedType SymbolFalse = build_extended_type(SymbolType, 3);
+	#define SYMBOL(SYMBOLNAME) Symbol##SYMBOLNAME,
+	#include "system_symbols.h"
+	#undef SYMBOL
 
-constexpr ExtendedType SymbolBlank = build_extended_type(SymbolType, 4);
-constexpr ExtendedType SymbolBlankSequence = build_extended_type(SymbolType, 5);
-constexpr ExtendedType SymbolBlankNullSequence = build_extended_type(SymbolType, 6);
-constexpr ExtendedType SymbolPattern = build_extended_type(SymbolType, 7);
-constexpr ExtendedType SymbolPatternTest = build_extended_type(SymbolType, 8);
-constexpr ExtendedType SymbolCondition = build_extended_type(SymbolType, 9);
-constexpr ExtendedType SymbolOptional = build_extended_type(SymbolType, 10);
-constexpr ExtendedType SymbolAlternatives = build_extended_type(SymbolType, 11);
-constexpr ExtendedType SymbolRepeated = build_extended_type(SymbolType, 12);
-
-constexpr ExtendedType SymbolVerbatim = build_extended_type(SymbolType, 13);
-constexpr ExtendedType SymbolOptionsPattern = build_extended_type(SymbolType, 14);
-constexpr ExtendedType SymbolSlot = build_extended_type(SymbolType, 15);
-constexpr ExtendedType SymbolSlotSequence = build_extended_type(SymbolType, 16);
-constexpr ExtendedType SymbolFunction = build_extended_type(SymbolType, 17);
-constexpr ExtendedType SymbolModule = build_extended_type(SymbolType, 18);
+	MachineIntegerExtendedType = MachineIntegerType << CoreTypeShift,
+	BigIntegerExtendedType = BigIntegerType << CoreTypeShift,
+	MachineRealExtendedType = MachineRealType << CoreTypeShift,
+	BigRealExtendedType = BigRealType << CoreTypeShift,
+	RationalExtendedType = RationalType << CoreTypeShift,
+	ComplexExtendedType = ComplexType << CoreTypeShift,
+	ExpressionExtendedType = ExpressionType << CoreTypeShift,
+	StringExtendedType = StringType << CoreTypeShift
+};
 
 typedef uint32_t TypeMask;
 

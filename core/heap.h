@@ -146,7 +146,9 @@ class Heap {
 private:
 	static Heap *_s_instance;
 
-    boost::object_pool<MachineInteger> _machine_integers;
+	boost::object_pool<Symbol> _symbols;
+
+	boost::object_pool<MachineInteger> _machine_integers;
     boost::object_pool<BigInteger> _big_integers;
 
     boost::object_pool<MachineReal> _machine_reals;
@@ -165,7 +167,7 @@ public:
 
     static void release(BaseExpression *expr);
 
-	static SymbolRef Symbol(const char *name, Type type);
+	static SymbolRef Symbol(const char *name, ExtendedType type = SymbolExtendedType);
 
     static BaseExpressionRef MachineInteger(machine_integer_t value);
     static BaseExpressionRef BigInteger(const mpz_class &value);

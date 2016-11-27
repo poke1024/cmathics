@@ -19,6 +19,10 @@ void Heap::init() {
 
 void Heap::release(BaseExpression *expr) {
     switch (expr->type()) {
+        case SymbolType:
+	        _s_instance->_symbols.free(static_cast<class Symbol*>(expr));
+		    break;
+
         case MachineIntegerType:
             _s_instance->_machine_integers.free(static_cast<class MachineInteger*>(expr));
             break;
@@ -56,8 +60,9 @@ void Heap::release(BaseExpression *expr) {
     }
 }
 
-SymbolRef Symbol(const char *name, Type type) {
-    return SymbolRef(); // FIXME
+SymbolRef Heap::Symbol(const char *name, ExtendedType type) {
+    assert(_s_instance);
+    return SymbolRef(_s_instance->_symbols.construct(name, type));
 }
 
 BaseExpressionRef Heap::MachineInteger(machine_integer_t value) {

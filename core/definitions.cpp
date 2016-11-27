@@ -24,6 +24,14 @@ inline DefinitionsPos get_definitions_pos(
 	}
 }
 
+Symbols::Symbols(Definitions &definitions) :
+	#define SYMBOL(SYMBOLNAME) \
+		SYMBOLNAME(definitions.system_symbol(#SYMBOLNAME, Symbol ## SYMBOLNAME)),
+	#include "system_symbols.h"
+	#undef SYMBOL
+	_dummy() {
+}
+
 Symbol::Symbol(const char *name, ExtendedType symbol) :
     BaseExpression(symbol),
     _linked_variable(nullptr),
@@ -39,19 +47,6 @@ Symbol::Symbol(const char *name, ExtendedType symbol) :
 	}
 
 	set_attributes(Attributes::None);
-
-	// initialise a definition entry
-
-    /*const auto empty_list = definitions->empty_list();
-    own_values = empty_list;
-    sub_values = empty_list;
-    up_values = empty_list;
-    down_values = empty_list;
-    n_values = empty_list;
-    format_values = empty_list;
-    default_values = empty_list;
-    messages = empty_list;
-    options = empty_list;*/
 }
 
 Symbol::~Symbol() {
@@ -140,46 +135,26 @@ void Symbol::add_rule(const RuleRef &rule) {
 	}
 }
 
-Definitions::Definitions() {
-	// bootstrap symbols
-	_symbols.List = new_symbol("System`List").get();
-	_symbols.Sequence = new_symbol("System`Sequence", SymbolSequence).get();
-
-	_symbols.True = new_symbol("System`True", SymbolTrue).get();
-	_symbols.False = new_symbol("System`False", SymbolFalse).get();
-	_symbols.Null = new_symbol("System`Null").get();
-
-    // pattern matching symbols
-	_symbols.Blank = add_internal_symbol(SymbolRef(new class Blank()));
-	_symbols.BlankSequence = add_internal_symbol(SymbolRef(new class BlankSequence()));
-	_symbols.BlankNullSequence = add_internal_symbol(SymbolRef(new class BlankNullSequence()));
-	_symbols.Pattern = add_internal_symbol(SymbolRef(new class Pattern()));
-	_symbols.Alternatives = add_internal_symbol(SymbolRef(new class Alternatives()));
-	_symbols.Repeated = add_internal_symbol(SymbolRef(new class Repeated()));
-    /*new_symbol("System`RepeatedNull", RepeatedNull);
-    new_symbol("System`Except", Except);
-    new_symbol("System`Longest", Longest);
-    new_symbol("System`Shortest", Shortest);
-    new_symbol("System`OptionsPattern", OptionsPattern);
-    new_symbol("System`PatternSequence", PatternSequence);
-    new_symbol("System`OrderlessPatternSequence", OrderlessPatternSequence);
-    new_symbol("System`Verbatim", Verbatim);
-    new_symbol("System`HoldPattern", HoldPattern);
-    new_symbol("System`KeyValuePattern", KeyValuePattern);
-    new_symbol("System`Condition", Condition);
-    new_symbol("System`PatternTest", PatternTest);
-    new_symbol("System`Optional", Optional);*/
-
-	_symbols.Slot = new_symbol("System`Slot", SymbolSlot).get();
-	_symbols.SlotSequence = new_symbol("System`SlotSequence", SymbolSequence).get();
-	_symbols.Function = new_symbol("System`Function", SymbolFunction).get();
+Definitions::Definitions() : _symbols(*this) {
 }
 
 SymbolRef Definitions::new_symbol(const char *name, ExtendedType type) {
     assert(_definitions.find(name) == _definitions.end());
-    auto symbol = SymbolRef(new Symbol(name, type));
+    const SymbolRef symbol = Heap::Symbol(name, type);
     _definitions[SymbolKey(symbol)] = symbol;
     return symbol;
+}
+
+Symbol *Definitions::system_symbol(const char *name, ExtendedType type) {
+	std::ostringstream fullname;
+	fullname << "System`";
+	if (strncmp(name, "State", 5) == 0) {
+		fullname << "$";
+		fullname << name + 5;
+	} else {
+		fullname << name;
+	}
+	return new_symbol(fullname.str().c_str(), type).get();
 }
 
 SymbolRef Definitions::lookup(const char *name) {
@@ -190,10 +165,5 @@ SymbolRef Definitions::lookup(const char *name) {
     } else {
         return it->second;
     }
-}
-
-Symbol *Definitions::add_internal_symbol(const SymbolRef &symbol) {
-    _definitions[SymbolKey(symbol)] = symbol;
-	return symbol.get();
 }
 
