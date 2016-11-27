@@ -67,7 +67,7 @@ protected:
 	friend class Definitions;
 
 	char _short_name[32];
-	std::string _long_name;
+	char *_name;
 
 	mutable MatchId _match_id;
 	mutable BaseExpressionRef _match_value;
@@ -80,6 +80,8 @@ protected:
 
 public:
 	Symbol(const char *name, ExtendedType symbol = SymbolExtendedType);
+
+	~Symbol();
 
 	/*Expression* own_values;
 	Expression* sub_values;
@@ -114,11 +116,7 @@ public:
 	}
 
 	const char *name() const {
-		if (_long_name.length() > 0) {
-			return _long_name.c_str();
-		} else {
-			return _short_name;
-		}
+		return _name;
 	}
 
 	inline BaseExpressionRef evaluate_symbol() const {

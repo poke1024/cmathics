@@ -29,9 +29,13 @@ Symbol::Symbol(const char *name, ExtendedType symbol) :
     _linked_variable(nullptr),
     _replacement(nullptr) {
 
-	const size_t n = snprintf(_short_name, sizeof(_short_name), "%s", name);
+	const size_t n = snprintf(
+		_short_name, sizeof(_short_name), "%s", name);
 	if (n >= sizeof(_short_name)) {
-		_long_name = name;
+		_name = new char[strlen(name) + 1];
+		strcpy(_name, name);
+	} else {
+		_name = _short_name;
 	}
 
 	set_attributes(Attributes::None);
@@ -48,6 +52,12 @@ Symbol::Symbol(const char *name, ExtendedType symbol) :
     default_values = empty_list;
     messages = empty_list;
     options = empty_list;*/
+}
+
+Symbol::~Symbol() {
+	if (_name != _short_name) {
+		delete[] _name;
+	}
 }
 
 static struct {
