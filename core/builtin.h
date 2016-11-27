@@ -92,16 +92,6 @@ public:
 		}
 	}
 
-	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
-		if (_patt->head() == symbol) {
-			return DefinitionsPos::Down;
-		} else if ( _patt->lookup_name() == symbol) {
-			return DefinitionsPos::Sub;
-		} else {
-			return DefinitionsPos::None;
-		}
-	}
-
 	virtual MatchSize match_size() const {
 		return _patt->match_size();
 	}
@@ -141,6 +131,10 @@ public:
 		} else {
 			return BaseExpressionRef();
 		}
+	}
+
+	virtual BaseExpressionRef rhs() const {
+		return _into;
 	}
 };
 
@@ -242,7 +236,7 @@ public:
 		return BaseExpressionRef();
 	}
 
-	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
+	virtual DefinitionsPos get_definitions_pos(const Symbol *symbol) const {
 		return DefinitionsPos::Sub; // assuming "symbol" is Function
 	}
 };

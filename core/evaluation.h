@@ -42,7 +42,7 @@ typedef enum {
 
 class Definitions;
 
-class Evaluation {
+class Evaluation : public Symbols {
 public:
     Definitions &definitions;
     int64_t recursion_depth;
@@ -56,10 +56,6 @@ public:
     Evaluation(Definitions &definitions, bool new_catch_interrupts);
 
     BaseExpressionRef evaluate(BaseExpressionRef expression);
-
-    inline const Symbols &symbols() const {
-        return definitions.symbols();
-    }
 };
 
 

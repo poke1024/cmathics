@@ -28,7 +28,7 @@ BaseExpressionRef at_least_n_pattern(
 	}, n + 1);
 }
 
-DefinitionsPos Rule::get_definitions_pos(const SymbolRef &symbol) const {
+DefinitionsPos Rule::get_definitions_pos(const Symbol *symbol) const {
 	if (pattern == symbol) {
 		return DefinitionsPos::Own;
 	} else if (pattern->type() != ExpressionType) {

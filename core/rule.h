@@ -22,7 +22,11 @@ public:
 
 	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const = 0;
 
-	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const;
+	virtual BaseExpressionRef rhs() const {
+		throw std::runtime_error("no fixed right hand side is available for this Rule type");
+	}
+
+	virtual DefinitionsPos get_definitions_pos(const Symbol *symbol) const;
 
 	virtual MatchSize match_size() const;
 };
@@ -40,7 +44,7 @@ public:
 		Rule(exactly_n_pattern(head, N, definitions)) {
 	}
 
-	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
+	virtual DefinitionsPos get_definitions_pos(const Symbol *symbol) const {
 		return DefinitionsPos::Down;
 	}
 
@@ -56,7 +60,7 @@ public:
 		Rule(at_least_n_pattern(head, N, definitions)) {
 	}
 
-	virtual DefinitionsPos get_definitions_pos(const SymbolRef &symbol) const {
+	virtual DefinitionsPos get_definitions_pos(const Symbol *symbol) const {
 		return DefinitionsPos::Down;
 	}
 

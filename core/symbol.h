@@ -94,6 +94,7 @@ public:
 		return *_evaluate_with_head;
 	}
 
+	BaseExpressionRef own_value;
 	RuleTable sub_rules;
 	RuleTable up_rules;
 	RuleTable down_rules;
@@ -116,17 +117,7 @@ public:
 	}
 
 	inline BaseExpressionRef evaluate_symbol() const {
-		// return NULL if nothing changed
-		BaseExpressionRef result;
-
-		// try all the own values until one applies
-		/*for (auto leaf : own_values->_leaves) {
-			result = replace(leaf);
-			if (result != NULL)
-				break;
-		}*/
-
-		return result;
+		return own_value;
 	}
 
 	void add_down_rule(const RuleRef &rule);
@@ -190,6 +181,8 @@ public:
 	virtual const Symbol *lookup_name() const {
 		return this;
 	}
+
+	void add_rule(const RuleRef &rule);
 };
 
 class Sequence : public Symbol {

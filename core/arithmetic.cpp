@@ -74,7 +74,7 @@ public:
 			leaves.push_back(x);
 		}
 
-		return expression(_evaluation.symbols().List, PackedSlice<T>(std::move(leaves)));
+		return expression(_evaluation.List, PackedSlice<T>(std::move(leaves)));
 	}
 };
 

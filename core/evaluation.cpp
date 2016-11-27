@@ -8,7 +8,10 @@
 #include "evaluation.h"
 #include "pattern.h"
 
-Evaluation::Evaluation(Definitions &new_definitions, bool new_catch_interrupts) : definitions(new_definitions) {
+Evaluation::Evaluation(Definitions &new_definitions, bool new_catch_interrupts) :
+	Symbols(new_definitions.symbols()),
+	definitions(new_definitions) {
+
     recursion_depth = 0;
     timeout = false;
     stopped = false;

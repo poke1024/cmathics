@@ -475,6 +475,23 @@ struct RuleData {
 	RuleRef rule;
 };
 
+BaseExpressionRef assign(
+	const BaseExpressionRef &lhs,
+	const BaseExpressionRef &rhs,
+	const Evaluation &evaluation) {
+
+	// FIXME this is just a super simple example implementation.
+
+	const RuleRef rule = std::make_shared<RewriteRule>(lhs, rhs);
+
+	const Symbol *name = lhs->lookup_name();
+	if (name) {
+		const_cast<Symbol*>(name)->add_rule(rule);
+	}
+
+	return BaseExpressionRef(evaluation.Null);
+}
+
 class Runtime {
 private:
     Definitions _definitions;
@@ -501,22 +518,8 @@ public:
         const SymbolRef symbol = _definitions.lookup(full_down.c_str());
 		symbol->set_attributes(attributes);
         for (const NewRuleRef &new_rule : rules) {
-	        const RuleRef rule = new_rule(symbol, _definitions);
+	        symbol->add_rule(new_rule(symbol, _definitions));
 
-	        // see core/definitions.py:get_tag_position()
-	        switch (rule->get_definitions_pos(symbol)) {
-		        case DefinitionsPos::None:
-			        break;
-		        case DefinitionsPos::Down:
-			        symbol->add_down_rule(rule);
-			        break;
-		        case DefinitionsPos::Sub:
-			        symbol->add_sub_rule(rule);
-			        break;
-		        case DefinitionsPos::Own:
-			        // FIXME
-			        break;
-	        }
         }
     }
 
@@ -623,22 +626,12 @@ public:
 
 	    add("SetDelayed",
 	        Attributes::HoldAll + Attributes::SequenceHold, {
-			    builtin<2>(
-				    [](const BaseExpressionRef &lhs, const BaseExpressionRef &rhs, const Evaluation &evaluation) {
-						// FIXME this is just a super simple example implementation.
+			    builtin<2>(assign)
+	        });
 
-					    if (lhs->type() == ExpressionType) {
-						    const Expression *target = static_cast<const Expression*>(lhs.get());
-						    const auto &head = target->head();
-						    if (head->type() == SymbolType) {
-							    const RuleRef rule = std::make_shared<RewriteRule>(lhs, rhs);
-							    const_cast<Symbol*>(static_cast<const Symbol*>(head.get()))->add_down_rule(rule);
-						    }
-					    }
-
-					    return BaseExpressionRef(evaluation.symbols().Null);
-			        }
-		        )
+	    add("Set",
+	        Attributes::HoldFirst + Attributes::SequenceHold, {
+		        builtin<2>(assign)
 	        });
 
 	    add("Apply",
@@ -736,7 +729,7 @@ public:
 	        Attributes::HoldAll, {
 			    builtin<1>(
 				    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
-					    const auto &List = evaluation.symbols().List;
+					    const auto &List = evaluation.List;
 					    const auto start_time = std::chrono::steady_clock::now();
 					    const auto evaluated = expr->evaluate(expr, evaluation);
 					    const auto end_time = std::chrono::steady_clock::now();

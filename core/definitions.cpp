@@ -36,8 +36,12 @@ static struct {
 inline void insert_rule(std::vector<RuleRef> &rules, const RuleRef &rule) {
 	const SortKey key = rule->key;
 	const auto i = std::lower_bound(
-			rules.begin(), rules.end(), key, CompareSortKey);
-	rules.insert(i, rule);
+		rules.begin(), rules.end(), key, CompareSortKey);
+	if (i != rules.end() && (*i)->pattern->same(rule->pattern)) {
+		*i = rule;
+	} else {
+		rules.insert(i, rule);
+	}
 }
 
 void Symbol::add_down_rule(const RuleRef &rule) {
@@ -69,6 +73,23 @@ BaseExpressionRef Symbol::replace_all(const Match &match) const {
 void Symbol::set_attributes(Attributes a) {
 	_attributes = a;
 	_evaluate_with_head = EvaluateDispatch::pick(_attributes);
+}
+
+void Symbol::add_rule(const RuleRef &rule) {
+	// see core/definitions.py:get_tag_position()
+	switch (rule->get_definitions_pos(this)) {
+		case DefinitionsPos::None:
+			break;
+		case DefinitionsPos::Own:
+			own_value = rule->rhs();
+			break;
+		case DefinitionsPos::Down:
+			add_down_rule(rule);
+			break;
+		case DefinitionsPos::Sub:
+			add_sub_rule(rule);
+			break;
+	}
 }
 
 Definitions::Definitions() {
@@ -131,3 +152,4 @@ Symbol *Definitions::add_internal_symbol(const SymbolRef &symbol) {
     _definitions[symbol->_name] = symbol;
 	return symbol.get();
 }
+

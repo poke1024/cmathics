@@ -9,6 +9,13 @@ class Definitions;
 
 class Symbols {
 public:
+	inline Symbols() {
+	}
+
+	inline Symbols(const Symbols &symbols) {
+		std::memcpy(this, &symbols, sizeof(symbols));
+	}
+
 	Symbol *List;
 	Symbol *Sequence;
 
