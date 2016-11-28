@@ -106,7 +106,8 @@ public:
 		BinaryOperator<F>::template init<BigReal, BigInteger, mpfr::mpreal>();
 		BinaryOperator<F>::template init<BigReal, MachineReal, mpfr::mpreal>();
 		BinaryOperator<F>::template init<BigReal, BigReal, mpfr::mpreal>();
-	}};
+	}
+};
 
 template<typename F>
 class BinaryComparison : public BinaryOperator<F> {
@@ -213,7 +214,7 @@ private:
 
 public:
 	BinaryOperatorRule(const SymbolRef &head, const Definitions &definitions) :
-		ExactlyNRule<2>(head, definitions) {
+		ExactlyNRule<2>(head, definitions), _operator() {
 	}
 
 	virtual BaseExpressionRef try_apply(

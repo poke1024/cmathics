@@ -597,6 +597,12 @@ public:
 		        Plus3
         });
 
+	    add("Subtract",
+	        Attributes::None, {
+		        rewrite("Subtract[x_, y_]", "Plus[x, Times[-1, y]]")
+	        }
+	    );
+
 	    add("Times",
 	        Attributes::None, {
 		        Times2

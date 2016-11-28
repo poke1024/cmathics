@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <boost/intrusive_ptr.hpp>
 #include <experimental/optional>
+#include <symengine/basic.h>
 
 #include "hash.h"
 
@@ -287,6 +288,7 @@ protected:
 
 protected:
     mutable size_t _ref_count;
+	mutable SymEngine::RCP<const SymEngine::Basic> _symbolic;
 
 public:
     inline BaseExpression(ExtendedType type) : _extended_type(type), _ref_count(0) {

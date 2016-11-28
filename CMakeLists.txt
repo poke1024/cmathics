@@ -4,6 +4,16 @@ project(cmathics)
 # specifying -O2 here gives another factor 10 currently
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
+# we assume that symengine was installed; the instructions given at the official page at
+# https://github.com/symengine/symengine/wiki/Building-SymEngine don't seem to that well
+# under OS X and homebrew. here's what works for me:
+
+# export CPATH="/Users/offline/homebrew/include:/Users/offline/Downloads/symengine-master"
+# cd path/to/symengine/source/root
+# CXXFLAGS=-std=c++11 /Users/offline/homebrew/bin/cmake -DCMAKE_INSTALL_PREFIX:PATH="/Users/offline/homebrew" .
+# make CXX_DEFINES=-std=c++11
+# make install
+
 include_directories(${cmathics_SOURCE_DIR})
 
 set(HOMEBREWHOME "$ENV{HOMEBREWHOME}")
@@ -83,7 +93,12 @@ set(SOURCE_FILES
     core/promote.h
     core/structure.h
     core/structure_implementation.h
-    core/evaluate.h core/evaluate.cpp core/cache.h core/sort.h core/sort.cpp core/system_symbols.h)
+    core/evaluate.h
+    core/evaluate.cpp
+    core/cache.h
+    core/sort.h
+    core/sort.cpp
+    core/system_symbols.h)
 
 add_custom_target(standalone)
 
