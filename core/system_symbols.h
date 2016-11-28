@@ -22,4 +22,7 @@ SYMBOL(SlotSequence)
 SYMBOL(Function)
 SYMBOL(Module)
 
+SYMBOL(LessEqual)
+SYMBOL(Plus)
+
 SYMBOL(StateModuleNumber)

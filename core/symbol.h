@@ -279,5 +279,8 @@ inline BaseExpressionRef BaseExpression::evaluate_or_identity(
     return result ? result : BaseExpressionRef(this);
 }
 
+inline Symbol *BaseExpression::as_symbol() const {
+    return const_cast<Symbol*>(static_cast<const Symbol*>(this));
+}
 
 #endif //CMATHICS_SYMBOL_H_H

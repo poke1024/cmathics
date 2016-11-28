@@ -370,6 +370,8 @@ public:
 		return nullptr;
 	}
 
+    inline Symbol *as_symbol() const;
+
 	virtual SortKey sort_key() const;
 	virtual SortKey pattern_key() const;
 
@@ -432,6 +434,12 @@ public:
 		if (_cache) {
 			Heap::release_cache(_cache);
 		}
+	}
+
+	template<size_t N>
+	const BaseExpressionRef *static_leaves() const {
+		static_assert(N <= MaxStaticSliceSize, "N is too large");
+		return static_cast<const StaticSlice<N>*>(_slice_ptr)->refs();
 	}
 
 	inline SliceCode slice_code() const {

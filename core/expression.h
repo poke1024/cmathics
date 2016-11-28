@@ -327,6 +327,21 @@ inline ExpressionRef expression(
 }
 
 inline ExpressionRef expression(
+    const BaseExpressionRef &head,
+    const BaseExpressionRef &a) {
+
+    return Heap::StaticExpression<1>(head, StaticSlice<1>({a}));
+}
+
+inline ExpressionRef expression(
+    const BaseExpressionRef &head,
+    const BaseExpressionRef &a,
+    const BaseExpressionRef &b) {
+
+    return Heap::StaticExpression<2>(head, StaticSlice<2>({a, b}));
+}
+
+inline ExpressionRef expression(
 	const BaseExpressionRef &head,
 	const std::initializer_list<BaseExpressionRef> &leaves) {
 

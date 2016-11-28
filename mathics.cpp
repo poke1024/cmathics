@@ -490,7 +490,7 @@ BaseExpressionRef assign(
 	return BaseExpressionRef(evaluation.Null);
 }
 
-inline const Expression *is_list(const BaseExpressionRef &item) {
+inline const Expression *if_list(const BaseExpressionRef &item) {
     if (item->type() == ExpressionType) {
         const Expression *expr = static_cast<const Expression*>(item.get());
         if (expr->head()->extended_type() == SymbolList) {
@@ -500,6 +500,52 @@ inline const Expression *is_list(const BaseExpressionRef &item) {
     return nullptr;
 }
 
+template<bool SYMBOL>
+ExpressionRef iterate(
+    const BaseExpressionRef &expr,
+    Symbol *iterator,
+    const BaseExpressionRef &imin,
+    const BaseExpressionRef &imax,
+    const BaseExpressionRef &di,
+    const Evaluation &evaluation) {
+
+    const BaseExpressionRef &LessEqual = evaluation.LessEqual;
+    const BaseExpressionRef &Plus = evaluation.Plus;
+
+    std::vector<BaseExpressionRef> result;
+
+    BaseExpressionRef index = imin;
+    while (true) {
+        const ExtendedType if_continue =
+            expression(LessEqual, index, imax)->
+                evaluate_or_identity(evaluation)->extended_type();
+
+        if (if_continue == SymbolFalse) {
+            break;
+        } else if (if_continue != SymbolTrue) {
+            // FIXME error
+            break;
+        }
+
+        if (SYMBOL) {
+            const BaseExpressionRef safed_own_value = iterator->own_value;
+            iterator->own_value = index;
+            try {
+                result.push_back(expr->evaluate_or_identity(evaluation));
+            } catch(...) {
+                iterator->own_value = safed_own_value;
+                throw;
+            }
+            iterator->own_value = safed_own_value;
+        } else {
+            result.push_back(expr->evaluate_or_identity(evaluation));
+        }
+
+        index = expression(Plus, index, di)->evaluate_or_identity(evaluation);
+    }
+
+    return expression(evaluation.List, std::move(result));
+}
 
 class Runtime {
 private:
@@ -765,6 +811,92 @@ public:
 			    NewRule<FunctionRule>
 	        }
 	    );
+
+        add("Table",
+            Attributes::HoldAll, {
+               builtin<2>([] (
+                   const BaseExpressionRef &expr,
+                   const BaseExpressionRef &iter,
+                   const Evaluation &evaluation) -> ExpressionRef {
+
+                   const Expression *list = if_list(iter);
+                   if (!list) {
+                       return ExpressionRef();
+                   }
+
+                   switch (list->size()) {
+                       case 1: { // {imax_}
+                           const BaseExpressionRef *leaves = list->static_leaves<1>();
+                           return iterate<false>(
+                               expr,
+                               nullptr,
+                               Heap::MachineInteger(0),
+                               leaves[0]->evaluate_or_identity(evaluation),
+                               Heap::MachineInteger(1),
+                               evaluation);
+                       }
+
+                       case 2: { // {i_Symbol, imax_} or {i_Symbol, {items___}}
+                           const BaseExpressionRef *leaves = list->static_leaves<2>();
+                           const BaseExpressionRef &iterator = leaves[0];
+
+                           if (iterator->type() == SymbolType) {
+                               const BaseExpressionRef &domain = leaves[1];
+                               const Expression *domain_list = if_list(domain);
+
+                               if (domain_list) {
+                                   domain_list = if_list(domain_list->evaluate_or_identity(evaluation));
+                                   if (domain_list) {
+                                       // return domain_list->iterate(expr);
+                                   }
+                               } else {
+                                   return iterate<true>(
+                                       expr,
+                                       iterator->as_symbol(),
+                                       Heap::MachineInteger(1),
+                                       leaves[1]->evaluate_or_identity(evaluation),
+                                       Heap::MachineInteger(1),
+                                       evaluation);
+                               }
+                           }
+                           break;
+                       }
+                       case 3: { // {i_Symbol, imin_, imax_}
+                           const BaseExpressionRef *leaves = list->static_leaves<3>();
+                           const BaseExpressionRef &iterator = leaves[0];
+
+                           if (iterator->type() == SymbolType) {
+                               return iterate<true>(
+                                   expr,
+                                   iterator->as_symbol(),
+                                   leaves[1]->evaluate_or_identity(evaluation),
+                                   leaves[2]->evaluate_or_identity(evaluation),
+                                   Heap::MachineInteger(1),
+                                   evaluation);
+                           }
+                           break;
+                       }
+                       case 4: { // {i_Symbol, imin_, imax_, di_}
+                           const BaseExpressionRef *leaves = list->static_leaves<4>();
+                           const BaseExpressionRef &iterator = leaves[0];
+
+                           if (iterator->type() == SymbolType) {
+                               return iterate<true>(
+                                   expr,
+                                   iterator->as_symbol(),
+                                   leaves[1]->evaluate_or_identity(evaluation),
+                                   leaves[2]->evaluate_or_identity(evaluation),
+                                   leaves[3]->evaluate_or_identity(evaluation),
+                                   evaluation);
+                           }
+                           break;
+                       }
+                   }
+
+                   return ExpressionRef();
+               })
+            }
+        );
     }
 };
 
