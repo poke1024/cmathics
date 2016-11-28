@@ -283,4 +283,25 @@ inline Symbol *BaseExpression::as_symbol() const {
     return const_cast<Symbol*>(static_cast<const Symbol*>(this));
 }
 
+template<typename F>
+inline BaseExpressionRef scope(
+	Symbol *symbol,
+	const BaseExpressionRef &value,
+	const F &f) {
+
+	BaseExpressionRef result;
+
+	const BaseExpressionRef safed_own_value = symbol->own_value;
+	try {
+		symbol->own_value = value;
+		result = f();
+	} catch(...) {
+		symbol->own_value = safed_own_value;
+		throw;
+	}
+	symbol->own_value = safed_own_value;
+
+	return result;
+}
+
 #endif //CMATHICS_SYMBOL_H_H

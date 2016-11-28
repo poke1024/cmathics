@@ -20,6 +20,30 @@ BaseExpressionRef StructureOperationsImplementation<T>::map(
 }
 
 template<typename T>
+ExpressionRef StructureOperationsImplementation<T>::iterate(
+	Symbol *iterator, const BaseExpressionRef &expr, const Evaluation &evaluation) const {
+
+	const T &self = this->expr();
+
+	return expression(
+		evaluation.List,
+	    [iterator, &self, &expr, &evaluation] (auto &storage) {
+		    const auto &leaves = self._leaves.leaves();
+
+		    for (const BaseExpressionRef &leaf : leaves) {
+			    storage << scope(
+				    iterator,
+				    leaf,
+				    [&expr, &evaluation] () {
+					    return expr->evaluate(evaluation);
+				    });
+		    }
+	    },
+	    self._leaves.size()
+	);
+}
+
+template<typename T>
 BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
 	const BaseExpressionRef *slots, size_t n_slots, const Evaluation &evaluation) const {
 

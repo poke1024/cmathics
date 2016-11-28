@@ -528,15 +528,9 @@ ExpressionRef iterate(
         }
 
         if (SYMBOL) {
-            const BaseExpressionRef safed_own_value = iterator->own_value;
-            iterator->own_value = index;
-            try {
-                result.push_back(expr->evaluate_or_identity(evaluation));
-            } catch(...) {
-                iterator->own_value = safed_own_value;
-                throw;
-            }
-            iterator->own_value = safed_own_value;
+	        result.push_back(scope(iterator, index, [&expr, &evaluation] () {
+		        return expr->evaluate_or_identity(evaluation);
+	        }));
         } else {
             result.push_back(expr->evaluate_or_identity(evaluation));
         }
@@ -847,7 +841,7 @@ public:
                                if (domain_list) {
                                    domain_list = if_list(domain_list->evaluate_or_identity(evaluation));
                                    if (domain_list) {
-                                       // return domain_list->iterate(expr);
+                                       return domain_list->iterate(iterator->as_symbol(), expr, evaluation);
                                    }
                                } else {
                                    return iterate<true>(

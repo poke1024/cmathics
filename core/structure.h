@@ -9,6 +9,9 @@ public:
 	virtual BaseExpressionRef map(
 		const BaseExpressionRef &f, const Evaluation &evaluation) const = 0;
 
+	virtual ExpressionRef iterate(
+		Symbol *iterator, const BaseExpressionRef &expr, const Evaluation &evaluation) const = 0;
+
 	virtual BaseExpressionRef replace_slots(
 		const BaseExpressionRef *slots, size_t n_slots, const Evaluation &evaluation) const = 0;
 
@@ -22,6 +25,9 @@ class StructureOperationsImplementation :
 public:
 	virtual BaseExpressionRef map(
 		const BaseExpressionRef &f, const Evaluation &evaluation) const;
+
+	virtual ExpressionRef iterate(
+		Symbol *iterator, const BaseExpressionRef &expr, const Evaluation &evaluation) const;
 
 	virtual BaseExpressionRef replace_slots(
 		const BaseExpressionRef *slots, size_t n_slots, const Evaluation &evaluation) const;
