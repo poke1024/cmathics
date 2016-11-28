@@ -4,7 +4,7 @@
 #include "leaves.h"
 
 typedef std::function<BaseExpressionRef(
-	const ExpressionRef &self,
+    const Expression *self,
 	const BaseExpressionRef &head,
 	const Slice &slice,
 	const Evaluation &evaluation)> Evaluator;
@@ -211,7 +211,7 @@ typedef Slice GenericSlice;
 
 template<typename Slice, typename Hold>
 BaseExpressionRef evaluate(
-	const ExpressionRef &self,
+	const Expression *self,
 	const BaseExpressionRef &head,
 	const GenericSlice &generic_slice,
 	const Evaluation &evaluation) {
@@ -237,7 +237,7 @@ BaseExpressionRef evaluate(
 		eval_leaf.first,
 		eval_leaf.second,
 		[&evaluation](const BaseExpressionRef &leaf) {
-			return leaf->evaluate(leaf, evaluation);
+			return leaf->evaluate(evaluation);
 		},
 		head != self->_head,
 		MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType));
@@ -249,10 +249,10 @@ BaseExpressionRef evaluate(
 			<< " TO " << intermediate_form << std::endl;
 	}
 
-	const ExpressionRef safe_intermediate_form =
+	const Expression *safe_intermediate_form =
 		intermediate_form ?
-			intermediate_form :
-			boost::static_pointer_cast<const Expression>(self);
+			intermediate_form.get() :
+            self;
 
 	// Step 3
 	// Apply UpValues for leaves
@@ -301,7 +301,7 @@ public:
 	}
 
 	inline BaseExpressionRef operator()(
-		const ExpressionRef &self,
+		const Expression *self,
 		const BaseExpressionRef &head,
 		SliceCode slice_code,
 		const Slice &slice,

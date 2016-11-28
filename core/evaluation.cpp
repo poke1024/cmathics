@@ -36,10 +36,7 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
     // line_no = get_line_no(evaluation);
 
     // perform evaluation
-    auto evaluated = expr->evaluate(expr, *this);
-	if (evaluated) {
-		expr = evaluated;
-	}
+    const auto evaluated = expr->evaluate_or_identity(*this);
 
     // TODO $Post
 
@@ -57,5 +54,5 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
 
     // TODO clear aborts
 
-    return expr;
+    return evaluated;
 }

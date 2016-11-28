@@ -243,20 +243,20 @@ namespace std {
 }
 
 inline BaseExpressionRef BaseExpression::evaluate(
-	const BaseExpressionRef &self, const Evaluation &evaluation) const {
+	const Evaluation &evaluation) const {
 
 	BaseExpressionRef result;
 
 	while (true) {
 		BaseExpressionRef form;
 
-		const BaseExpressionRef &expr = result ? result : self;
+		const BaseExpression *expr = result ? result.get() : this;
 		switch (expr->type()) {
 			case ExpressionType:
-				form = static_cast<const Expression*>(expr.get())->evaluate_expression(expr, evaluation);
+				form = static_cast<const Expression*>(expr)->evaluate_expression(evaluation);
 				break;
 			case SymbolType:
-				form = static_cast<const Symbol*>(expr.get())->evaluate_symbol();
+				form = static_cast<const Symbol*>(expr)->evaluate_symbol();
 				break;
 			default:
 				return result;
@@ -271,5 +271,13 @@ inline BaseExpressionRef BaseExpression::evaluate(
 
 	return result;
 }
+
+inline BaseExpressionRef BaseExpression::evaluate_or_identity(
+    const Evaluation &evaluation) const {
+
+    const BaseExpressionRef result = evaluate(evaluation);
+    return result ? result : BaseExpressionRef(this);
+}
+
 
 #endif //CMATHICS_SYMBOL_H_H

@@ -102,8 +102,8 @@ const char *type_name(Type type);
 typedef int64_t machine_integer_t;
 typedef double machine_real_t;
 
-constexpr int MaxStaticSliceSize = 3;
-static_assert(MaxStaticSliceSize >= 3, "must be >= 3");
+constexpr int MaxStaticSliceSize = 4;
+static_assert(MaxStaticSliceSize >= 4, "must be >= 4");
 
 constexpr int MinPackedSliceSize = 16;
 static_assert(MinPackedSliceSize > MaxStaticSliceSize, "MinPackedSliceSize too small");
@@ -113,6 +113,7 @@ enum SliceCode : uint8_t {
 	StaticSlice1Code = 1,
 	StaticSlice2Code = 2,
 	StaticSlice3Code = 3,
+    StaticSlice4Code = 4,
 	StaticSliceNCode = StaticSlice0Code + MaxStaticSliceSize,
 
 	DynamicSliceCode = StaticSliceNCode + 1,
@@ -317,7 +318,9 @@ public:
 
     virtual std::string fullform() const = 0;
 
-	inline BaseExpressionRef evaluate(const BaseExpressionRef &self, const Evaluation &evaluation) const;
+	inline BaseExpressionRef evaluate(const Evaluation &evaluation) const;
+
+	inline BaseExpressionRef evaluate_or_identity(const Evaluation &evaluation) const;
 
     // various getters
 
@@ -474,10 +477,10 @@ public:
 	}
 
 	BaseExpressionRef evaluate_expression(
-		const BaseExpressionRef &self, const Evaluation &evaluation) const;
+		const Evaluation &evaluation) const;
 
 	virtual BaseExpressionRef evaluate_expression_with_non_symbol_head(
-		const ExpressionRef &self, const Evaluation &evaluation) const = 0;
+		const Evaluation &evaluation) const = 0;
 
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
 

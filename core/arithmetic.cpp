@@ -15,7 +15,7 @@
 #include "primitives.h"
 
 BaseExpressionRef Plus3Rule::try_apply(
-	const ExpressionRef &expr, const Evaluation &evaluation) const {
+	const Expression *expr, const Evaluation &evaluation) const {
 
 	return expr->Plus();
 }

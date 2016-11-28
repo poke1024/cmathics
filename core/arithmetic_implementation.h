@@ -141,10 +141,24 @@ struct less {
 	}
 };
 
+struct less_equal {
+	template<typename T>
+	static bool calculate(const T &u, const T &v) {
+		return u <= v;
+	}
+};
+
 struct greater {
 	template<typename T>
 	static bool calculate(const T &u, const T &v) {
 		return u > v;
+	}
+};
+
+struct greater_equal {
+	template<typename T>
+	static bool calculate(const T &u, const T &v) {
+		return u >= v;
 	}
 };
 
@@ -172,7 +186,8 @@ public:
 	}
 
 	virtual BaseExpressionRef try_apply(
-		const ExpressionRef &expr, const Evaluation &evaluation) const {
+		const Expression *expr, const Evaluation &evaluation) const {
+
 		return Heap::MachineInteger(Value);
 	}
 };
@@ -184,9 +199,9 @@ public:
 	}
 
 	virtual BaseExpressionRef try_apply(
-		const ExpressionRef &expr, const Evaluation &evaluation) const {
+		const Expression *expr, const Evaluation &evaluation) const {
 
-		const StaticExpression<1>* expr1 = static_cast<const StaticExpression<1>*>(expr.get());
+		const StaticExpression<1>* expr1 = static_cast<const StaticExpression<1>*>(expr);
 		return expr1->_leaves.refs()[0];
 	}
 };
@@ -203,10 +218,10 @@ public:
 	}
 
 	virtual BaseExpressionRef try_apply(
-		const ExpressionRef &expr, const Evaluation &evaluation) const {
+        const Expression *expr, const Evaluation &evaluation) const {
 
 		// match_size() guarantees that we receive a StaticExpression<2> here in try_apply().
-		const StaticExpression<2>* expr2 = static_cast<const StaticExpression<2>*>(expr.get());
+		const StaticExpression<2>* expr2 = static_cast<const StaticExpression<2>*>(expr);
 		return _operator(evaluation.definitions, expr2->_leaves.refs());
 	}
 };
@@ -227,7 +242,7 @@ public:
 	using AtLeastNRule<3>::AtLeastNRule;
 
 	virtual BaseExpressionRef try_apply(
-		const ExpressionRef &expr, const Evaluation &evaluation) const;
+        const Expression *expr, const Evaluation &evaluation) const;
 };
 
 constexpr auto Plus3 = NewRule<Plus3Rule>;
@@ -237,9 +252,9 @@ public:
 	using ExactlyNRule<2>::ExactlyNRule;
 
 	virtual BaseExpressionRef try_apply(
-		const ExpressionRef &expr, const Evaluation &evaluation) const {
+        const Expression *expr, const Evaluation &evaluation) const {
 
-		const StaticExpression<2>* expr2 = static_cast<const StaticExpression<2>*>(expr.get());
+		const StaticExpression<2>* expr2 = static_cast<const StaticExpression<2>*>(expr);
 		const BaseExpressionRef *refs = expr2->_leaves.refs();
 		const BaseExpressionRef &a = refs[0];
 		const BaseExpressionRef &b = refs[1];
@@ -256,7 +271,9 @@ public:
 constexpr auto Power = NewRule<PowerRule>;
 
 constexpr auto Less = NewRule<BinaryOperatorRule<BinaryComparison<less>>>;
+constexpr auto LessEqual = NewRule<BinaryOperatorRule<BinaryComparison<less_equal>>>;
 constexpr auto Greater = NewRule<BinaryOperatorRule<BinaryComparison<greater>>>;
+constexpr auto GreaterEqual = NewRule<BinaryOperatorRule<BinaryComparison<greater_equal>>>;
 
 template<typename T>
 inline BaseExpressionRef add_only_integers(const T &self) {

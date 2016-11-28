@@ -40,7 +40,7 @@ public:
 		ExactlyNRule<N>(head, definitions), _func(func) {
 	}
 
-	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
+	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		if (N <= MaxStaticSliceSize || expr->size() == N) {
 			constexpr SliceCode slice_code =
 				N <= MaxStaticSliceSize ? static_slice_code(N) : SliceCode::Unknown;
@@ -83,7 +83,7 @@ public:
 		_patt(patt), _func(func) {
 	}
 
-	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
+	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		const Match m = match(_patt, expr, evaluation.definitions);
 		if (m) {
 			return apply_from_tuple(_func, std::tuple_cat(m.get<N>(), std::make_tuple(evaluation)));
@@ -119,7 +119,7 @@ public:
 		Rule(patt), _into(into) {
 	}
 
-	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const {
+	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		const Match m = match(pattern, expr, evaluation.definitions);
 		if (m) {
 			const BaseExpressionRef replaced = _into->replace_all(m);
@@ -155,7 +155,7 @@ public:
 		Rule(function_pattern(head, definitions)) {
 	}
 
-	virtual BaseExpressionRef try_apply(const ExpressionRef &args, const Evaluation &evaluation) const {
+	virtual BaseExpressionRef try_apply(const Expression *args, const Evaluation &evaluation) const {
 		const BaseExpressionRef &head = args->_head;
 		if (head->type() != ExpressionType) {
 			return BaseExpressionRef();

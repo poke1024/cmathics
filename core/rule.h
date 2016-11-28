@@ -20,7 +20,7 @@ public:
 	Rule(const BaseExpressionRef &patt) : pattern(patt), key(patt->pattern_key()) {
 	}
 
-	virtual BaseExpressionRef try_apply(const ExpressionRef &expr, const Evaluation &evaluation) const = 0;
+	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const = 0;
 
 	virtual BaseExpressionRef rhs() const {
 		throw std::runtime_error("no fixed right hand side is available for this Rule type");

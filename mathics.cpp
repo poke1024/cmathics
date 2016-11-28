@@ -490,6 +490,17 @@ BaseExpressionRef assign(
 	return BaseExpressionRef(evaluation.Null);
 }
 
+inline const Expression *is_list(const BaseExpressionRef &item) {
+    if (item->type() == ExpressionType) {
+        const Expression *expr = static_cast<const Expression*>(item.get());
+        if (expr->head()->extended_type() == SymbolList) {
+            return expr;
+        }
+    }
+    return nullptr;
+}
+
+
 class Runtime {
 private:
     Definitions _definitions;
@@ -561,10 +572,20 @@ public:
 			    Less
 	        });
 
+        add("LessEqual",
+            Attributes::None, {
+                LessEqual
+            });
+
 	    add("Greater",
 	        Attributes::None, {
 			    Greater
 	        });
+
+        add("GreaterEqual",
+            Attributes::None, {
+                GreaterEqual
+            });
 
 	    add("If",
 	        Attributes::HoldRest, {
@@ -574,7 +595,7 @@ public:
 		            const Evaluation &evaluation) {
 					    const ExtendedType type = cond->extended_type();
 					    if (type == SymbolTrue) {
-						    const BaseExpressionRef r = t->evaluate(t, evaluation);
+						    const BaseExpressionRef r = t->evaluate(evaluation);
 						    return r ? r : t;
 					    } else if (type == SymbolFalse) {
 						    const Definitions &definitions = evaluation.definitions;
@@ -591,10 +612,10 @@ public:
 			        const Evaluation &evaluation) {
 			        const ExtendedType type = cond->extended_type();
 				        if (type == SymbolTrue) {
-					        const BaseExpressionRef r = t->evaluate(t, evaluation);
+					        const BaseExpressionRef r = t->evaluate(evaluation);
 					        return r ? r : t;
 				        } else if (type == SymbolFalse) {
-					        const BaseExpressionRef r = f->evaluate(f, evaluation);
+					        const BaseExpressionRef r = f->evaluate(evaluation);
 					        return r ? r : f;
 				        } else {
 						    return BaseExpressionRef();
@@ -609,13 +630,13 @@ public:
 			        const Evaluation &evaluation) {
 				        const ExtendedType type = cond->extended_type();
 				        if (type == SymbolTrue) {
-					        const BaseExpressionRef r = t->evaluate(t, evaluation);
+					        const BaseExpressionRef r = t->evaluate(evaluation);
 					        return r ? r : t;
 				        } else if (type == SymbolFalse) {
-					        const BaseExpressionRef r = f->evaluate(f, evaluation);
+					        const BaseExpressionRef r = f->evaluate(evaluation);
 					        return r ? r : f;
 				        } else {
-					        const BaseExpressionRef r = u->evaluate(u, evaluation);
+					        const BaseExpressionRef r = u->evaluate(evaluation);
 					        return r ? r : u;
 				        }
 			        }
@@ -729,7 +750,7 @@ public:
 				    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
 					    const auto &List = evaluation.List;
 					    const auto start_time = std::chrono::steady_clock::now();
-					    const auto evaluated = expr->evaluate(expr, evaluation);
+					    const auto evaluated = expr->evaluate(evaluation);
 					    const auto end_time = std::chrono::steady_clock::now();
 					    const auto microseconds = std::chrono::duration_cast<
 						    std::chrono::microseconds>(end_time - start_time).count();

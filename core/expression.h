@@ -128,17 +128,17 @@ public:
 	}
 
 	virtual BaseExpressionRef evaluate_expression_with_non_symbol_head(
-		const ExpressionRef &self, const Evaluation &evaluation) const {
+		const Evaluation &evaluation) const {
 
 		// Step 4
 		// Apply SubValues
 		if (_head->type() == ExpressionType) {
 			auto head_head = boost::static_pointer_cast<const Expression>(_head)->_head.get();
 			if (head_head->type() == SymbolType) {
-				auto head_symbol = static_cast<const Symbol *>(head_head);
+				const Symbol *head_symbol = static_cast<const Symbol *>(head_head);
 
 				for (const RuleRef &rule : head_symbol->sub_rules[Slice::code()]) {
-					auto child_result = rule->try_apply(self, evaluation);
+					auto child_result = rule->try_apply(this, evaluation);
 					if (child_result) {
 						return child_result;
 					}
