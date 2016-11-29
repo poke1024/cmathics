@@ -97,3 +97,48 @@ std::ostream &operator<<(std::ostream &s, const Match &m) {
     s << ">";
     return s;
 }
+
+BaseExpressionRef from_symbolic_expr(
+	const SymbolicForm &form,
+	const BaseExpressionRef &head,
+	const Evaluation &evaluation) {
+
+	const auto &args = form->get_args();
+	return expression(
+		head,
+		[&args, &evaluation] (auto &storage) {
+			for (const auto &arg : args) {
+				storage << from_symbolic_form(arg, evaluation);
+			}
+		},
+		args.size());
+}
+
+BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation &evaluation) {
+	switch (form->get_type_code()) {
+		case SymEngine::INTEGER: {
+			const mpz_class value(static_cast<const SymEngine::Integer*>(form.get())->i.get_mpz_t());
+			return from_primitive(value);
+		}
+
+		case SymEngine::SYMBOL: {
+			const std::string &name = static_cast<const SymEngine::Symbol*>(form.get())->get_name();
+			const Symbol *addr;
+			assert(name.length() == sizeof(addr) / sizeof(char));
+			std::memcpy(&addr, name.data(), sizeof(addr));
+			return BaseExpressionRef(addr);
+		}
+
+		case SymEngine::ADD:
+			return from_symbolic_expr(form, evaluation.Plus, evaluation);
+
+		case SymEngine::MUL:
+			return from_symbolic_expr(form, evaluation.Times, evaluation);
+
+		case SymEngine::POW:
+			return from_symbolic_expr(form, evaluation.Power, evaluation);
+
+		default:
+			throw std::runtime_error("not implemented");
+	}
+}

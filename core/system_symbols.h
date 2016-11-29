@@ -23,6 +23,9 @@ SYMBOL(Function)
 SYMBOL(Module)
 
 SYMBOL(LessEqual)
+
 SYMBOL(Plus)
+SYMBOL(Times)
+SYMBOL(Power)
 
 SYMBOL(StateModuleNumber)

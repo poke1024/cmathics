@@ -282,13 +282,19 @@ class Evaluation;
 
 class SortKey;
 
+typedef SymEngine::RCP<const SymEngine::Basic> SymbolicForm;
+
 class BaseExpression {
 protected:
 	const ExtendedType _extended_type;
 
 protected:
     mutable size_t _ref_count;
-	mutable SymEngine::RCP<const SymEngine::Basic> _symbolic;
+	mutable SymbolicForm _symbolic_form;
+
+	virtual SymbolicForm instantiate_symbolic_form() const {
+		throw std::runtime_error("not implemented");
+	}
 
 public:
     inline BaseExpression(ExtendedType type) : _extended_type(type), _ref_count(0) {
@@ -310,7 +316,18 @@ public:
 		return ((TypeMask)1) << type();
 	}
 
-    inline bool same(const BaseExpressionRef &expr) const {
+	inline SymbolicForm symbolic_form() const {
+		if (_symbolic_form.is_null()) {
+			_symbolic_form = instantiate_symbolic_form();
+		}
+		return _symbolic_form;
+	}
+
+	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
+		return BaseExpressionRef(this);
+	}
+
+	inline bool same(const BaseExpressionRef &expr) const {
         return same(*expr);
     }
 
@@ -401,6 +418,8 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
     }
     return s;
 }
+
+BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation &evaluation);
 
 #include "arithmetic.h"
 #include "structure.h"

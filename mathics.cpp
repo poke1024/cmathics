@@ -613,6 +613,16 @@ public:
 			    Power
 	        });
 
+	    add("Expand",
+	        Attributes::None, {
+			    builtin<1>([] (
+					const BaseExpressionRef &expr,
+					const Evaluation &evaluation) {
+
+				    return expr->expand(evaluation);
+			    })
+	        });
+
 	    add("Less",
 	        Attributes::None, {
 			    Less

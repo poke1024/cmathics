@@ -12,6 +12,10 @@
 #include <sstream>
 #include <vector>
 
+#include <symengine/add.h>
+#include <symengine/mul.h>
+#include <symengine/pow.h>
+
 template<typename T>
 class AllOperationsImplementation :
     virtual public OperationsInterface,
@@ -38,7 +42,7 @@ public:
 	}
 
 	inline ExpressionImplementation(const BaseExpressionRef &head) :
-		Expression(head, Slice::code(), &_leaves) {
+		Expression(head, Slice::code(), &_leaves), _leaves() {
 		assert(head);
 	}
 
@@ -276,6 +280,62 @@ public:
 				return key;
 			}
 		}
+	}
+
+	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
+		const SymbolicForm form = symbolic_form();
+
+		if (!form.is_null()) {
+			return from_symbolic_form(SymEngine::expand(form), evaluation);
+		} else {
+			const auto &leaves = _leaves;
+
+			return expression(
+				head(),
+				[&leaves, &evaluation] (auto &storage) {
+					for (const auto &leaf : leaves.leaves()) {
+						storage << leaf->expand(evaluation);
+					}
+				},
+				size()
+			);
+		}
+	}
+
+protected:
+	SymEngine::vec_basic symbolic_operands() const {
+		SymEngine::vec_basic operands;
+		for (const auto &leaf : _leaves.leaves()) {
+			operands.push_back(leaf->symbolic_form());
+		}
+		return operands;
+	}
+
+	virtual SymbolicForm instantiate_symbolic_form() const {
+		switch (_head->extended_type()) {
+			case SymbolPlus:
+				if (size() == 2) {
+					return SymEngine::add(_leaves[0]->symbolic_form(), _leaves[1]->symbolic_form());
+				} else {
+					return SymEngine::add(symbolic_operands());
+				}
+
+			case SymbolTimes:
+				if (size() == 2) {
+					return SymEngine::mul(_leaves[0]->symbolic_form(), _leaves[1]->symbolic_form());
+				} else {
+					return SymEngine::mul(symbolic_operands());
+				}
+
+			case SymbolPower:
+				if (size() == 2) {
+					return SymEngine::pow(_leaves[0]->symbolic_form(), _leaves[1]->symbolic_form());
+				}
+
+			default:
+				break;
+		}
+		return SymbolicForm();
 	}
 };
 

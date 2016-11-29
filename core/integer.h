@@ -3,6 +3,7 @@
 
 #include <gmpxx.h>
 #include <stdint.h>
+#include <symengine/integer.h>
 
 #include "types.h"
 #include "hash.h"
@@ -42,6 +43,11 @@ public:
     virtual bool match(const BaseExpression &expr) const {
         return same(expr);
     }
+
+protected:
+	virtual SymbolicForm instantiate_symbolic_form() const {
+		return SymEngine::integer(value);
+	}
 };
 
 class BigInteger : public Integer {
@@ -74,6 +80,11 @@ public:
     virtual std::string fullform() const {
         return std::string("biginteger");  // FIXME
     }
+
+protected:
+	virtual SymbolicForm instantiate_symbolic_form() const {
+		return SymEngine::integer(value.get_mpz_t());
+	}
 };
 
 class mpint {

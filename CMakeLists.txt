@@ -103,7 +103,7 @@ set(SOURCE_FILES
 add_custom_target(standalone)
 
 add_executable(cmathics ${SOURCE_FILES} mathics.cpp)
-target_link_libraries(cmathics mpfr gmp ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(cmathics mpfr gmp symengine ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
 
 add_custom_target(tests)
 

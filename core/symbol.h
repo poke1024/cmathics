@@ -8,6 +8,7 @@
 #include <vector>
 #include <map>
 #include <bitset>
+#include <symengine/symbol.h>
 
 typedef uint32_t attributes_bitmask_t;
 
@@ -77,6 +78,16 @@ protected:
 
 	Attributes _attributes;
 	const Evaluate *_evaluate_with_head;
+
+	virtual SymbolicForm instantiate_symbolic_form() const {
+		// quite a hack currently. we store the pointer to our symbol to avoid having
+		// to make a full name lookup. as symbolic evaluation always happens in the
+		// context of an existing, referenced Expression, this should be fine.
+		std::string name;
+		const Symbol *addr = this;
+		name.append(reinterpret_cast<const char*>(&addr), sizeof(addr) / sizeof(char));
+		return SymEngine::symbol(name);
+	}
 
 public:
 	Symbol(const char *name, ExtendedType symbol = SymbolExtendedType);
