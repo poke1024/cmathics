@@ -174,6 +174,7 @@ public:
     static BaseExpressionRef BigInteger(const mpz_class &value);
 	static BaseExpressionRef BigInteger(mpz_class &&value);
 	static BaseExpressionRef Rational(machine_integer_t x, machine_integer_t y);
+	static BaseExpressionRef Rational(const mpq_class &value);
 
     static BaseExpressionRef MachineReal(machine_real_t value);
     // static BaseExpressionRef BigReal(const mpfr::mpreal &value);

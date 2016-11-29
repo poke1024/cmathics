@@ -57,46 +57,6 @@ public:
     }
 };
 
-/*template<>
-class PrimitiveToPrimitive<Z::Numeric> {
-public:
-	inline Z::Numeric convert(const mpz_class &x) const {
-		return Z::Numeric(x);
-	}
-
-	inline Z::Numeric convert(machine_integer_t x) const {
-		return Z::Numeric(x);
-	}
-
-	inline Z::Numeric convert(const mpq_class &x) const {
-		throw std::runtime_error("unsupported conversion");
-	}
-
-	inline Z::Numeric convert(const std::string &x) const {
-		throw std::runtime_error("unsupported conversion");
-	}
-};*/
-
-/*template<>
-class PrimitiveToPrimitive<machine_real_t> {
-public:
-	inline machine_real_t convert(machine_real_t x) const {
-		return x;
-	}
-
-	inline machine_real_t convert(const std::string &x) const {
-		throw std::runtime_error("unsupported conversion");
-	}
-
-	inline machine_real_t convert(const mpq_class &x) const {
-		throw std::runtime_error("unsupported conversion");
-	}
-
-	inline machine_real_t convert(const mpz_class &x) const {
-		throw std::runtime_error("unsupported conversion");
-	}
-};*/
-
 template<typename T, typename TypeConverter>
 class PointerIterator {
 private:

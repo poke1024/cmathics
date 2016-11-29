@@ -8,38 +8,6 @@
 #include "expression.h"
 #include "numeric.h"
 
-template<typename F, typename U, typename V, typename W, bool ia, bool ib>
-struct calculate {
-};
-
-template<typename F, typename U, typename V, typename W>
-struct calculate<F, U, V, W, true, true> {
-	inline auto operator()(const BaseExpression *a, const BaseExpression *b) const {
-		return F::calculate(static_cast<const U *>(a)->value, static_cast<const V *>(b)->value);
-	}
-};
-
-template<typename F, typename U, typename V, typename W>
-struct calculate<F, U, V, W, false, true> {
-	inline auto operator()(const BaseExpression *a, const BaseExpression *b) const {
-		return F::calculate(promote<W>(static_cast<const U *>(a)->value), static_cast<const V *>(b)->value);
-	}
-};
-
-template<typename F, typename U, typename V, typename W>
-struct calculate<F, U, V, W, true, false> {
-	inline auto operator()(const BaseExpression *a, const BaseExpression *b) const {
-		return F::calculate(static_cast<const U *>(a)->value, promote<W>(static_cast<const V *>(b)->value));
-	}
-};
-
-template<typename F, typename U, typename V, typename W>
-struct calculate<F, U, V, W, false, false> {
-	inline auto operator()(const BaseExpression *a, const BaseExpression *b) const {
-		return F::calculate(promote<W>(static_cast<const U *>(a)->value), promote<W>(static_cast<const V *>(b)->value));
-	}
-};
-
 template<typename F>
 class BinaryOperator {
 protected:
@@ -54,12 +22,10 @@ protected:
 		_functions[size_t(U::Type) | (size_t(V::Type) << CoreTypeBits)] = f;
 	}
 
-	template<typename U, typename V, typename W>
+	template<typename U, typename V>
 	void init() {
 		init<U, V>([] (const BaseExpression *a, const BaseExpression *b) {
-			constexpr bool ia = std::is_same<decltype(static_cast<const U*>(a)->value), const W>::value;
-			constexpr bool ib = std::is_same<decltype(static_cast<const V*>(b)->value), const W>::value;
-			return calculate<F, U, V, W, ia, ib>()(a, b);
+			return F::calculate(*static_cast<const U*>(a), *static_cast<const V*>(b));
 		});
 	};
 
@@ -92,101 +58,78 @@ template<typename F>
 class BinaryArithmetic : public BinaryOperator<F> {
 public:
 	BinaryArithmetic() {
-		BinaryOperator<F>::template init<MachineInteger, MachineInteger, Numeric::Z>();
-		BinaryOperator<F>::template init<MachineInteger, BigInteger, Numeric::Z>();
-		BinaryOperator<F>::template init<MachineInteger, MachineReal, machine_real_t>();
-		// BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
-        BinaryOperator<F>::template init<MachineInteger, Rational, mpq_class>();
+		BinaryOperator<F>::template init<MachineInteger, MachineInteger>();
+		BinaryOperator<F>::template init<MachineInteger, BigInteger>();
+		BinaryOperator<F>::template init<MachineInteger, MachineReal>();
+		// BinaryOperator<F>::template init<MachineInteger, BigReal>();
+        BinaryOperator<F>::template init<MachineInteger, Rational>();
 
-		BinaryOperator<F>::template init<BigInteger, MachineInteger, Numeric::Z>();
-		BinaryOperator<F>::template init<BigInteger, BigInteger, mpz_class>();
-		// BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
-		// BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
-        BinaryOperator<F>::template init<BigInteger, Rational, mpq_class>();
+		BinaryOperator<F>::template init<BigInteger, MachineInteger>();
+		BinaryOperator<F>::template init<BigInteger, BigInteger>();
+		// BinaryOperator<F>::template init<BigInteger, MachineReal>();
+		// BinaryOperator<F>::template init<BigInteger, BigReal>();
+        BinaryOperator<F>::template init<BigInteger, Rational>();
 
-		BinaryOperator<F>::template init<MachineReal, MachineInteger, machine_real_t>();
-		// BinaryOperator<F>::template init<MachineReal, BigInteger, mpfr::mpreal>();
-		BinaryOperator<F>::template init<MachineReal, MachineReal, machine_real_t>();
-		// BinaryOperator<F>::template init<MachineReal, BigReal, mpfr::mpreal>();
-        BinaryOperator<F>::template init<MachineReal, Rational, machine_real_t>();
+		BinaryOperator<F>::template init<MachineReal, MachineInteger>();
+		// BinaryOperator<F>::template init<MachineReal, BigInteger>();
+		BinaryOperator<F>::template init<MachineReal, MachineReal>();
+		// BinaryOperator<F>::template init<MachineReal, BigReal>();
+        BinaryOperator<F>::template init<MachineReal, Rational>();
 
-		// BinaryOperator<F>::template init<BigReal, MachineInteger, mpfr::mpreal>();
-		// BinaryOperator<F>::template init<BigReal, BigInteger, mpfr::mpreal>();
-		// BinaryOperator<F>::template init<BigReal, MachineReal, mpfr::mpreal>();
-		// BinaryOperator<F>::template init<BigReal, BigReal, mpfr::mpreal>();
-	}
-};
-
-template<typename F>
-class BinaryComparison : public BinaryOperator<F> {
-public:
-	BinaryComparison() {
-		BinaryOperator<F>::template init<MachineInteger, MachineInteger, machine_integer_t>();
-		BinaryOperator<F>::template init<MachineInteger, BigInteger, mpz_class>();
-		BinaryOperator<F>::template init<MachineInteger, MachineReal, machine_real_t>();
-		// BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
-        BinaryOperator<F>::template init<MachineInteger, Rational, mpq_class>();
-
-		BinaryOperator<F>::template init<BigInteger, MachineInteger, mpz_class>();
-		BinaryOperator<F>::template init<BigInteger, BigInteger, mpz_class>();
-		// BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
-		// BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
-        BinaryOperator<F>::template init<BigInteger, Rational, mpq_class>();
-
-		BinaryOperator<F>::template init<MachineReal, MachineInteger, machine_real_t>();
-		// BinaryOperator<F>::template init<MachineReal, BigInteger, mpfr::mpreal>();
-		BinaryOperator<F>::template init<MachineReal, MachineReal, machine_real_t>();
-		// BinaryOperator<F>::template init<MachineReal, BigReal, mpfr::mpreal>();
-        BinaryOperator<F>::template init<MachineReal, Rational, machine_real_t>();
-
-		// BinaryOperator<F>::template init<BigReal, MachineInteger, mpfr::mpreal>();
-		// BinaryOperator<F>::template init<BigReal, BigInteger, mpfr::mpreal>();
-		// BinaryOperator<F>::template init<BigReal, MachineReal, mpfr::mpreal>();
-		// BinaryOperator<F>::template init<BigReal, BigReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigReal, MachineInteger>();
+		// BinaryOperator<F>::template init<BigReal, BigInteger>();
+		// BinaryOperator<F>::template init<BigReal, MachineReal>();
+		// BinaryOperator<F>::template init<BigReal, BigReal>();
 	}
 };
 
 struct less {
-	template<typename T>
-	static bool calculate(const T &u, const T &v) {
-		return u < v;
+	template<typename U, typename V>
+	static bool calculate(const U &u, const V &v) {
+		return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+			return x < y;
+		});
 	}
 };
 
 struct less_equal {
-	template<typename T>
-	static bool calculate(const T &u, const T &v) {
-		return u <= v;
+	template<typename U, typename V>
+	static bool calculate(const U &u, const V &v) {
+		return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+			return x <= y;
+		});
 	}
 };
 
 struct greater {
-	template<typename T>
-	static bool calculate(const T &u, const T &v) {
-		return u > v;
+	template<typename U, typename V>
+	static bool calculate(const U &u, const V &v) {
+		return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+			return x > y;
+		});
 	}
 };
 
 struct greater_equal {
-	template<typename T>
-	static bool calculate(const T &u, const T &v) {
-		return u >= v;
+	template<typename U, typename V>
+	static bool calculate(const U &u, const V &v) {
+		return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+			return x >= y;
+		});
 	}
 };
 
 struct plus {
-	template<typename T>
-	static BaseExpressionRef calculate(const T &u, const T &v) {
-		const T x = u + v;
-		return from_primitive(std::move(x));
+	template<typename U, typename V>
+	static BaseExpressionRef calculate(const U &u, const V &v) {
+		return u + v;
 	}
 };
 
 struct times {
-	template<typename T>
-	static BaseExpressionRef calculate(const T &u, const T &v) {
-		const T x = u * v;
-		return from_primitive(std::move(x));
+	template<typename U, typename V>
+	static BaseExpressionRef calculate(const U &u, const V &v) {
+		return u * v;
 	}
 };
 
@@ -378,10 +321,10 @@ public:
 
 constexpr auto Power = NewRule<PowerRule>;
 
-constexpr auto Less = NewRule<BinaryOperatorRule<BinaryComparison<less>>>;
-constexpr auto LessEqual = NewRule<BinaryOperatorRule<BinaryComparison<less_equal>>>;
-constexpr auto Greater = NewRule<BinaryOperatorRule<BinaryComparison<greater>>>;
-constexpr auto GreaterEqual = NewRule<BinaryOperatorRule<BinaryComparison<greater_equal>>>;
+constexpr auto Less = NewRule<BinaryOperatorRule<BinaryArithmetic<less>>>;
+constexpr auto LessEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<less_equal>>>;
+constexpr auto Greater = NewRule<BinaryOperatorRule<BinaryArithmetic<greater>>>;
+constexpr auto GreaterEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<greater_equal>>>;
 
 template<typename T>
 inline BaseExpressionRef add_only_integers(const T &self) {

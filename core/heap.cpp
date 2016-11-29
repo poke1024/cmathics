@@ -89,6 +89,11 @@ BaseExpressionRef Heap::Rational(machine_integer_t x, machine_integer_t y) {
     return BaseExpressionRef(_s_instance->_rationals.construct(x, y));
 }
 
+BaseExpressionRef Heap::Rational(const mpq_class &value) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_rationals.construct(value));
+}
+
 BaseExpressionRef Heap::MachineReal(machine_real_t value) {
     assert(_s_instance);
     return BaseExpressionRef(_s_instance->_machine_reals.construct(value));

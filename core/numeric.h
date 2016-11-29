@@ -2,9 +2,168 @@
 #define CMATHICS_NUMERIC_H
 
 #include <gmpxx.h>
+#include <arb.h>
 
 #include "types.h"
 #include "integer.h"
+#include "heap.h"
+
+static_assert(sizeof(machine_integer_t) == sizeof(long),
+	"machine integer type must equivalent to long");
+
+template<typename U, typename V>
+struct Comparison {
+	template<typename F>
+	inline static bool compare(const U &u, const V &v, const F &f) {
+		return f(u.value, v.value);
+	}
+};
+
+template<>
+struct Comparison<BigInteger, MachineInteger> {
+	template<typename F>
+	inline static bool compare(const BigInteger &u, const MachineInteger &v, const F &f) {
+		return f(u.value, long(v.value));
+	}
+};
+
+template<>
+struct Comparison<MachineInteger, BigInteger> {
+	template<typename F>
+	inline static bool compare(const MachineInteger &u, const BigInteger &v, const F &f) {
+		return f(long(u.value), v.value);
+	}
+};
+
+template<>
+struct Comparison<Rational, MachineInteger> {
+	template<typename F>
+	inline static bool compare(const Rational &u, const MachineInteger &v, const F &f) {
+		return f(u.value, long(v.value));
+	}
+};
+
+template<>
+struct Comparison<MachineInteger, Rational> {
+	template<typename F>
+	inline static bool compare(const MachineInteger &u, const Rational &v, const F &f) {
+		return f(long(u.value), v.value);
+	}
+};
+
+inline BaseExpressionRef operator+(const MachineInteger &x, const MachineInteger &y) {
+	long r;
+	if (!__builtin_saddl_overflow(x.value, y.value, &r)) {
+		return Heap::MachineInteger(r);
+	} else {
+		return Heap::BigInteger(mpz_class(long(x.value)) + long(y.value));
+	}
+}
+
+inline BaseExpressionRef operator*(const MachineInteger &x, const MachineInteger &y) {
+	long r;
+	if (!__builtin_smull_overflow(x.value, y.value, &r)) {
+		return Heap::MachineInteger(r);
+	} else {
+		return Heap::BigInteger(mpz_class(long(x.value)) * long(y.value));
+	}
+}
+
+inline BaseExpressionRef operator+(const MachineReal &x, const MachineReal &y) {
+	return Heap::MachineReal(x.value + y.value);
+}
+
+inline BaseExpressionRef operator+(const BigInteger &x, const BigInteger &y) {
+	return Heap::BigInteger(x.value + y.value);
+}
+
+inline BaseExpressionRef operator+(const BigInteger &x, const MachineInteger &y) {
+	return Heap::BigInteger(x.value + long(y.value));
+}
+
+inline BaseExpressionRef operator+(const MachineInteger &x, const BigInteger &y) {
+	return y + x;
+}
+
+inline BaseExpressionRef operator+(const Rational &x, const BigInteger &y) {
+	return Heap::Rational(x.value + y.value);
+}
+
+inline BaseExpressionRef operator+(const BigInteger &x, const Rational &y) {
+	return y + x;
+}
+
+inline BaseExpressionRef operator+(const Rational &x, const MachineInteger &y) {
+	return Heap::Rational(x.value + long(y.value));
+}
+
+inline BaseExpressionRef operator+(const MachineInteger &x, const Rational &y) {
+	return y + x;
+}
+
+inline BaseExpressionRef operator+(const MachineReal &x, const Rational &y) {
+	return Heap::MachineReal(x.value + y.value.get_d());
+}
+
+inline BaseExpressionRef operator+(const Rational &x, const MachineReal &y) {
+	return y + x;
+}
+
+inline BaseExpressionRef operator+(const MachineReal &x, const MachineInteger &y) {
+	return Heap::MachineReal(x.value + y.value);
+}
+
+inline BaseExpressionRef operator+(const MachineInteger &x, const MachineReal &y) {
+	return y + x;
+}
+
+inline BaseExpressionRef operator*(const BigInteger &x, const BigInteger &y) {
+	return Heap::BigInteger(x.value * y.value);
+}
+
+inline BaseExpressionRef operator*(const BigInteger &x, const MachineInteger &y) {
+	return Heap::BigInteger(x.value * long(y.value));
+}
+
+inline BaseExpressionRef operator*(const MachineInteger &x, const BigInteger &y) {
+	return y * x;
+}
+
+inline BaseExpressionRef operator*(const Rational &x, const MachineInteger &y) {
+	return Heap::Rational(mpq_class(x.value) * long(y.value));
+}
+
+inline BaseExpressionRef operator*(const MachineInteger &x, const Rational &y) {
+	return y + x;
+}
+
+inline BaseExpressionRef operator*(const Rational &x, const BigInteger &y) {
+	return Heap::Rational(mpq_class(x.value) * y.value);
+}
+
+inline BaseExpressionRef operator*(const BigInteger &x, const Rational &y) {
+	return y * x;
+}
+
+inline BaseExpressionRef operator*(const MachineReal &x, const Rational &y) {
+	return Heap::MachineReal(x.value * y.value.get_d());
+}
+
+inline BaseExpressionRef operator*(const Rational &x, const MachineReal &y) {
+	return y * x;
+}
+
+inline BaseExpressionRef operator*(const MachineReal &x, const MachineInteger &y) {
+	return Heap::MachineReal(x.value * y.value);
+}
+
+inline BaseExpressionRef operator*(const MachineInteger &x, const MachineReal &y) {
+	return y * x;
+}
+
+inline BaseExpressionRef operator*(const MachineReal &x, const MachineReal &y) {
+	return Heap::MachineReal(x.value * y.value);
+}
 
 namespace Numeric {
 
@@ -69,9 +228,6 @@ namespace Numeric {
 		}
 
 	public:
-		static_assert(sizeof(machine_integer_t) == sizeof(decltype(machine_value)),
-              "machine integer type must equivalent to long");
-
 		inline explicit Z(machine_integer_t value) : machine_value(value), is_big(false) {
 		}
 
@@ -99,14 +255,6 @@ namespace Numeric {
 		inline Z(const mpz_class &value) : is_big(true) {
 			mpz_init_set(big_value, value.get_mpz_t());
 		}
-
-		/*Z(const mpq_class &value) {
-			throw std::runtime_error("cannot create Numeric::Z from mpq_class");
-		}
-
-		Z(const std::string &value) {
-			throw std::runtime_error("cannot create Numeric::Z from std::string");
-		}*/
 
 		inline ~Z() {
 			if (is_big) {
@@ -153,6 +301,49 @@ namespace Numeric {
 		}
 
 	};
+
+	/*class R {
+	private:
+		arb_t m_value;
+
+	public:
+		inline explicit R(machine_integer_t value) {
+			arb_init(m_value);
+			arb_set_si(m_value, value);
+		}
+
+		inline explicit R(machine_real_t value) {
+			arb_init(m_value);
+			arb_set_d(m_value, value);
+		}
+
+		inline R(R &&x) {
+			arb_swap(m_value, x.m_value); // FIXME
+		}
+
+		inline R(const R &x) {
+			arb_init(m_value);
+			arb_set(m_value, x.m_value);
+		}
+
+		inline R(const mpz_class &value) {
+			arf_t temp;
+			arf_init(temp);
+			arf_set_mpz(temp, value.get_mpz_t());
+			arb_init(m_value);
+			arb_set_arf(m_value, temp);
+			arf_clear(temp);
+		}
+
+		inline ~R() {
+			arb_clear(m_value);
+		}
+
+		template<bool c_is_a>
+		inline static void add(R &c, const R &a, const R &b) {
+			arb_add(c.m_value, a.m_value, b.m_value);
+		}
+	};*/
 
 } // end of namespace Numeric
 
