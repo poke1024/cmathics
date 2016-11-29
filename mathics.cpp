@@ -613,6 +613,12 @@ public:
 			    Power
 	        });
 
+        add("Sqrt",
+            Attributes::None, {
+                rewrite("Sqrt[x_]", "x ^ (1 / 2)")
+            }
+        );
+
 	    add("Expand",
 	        Attributes::None, {
 			    builtin<1>([] (

@@ -44,3 +44,46 @@ BaseExpressionRef Expression::evaluate_expression(
 			evaluation);
 	}
 }
+
+
+typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineUnaryFunction)(
+		const SymEngine::RCP<const SymEngine::Basic>&);
+
+typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineBinaryFunction)(
+		const SymEngine::RCP<const SymEngine::Basic>&,
+		const SymEngine::RCP<const SymEngine::Basic>&);
+
+typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineNAryFunction)(
+		const SymEngine::vec_basic&);
+
+inline SymbolicForm symbolic_1(const SymEngineUnaryFunction &f, const Expression *expr) {
+	const BaseExpressionRef *leaves = expr->static_leaves<1>();
+	SymbolicForm symbolic_a = leaves[0]->symbolic_form();
+	if (!symbolic_a.is_null()) {
+		return f(symbolic_a);
+	}
+	return SymbolicForm();
+}
+
+inline SymbolicForm symbolic_2(const SymEngineBinaryFunction &f, const Expression *expr) {
+	const BaseExpressionRef *leaves = expr->static_leaves<2>();
+	SymbolicForm symbolic_a = leaves[0]->symbolic_form();
+	if (!symbolic_a.is_null()) {
+		SymbolicForm symbolic_b = leaves[1]->symbolic_form();
+		if (!symbolic_b.is_null()) {
+			return f(symbolic_a, symbolic_b);
+		}
+	}
+	return SymbolicForm();
+}
+
+inline SymbolicForm symbolic_n(const SymEngineNAryFunction &f, const Expression *expr) {
+	const optional<SymEngine::vec_basic> operands = expr->symbolic_operands();
+	if (operands) {
+		return f(*operands);
+	} else {
+		return SymbolicForm();
+	}
+}
+
+

@@ -93,7 +93,6 @@ inline mpz_class machine_integer_to_mpz(machine_integer_t machine_value) {
 	return value;
 }
 
-
 class mpint {
 private:
 	template<bool c_is_a>

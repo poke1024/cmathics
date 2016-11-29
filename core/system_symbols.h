@@ -32,4 +32,8 @@ SYMBOL(Plus)
 SYMBOL(Times)
 SYMBOL(Power)
 
+SYMBOL(Pi)
+SYMBOL(Cos)
+SYMBOL(Sin)
+
 SYMBOL(StateModuleNumber)

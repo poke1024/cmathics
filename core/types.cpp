@@ -3,6 +3,8 @@
 #include "pattern.h"
 #include "evaluate.h"
 
+#include <symengine/cwrapper.h>
+
 BaseExpressionRef exactly_n_pattern(
 	const SymbolRef &head, size_t n, const Definitions &definitions) {
 
@@ -121,6 +123,11 @@ BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation 
 			return from_primitive(value);
 		}
 
+		case SymEngine::RATIONAL: {
+			const mpq_class value(static_cast<const SymEngine::Rational*>(form.get())->i.get_mpq_t());
+			return from_primitive(value);
+		}
+
 		case SymEngine::SYMBOL: {
 			const std::string &name = static_cast<const SymEngine::Symbol*>(form.get())->get_name();
 			const Symbol *addr;
@@ -138,7 +145,23 @@ BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation 
 		case SymEngine::POW:
 			return from_symbolic_expr(form, evaluation.Power, evaluation);
 
-		default:
-			throw std::runtime_error("not implemented");
+        case SymEngine::COS:
+            return from_symbolic_expr(form, evaluation.Cos, evaluation);
+
+        case SymEngine::SIN:
+            return from_symbolic_expr(form, evaluation.Sin, evaluation);
+
+		case SymEngine::CONSTANT:
+			if (form->compare(*SymEngine::pi.get()) == 0) {
+				return evaluation.Pi;
+			}
+			// fallthrough
+
+
+		default: {
+			std::ostringstream s;
+			s << "unexpected SymEngine type code " << form->get_type_code();
+			throw std::runtime_error(s.str());
+		}
 	}
 }

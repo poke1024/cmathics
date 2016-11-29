@@ -2,12 +2,15 @@
 #define RATIONAL_H
 
 #include <gmp.h>
+#include <symengine/rational.h>
 
 #include "types.h"
 #include "integer.h"
 
 class Rational : public BaseExpression {
 public:
+    static constexpr Type Type = RationalType;
+
     mpq_class value;
 
     inline Rational(machine_integer_t x, machine_integer_t y) :
@@ -50,6 +53,11 @@ public:
     inline BaseExpressionRef denom() const {
         return from_primitive(value.get_den());
     };
+
+protected:
+    virtual SymbolicForm instantiate_symbolic_form() const {
+        return SymEngine::Rational::from_mpq(value.get_mpq_t());
+    }
 };
 
 inline BaseExpressionRef from_primitive(const mpq_class &value) {

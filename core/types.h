@@ -36,7 +36,7 @@ constexpr int CoreTypeBits = 4;
 
 // CoreTypeShift is the number of bits needed to represent the additional
 // extended type information attached to a core type.
-constexpr int CoreTypeShift = 5;
+constexpr int CoreTypeShift = 8;
 
 enum ExtendedType : uint16_t;
 
@@ -286,17 +286,21 @@ class SortKey;
 
 typedef SymEngine::RCP<const SymEngine::Basic> SymbolicForm;
 
+class BaseExpression;
+
+BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation &evaluation);
+
 class BaseExpression {
 protected:
 	const ExtendedType _extended_type;
 
 protected:
     mutable size_t _ref_count;
-	mutable SymbolicForm _symbolic_form;
+	mutable optional<SymbolicForm> _symbolic_form;
 
-	virtual SymbolicForm instantiate_symbolic_form() const {
-		throw std::runtime_error("not implemented");
-	}
+    virtual SymbolicForm instantiate_symbolic_form() const {
+        throw std::runtime_error("instantiate_symbolic_form not implemented");
+    }
 
 public:
     inline BaseExpression(ExtendedType type) : _extended_type(type), _ref_count(0) {
@@ -319,12 +323,12 @@ public:
 	}
 
 	inline SymbolicForm symbolic_form() const {
-		if (_symbolic_form.is_null()) {
-            // FIXME. add quick check if Expression head is suitable for
-            // symbolic form or not.
+		if (_symbolic_form) {
+            return *_symbolic_form;
+        } else {
 			_symbolic_form = instantiate_symbolic_form();
+            return *_symbolic_form;
 		}
-		return _symbolic_form;
 	}
 
 	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
@@ -430,8 +434,6 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
     }
     return s;
 }
-
-BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation &evaluation);
 
 #include "arithmetic.h"
 #include "structure.h"
@@ -539,6 +541,8 @@ public:
 		}
 		return cache;
 	}
+
+	virtual optional<SymEngine::vec_basic> symbolic_operands() const = 0;
 };
 
 inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {

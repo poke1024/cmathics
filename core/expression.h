@@ -16,6 +16,17 @@
 #include <symengine/mul.h>
 #include <symengine/pow.h>
 
+
+typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineUnaryFunction)(
+    const SymEngine::RCP<const SymEngine::Basic>&);
+
+typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineBinaryFunction)(
+    const SymEngine::RCP<const SymEngine::Basic>&,
+    const SymEngine::RCP<const SymEngine::Basic>&);
+
+typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineNAryFunction)(
+    const SymEngine::vec_basic&);
+
 template<typename T>
 class AllOperationsImplementation :
     virtual public OperationsInterface,
@@ -338,41 +349,87 @@ public:
             evaluation);
     }
 
-protected:
-	SymEngine::vec_basic symbolic_operands() const {
+	virtual optional<SymEngine::vec_basic> symbolic_operands() const {
 		SymEngine::vec_basic operands;
+        operands.reserve(size());
 		for (const auto &leaf : _leaves.leaves()) {
-			operands.push_back(leaf->symbolic_form());
+            const SymbolicForm form = leaf->symbolic_form();
+            if (form.is_null()) {
+                return optional<SymEngine::vec_basic>();
+            }
+			operands.push_back(form);
 		}
 		return operands;
 	}
 
-	virtual SymbolicForm instantiate_symbolic_form() const {
-		switch (_head->extended_type()) {
-			case SymbolPlus:
-				if (size() == 2) {
-					return SymEngine::add(_leaves[0]->symbolic_form(), _leaves[1]->symbolic_form());
-				} else {
-					return SymEngine::add(symbolic_operands());
-				}
+protected:
+    inline SymbolicForm symbolic_1(const SymEngineUnaryFunction &f) const {
+        SymbolicForm symbolic_a = _leaves[0]->symbolic_form();
+        if (!symbolic_a.is_null()) {
+            return f(symbolic_a);
+        }
+        return SymbolicForm();
+    }
 
-			case SymbolTimes:
-				if (size() == 2) {
-					return SymEngine::mul(_leaves[0]->symbolic_form(), _leaves[1]->symbolic_form());
-				} else {
-					return SymEngine::mul(symbolic_operands());
-				}
+    inline SymbolicForm symbolic_2(const SymEngineBinaryFunction &f) const {
+        SymbolicForm symbolic_a = _leaves[0]->symbolic_form();
+        if (!symbolic_a.is_null()) {
+            SymbolicForm symbolic_b = _leaves[1]->symbolic_form();
+            if (!symbolic_b.is_null()) {
+                return f(symbolic_a, symbolic_b);
+            }
+        }
+        return SymbolicForm();
+    }
 
-			case SymbolPower:
-				if (size() == 2) {
-					return SymEngine::pow(_leaves[0]->symbolic_form(), _leaves[1]->symbolic_form());
-				}
+    inline SymbolicForm symbolic_n(const SymEngineNAryFunction &f) const {
+        const optional<SymEngine::vec_basic> operands = symbolic_operands();
+        if (operands) {
+            return f(*operands);
+        } else {
+            return SymbolicForm();
+        }
+    }
+    SymbolicForm instantiate_symbolic_form() const {
+        switch (_head->extended_type()) {
+            case SymbolPlus:
+                if (size() == 2) {
+                    return symbolic_2(SymEngine::add);
+                } else {
+                    return symbolic_n(SymEngine::add);
+                }
 
-			default:
-				break;
-		}
-		return SymbolicForm();
-	}
+            case SymbolTimes:
+                if (size() == 2) {
+                    return symbolic_2(SymEngine::mul);
+                } else {
+                    return symbolic_n(SymEngine::mul);
+                }
+
+            case SymbolPower:
+                if (size() == 2) {
+                    return symbolic_2(SymEngine::pow);
+                }
+                break;
+
+            case SymbolCos:
+                if (size() == 1) {
+                    return symbolic_1(SymEngine::cos);
+                }
+                break;
+
+            case SymbolSin:
+                if (size() == 1) {
+                    return symbolic_1(SymEngine::sin);
+                }
+                break;
+
+            default:
+                break;
+        }
+
+        return SymbolicForm();
+    }
 };
 
 template<typename U>

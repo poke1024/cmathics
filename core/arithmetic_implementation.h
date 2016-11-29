@@ -95,16 +95,19 @@ public:
 		BinaryOperator<F>::template init<MachineInteger, BigInteger, mpint>();
 		BinaryOperator<F>::template init<MachineInteger, MachineReal, mpfr::mpreal>();
 		BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
+        BinaryOperator<F>::template init<MachineInteger, Rational, mpq_class>();
 
 		BinaryOperator<F>::template init<BigInteger, MachineInteger, mpint>();
 		BinaryOperator<F>::template init<BigInteger, BigInteger, mpz_class>();
 		BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
 		BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
+        BinaryOperator<F>::template init<BigInteger, Rational, mpq_class>();
 
 		BinaryOperator<F>::template init<MachineReal, MachineInteger, mpfr::mpreal>();
 		BinaryOperator<F>::template init<MachineReal, BigInteger, mpfr::mpreal>();
 		BinaryOperator<F>::template init<MachineReal, MachineReal, machine_real_t>();
 		BinaryOperator<F>::template init<MachineReal, BigReal, mpfr::mpreal>();
+        BinaryOperator<F>::template init<MachineReal, Rational, machine_real_t>();
 
 		BinaryOperator<F>::template init<BigReal, MachineInteger, mpfr::mpreal>();
 		BinaryOperator<F>::template init<BigReal, BigInteger, mpfr::mpreal>();
@@ -121,16 +124,19 @@ public:
 		BinaryOperator<F>::template init<MachineInteger, BigInteger, mpz_class>();
 		BinaryOperator<F>::template init<MachineInteger, MachineReal, mpfr::mpreal>();
 		BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
+        BinaryOperator<F>::template init<MachineInteger, Rational, mpq_class>();
 
 		BinaryOperator<F>::template init<BigInteger, MachineInteger, mpz_class>();
 		BinaryOperator<F>::template init<BigInteger, BigInteger, mpz_class>();
 		BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
 		BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
+        BinaryOperator<F>::template init<BigInteger, Rational, mpq_class>();
 
 		BinaryOperator<F>::template init<MachineReal, MachineInteger, mpfr::mpreal>();
 		BinaryOperator<F>::template init<MachineReal, BigInteger, mpfr::mpreal>();
 		BinaryOperator<F>::template init<MachineReal, MachineReal, machine_real_t>();
 		BinaryOperator<F>::template init<MachineReal, BigReal, mpfr::mpreal>();
+        BinaryOperator<F>::template init<MachineReal, Rational, machine_real_t>();
 
 		BinaryOperator<F>::template init<BigReal, MachineInteger, mpfr::mpreal>();
 		BinaryOperator<F>::template init<BigReal, BigInteger, mpfr::mpreal>();
