@@ -6,6 +6,7 @@
 #include "real.h"
 #include "rational.h"
 #include "expression.h"
+#include "numeric.h"
 
 template<typename F, typename U, typename V, typename W, bool ia, bool ib>
 struct calculate {
@@ -91,13 +92,13 @@ template<typename F>
 class BinaryArithmetic : public BinaryOperator<F> {
 public:
 	BinaryArithmetic() {
-		BinaryOperator<F>::template init<MachineInteger, MachineInteger, mpint>();
-		BinaryOperator<F>::template init<MachineInteger, BigInteger, mpint>();
+		BinaryOperator<F>::template init<MachineInteger, MachineInteger, Numeric::Z>();
+		BinaryOperator<F>::template init<MachineInteger, BigInteger, Numeric::Z>();
 		BinaryOperator<F>::template init<MachineInteger, MachineReal, machine_real_t>();
 		// BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
         BinaryOperator<F>::template init<MachineInteger, Rational, mpq_class>();
 
-		BinaryOperator<F>::template init<BigInteger, MachineInteger, mpint>();
+		BinaryOperator<F>::template init<BigInteger, MachineInteger, Numeric::Z>();
 		BinaryOperator<F>::template init<BigInteger, BigInteger, mpz_class>();
 		// BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
 		// BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
@@ -386,9 +387,9 @@ template<typename T>
 inline BaseExpressionRef add_only_integers(const T &self) {
 	// sums an all MachineInteger/BigInteger expression
 
-	mpint result(0);
+	Numeric::Z result(0);
 
-	for (auto value : self.template primitives<mpint>()) {
+	for (auto value : self.template primitives<Numeric::Z>()) {
 		result += value;
 	}
 

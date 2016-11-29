@@ -58,21 +58,21 @@ public:
 };
 
 /*template<>
-class PrimitiveToPrimitive<mpint> {
+class PrimitiveToPrimitive<Z::Numeric> {
 public:
-	inline mpint convert(const mpz_class &x) const {
-		return mpint(x);
+	inline Z::Numeric convert(const mpz_class &x) const {
+		return Z::Numeric(x);
 	}
 
-	inline mpint convert(machine_integer_t x) const {
-		return mpint(x);
+	inline Z::Numeric convert(machine_integer_t x) const {
+		return Z::Numeric(x);
 	}
 
-	inline mpint convert(const mpq_class &x) const {
+	inline Z::Numeric convert(const mpq_class &x) const {
 		throw std::runtime_error("unsupported conversion");
 	}
 
-	inline mpint convert(const std::string &x) const {
+	inline Z::Numeric convert(const std::string &x) const {
 		throw std::runtime_error("unsupported conversion");
 	}
 };*/

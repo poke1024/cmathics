@@ -105,7 +105,7 @@ set(SOURCE_FILES
     core/sort.h
     core/sort.cpp
     core/system_symbols.h
-    core/rule.h)
+    core/rule.h core/numeric.h)
 
 add_custom_target(standalone)
 

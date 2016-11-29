@@ -1,7 +1,7 @@
 #ifndef CMATHICS_PROMOTE_H
 #define CMATHICS_PROMOTE_H
 
-#include "integer.h"
+#include "numeric.h"
 #include <static_if/static_if.hpp>
 
 // rules for type promotion
@@ -34,14 +34,14 @@ inline V promote(const U &u) {
 #define PROMOTE(U, V) template<> \
     inline V promote<V, U>(const U &x)
 
-// mpint
+// Numeric::Z
 
-PROMOTE(mpz_class, mpint) {
-    return mpint(x);
+PROMOTE(mpz_class, Numeric::Z) {
+    return Numeric::Z(x);
 }
 
-PROMOTE(machine_integer_t, mpint) {
-    return mpint(x);
+PROMOTE(machine_integer_t, Numeric::Z) {
+    return Numeric::Z(x);
 }
 
 PROMOTE(machine_integer_t, machine_real_t) {

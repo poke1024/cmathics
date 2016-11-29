@@ -4,6 +4,7 @@
 #include "integer.h"
 #include "real.h"
 #include "rational.h"
+#include "numeric.h"
 
 class to_primitive_error : public std::runtime_error {
 public:
@@ -18,14 +19,14 @@ T to_primitive(const BaseExpressionRef &expr) {
 }
 
 template<>
-inline mpint to_primitive<mpint>(const BaseExpressionRef &expr) {
+inline Numeric::Z to_primitive<Numeric::Z>(const BaseExpressionRef &expr) {
 	switch (expr->type()) {
 		case MachineIntegerType:
-			return mpint(boost::static_pointer_cast<const MachineInteger>(expr)->value);
+			return Numeric::Z(static_cast<const MachineInteger*>(expr.get())->value);
 		case BigIntegerType:
-			return mpint(boost::static_pointer_cast<const BigInteger>(expr)->value);
+			return Numeric::Z(static_cast<const BigInteger*>(expr.get())->value);
 		default:
-			throw to_primitive_error(expr->type(), "mpint");
+			throw to_primitive_error(expr->type(), "Numeric::Z");
 	}
 }
 
@@ -33,7 +34,7 @@ template<>
 inline int64_t to_primitive<int64_t>(const BaseExpressionRef &expr) {
 	switch (expr->type()) {
 		case MachineIntegerType:
-			return boost::static_pointer_cast<const MachineInteger>(expr)->value;
+			return static_cast<const MachineInteger*>(expr.get())->value;
 		default:
 			throw to_primitive_error(expr->type(), "int64_t");
 	}
@@ -43,7 +44,7 @@ template<>
 inline mpq_class to_primitive<mpq_class>(const BaseExpressionRef &expr) {
 	switch (expr->type()) {
 		case RationalType:
-			return boost::static_pointer_cast<const Rational>(expr)->value;
+			return static_cast<const Rational*>(expr.get())->value;
 		default:
 			throw to_primitive_error(expr->type(), "mpq_class");
 	}
@@ -53,13 +54,13 @@ template<>
 inline machine_real_t to_primitive<machine_real_t>(const BaseExpressionRef &expr) {
 	switch (expr->type()) {
 		case MachineIntegerType:
-			return boost::static_pointer_cast<const MachineInteger>(expr)->value;
+			return static_cast<const MachineInteger*>(expr.get())->value;
 		case BigIntegerType:
-			return boost::static_pointer_cast<const BigInteger>(expr)->value.get_d();
+			return static_cast<const BigInteger*>(expr.get())->value.get_d();
 		case MachineRealType:
-			return boost::static_pointer_cast<const MachineReal>(expr)->value;
+			return static_cast<const MachineReal*>(expr.get())->value;
 		case BigRealType:
-			return boost::static_pointer_cast<const BigReal>(expr)->as_double();
+			return static_cast<const BigReal*>(expr.get())->as_double();
 		default:
 			throw to_primitive_error(expr->type(), "machine_real_t");
 	}
@@ -69,13 +70,13 @@ inline machine_real_t to_primitive<machine_real_t>(const BaseExpressionRef &expr
 inline mpfr::mpreal to_primitive<mpfr::mpreal>(const BaseExpressionRef &expr) {
 	switch (expr->type()) {
 		case MachineIntegerType:
-			return mpfr::mpreal(boost::static_pointer_cast<const MachineInteger>(expr)->value);
+			return mpfr::mpreal(static_cast<const MachineInteger*>(expr.get())->value);
 		case BigIntegerType:
-			return mpfr::mpreal(boost::static_pointer_cast<const BigInteger>(expr)->value.get_mpz_t());
+			return mpfr::mpreal(static_cast<const BigInteger*>(expr.get())->value.get_mpz_t());
 		case MachineRealType:
-			return mpfr::mpreal(boost::static_pointer_cast<const MachineReal>(expr)->value);
+			return mpfr::mpreal(static_cast<const MachineReal*>(expr.get())->value);
 		case BigRealType:
-			return boost::static_pointer_cast<const BigReal>(expr)->value;
+			return static_cast<const BigReal*>(expr.get())->value;
 		default:
 			throw to_primitive_error(expr->type(), "mpreal");
 	}
