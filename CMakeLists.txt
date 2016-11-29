@@ -4,42 +4,45 @@ project(cmathics)
 # specifying -O2 here gives another factor 10 currently
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
-# we assume that symengine was installed; the instructions given at the official page at
-# https://github.com/symengine/symengine/wiki/Building-SymEngine don't seem to work that
-# well under OS X and homebrew. here's what works for me (needs "brew install cmake" and
-# "brew install homebrew/science/arb"):
-
-# export SYMPY_PREFIX="/Users/me/homebrew"
-# export SYMPY_SOURCE="/Users/me/Downloads/symengine-master"
-# export CPATH="$SYMPY_PREFIX/include:$SYMPY_SOURCE"
-# cd "$SYMPY_SOURCE"
-# CXXFLAGS=-std=c++11 "$SYMPY_PREFIX/bin/cmake" -DCMAKE_INSTALL_PREFIX:PATH="$SYMPY_PREFIX" -DWITH_ARB:BOOL=ON .
-# make CXX_DEFINES=-std=c++11
-# make install
-
 include_directories(${cmathics_SOURCE_DIR})
 
-set(HOMEBREWHOME "$ENV{HOMEBREWHOME}")
+set(CUSTOM_PREFIX "$ENV{HOMEBREWHOME}")
 set(PYTHONHOME "$ENV{PYTHONHOME}")
 
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED OFF)
 set(Boost_USE_STATIC_RUNTIME OFF)
 
+set(Boost_LIBRARIES "boost_system")
+
 #find_package(Boost 1.60 COMPONENTS pool python)
 #include_directories(${Boost_INCLUDE_DIRS})
 
-if(HOMEBREWHOME)
-    message(STATUS "using homebrew at ${HOMEBREWHOME}")
-    # on OS X, the easiest way to get the dependent libraries is to use homebrew. we might want to use a custom
-    # path that can be specified using this env var. your homebrew needs to be set up using:
-    # brew install gmp mpfr boost boost-python
-    include_directories("${HOMEBREWHOME}/include" "${HOMEBREWHOME}/include/flint")
-    link_directories("${HOMEBREWHOME}/lib")
+if(CUSTOM_PREFIX)
+    message(STATUS "using prefix ${CUSTOM_PREFIX}")
 
-    set(Boost_LIBRARIES "boost_system")
+    # on OS X, the easiest way to get the dependent libraries is to use homebrew. we might want to use a custom
+    # path that can be specified using CUSTOM_PREFIX. your homebrew needs to be set up using:
+
+    # brew install gmp mpfr boost boost-python
+
+    # you also need symengine installed; the instructions given at the official page at
+    # https://github.com/symengine/symengine/wiki/Building-SymEngine don't seem to work that
+    # well under OS X and homebrew. here's what works for me (needs "brew install cmake" and
+    # "brew install homebrew/science/arb"):
+
+    # export SYMENGINE_PREFIX="$HOME/homebrew"
+    # export SYMENGINE_SOURCE="$HOME/Downloads/symengine-master"
+    # export CPATH="$SYMENGINE_PREFIX/include:$SYMENGINE_SOURCE"
+    # cd "$SYMENGINE_SOURCE"
+    # CXXFLAGS=-std=c++11 "$SYMENGINE_PREFIX/bin/cmake" -DCMAKE_INSTALL_PREFIX:PATH="$SYMENGINE_PREFIX" -DWITH_ARB:BOOL=ON .
+    # make CXX_DEFINES=-std=c++11
+    # make install
+
+    include_directories("${CUSTOM_PREFIX}/include" "${CUSTOM_PREFIX}/include/flint")
+    link_directories("${CUSTOM_PREFIX}/lib")
 elseif(APPLE)
-    message(WARNING "please set HOMEBREWHOME to a homebrew installaton with gmp, mpfr, and symengine.")
+    message(WARNING "please set CUSTOM_PREFIX to a homebrew installaton with gmp, arb and symengine.")
 endif()
 
 if(PYTHONHOME)
@@ -101,7 +104,8 @@ set(SOURCE_FILES
     core/cache.h
     core/sort.h
     core/sort.cpp
-    core/system_symbols.h)
+    core/system_symbols.h
+    core/rule.h)
 
 add_custom_target(standalone)
 
@@ -119,7 +123,7 @@ set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test_integer.cpp
     tests/test_rational.cpp
     tests/test_real.cpp
-    tests/test_string.cpp core/rule.h)
+    tests/test_string.cpp)
 
 include_directories("$ENV{HOME}/googletest/googletest/include")
 link_directories("$ENV{HOME}/googletest/googletest/lib")
