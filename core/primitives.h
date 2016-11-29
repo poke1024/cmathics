@@ -59,13 +59,13 @@ inline machine_real_t to_primitive<machine_real_t>(const BaseExpressionRef &expr
 		case MachineRealType:
 			return boost::static_pointer_cast<const MachineReal>(expr)->value;
 		case BigRealType:
-			return boost::static_pointer_cast<const BigReal>(expr)->value.toDouble();
+			return boost::static_pointer_cast<const BigReal>(expr)->as_double();
 		default:
 			throw to_primitive_error(expr->type(), "machine_real_t");
 	}
 }
 
-template<>
+/*template<>
 inline mpfr::mpreal to_primitive<mpfr::mpreal>(const BaseExpressionRef &expr) {
 	switch (expr->type()) {
 		case MachineIntegerType:
@@ -79,7 +79,7 @@ inline mpfr::mpreal to_primitive<mpfr::mpreal>(const BaseExpressionRef &expr) {
 		default:
 			throw to_primitive_error(expr->type(), "mpreal");
 	}
-}
+}*/
 
 template<typename T>
 class TypeFromPrimitive {

@@ -2,7 +2,6 @@
 #define CMATHICS_HEAP_H
 
 #include <boost/pool/object_pool.hpp>
-#include <mpfrcxx/mpreal.h>
 #include <static_if/static_if.hpp>
 
 #include "gmpxx.h"
@@ -177,8 +176,9 @@ public:
 	static BaseExpressionRef Rational(machine_integer_t x, machine_integer_t y);
 
     static BaseExpressionRef MachineReal(machine_real_t value);
-    static BaseExpressionRef BigReal(const mpfr::mpreal &value);
+    // static BaseExpressionRef BigReal(const mpfr::mpreal &value);
     static BaseExpressionRef BigReal(double prec, machine_real_t value);
+	static BaseExpressionRef BigReal(double prec, const SymbolicForm &form);
 
 	static StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
 

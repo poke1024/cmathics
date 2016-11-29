@@ -1,9 +1,11 @@
 #ifndef REAL_H
 #define REAL_H
 
-#include <mpfrcxx/mpreal.h>
 #include <stdint.h>
 #include <sstream>
+
+#include <arb.h>
+#include <symengine/eval_arb.h>
 
 #include "types.h"
 #include "hash.h"
@@ -54,20 +56,37 @@ class BigReal : public BaseExpression {
 public:
 	static constexpr Type Type = BigRealType;
 
-    mpfr::mpreal value;
+    arb_t value;
 	const double prec;
 
 	explicit inline BigReal(double new_prec, double new_value) :
-		BaseExpression(BigRealExtendedType), value(new_value, bits_prec(new_prec), MPFR_RNDN), prec(new_prec) {
-	}
+		BaseExpression(BigRealExtendedType), prec(new_prec) {
 
-	explicit inline BigReal(const mpfr::mpreal &new_value) :
+        arb_init(value);
+        arb_set_d(value, new_value);
+    }
+
+    explicit inline BigReal(double new_prec, const SymbolicForm &form) :
+        BaseExpression(BigRealExtendedType), prec(new_prec) {
+
+        arb_init(value);
+
+        SymEngine::eval_arb(value, *form.get(), bits_prec(new_prec));
+    }
+
+	/*explicit inline BigReal(const mpfr::mpreal &new_value) :
 		BaseExpression(BigRealExtendedType), value(new_value), prec(from_bits_prec(value.get_prec())) {
-	}
+
+        arb_init(value);
+	}*/
+
+    virtual ~BigReal() {
+        arb_clear(value);
+    }
 
 	virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == BigRealType) {
-            return value == static_cast<const BigReal*>(&expr)->value;
+            return arb_equal(value, static_cast<const BigReal*>(&expr)->value); // FIXME
         } else {
             return false;
         }
@@ -79,9 +98,13 @@ public:
     }
 
     virtual std::string fullform() const {
-	    std::stringstream s; // FIXME
-	    s << value;
+	    std::ostringstream s;
+        s << arb_get_str(value, long(floor(prec)), ARB_STR_NO_RADIUS);
         return s.str();
+    }
+
+    inline double as_double() const {
+        return arf_get_d(arb_midref(value), ARF_RND_DOWN); // FIXME
     }
 };
 
@@ -89,9 +112,9 @@ inline BaseExpressionRef from_primitive(machine_real_t value) {
 	return BaseExpressionRef(new MachineReal(value));
 }
 
-inline BaseExpressionRef from_primitive(const mpfr::mpreal &value) {
+/*inline BaseExpressionRef from_primitive(const mpfr::mpreal &value) {
 	return BaseExpressionRef(new BigReal(value));
-}
+}*/
 
 inline BaseExpressionRef real(double prec, machine_real_t value) {
 	return BaseExpressionRef(new BigReal(prec, value));

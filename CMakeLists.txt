@@ -6,13 +6,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 # we assume that symengine was installed; the instructions given at the official page at
 # https://github.com/symengine/symengine/wiki/Building-SymEngine don't seem to work that
-# well under OS X and homebrew. here's what works for me (needs "brew install cmake"):
+# well under OS X and homebrew. here's what works for me (needs "brew install cmake" and
+# "brew install homebrew/science/arb"):
 
 # export SYMPY_PREFIX="/Users/me/homebrew"
 # export SYMPY_SOURCE="/Users/me/Downloads/symengine-master"
 # export CPATH="$SYMPY_PREFIX/include:$SYMPY_SOURCE"
 # cd "$SYMPY_SOURCE"
-# CXXFLAGS=-std=c++11 "$SYMPY_PREFIX/bin/cmake" -DCMAKE_INSTALL_PREFIX:PATH="$SYMPY_PREFIX" .
+# CXXFLAGS=-std=c++11 "$SYMPY_PREFIX/bin/cmake" -DCMAKE_INSTALL_PREFIX:PATH="$SYMPY_PREFIX" -DWITH_ARB:BOOL=ON .
 # make CXX_DEFINES=-std=c++11
 # make install
 
@@ -33,7 +34,7 @@ if(HOMEBREWHOME)
     # on OS X, the easiest way to get the dependent libraries is to use homebrew. we might want to use a custom
     # path that can be specified using this env var. your homebrew needs to be set up using:
     # brew install gmp mpfr boost boost-python
-    include_directories("${HOMEBREWHOME}/include")
+    include_directories("${HOMEBREWHOME}/include" "${HOMEBREWHOME}/include/flint")
     link_directories("${HOMEBREWHOME}/lib")
 
     set(Boost_LIBRARIES "boost_system")
@@ -105,7 +106,7 @@ set(SOURCE_FILES
 add_custom_target(standalone)
 
 add_executable(cmathics ${SOURCE_FILES} mathics.cpp)
-target_link_libraries(cmathics mpfr gmp symengine ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(cmathics mpfr gmp arb flint symengine ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
 
 add_custom_target(tests)
 

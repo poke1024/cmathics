@@ -93,26 +93,26 @@ public:
 	BinaryArithmetic() {
 		BinaryOperator<F>::template init<MachineInteger, MachineInteger, mpint>();
 		BinaryOperator<F>::template init<MachineInteger, BigInteger, mpint>();
-		BinaryOperator<F>::template init<MachineInteger, MachineReal, mpfr::mpreal>();
-		BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
+		BinaryOperator<F>::template init<MachineInteger, MachineReal, machine_real_t>();
+		// BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
         BinaryOperator<F>::template init<MachineInteger, Rational, mpq_class>();
 
 		BinaryOperator<F>::template init<BigInteger, MachineInteger, mpint>();
 		BinaryOperator<F>::template init<BigInteger, BigInteger, mpz_class>();
-		BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
-		BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
         BinaryOperator<F>::template init<BigInteger, Rational, mpq_class>();
 
-		BinaryOperator<F>::template init<MachineReal, MachineInteger, mpfr::mpreal>();
-		BinaryOperator<F>::template init<MachineReal, BigInteger, mpfr::mpreal>();
+		BinaryOperator<F>::template init<MachineReal, MachineInteger, machine_real_t>();
+		// BinaryOperator<F>::template init<MachineReal, BigInteger, mpfr::mpreal>();
 		BinaryOperator<F>::template init<MachineReal, MachineReal, machine_real_t>();
-		BinaryOperator<F>::template init<MachineReal, BigReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<MachineReal, BigReal, mpfr::mpreal>();
         BinaryOperator<F>::template init<MachineReal, Rational, machine_real_t>();
 
-		BinaryOperator<F>::template init<BigReal, MachineInteger, mpfr::mpreal>();
-		BinaryOperator<F>::template init<BigReal, BigInteger, mpfr::mpreal>();
-		BinaryOperator<F>::template init<BigReal, MachineReal, mpfr::mpreal>();
-		BinaryOperator<F>::template init<BigReal, BigReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigReal, MachineInteger, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigReal, BigInteger, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigReal, MachineReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigReal, BigReal, mpfr::mpreal>();
 	}
 };
 
@@ -122,26 +122,26 @@ public:
 	BinaryComparison() {
 		BinaryOperator<F>::template init<MachineInteger, MachineInteger, machine_integer_t>();
 		BinaryOperator<F>::template init<MachineInteger, BigInteger, mpz_class>();
-		BinaryOperator<F>::template init<MachineInteger, MachineReal, mpfr::mpreal>();
-		BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
+		BinaryOperator<F>::template init<MachineInteger, MachineReal, machine_real_t>();
+		// BinaryOperator<F>::template init<MachineInteger, BigReal, mpfr::mpreal>();
         BinaryOperator<F>::template init<MachineInteger, Rational, mpq_class>();
 
 		BinaryOperator<F>::template init<BigInteger, MachineInteger, mpz_class>();
 		BinaryOperator<F>::template init<BigInteger, BigInteger, mpz_class>();
-		BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
-		BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigInteger, MachineReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigInteger, BigReal, mpfr::mpreal>();
         BinaryOperator<F>::template init<BigInteger, Rational, mpq_class>();
 
-		BinaryOperator<F>::template init<MachineReal, MachineInteger, mpfr::mpreal>();
-		BinaryOperator<F>::template init<MachineReal, BigInteger, mpfr::mpreal>();
+		BinaryOperator<F>::template init<MachineReal, MachineInteger, machine_real_t>();
+		// BinaryOperator<F>::template init<MachineReal, BigInteger, mpfr::mpreal>();
 		BinaryOperator<F>::template init<MachineReal, MachineReal, machine_real_t>();
-		BinaryOperator<F>::template init<MachineReal, BigReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<MachineReal, BigReal, mpfr::mpreal>();
         BinaryOperator<F>::template init<MachineReal, Rational, machine_real_t>();
 
-		BinaryOperator<F>::template init<BigReal, MachineInteger, mpfr::mpreal>();
-		BinaryOperator<F>::template init<BigReal, BigInteger, mpfr::mpreal>();
-		BinaryOperator<F>::template init<BigReal, MachineReal, mpfr::mpreal>();
-		BinaryOperator<F>::template init<BigReal, BigReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigReal, MachineInteger, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigReal, BigInteger, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigReal, MachineReal, mpfr::mpreal>();
+		// BinaryOperator<F>::template init<BigReal, BigReal, mpfr::mpreal>();
 	}
 };
 
@@ -416,24 +416,25 @@ inline BaseExpressionRef add_machine_inexact(const T &self) {
 	symbolics.reserve(self.size());
 
 	machine_real_t sum = 0.0;
-	for (auto leaf : self.leaves()) {
-		auto type = leaf->type();
+	for (const BaseExpressionRef leaf : self.leaves()) {
+		const BaseExpression *leaf_ptr = leaf.get();
+
+		const auto type = leaf_ptr->type();
 		switch(type) {
 			case MachineIntegerType:
-				sum += static_cast<machine_real_t>(
-						boost::static_pointer_cast<const MachineInteger>(leaf)->value);
+				sum += machine_real_t(static_cast<const MachineInteger*>(leaf_ptr)->value);
 				break;
 			case BigIntegerType:
-				sum += boost::static_pointer_cast<const BigInteger>(leaf)->value.get_d();
+				sum += static_cast<const BigInteger*>(leaf_ptr)->value.get_d();
 				break;
 			case MachineRealType:
-				sum += boost::static_pointer_cast<const MachineReal>(leaf)->value;
+				sum += static_cast<const MachineReal*>(leaf_ptr)->value;
 				break;
 			case BigRealType:
-				sum += boost::static_pointer_cast<const BigReal>(leaf)->value.toDouble(MPFR_RNDN);
+				sum += static_cast<const BigReal*>(leaf_ptr)->as_double();
 				break;
 			case RationalType:
-				sum += boost::static_pointer_cast<const Rational>(leaf)->value.get_d();
+				sum += static_cast<const Rational*>(leaf_ptr)->value.get_d();
 				break;
 			case ComplexType:
 				assert(false);

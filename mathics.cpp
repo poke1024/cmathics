@@ -589,6 +589,26 @@ public:
 	}
 
     void initialize() {
+        add("N",
+            Attributes::None, {
+                builtin<2>([] (
+                    const BaseExpressionRef &expr,
+                    const BaseExpressionRef &n,
+                    const Evaluation &evaluation) {
+
+                    if (n->type() != MachineIntegerType) {
+                        return BaseExpressionRef();
+                    }
+
+                    const SymbolicForm form = expr->symbolic_form();
+                    if (form.is_null()) {
+                        return BaseExpressionRef();
+                    }
+
+                    return Heap::BigReal(static_cast<const MachineInteger*>(n.get())->value, form);
+                })
+            });
+
         add("Plus",
             Attributes::None, {
 		        Plus0,

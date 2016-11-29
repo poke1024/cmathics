@@ -44,9 +44,13 @@ PROMOTE(machine_integer_t, mpint) {
     return mpint(x);
 }
 
-PROMOTE(machine_integer_t, mpfr::mpreal) {
-	return x;
+PROMOTE(machine_integer_t, machine_real_t) {
+    return machine_real_t(x);
 }
+
+/*PROMOTE(machine_integer_t, mpfr::mpreal) {
+	return x;
+}*/
 
 PROMOTE(machine_integer_t, mpz_class) {
     return machine_integer_to_mpz(x);
@@ -62,9 +66,9 @@ PROMOTE(machine_real_t, machine_real_t) {
     return x;
 }
 
-PROMOTE(machine_real_t, mpfr::mpreal) {
+/*PROMOTE(machine_real_t, mpfr::mpreal) {
     return x;
-}
+}*/
 
 // mpz_class
 
