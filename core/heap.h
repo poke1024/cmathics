@@ -11,6 +11,7 @@
 
 class MachineInteger;
 class BigInteger;
+class Rational;
 
 class MachineReal;
 class BigReal;
@@ -150,6 +151,7 @@ private:
 
 	boost::object_pool<MachineInteger> _machine_integers;
     boost::object_pool<BigInteger> _big_integers;
+	boost::object_pool<Rational> _rationals;
 
     boost::object_pool<MachineReal> _machine_reals;
     boost::object_pool<BigReal> _big_reals;
@@ -172,8 +174,9 @@ public:
     static BaseExpressionRef MachineInteger(machine_integer_t value);
     static BaseExpressionRef BigInteger(const mpz_class &value);
 	static BaseExpressionRef BigInteger(mpz_class &&value);
+	static BaseExpressionRef Rational(machine_integer_t x, machine_integer_t y);
 
-    static BaseExpressionRef MachineReal(machine_real_t vTalue);
+    static BaseExpressionRef MachineReal(machine_real_t value);
     static BaseExpressionRef BigReal(const mpfr::mpreal &value);
     static BaseExpressionRef BigReal(double prec, machine_real_t value);
 

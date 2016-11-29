@@ -1,5 +1,9 @@
-SYMBOL(Sequence)
+// note: having List here first should guarantee that Lists
+// are efficiently handled if they occur as "default" case
+// in switch statements.
+
 SYMBOL(List)
+SYMBOL(Sequence)
 
 SYMBOL(True)
 SYMBOL(False)

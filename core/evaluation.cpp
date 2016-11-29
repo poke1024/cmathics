@@ -24,7 +24,6 @@ Evaluation::Evaluation(Definitions &new_definitions, bool new_catch_interrupts) 
 void send_message(Evaluation* evaluation, Symbol* symbol, char* tag) {
 }
 
-
 BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
     // int64_t line_no;
 
@@ -36,7 +35,7 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
     // line_no = get_line_no(evaluation);
 
     // perform evaluation
-    const auto evaluated = expr->evaluate_or_identity(*this);
+    const auto evaluated = coalesce(expr->evaluate(*this), expr);
 
     // TODO $Post
 
@@ -54,5 +53,5 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
 
     // TODO clear aborts
 
-    return evaluated;
+    return coalesce(evaluated->simplify(*this), evaluated); // experimental
 }

@@ -518,7 +518,7 @@ ExpressionRef iterate(
     while (true) {
         const ExtendedType if_continue =
             expression(LessEqual, index, imax)->
-                evaluate_or_identity(evaluation)->extended_type();
+                    evaluate_or_copy(evaluation)->extended_type();
 
         if (if_continue == SymbolFalse) {
             break;
@@ -529,13 +529,13 @@ ExpressionRef iterate(
 
         if (SYMBOL) {
 	        result.push_back(scope(iterator, index, [&expr, &evaluation] () {
-		        return expr->evaluate_or_identity(evaluation);
+		        return expr->evaluate_or_copy(evaluation);
 	        }));
         } else {
-            result.push_back(expr->evaluate_or_identity(evaluation));
+            result.push_back(expr->evaluate_or_copy(evaluation));
         }
 
-        index = expression(Plus, index, di)->evaluate_or_identity(evaluation);
+        index = expression(Plus, index, di)->evaluate_or_copy(evaluation);
     }
 
     return expression(evaluation.List, std::move(result));
@@ -619,7 +619,7 @@ public:
 					const BaseExpressionRef &expr,
 					const Evaluation &evaluation) {
 
-				    return expr->expand(evaluation);
+                    return expr->expand(evaluation);
 			    })
 	        });
 
@@ -841,7 +841,7 @@ public:
                                expr,
                                nullptr,
                                Heap::MachineInteger(0),
-                               leaves[0]->evaluate_or_identity(evaluation),
+                               leaves[0]->evaluate_or_copy(evaluation),
                                Heap::MachineInteger(1),
                                evaluation);
                        }
@@ -855,7 +855,7 @@ public:
                                const Expression *domain_list = if_list(domain);
 
                                if (domain_list) {
-                                   domain_list = if_list(domain_list->evaluate_or_identity(evaluation));
+                                   domain_list = if_list(domain_list->evaluate_or_copy(evaluation));
                                    if (domain_list) {
                                        return domain_list->iterate(iterator->as_symbol(), expr, evaluation);
                                    }
@@ -864,7 +864,7 @@ public:
                                        expr,
                                        iterator->as_symbol(),
                                        Heap::MachineInteger(1),
-                                       leaves[1]->evaluate_or_identity(evaluation),
+                                       leaves[1]->evaluate_or_copy(evaluation),
                                        Heap::MachineInteger(1),
                                        evaluation);
                                }
@@ -879,8 +879,8 @@ public:
                                return iterate<true>(
                                    expr,
                                    iterator->as_symbol(),
-                                   leaves[1]->evaluate_or_identity(evaluation),
-                                   leaves[2]->evaluate_or_identity(evaluation),
+                                   leaves[1]->evaluate_or_copy(evaluation),
+                                   leaves[2]->evaluate_or_copy(evaluation),
                                    Heap::MachineInteger(1),
                                    evaluation);
                            }
@@ -894,9 +894,9 @@ public:
                                return iterate<true>(
                                    expr,
                                    iterator->as_symbol(),
-                                   leaves[1]->evaluate_or_identity(evaluation),
-                                   leaves[2]->evaluate_or_identity(evaluation),
-                                   leaves[3]->evaluate_or_identity(evaluation),
+                                   leaves[1]->evaluate_or_copy(evaluation),
+                                   leaves[2]->evaluate_or_copy(evaluation),
+                                   leaves[3]->evaluate_or_copy(evaluation),
                                    evaluation);
                            }
                            break;

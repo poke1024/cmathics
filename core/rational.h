@@ -10,6 +10,10 @@ class Rational : public BaseExpression {
 public:
     mpq_class value;
 
+    inline Rational(machine_integer_t x, machine_integer_t y) :
+        BaseExpression(RationalExtendedType), value(machine_integer_to_mpz(x), machine_integer_to_mpz(y)) {
+    }
+
     inline Rational(const mpq_class &new_value) :
         BaseExpression(RationalExtendedType), value(new_value) {
     }
@@ -32,7 +36,9 @@ public:
     }
 
     virtual std::string fullform() const {
-        return "???"; // FIXME
+        std::ostringstream s;
+        s << value.get_num().get_str() << " / " << value.get_den().get_str();
+        return s.str();
     }
 
     // copies denominator to a new Integer

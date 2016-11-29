@@ -5,12 +5,14 @@ project(cmathics)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 # we assume that symengine was installed; the instructions given at the official page at
-# https://github.com/symengine/symengine/wiki/Building-SymEngine don't seem to that well
-# under OS X and homebrew. here's what works for me:
+# https://github.com/symengine/symengine/wiki/Building-SymEngine don't seem to work that
+# well under OS X and homebrew. here's what works for me (needs "brew install cmake"):
 
-# export CPATH="/Users/offline/homebrew/include:/Users/offline/Downloads/symengine-master"
-# cd path/to/symengine/source/root
-# CXXFLAGS=-std=c++11 /Users/offline/homebrew/bin/cmake -DCMAKE_INSTALL_PREFIX:PATH="/Users/offline/homebrew" .
+# export SYMPY_PREFIX="/Users/me/homebrew"
+# export SYMPY_SOURCE="/Users/me/Downloads/symengine-master"
+# export CPATH="$SYMPY_PREFIX/include:$SYMPY_SOURCE"
+# cd "$SYMPY_SOURCE"
+# CXXFLAGS=-std=c++11 "$SYMPY_PREFIX/bin/cmake" -DCMAKE_INSTALL_PREFIX:PATH="$SYMPY_PREFIX" .
 # make CXX_DEFINES=-std=c++11
 # make install
 
@@ -36,7 +38,7 @@ if(HOMEBREWHOME)
 
     set(Boost_LIBRARIES "boost_system")
 elseif(APPLE)
-    message(WARNING "please set HOMEBREWHOME to a homebrew installaton with gmp and mpfr.")
+    message(WARNING "please set HOMEBREWHOME to a homebrew installaton with gmp, mpfr, and symengine.")
 endif()
 
 if(PYTHONHOME)

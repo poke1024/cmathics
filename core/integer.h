@@ -87,6 +87,13 @@ protected:
 	}
 };
 
+inline mpz_class machine_integer_to_mpz(machine_integer_t machine_value) {
+	mpz_class value;
+	value = long(machine_value);
+	return value;
+}
+
+
 class mpint {
 private:
 	template<bool c_is_a>
@@ -217,9 +224,7 @@ public:
 
     mpz_class to_primitive() const {
         if (!is_big) {
-            mpz_class value;
-            value = machine_value;
-            return value;
+			return machine_integer_to_mpz(machine_value);
         } else {
             return mpz_class(big_value);
         }

@@ -283,11 +283,15 @@ inline BaseExpressionRef BaseExpression::evaluate(
 	return result;
 }
 
-inline BaseExpressionRef BaseExpression::evaluate_or_identity(
+inline BaseExpressionRef BaseExpression::evaluate_or_copy(
     const Evaluation &evaluation) const {
 
     const BaseExpressionRef result = evaluate(evaluation);
-    return result ? result : BaseExpressionRef(this);
+    if (result) {
+        return result;
+    } else {
+        return BaseExpressionRef(this);
+    }
 }
 
 inline Symbol *BaseExpression::as_symbol() const {

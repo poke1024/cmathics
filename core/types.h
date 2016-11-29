@@ -12,6 +12,8 @@
 
 #include "hash.h"
 
+using std::experimental::optional;
+
 class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
 typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
@@ -318,14 +320,20 @@ public:
 
 	inline SymbolicForm symbolic_form() const {
 		if (_symbolic_form.is_null()) {
+            // FIXME. add quick check if Expression head is suitable for
+            // symbolic form or not.
 			_symbolic_form = instantiate_symbolic_form();
 		}
 		return _symbolic_form;
 	}
 
 	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
-		return BaseExpressionRef(this);
+		return BaseExpressionRef();
 	}
+
+    virtual BaseExpressionRef simplify(const Evaluation &evaluation) const {
+        return BaseExpressionRef();
+    }
 
 	inline bool same(const BaseExpressionRef &expr) const {
         return same(*expr);
@@ -339,7 +347,7 @@ public:
 
 	inline BaseExpressionRef evaluate(const Evaluation &evaluation) const;
 
-	inline BaseExpressionRef evaluate_or_identity(const Evaluation &evaluation) const;
+	inline BaseExpressionRef evaluate_or_copy(const Evaluation &evaluation) const;
 
     // various getters
 
@@ -398,6 +406,10 @@ public:
     friend void intrusive_ptr_release(const BaseExpression *expr);
 };
 
+inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressionRef &b) {
+    return a ? a : b;
+}
+
 #include "heap.h"
 
 inline void intrusive_ptr_add_ref(const BaseExpression *expr) {
@@ -443,6 +455,8 @@ private:
 	mutable Cache *_cache;
 
 public:
+    static constexpr Type Type = ExpressionType;
+
 	const BaseExpressionRef _head;
 	const Slice * const _slice_ptr;
 

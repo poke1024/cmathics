@@ -48,14 +48,18 @@ protected:
 
 	Function _functions[1LL << (2 * CoreTypeBits)];
 
+	template<typename U, typename V>
+	void init(const Function &f) {
+		_functions[size_t(U::Type) | (size_t(V::Type) << CoreTypeBits)] = f;
+	}
+
 	template<typename U, typename V, typename W>
 	void init() {
-		_functions[U::Type | (size_t(V::Type) << CoreTypeBits)] =
-			[] (const BaseExpression *a, const BaseExpression *b) {
-				constexpr bool ia = std::is_same<decltype(static_cast<const U*>(a)->value), const W>::value;
-				constexpr bool ib = std::is_same<decltype(static_cast<const V*>(b)->value), const W>::value;
-				return calculate<F, U, V, W, ia, ib>()(a, b);
-			};
+		init<U, V>([] (const BaseExpression *a, const BaseExpression *b) {
+			constexpr bool ia = std::is_same<decltype(static_cast<const U*>(a)->value), const W>::value;
+			constexpr bool ib = std::is_same<decltype(static_cast<const V*>(b)->value), const W>::value;
+			return calculate<F, U, V, W, ia, ib>()(a, b);
+		});
 	};
 
 	static inline BaseExpressionRef result(const Definitions &definitions, const BaseExpressionRef &result) {
@@ -179,6 +183,106 @@ struct times {
 	}
 };
 
+inline bool is_minus_1(const BaseExpressionRef &expr) {
+	if (expr->type() == MachineIntegerType) {
+		return static_cast<const MachineInteger*>(expr.get())->value == -1;
+	} else {
+		return false;
+	}
+}
+
+inline const BaseExpression *if_divisor(const BaseExpression *b_base) {
+    const Expression *b = static_cast<const Expression*>(b_base);
+    if (b->_head->extended_type() != SymbolPower || b->size() != 2) {
+        return nullptr;
+    }
+
+    const BaseExpressionRef *args = b->static_leaves<2>();
+    if (!is_minus_1(args[1])) {
+        return nullptr;
+    }
+
+    return args[0].get();
+}
+
+class TimesArithmetic : public BinaryArithmetic<times> {
+public:
+	TimesArithmetic() {
+        // detect Times[x, Power[y, -1]] and use fast divide if possible.
+
+		BinaryOperator<times>::template init<MachineInteger, Expression>(
+			[] (const BaseExpression *a, const BaseExpression *b) {
+
+                const BaseExpression *divisor = if_divisor(b);
+                if (!divisor) {
+                    return BaseExpressionRef(); // leave this for SymEngine to evaluate
+                }
+
+                switch (divisor->type()) {
+                    case MachineIntegerType: {
+                        const machine_integer_t x =
+                            static_cast<const MachineInteger*>(a)->value;
+                        const machine_integer_t y =
+                            static_cast<const MachineInteger*>(divisor)->value;
+                        const auto r = std::div(x, y);
+                        if (r.rem == 0) {
+                            return Heap::MachineInteger(r.quot);
+                        } else {
+                            return Heap::Rational(x, y);
+                        }
+                    }
+
+                    case MachineRealType: {
+                        const machine_integer_t x =
+                            static_cast<const MachineInteger*>(a)->value;
+                        const machine_real_t y =
+                            static_cast<const MachineReal*>(divisor)->value;
+                        return Heap::MachineReal(x / y);
+                    }
+
+                    default:
+                        break;
+                }
+
+				return BaseExpressionRef(); // leave this for SymEngine to evaluate
+			}
+		);
+
+        BinaryOperator<times>::template init<MachineReal, Expression>(
+            [] (const BaseExpression *a, const BaseExpression *b) {
+
+                const BaseExpression *divisor = if_divisor(b);
+                if (!divisor) {
+                    return BaseExpressionRef(); // leave this for SymEngine to evaluate
+                }
+
+                switch (divisor->type()) {
+                    case MachineIntegerType: {
+                        const machine_integer_t x =
+                            static_cast<const MachineReal*>(a)->value;
+                        const machine_integer_t y =
+                            static_cast<const MachineInteger*>(divisor)->value;
+                        return Heap::MachineReal(x / y);
+                    }
+
+                    case MachineRealType: {
+                        const machine_real_t x =
+                            static_cast<const MachineReal*>(a)->value;
+                        const machine_real_t y =
+                            static_cast<const MachineReal*>(divisor)->value;
+                        return Heap::MachineReal(x / y);
+                    }
+
+                    default:
+                        break;
+                }
+
+                return BaseExpressionRef(); // leave this for SymEngine to evaluate
+            }
+        );
+	}
+};
+
 template<machine_integer_t Value>
 class EmptyConstantRule : public ExactlyNRule<0> {
 public:
@@ -233,7 +337,7 @@ constexpr auto Plus0 = NewRule<EmptyConstantRule<0>>;
 constexpr auto Plus1 = NewRule<IdentityRule>;
 constexpr auto Plus2 = NewRule<BinaryOperatorRule<BinaryArithmetic<plus>>>;
 
-constexpr auto Times2 = NewRule<BinaryOperatorRule<BinaryArithmetic<times>>>;
+constexpr auto Times2 = NewRule<BinaryOperatorRule<TimesArithmetic>>;
 
 class Plus3Rule : public AtLeastNRule<3> {
 public:

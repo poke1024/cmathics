@@ -31,6 +31,10 @@ void Heap::release(BaseExpression *expr) {
             _s_instance->_big_integers.free(static_cast<class BigInteger*>(expr));
             break;
 
+        case RationalType:
+            _s_instance->_rationals.free(static_cast<class Rational*>(expr));
+            break;
+
         case MachineRealType:
             _s_instance->_machine_reals.free(static_cast<class MachineReal*>(expr));
             break;
@@ -78,6 +82,11 @@ BaseExpressionRef Heap::BigInteger(const mpz_class &value) {
 BaseExpressionRef Heap::BigInteger(mpz_class &&value) {
     assert(_s_instance);
     return BaseExpressionRef(_s_instance->_big_integers.construct(value));
+}
+
+BaseExpressionRef Heap::Rational(machine_integer_t x, machine_integer_t y) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_rationals.construct(x, y));
 }
 
 BaseExpressionRef Heap::MachineReal(machine_real_t value) {

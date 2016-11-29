@@ -282,25 +282,61 @@ public:
 		}
 	}
 
+    template<typename Compute, typename Recurse>
+    BaseExpressionRef do_symbolic(
+        const Compute &compute,
+        const Recurse &recurse,
+        const Evaluation &evaluation) const {
+
+        const SymbolicForm form = symbolic_form();
+
+        if (!form.is_null()) {
+            const optional<SymbolicForm> new_form = compute(form);
+            if (new_form) {
+                return from_symbolic_form(*new_form, evaluation);
+            } else {
+                return BaseExpressionRef();
+            }
+        } else {
+            return apply(
+                _head,
+                _leaves,
+                0,
+                _leaves.size(),
+                [&recurse, &evaluation] (const BaseExpressionRef &leaf) {
+                    return recurse(leaf, evaluation);
+                },
+                false,
+                MakeTypeMask(ExpressionType));
+        }
+    }
+
 	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
-		const SymbolicForm form = symbolic_form();
-
-		if (!form.is_null()) {
-			return from_symbolic_form(SymEngine::expand(form), evaluation);
-		} else {
-			const auto &leaves = _leaves;
-
-			return expression(
-				head(),
-				[&leaves, &evaluation] (auto &storage) {
-					for (const auto &leaf : leaves.leaves()) {
-						storage << leaf->expand(evaluation);
-					}
-				},
-				size()
-			);
-		}
+        return do_symbolic(
+            [] (const SymbolicForm &form) {
+                const SymbolicForm new_form = SymEngine::expand(form);
+                if (new_form.get() != form.get()) {
+                    return optional<SymbolicForm>(new_form);
+                } else {
+                    return optional<SymbolicForm>();
+                }
+            },
+            [] (const BaseExpressionRef &leaf, const Evaluation &evaluation) {
+                return leaf->expand(evaluation);
+            },
+            evaluation);
 	}
+
+    virtual BaseExpressionRef simplify(const Evaluation &evaluation) const {
+        return do_symbolic(
+            [] (const SymbolicForm &form) {
+                return optional<SymbolicForm>(form);
+            },
+            [] (const BaseExpressionRef &leaf, const Evaluation &evaluation) {
+                return leaf->simplify(evaluation);
+            },
+            evaluation);
+    }
 
 protected:
 	SymEngine::vec_basic symbolic_operands() const {
