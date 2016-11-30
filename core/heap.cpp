@@ -99,19 +99,19 @@ BaseExpressionRef Heap::MachineReal(machine_real_t value) {
     return BaseExpressionRef(_s_instance->_machine_reals.construct(value));
 }
 
-/*BaseExpressionRef Heap::BigReal(const mpfr::mpreal &value) {
+BaseExpressionRef Heap::BigReal(machine_real_t value, const Precision &prec) {
     assert(_s_instance);
-    return BaseExpressionRef(_s_instance->_big_reals.construct(value));
-}*/
-
-BaseExpressionRef Heap::BigReal(double prec, machine_real_t value) {
-    assert(_s_instance);
-    return BaseExpressionRef(_s_instance->_big_reals.construct(prec, value));
+    return BaseExpressionRef(_s_instance->_big_reals.construct(value, prec));
 }
 
-BaseExpressionRef Heap::BigReal(double prec, const SymbolicForm &form) {
+BaseExpressionRef Heap::BigReal(const SymbolicForm &form, const Precision &prec) {
     assert(_s_instance);
-    return BaseExpressionRef(_s_instance->_big_reals.construct(prec, form));
+    return BaseExpressionRef(_s_instance->_big_reals.construct(form, prec));
+}
+
+BaseExpressionRef Heap::BigReal(arb_t value, const Precision &prec) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_big_reals.construct(value, prec));
 }
 
 StaticExpressionRef<0> Heap::EmptyExpression(const BaseExpressionRef &head) {

@@ -78,7 +78,7 @@ public:
     }
 
     virtual std::string fullform() const {
-        return std::string("biginteger");  // FIXME
+        return value.get_str();
     }
 
 protected:

@@ -5,6 +5,7 @@
 #include <static_if/static_if.hpp>
 
 #include "gmpxx.h"
+#include <arb.h>
 
 #include "cache.h"
 
@@ -12,6 +13,7 @@ class MachineInteger;
 class BigInteger;
 class Rational;
 
+class Precision;
 class MachineReal;
 class BigReal;
 
@@ -177,9 +179,9 @@ public:
 	static BaseExpressionRef Rational(const mpq_class &value);
 
     static BaseExpressionRef MachineReal(machine_real_t value);
-    // static BaseExpressionRef BigReal(const mpfr::mpreal &value);
-    static BaseExpressionRef BigReal(double prec, machine_real_t value);
-	static BaseExpressionRef BigReal(double prec, const SymbolicForm &form);
+    static BaseExpressionRef BigReal(machine_real_t value, const Precision &prec);
+	static BaseExpressionRef BigReal(const SymbolicForm &form, const Precision &prec);
+	static BaseExpressionRef BigReal(arb_t value, const Precision &prec);
 
 	static StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
 

@@ -605,7 +605,9 @@ public:
                         return BaseExpressionRef();
                     }
 
-                    return Heap::BigReal(static_cast<const MachineInteger*>(n.get())->value, form);
+                    return Heap::BigReal(
+                        form,
+                        Precision(double(static_cast<const MachineInteger*>(n.get())->value)));
                 })
             });
 

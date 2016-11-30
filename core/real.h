@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <sstream>
+#include <iomanip>
 
 #include <arb.h>
 #include <symengine/eval_arb.h>
@@ -34,7 +35,10 @@ public:
     }
 
     virtual std::string fullform() const {
-        return std::to_string(value); // FIXME
+        std::ostringstream s;
+        s << std::showpoint << std::setprecision(
+            std::numeric_limits<machine_real_t>::digits10) << value;
+        return s.str();
     }
 
     virtual bool match(const BaseExpression &expr) const {
@@ -42,43 +46,58 @@ public:
     }
 };
 
-inline mp_prec_t bits_prec(double prec) {
-	constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
-	return static_cast<mp_prec_t>(ceil(LOG_2_10 * prec));
-}
+class Precision {
+private:
+   static inline mp_prec_t to_bits_prec(double prec) {
+        constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
+        return static_cast<mp_prec_t>(ceil(LOG_2_10 * prec));
+    }
 
-inline mp_prec_t from_bits_prec(mp_prec_t bits_prec) {
-	constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
-	return bits_prec / LOG_2_10;
-}
+    static inline mp_prec_t from_bits_prec(mp_prec_t bits_prec) {
+        constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
+        return bits_prec / LOG_2_10;
+    }
+
+public:
+    inline explicit Precision(double decimals_) : decimals(decimals_), bits(to_bits_prec(decimals_)) {
+    }
+
+    inline explicit Precision(long bits_) : bits(bits_), decimals(from_bits_prec(bits_)) {
+    }
+
+    inline Precision(const Precision &p) : decimals(p.decimals), bits(p.bits) {
+    }
+
+    const double decimals;
+    const long bits;
+};
 
 class BigReal : public BaseExpression {
 public:
 	static constexpr Type Type = BigRealType;
 
     arb_t value;
-	const double prec;
+    const Precision prec;
 
-	explicit inline BigReal(double new_prec, double new_value) :
-		BaseExpression(BigRealExtendedType), prec(new_prec) {
+    explicit inline BigReal(arb_t value_, const Precision &prec_) :
+        BaseExpression(BigRealExtendedType), prec(prec_) {
 
-        arb_init(value);
-        arb_set_d(value, new_value);
+        arb_swap(value, value_);
     }
 
-    explicit inline BigReal(double new_prec, const SymbolicForm &form) :
-        BaseExpression(BigRealExtendedType), prec(new_prec) {
+	explicit inline BigReal(double value_, const Precision &prec_) :
+		BaseExpression(BigRealExtendedType), prec(prec_) {
 
         arb_init(value);
-
-        SymEngine::eval_arb(value, *form.get(), bits_prec(new_prec));
+        arb_set_d(value, value_);
     }
 
-	/*explicit inline BigReal(const mpfr::mpreal &new_value) :
-		BaseExpression(BigRealExtendedType), value(new_value), prec(from_bits_prec(value.get_prec())) {
+    explicit inline BigReal(const SymbolicForm &form, const Precision &prec_) :
+        BaseExpression(BigRealExtendedType), prec(prec_) {
 
         arb_init(value);
-	}*/
+        SymEngine::eval_arb(value, *form.get(), prec.bits);
+    }
 
     virtual ~BigReal() {
         arb_clear(value);
@@ -99,7 +118,7 @@ public:
 
     virtual std::string fullform() const {
 	    std::ostringstream s;
-        s << arb_get_str(value, long(floor(prec)), ARB_STR_NO_RADIUS);
+        s << arb_get_str(value, long(floor(prec.decimals)), ARB_STR_NO_RADIUS);
         return s.str();
     }
 
@@ -109,15 +128,7 @@ public:
 };
 
 inline BaseExpressionRef from_primitive(machine_real_t value) {
-	return BaseExpressionRef(new MachineReal(value));
-}
-
-/*inline BaseExpressionRef from_primitive(const mpfr::mpreal &value) {
-	return BaseExpressionRef(new BigReal(value));
-}*/
-
-inline BaseExpressionRef real(double prec, machine_real_t value) {
-	return BaseExpressionRef(new BigReal(prec, value));
+	return Heap::MachineReal(value);
 }
 
 std::pair<int32_t,double> precision_of(const BaseExpressionRef&);

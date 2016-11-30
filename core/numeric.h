@@ -85,6 +85,32 @@ inline BaseExpressionRef operator+(const MachineInteger &x, const BigInteger &y)
 	return y + x;
 }
 
+inline BaseExpressionRef operator+(const BigInteger &x, const MachineReal &y) {
+    return Heap::MachineReal(x.value.get_d() + y.value);
+}
+
+inline BaseExpressionRef operator+(const MachineReal &x, const BigInteger &y) {
+    return y + x;
+}
+
+inline BaseExpressionRef operator+(const BigInteger &x, const BigReal &y) {
+    arf_t temp;
+    arf_init(temp);
+    arf_set_mpz(temp, x.value.get_mpz_t());
+
+    arb_t r;
+    arb_init(r);
+    arb_add_arf(r, y.value, temp, y.prec.bits);
+
+    arf_clear(temp);
+
+    return Heap::BigReal(r, y.prec);
+}
+
+inline BaseExpressionRef operator+(const BigReal &x, const BigInteger &y) {
+    return y + x;
+}
+
 inline BaseExpressionRef operator+(const Rational &x, const BigInteger &y) {
 	return Heap::Rational(x.value + y.value);
 }
@@ -115,6 +141,32 @@ inline BaseExpressionRef operator+(const MachineReal &x, const MachineInteger &y
 
 inline BaseExpressionRef operator+(const MachineInteger &x, const MachineReal &y) {
 	return y + x;
+}
+
+inline BaseExpressionRef operator+(const MachineInteger &x, const BigReal &y) {
+	arb_t r;
+	arb_init(r);
+	arb_add_si(r, y.value, long(x.value), y.prec.bits);
+	return Heap::BigReal(r, y.prec);
+}
+
+inline BaseExpressionRef operator+(const BigReal &x, const MachineInteger &y) {
+	return y + x;
+}
+
+inline BaseExpressionRef operator+(const MachineReal &x, const BigReal &y) {
+    return Heap::MachineReal(x.value + y.as_double());
+}
+
+inline BaseExpressionRef operator+(const BigReal &x, const MachineReal &y) {
+    return y + x;
+}
+
+inline BaseExpressionRef operator+(const BigReal &x, const BigReal &y) {
+    arb_t r;
+    arb_init(r);
+    arb_add(r, x.value, y.value, std::min(x.prec.bits, y.prec.bits));
+    return Heap::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
 }
 
 inline BaseExpressionRef operator*(const BigInteger &x, const BigInteger &y) {
@@ -163,6 +215,58 @@ inline BaseExpressionRef operator*(const MachineInteger &x, const MachineReal &y
 
 inline BaseExpressionRef operator*(const MachineReal &x, const MachineReal &y) {
 	return Heap::MachineReal(x.value * y.value);
+}
+
+inline BaseExpressionRef operator*(const MachineInteger &x, const BigReal &y) {
+    arb_t r;
+    arb_init(r);
+    arb_mul_si(r, y.value, long(x.value), y.prec.bits);
+    return Heap::BigReal(r, y.prec);
+}
+
+inline BaseExpressionRef operator*(const BigReal &x, const MachineInteger &y) {
+    return y + x;
+}
+
+inline BaseExpressionRef operator*(const BigInteger &x, const MachineReal &y) {
+    return Heap::MachineReal(x.value.get_d() * y.value);
+}
+
+inline BaseExpressionRef operator*(const MachineReal &x, const BigInteger &y) {
+    return y * x;
+}
+
+inline BaseExpressionRef operator*(const MachineReal &x, const BigReal &y) {
+    return Heap::MachineReal(x.value * y.as_double());
+}
+
+inline BaseExpressionRef operator*(const BigReal &x, const MachineReal &y) {
+    return y * x;
+}
+
+inline BaseExpressionRef operator*(const BigReal &x, const BigReal &y) {
+    arb_t r;
+    arb_init(r);
+    arb_mul(r, x.value, y.value, std::min(x.prec.bits, y.prec.bits));
+    return Heap::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
+}
+
+inline BaseExpressionRef operator*(const BigInteger &x, const BigReal &y) {
+    arf_t temp;
+    arf_init(temp);
+    arf_set_mpz(temp, x.value.get_mpz_t());
+
+    arb_t r;
+    arb_init(r);
+    arb_mul_arf(r, y.value, temp, y.prec.bits);
+
+    arf_clear(temp);
+
+    return Heap::BigReal(r, y.prec);
+}
+
+inline BaseExpressionRef operator*(const BigReal &x, const BigInteger &y) {
+    return y * x;
 }
 
 namespace Numeric {
@@ -302,28 +406,38 @@ namespace Numeric {
 
 	};
 
-	/*class R {
+	class R {
 	private:
 		arb_t m_value;
+        bool m_owned;
 
 	public:
+        inline explicit R(const arb_t value) {
+            std::memcpy(m_value, value, sizeof(arb_t));
+            m_owned = false;
+        }
+
 		inline explicit R(machine_integer_t value) {
 			arb_init(m_value);
 			arb_set_si(m_value, value);
+            m_owned = true;
 		}
 
 		inline explicit R(machine_real_t value) {
 			arb_init(m_value);
 			arb_set_d(m_value, value);
+            m_owned = true;
 		}
 
 		inline R(R &&x) {
-			arb_swap(m_value, x.m_value); // FIXME
+            std::memcpy(m_value, x.m_value, sizeof(arb_t));
+            m_owned = x.m_owned;
+            x.m_owned = false;
 		}
 
 		inline R(const R &x) {
-			arb_init(m_value);
-			arb_set(m_value, x.m_value);
+            std::memcpy(m_value, x.m_value, sizeof(arb_t));
+            m_owned = x.m_owned;
 		}
 
 		inline R(const mpz_class &value) {
@@ -333,17 +447,31 @@ namespace Numeric {
 			arb_init(m_value);
 			arb_set_arf(m_value, temp);
 			arf_clear(temp);
+            m_owned = true;
 		}
 
 		inline ~R() {
-			arb_clear(m_value);
+            if (m_owned) {
+                arb_clear(m_value);
+            }
 		}
 
-		template<bool c_is_a>
-		inline static void add(R &c, const R &a, const R &b) {
-			arb_add(c.m_value, a.m_value, b.m_value);
-		}
-	};*/
+        inline bool operator<(const R &r) const {
+            return arb_lt(m_value, r.m_value);
+        }
+
+        inline bool operator<=(const R &r) const {
+            return arb_le(m_value, r.m_value);
+        }
+
+        inline bool operator>(const R &r) const {
+            return arb_gt(m_value, r.m_value);
+        }
+
+        inline bool operator>=(const R &r) const {
+            return arb_ge(m_value, r.m_value);
+        }
+	};
 
 } // end of namespace Numeric
 
@@ -351,5 +479,52 @@ inline BaseExpressionRef from_primitive(const Numeric::Z &value) {
 	return value.to_expression();
 }
 
+template<>
+struct Comparison<MachineInteger, BigReal> {
+    template<typename F>
+    inline static bool compare(const MachineInteger &u, const BigReal &v, const F &f) {
+        return f(Numeric::R(u.value), Numeric::R(v.value));
+    }
+};
+
+template<>
+struct Comparison<BigReal, MachineInteger> {
+    template<typename F>
+    inline static bool compare(const BigReal &u, const MachineInteger &v, const F &f) {
+        return f(Numeric::R(u.value), Numeric::R(v.value));
+    }
+};
+
+template<>
+struct Comparison<MachineReal, BigReal> {
+    template<typename F>
+    inline static bool compare(const MachineReal &u, const BigReal &v, const F &f) {
+        return f(Numeric::R(u.value), Numeric::R(v.value));
+    }
+};
+
+template<>
+struct Comparison<BigReal, MachineReal> {
+    template<typename F>
+    inline static bool compare(const BigReal &u, const MachineReal &v, const F &f) {
+        return f(Numeric::R(u.value), Numeric::R(v.value));
+    }
+};
+
+template<>
+struct Comparison<BigInteger, BigReal> {
+    template<typename F>
+    inline static bool compare(const BigInteger &u, const BigReal &v, const F &f) {
+        return f(Numeric::R(u.value), Numeric::R(v.value));
+    }
+};
+
+template<>
+struct Comparison<BigReal, BigInteger> {
+    template<typename F>
+    inline static bool compare(const BigReal &u, const BigInteger &v, const F &f) {
+        return f(Numeric::R(u.value), Numeric::R(v.value));
+    }
+};
 
 #endif //CMATHICS_NUMERIC_H

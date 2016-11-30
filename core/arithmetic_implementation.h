@@ -61,25 +61,25 @@ public:
 		BinaryOperator<F>::template init<MachineInteger, MachineInteger>();
 		BinaryOperator<F>::template init<MachineInteger, BigInteger>();
 		BinaryOperator<F>::template init<MachineInteger, MachineReal>();
-		// BinaryOperator<F>::template init<MachineInteger, BigReal>();
+		BinaryOperator<F>::template init<MachineInteger, BigReal>();
         BinaryOperator<F>::template init<MachineInteger, Rational>();
 
 		BinaryOperator<F>::template init<BigInteger, MachineInteger>();
 		BinaryOperator<F>::template init<BigInteger, BigInteger>();
-		// BinaryOperator<F>::template init<BigInteger, MachineReal>();
-		// BinaryOperator<F>::template init<BigInteger, BigReal>();
+		BinaryOperator<F>::template init<BigInteger, MachineReal>();
+        BinaryOperator<F>::template init<BigInteger, BigReal>();
         BinaryOperator<F>::template init<BigInteger, Rational>();
 
 		BinaryOperator<F>::template init<MachineReal, MachineInteger>();
-		// BinaryOperator<F>::template init<MachineReal, BigInteger>();
+		BinaryOperator<F>::template init<MachineReal, BigInteger>();
 		BinaryOperator<F>::template init<MachineReal, MachineReal>();
-		// BinaryOperator<F>::template init<MachineReal, BigReal>();
+		BinaryOperator<F>::template init<MachineReal, BigReal>();
         BinaryOperator<F>::template init<MachineReal, Rational>();
 
-		// BinaryOperator<F>::template init<BigReal, MachineInteger>();
-		// BinaryOperator<F>::template init<BigReal, BigInteger>();
-		// BinaryOperator<F>::template init<BigReal, MachineReal>();
-		// BinaryOperator<F>::template init<BigReal, BigReal>();
+		BinaryOperator<F>::template init<BigReal, MachineInteger>();
+        BinaryOperator<F>::template init<BigReal, BigInteger>();
+        BinaryOperator<F>::template init<BigReal, MachineReal>();
+        BinaryOperator<F>::template init<BigReal, BigReal>();
 	}
 };
 
