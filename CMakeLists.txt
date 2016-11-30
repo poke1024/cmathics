@@ -96,7 +96,6 @@ set(SOURCE_FILES
     core/arithmetic_implementation.h
     core/heap.cpp
     core/heap.h
-    core/promote.h
     core/structure.h
     core/structure_implementation.h
     core/evaluate.h

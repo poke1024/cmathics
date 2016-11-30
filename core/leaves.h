@@ -14,7 +14,6 @@
 
 #include "primitives.h"
 #include "string.h"
-#include "promote.h"
 
 template<typename T>
 inline TypeMask exact_type_mask(const T &container) {
@@ -53,9 +52,48 @@ class PromotePrimitive {
 public:
     template<typename U>
     inline V convert(const U &x) const {
-        return promote<V>(x);
+        return V(x);
     }
 };
+
+template<>
+class PromotePrimitive<machine_real_t> {
+public:
+	template<typename U>
+	inline machine_real_t convert(const U &x) const {
+		return machine_real_t(x);
+	}
+
+	inline machine_real_t convert(const std::string &x) const {
+		throw std::runtime_error("illegal promotion");
+	}
+
+	inline machine_real_t convert(const mpz_class &x) const {
+		throw std::runtime_error("illegal promotion");
+	}
+
+	inline machine_real_t convert(const mpq_class &x) const {
+		throw std::runtime_error("illegal promotion");
+	}
+};
+
+template<>
+class PromotePrimitive<Numeric::Z> {
+public:
+	template<typename U>
+	inline Numeric::Z convert(const U &x) const {
+		return Numeric::Z(x);
+	}
+
+	inline Numeric::Z convert(const std::string &x) const {
+		throw std::runtime_error("illegal promotion");
+	}
+
+	inline Numeric::Z convert(const mpq_class &x) const {
+		throw std::runtime_error("illegal promotion");
+	}
+};
+
 
 template<typename T, typename TypeConverter>
 class PointerIterator {

@@ -336,7 +336,7 @@ inline BaseExpressionRef add_only_integers(const T &self) {
 		result += value;
 	}
 
-	return from_primitive(std::move(result.to_primitive()));
+    return result.to_expression();
 }
 
 template<typename T>
@@ -345,11 +345,11 @@ inline BaseExpressionRef add_only_machine_reals(const T &self) {
 
 	machine_real_t result = 0.;
 
-	for (auto value : self.template primitives<machine_real_t>()) {
+	for (machine_real_t value : self.template primitives<machine_real_t>()) {
 		result += value;
 	}
 
-	return from_primitive(result);
+	return Heap::MachineReal(result);
 }
 
 template<typename T>
