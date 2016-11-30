@@ -87,6 +87,8 @@ protected:
 	}
 };
 
+inline BaseExpressionRef from_primitive(const mpz_class &value);
+
 inline mpz_class machine_integer_to_mpz(machine_integer_t machine_value) {
 	mpz_class value;
 	value = long(machine_value);

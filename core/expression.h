@@ -383,8 +383,8 @@ template<typename E, typename T>
 std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 	std::vector<T> values;
 	values.reserve(leaves.size());
-	for (auto leaf : leaves) {
-		values.push_back(boost::static_pointer_cast<const E>(leaf)->value);
+	for (const auto &leaf : leaves) {
+		values.push_back(static_cast<const E*>(leaf.get())->value);
 	}
 	return values;
 }

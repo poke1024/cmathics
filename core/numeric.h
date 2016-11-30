@@ -171,6 +171,38 @@ inline BaseExpressionRef operator+(const BigReal &x, const BigReal &y) {
     return Heap::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
 }
 
+inline BaseExpressionRef operator+(const Rational &x, const BigReal &y) {
+	arf_t num;
+	arf_init(num);
+	arf_set_mpz(num, x.value.get_num().get_mpz_t());
+
+	arf_t den;
+	arf_init(den);
+	arf_set_mpz(den, x.value.get_den().get_mpz_t());
+
+	arf_t q;
+	arf_init(q);
+	arf_div(q, num, den, y.prec.bits, ARF_RND_DOWN);
+
+	arb_t r;
+	arb_init(r);
+	arb_add_arf(r, y.value, q, y.prec.bits);
+
+	arf_clear(num);
+	arf_clear(den);
+	arf_clear(q);
+
+	return Heap::BigReal(r, y.prec);
+}
+
+inline BaseExpressionRef operator+(const BigReal &x, const Rational &y) {
+	return y + x;
+}
+
+inline BaseExpressionRef operator+(const Rational &x, const Rational &y) {
+	return Heap::Rational(x.value + y.value);
+}
+
 inline BaseExpressionRef operator*(const BigInteger &x, const BigInteger &y) {
 	return Heap::BigInteger(x.value * y.value);
 }
@@ -184,7 +216,12 @@ inline BaseExpressionRef operator*(const MachineInteger &x, const BigInteger &y)
 }
 
 inline BaseExpressionRef operator*(const Rational &x, const MachineInteger &y) {
-	return Heap::Rational(mpq_class(x.value) * long(y.value));
+	const mpq_class q(x.value * long(y.value));
+	if (q.get_den() == 1) {
+		return from_primitive(q.get_num());
+	} else {
+		return Heap::Rational(q);
+	}
 }
 
 inline BaseExpressionRef operator*(const MachineInteger &x, const Rational &y) {
@@ -192,7 +229,12 @@ inline BaseExpressionRef operator*(const MachineInteger &x, const Rational &y) {
 }
 
 inline BaseExpressionRef operator*(const Rational &x, const BigInteger &y) {
-	return Heap::Rational(mpq_class(x.value) * y.value);
+	const mpq_class q(x.value * y.value);
+	if (q.get_den() == 1) {
+		return from_primitive(q.get_num());
+	} else {
+		return Heap::Rational(q);
+	}
 }
 
 inline BaseExpressionRef operator*(const BigInteger &x, const Rational &y) {
@@ -268,7 +310,39 @@ inline BaseExpressionRef operator*(const BigInteger &x, const BigReal &y) {
 }
 
 inline BaseExpressionRef operator*(const BigReal &x, const BigInteger &y) {
-    return y * x;
+	return y * x;
+}
+
+inline BaseExpressionRef operator*(const Rational &x, const BigReal &y) {
+	arf_t num;
+	arf_init(num);
+	arf_set_mpz(num, x.value.get_num().get_mpz_t());
+
+	arf_t den;
+	arf_init(den);
+	arf_set_mpz(den, x.value.get_den().get_mpz_t());
+
+	arf_t q;
+	arf_init(q);
+	arf_div(q, num, den, y.prec.bits, ARF_RND_DOWN);
+
+	arb_t r;
+	arb_init(r);
+	arb_mul_arf(r, y.value, q, y.prec.bits);
+
+	arf_clear(num);
+	arf_clear(den);
+	arf_clear(q);
+
+	return Heap::BigReal(r, y.prec);
+}
+
+inline BaseExpressionRef operator*(const BigReal &x, const Rational &y) {
+	return y * x;
+}
+
+inline BaseExpressionRef operator*(const Rational &x, const Rational &y) {
+	return Heap::Rational(x.value * y.value);
 }
 
 namespace Numeric {
@@ -446,10 +520,35 @@ namespace Numeric {
 			arf_t temp;
 			arf_init(temp);
 			arf_set_mpz(temp, value.get_mpz_t());
+
 			arb_init(m_value);
 			arb_set_arf(m_value, temp);
+			m_owned = true;
+
 			arf_clear(temp);
-            m_owned = true;
+
+		}
+
+		inline R(const mpq_class &value, const Precision &prec) {
+			arf_t num;
+			arf_init(num);
+			arf_set_mpz(num, value.get_num().get_mpz_t());
+
+			arf_t den;
+			arf_init(den);
+			arf_set_mpz(den, value.get_den().get_mpz_t());
+
+			arf_t q;
+			arf_init(q);
+			arf_div(q, num, den, prec.bits, ARF_RND_DOWN);
+
+			arb_init(m_value);
+			arb_set_arf(m_value, q);
+			m_owned = true;
+
+			arf_clear(num);
+			arf_clear(den);
+			arf_clear(q);
 		}
 
 		inline ~R() {
@@ -523,6 +622,22 @@ struct Comparison<BigReal, BigInteger> {
     inline static bool compare(const BigReal &u, const BigInteger &v, const F &f) {
         return f(Numeric::R(u.value), Numeric::R(v.value));
     }
+};
+
+template<>
+struct Comparison<Rational, BigReal> {
+	template<typename F>
+	inline static bool compare(const Rational &u, const BigReal &v, const F &f) {
+		return f(Numeric::R(u.value, v.prec), Numeric::R(v.value));
+	}
+};
+
+template<>
+struct Comparison<BigReal, Rational> {
+	template<typename F>
+	inline static bool compare(const BigReal &u, const Rational &v, const F &f) {
+		return f(Numeric::R(u.value), Numeric::R(v.value, u.prec));
+	}
 };
 
 #endif //CMATHICS_NUMERIC_H
