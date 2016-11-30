@@ -5,12 +5,6 @@
 #include "operations.h"
 #include "rule.h"
 
-BaseExpressionRef Range(
-	const BaseExpressionRef &imin,
-	const BaseExpressionRef &imax,
-	const BaseExpressionRef &di,
-	const Evaluation &evaluation);
-
 class ArithmeticOperations {
 public:
 	virtual BaseExpressionRef Plus() const = 0;

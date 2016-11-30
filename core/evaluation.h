@@ -2,6 +2,7 @@
 #define EVALUATION_H
 
 #include <stdbool.h>
+#include "definitions.h"
 
 typedef enum {
     PrintType, MessageType

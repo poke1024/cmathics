@@ -6,6 +6,7 @@
 #include "types.h"
 #include "evaluation.h"
 #include "symbol.h"
+#include "expression.h"
 
 class VariableList {
 private:

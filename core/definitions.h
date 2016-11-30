@@ -2,8 +2,6 @@
 #define SYMTABLE_H
 
 #include "symbol.h"
-#include "expression.h"
-#include "heap.h"
 #include <unordered_map>
 
 class Definitions;

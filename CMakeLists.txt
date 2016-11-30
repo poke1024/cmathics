@@ -58,8 +58,6 @@ else()
 endif()
 
 set(SOURCE_FILES
-    parser/tokeniser.cpp
-    parser/tokeniser.h
     core/arithmetic.cpp
     core/arithmetic.h
     core/definitions.cpp
@@ -104,7 +102,18 @@ set(SOURCE_FILES
     core/sort.h
     core/sort.cpp
     core/system_symbols.h
-    core/rule.h core/numeric.h)
+    core/rule.h
+    core/numeric.h
+    core/runtime.h
+    core/python.h
+    core/parser.h
+
+    builtin/arithmetic.cpp
+    builtin/arithmetic.h
+    builtin/lists.cpp
+    builtin/lists.h
+    builtin/control.cpp
+    builtin/control.h builtin/assignment.cpp builtin/assignment.h builtin/functional.cpp builtin/functional.h)
 
 add_custom_target(standalone)
 
