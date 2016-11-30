@@ -1,7 +1,3 @@
-//
-// Created by Bernhard on 23.10.16.
-//
-
 #ifndef CMATHICS_LEAVES_H
 #define CMATHICS_LEAVES_H
 
@@ -32,20 +28,10 @@ public:
 };
 
 template<typename T>
-class PrimitiveToBaseExpression {
-public:
-	inline BaseExpressionRef convert(const T &u) const {
-		return from_primitive(u);
-	}
-};
+class PrimitiveToBaseExpression;
 
 template<typename T>
-class BaseExpressionToPrimitive {
-public:
-	inline T convert(const BaseExpressionRef &u) const {
-		return to_primitive<T>(u);
-	}
-};
+class BaseExpressionToPrimitive;
 
 template<typename V>
 class PromotePrimitive {
@@ -315,9 +301,7 @@ public:
 		return LeafCollection(_begin, size(), PrimitiveToBaseExpression<U>());
 	}
 
-	inline BaseExpressionRef operator[](size_t i) const {
-		return from_primitive(_begin[i]);
-	}
+	inline BaseExpressionRef operator[](size_t i) const;
 
 	inline bool is_packed() const {
 		return true;

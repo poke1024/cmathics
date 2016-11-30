@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "types.h"
+#include "expression.h"
 #include "hash.h"
 #include "integer.h"
 #include "real.h"

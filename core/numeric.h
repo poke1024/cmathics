@@ -6,6 +6,8 @@
 
 #include "types.h"
 #include "integer.h"
+#include "real.h"
+#include "rational.h"
 #include "heap.h"
 
 static_assert(sizeof(machine_integer_t) == sizeof(long),
@@ -398,9 +400,9 @@ namespace Numeric {
 
 		inline BaseExpressionRef to_expression() const {
 			if (is_big) {
-				return from_primitive(std::move(mpz_class(big_value)));
+				return Heap::BigInteger(std::move(mpz_class(big_value)));
 			} else {
-				return from_primitive(machine_integer_t(machine_value));
+				return Heap::MachineInteger(machine_integer_t(machine_value));
 			}
 		}
 
@@ -474,10 +476,6 @@ namespace Numeric {
 	};
 
 } // end of namespace Numeric
-
-inline BaseExpressionRef from_primitive(const Numeric::Z &value) {
-	return value.to_expression();
-}
 
 template<>
 struct Comparison<MachineInteger, BigReal> {

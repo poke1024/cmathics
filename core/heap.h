@@ -168,22 +168,23 @@ private:
 public:
     static void init();
 
-    static void release(BaseExpression *expr);
+    static inline void release(BaseExpression *expr);
 
-	static SymbolRef Symbol(const char *name, ExtendedType type = SymbolExtendedType);
+	static inline SymbolRef Symbol(const char *name, ExtendedType type);
 
-    static BaseExpressionRef MachineInteger(machine_integer_t value);
-    static BaseExpressionRef BigInteger(const mpz_class &value);
-	static BaseExpressionRef BigInteger(mpz_class &&value);
-	static BaseExpressionRef Rational(machine_integer_t x, machine_integer_t y);
-	static BaseExpressionRef Rational(const mpq_class &value);
+	static inline BaseExpressionRef MachineInteger(machine_integer_t value);
+    static inline BaseExpressionRef BigInteger(const mpz_class &value);
+	static inline BaseExpressionRef BigInteger(mpz_class &&value);
 
-    static BaseExpressionRef MachineReal(machine_real_t value);
-    static BaseExpressionRef BigReal(machine_real_t value, const Precision &prec);
-	static BaseExpressionRef BigReal(const SymbolicForm &form, const Precision &prec);
-	static BaseExpressionRef BigReal(arb_t value, const Precision &prec);
+	static inline BaseExpressionRef Rational(machine_integer_t x, machine_integer_t y);
+	static inline BaseExpressionRef Rational(const mpq_class &value);
 
-	static StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
+	static inline BaseExpressionRef MachineReal(machine_real_t value);
+    static inline BaseExpressionRef BigReal(machine_real_t value, const Precision &prec);
+	static inline BaseExpressionRef BigReal(const SymbolicForm &form, const Precision &prec);
+	static inline BaseExpressionRef BigReal(arb_t value, const Precision &prec);
+
+	static inline StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
 
 	template<int N>
 	static inline StaticExpressionRef<N> StaticExpression(
@@ -218,43 +219,20 @@ public:
 		return _s_instance->_static_expression_heap.make_late_init(head, N);
 	}
 
-	static DynamicExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);
+	static inline DynamicExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);
 
     template<typename U>
-    static PackedExpressionRef<U> Expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
+    static inline PackedExpressionRef<U> Expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
         return PackedExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
     }
 
-	static Cache *new_cache() {
+	static inline Cache *new_cache() {
 		return _s_instance->_caches.construct();
 	}
 
-	static void release_cache(Cache *cache) {
+	static inline void release_cache(Cache *cache) {
 		_s_instance->_caches.free(cache);
 	}
 };
-
-inline BaseExpressionRef from_primitive(machine_integer_t value) {
-    return BaseExpressionRef(Heap::MachineInteger(value));
-}
-
-static_assert(sizeof(long) == sizeof(machine_integer_t),
-	"types long and machine_integer_t must not differ");
-
-inline BaseExpressionRef from_primitive(const mpz_class &value) {
-	if (value.fits_slong_p()) {
-		return from_primitive(static_cast<machine_integer_t>(value.get_si()));
-	} else {
-		return BaseExpressionRef(Heap::BigInteger(value));
-	}
-}
-
-inline BaseExpressionRef from_primitive(mpz_class &&value) {
-    if (value.fits_slong_p()) {
-        return from_primitive(static_cast<machine_integer_t>(value.get_si()));
-    } else {
-        return BaseExpressionRef(Heap::BigInteger(value));
-    }
-}
 
 #endif //CMATHICS_HEAP_H

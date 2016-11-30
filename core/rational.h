@@ -6,6 +6,7 @@
 
 #include "types.h"
 #include "integer.h"
+#include "symbol.h"
 
 class Rational : public BaseExpression {
 public:
@@ -44,7 +45,7 @@ public:
         return s.str();
     }
 
-    // copies denominator to a new Integer
+    /*// copies denominator to a new Integer
     inline BaseExpressionRef numer() const {
         return from_primitive(value.get_num());
     }
@@ -52,16 +53,12 @@ public:
     // copies numerator to a new Integer
     inline BaseExpressionRef denom() const {
         return from_primitive(value.get_den());
-    };
+    };*/
 
 protected:
     virtual SymbolicForm instantiate_symbolic_form() const {
         return SymEngine::Rational::from_mpq(value.get_mpq_t());
     }
 };
-
-inline BaseExpressionRef from_primitive(const mpq_class &value) {
-    return BaseExpressionRef(new Rational(value));
-}
 
 #endif

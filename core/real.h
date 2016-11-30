@@ -127,10 +127,6 @@ public:
     }
 };
 
-inline BaseExpressionRef from_primitive(machine_real_t value) {
-	return Heap::MachineReal(value);
-}
-
 std::pair<int32_t,double> precision_of(const BaseExpressionRef&);
 
 #endif

@@ -416,16 +416,6 @@ inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressi
 
 #include "heap.h"
 
-inline void intrusive_ptr_add_ref(const BaseExpression *expr) {
-    ++expr->_ref_count;
-}
-
-inline void intrusive_ptr_release(const BaseExpression *expr) {
-    if(--expr->_ref_count == 0) {
-        Heap::release(const_cast<BaseExpression*>(expr));
-    }
-}
-
 inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
     if (expr) {
         s << expr->fullform();
