@@ -28,8 +28,8 @@ inline int64_t to_primitive<int64_t>(const BaseExpressionRef &expr) {
 template<>
 inline mpq_class to_primitive<mpq_class>(const BaseExpressionRef &expr) {
 	switch (expr->type()) {
-		case RationalType:
-			return static_cast<const Rational*>(expr.get())->value;
+		case BigRationalType:
+			return static_cast<const BigRational*>(expr.get())->value;
 		default:
 			throw to_primitive_error(expr->type(), "mpq_class");
 	}
@@ -82,7 +82,7 @@ public:
 template<>
 class TypeFromPrimitive<mpq_class> {
 public:
-	static constexpr Type type = RationalType;
+	static constexpr Type type = BigRationalType;
 };
 
 template<>

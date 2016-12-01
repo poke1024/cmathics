@@ -64,8 +64,8 @@ const char *type_name(Type type) {
 		    return "MachineReal";
 	    case BigRealType:
 		    return "BigReal";
-	    case RationalType:
-		    return "Rational";
+	    case BigRationalType:
+		    return "BigRational";
 	    case ComplexType:
 		    return "Complex";
 	    case ExpressionType:
@@ -133,6 +133,16 @@ void InstantiateSymbolicForm::init() {
         }
     });
 
+	add(SymbolLog, [] (const Expression *expr) {
+		if (expr->size() == 1) {
+			return expr->symbolic_1(SymEngine::log);
+		} else if (expr->size() == 2) {
+			return expr->symbolic_2(SymEngine::log);
+		} else {
+			return false;
+		}
+	});
+
     add(SymbolCos, [] (const Expression *expr) {
         if (expr->size() == 1) {
             return expr->symbolic_1(SymEngine::cos);
@@ -180,13 +190,38 @@ BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation 
 	switch (form->get_type_code()) {
 		case SymEngine::INTEGER: {
 			const mpz_class value(static_cast<const SymEngine::Integer*>(form.get())->i.get_mpz_t());
-			expr = from_primitive(value);
+			expr = from_primitive(value); // will instantiate a MachineInteger or a BigInteger
             break;
+		}
+
+		case SymEngine::REAL_DOUBLE: {
+			const machine_real_t &value(static_cast<const SymEngine::RealDouble*>(form.get())->i);
+			expr = Heap::MachineReal(value);
+			break;
+		}
+
+		case SymEngine::REAL_MPFR: {
+			// FIXME; same problem as in BigReal::instantiate_symbolic_form; we lose arb's radius
+
+			const SymEngine::mpfr_class &value(static_cast<const SymEngine::RealMPFR*>(form.get())->i);
+
+			arf_t temp;
+			arf_init(temp);
+			arf_set_mpfr(temp, value.get_mpfr_t());
+
+			arb_t r;
+			arb_init(r);
+			arb_set_arf(r, temp);
+
+			arf_clear(temp);
+
+			expr = Heap::BigReal(r, Precision(value.get_prec()));
+			break;
 		}
 
 		case SymEngine::RATIONAL: {
 			const mpq_class value(static_cast<const SymEngine::Rational*>(form.get())->i.get_mpq_t());
-			expr = from_primitive(value);
+			expr = Heap::BigRational(value);
             break;
 		}
 
@@ -211,7 +246,11 @@ BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation 
 			expr = from_symbolic_expr(form, evaluation.Power, evaluation);
             break;
 
-        case SymEngine::COS:
+		case SymEngine::LOG:
+			expr = from_symbolic_expr(form, evaluation.Log, evaluation);
+			break;
+
+		case SymEngine::COS:
             expr = from_symbolic_expr(form, evaluation.Cos, evaluation);
             break;
 

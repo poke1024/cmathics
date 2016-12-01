@@ -64,8 +64,8 @@ inline BaseExpressionRef add_machine_inexact(const T &self) {
 			case BigRealType:
 				sum += static_cast<const BigReal*>(leaf_ptr)->as_double();
 				break;
-			case RationalType:
-				sum += static_cast<const Rational*>(leaf_ptr)->value.get_d();
+			case BigRationalType:
+				sum += static_cast<const BigRational*>(leaf_ptr)->value.get_d();
 				break;
 			case ComplexType:
 				assert(false);

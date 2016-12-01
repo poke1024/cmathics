@@ -38,14 +38,14 @@ inline BaseExpressionRef Heap::BigReal(arb_t value, const Precision &prec) {
 	return BaseExpressionRef(_s_instance->_big_reals.construct(value, prec));
 }
 
-inline BaseExpressionRef Heap::Rational(machine_integer_t x, machine_integer_t y) {
+inline BaseExpressionRef Heap::BigRational(machine_integer_t x, machine_integer_t y) {
 	assert(_s_instance);
-	return BaseExpressionRef(_s_instance->_rationals.construct(x, y));
+	return BaseExpressionRef(_s_instance->_big_rationals.construct(x, y));
 }
 
-inline BaseExpressionRef Heap::Rational(const mpq_class &value) {
+inline BaseExpressionRef Heap::BigRational(const mpq_class &value) {
 	assert(_s_instance);
-	return BaseExpressionRef(_s_instance->_rationals.construct(value));
+	return BaseExpressionRef(_s_instance->_big_rationals.construct(value));
 }
 
 inline StaticExpressionRef<0> Heap::EmptyExpression(const BaseExpressionRef &head) {
@@ -71,8 +71,8 @@ inline void Heap::release(BaseExpression *expr) {
 			_s_instance->_big_integers.free(static_cast<class BigInteger*>(expr));
 			break;
 
-		case RationalType:
-			_s_instance->_rationals.free(static_cast<class Rational*>(expr));
+		case BigRationalType:
+			_s_instance->_big_rationals.free(static_cast<class BigRational*>(expr));
 			break;
 
 		case MachineRealType:
@@ -132,7 +132,7 @@ inline BaseExpressionRef from_primitive(machine_real_t value) {
 }
 
 inline BaseExpressionRef from_primitive(const mpq_class &value) {
-	return Heap::Rational(value);
+	return Heap::BigRational(value);
 }
 
 inline BaseExpressionRef from_primitive(const Numeric::Z &value) {

@@ -277,7 +277,18 @@ BaseExpressionRef evaluate(
         // note that we end up in an infinite loop otherwise.
 
 		if (::instantiate_symbolic_form(safe_intermediate_form)) {
-            return from_symbolic_form(safe_intermediate_form->symbolic_form(), evaluation);
+            if (false) { // debug
+                std::cout << "inspecting " << safe_intermediate_form->fullform() << std::endl;
+            }
+
+            const BaseExpressionRef simplified =
+                from_symbolic_form(safe_intermediate_form->symbolic_form(), evaluation);
+
+            if (false) { // debug
+                std::cout << "simplified into " << simplified->fullform() << std::endl;
+            }
+
+            return simplified;
         } else {
             safe_intermediate_form->set_no_symbolic_form();
         }

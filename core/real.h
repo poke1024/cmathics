@@ -7,6 +7,8 @@
 
 #include <arb.h>
 #include <symengine/eval_arb.h>
+#include <symengine/real_double.h>
+#include <symengine/real_mpfr.h>
 
 #include "types.h"
 #include "hash.h"
@@ -43,6 +45,12 @@ public:
 
     virtual bool match(const BaseExpression &expr) const {
         return same(expr);
+    }
+
+protected:
+    virtual bool instantiate_symbolic_form() const {
+        set_symbolic_form(SymEngine::real_double(value));
+        return true;
     }
 };
 
@@ -124,6 +132,17 @@ public:
 
     inline double as_double() const {
         return arf_get_d(arb_midref(value), ARF_RND_DOWN); // FIXME
+    }
+
+protected:
+    virtual bool instantiate_symbolic_form() const {
+        // FIXME; this is inexact, as we only use the midpoint
+
+        SymEngine::mpfr_class x;
+        arf_get_mpfr(x.get_mpfr_t(), arb_midref(value), MPFR_RNDN);
+        set_symbolic_form(SymEngine::real_mpfr(x));
+
+        return true;
     }
 };
 

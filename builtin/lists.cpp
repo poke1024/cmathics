@@ -20,7 +20,7 @@ BaseExpressionRef compute(TypeMask mask, const F &f) {
 		return f.template compute<mpz_class>();
 	}
 
-	constexpr TypeMask rational_mask = MakeTypeMask(RationalType);
+	constexpr TypeMask rational_mask = MakeTypeMask(BigRationalType);
 	// expression is all Rationals
 	if ((mask & rational_mask) == mask) {
 		return f.template compute<mpq_class>();

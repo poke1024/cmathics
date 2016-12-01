@@ -31,6 +31,7 @@ SYMBOL(LessEqual)
 SYMBOL(Plus)
 SYMBOL(Times)
 SYMBOL(Power)
+SYMBOL(Log)
 
 SYMBOL(E)
 SYMBOL(Pi)

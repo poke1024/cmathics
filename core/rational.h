@@ -8,18 +8,19 @@
 #include "integer.h"
 #include "symbol.h"
 
-class Rational : public BaseExpression {
+class BigRational : public BaseExpression {
 public:
-    static constexpr Type Type = RationalType;
+    static constexpr Type Type = BigRationalType;
 
     mpq_class value;
 
-    inline Rational(machine_integer_t x, machine_integer_t y) :
-        BaseExpression(RationalExtendedType), value(machine_integer_to_mpz(x), machine_integer_to_mpz(y)) {
+    inline BigRational(machine_integer_t x, machine_integer_t y) :
+        BaseExpression(BigRationalExtendedType),
+        value(machine_integer_to_mpz(x), machine_integer_to_mpz(y)) {
     }
 
-    inline Rational(const mpq_class &new_value) :
-        BaseExpression(RationalExtendedType), value(new_value) {
+    inline BigRational(const mpq_class &new_value) :
+        BaseExpression(BigRationalExtendedType), value(new_value) {
     }
 
     virtual hash_t hash() const {

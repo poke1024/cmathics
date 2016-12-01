@@ -29,17 +29,17 @@ struct Comparison<MachineInteger, BigInteger> {
 };
 
 template<>
-struct Comparison<Rational, MachineInteger> {
+struct Comparison<BigRational, MachineInteger> {
 	template<typename F>
-	inline static bool compare(const Rational &u, const MachineInteger &v, const F &f) {
+	inline static bool compare(const BigRational &u, const MachineInteger &v, const F &f) {
 		return f(u.value, long(v.value));
 	}
 };
 
 template<>
-struct Comparison<MachineInteger, Rational> {
+struct Comparison<MachineInteger, BigRational> {
 	template<typename F>
-	inline static bool compare(const MachineInteger &u, const Rational &v, const F &f) {
+	inline static bool compare(const MachineInteger &u, const BigRational &v, const F &f) {
 		return f(long(u.value), v.value);
 	}
 };
@@ -104,27 +104,27 @@ inline BaseExpressionRef operator+(const BigReal &x, const BigInteger &y) {
 	return y + x;
 }
 
-inline BaseExpressionRef operator+(const Rational &x, const BigInteger &y) {
-	return Heap::Rational(x.value + y.value);
+inline BaseExpressionRef operator+(const BigRational &x, const BigInteger &y) {
+	return Heap::BigRational(x.value + y.value);
 }
 
-inline BaseExpressionRef operator+(const BigInteger &x, const Rational &y) {
+inline BaseExpressionRef operator+(const BigInteger &x, const BigRational &y) {
 	return y + x;
 }
 
-inline BaseExpressionRef operator+(const Rational &x, const MachineInteger &y) {
-	return Heap::Rational(x.value + long(y.value));
+inline BaseExpressionRef operator+(const BigRational &x, const MachineInteger &y) {
+	return Heap::BigRational(x.value + long(y.value));
 }
 
-inline BaseExpressionRef operator+(const MachineInteger &x, const Rational &y) {
+inline BaseExpressionRef operator+(const MachineInteger &x, const BigRational &y) {
 	return y + x;
 }
 
-inline BaseExpressionRef operator+(const MachineReal &x, const Rational &y) {
+inline BaseExpressionRef operator+(const MachineReal &x, const BigRational &y) {
 	return Heap::MachineReal(x.value + y.value.get_d());
 }
 
-inline BaseExpressionRef operator+(const Rational &x, const MachineReal &y) {
+inline BaseExpressionRef operator+(const BigRational &x, const MachineReal &y) {
 	return y + x;
 }
 
@@ -162,7 +162,7 @@ inline BaseExpressionRef operator+(const BigReal &x, const BigReal &y) {
 	return Heap::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
 }
 
-inline BaseExpressionRef operator+(const Rational &x, const BigReal &y) {
+inline BaseExpressionRef operator+(const BigRational &x, const BigReal &y) {
 	arf_t num;
 	arf_init(num);
 	arf_set_mpz(num, x.value.get_num().get_mpz_t());
@@ -186,12 +186,12 @@ inline BaseExpressionRef operator+(const Rational &x, const BigReal &y) {
 	return Heap::BigReal(r, y.prec);
 }
 
-inline BaseExpressionRef operator+(const BigReal &x, const Rational &y) {
+inline BaseExpressionRef operator+(const BigReal &x, const BigRational &y) {
 	return y + x;
 }
 
-inline BaseExpressionRef operator+(const Rational &x, const Rational &y) {
-	return Heap::Rational(x.value + y.value);
+inline BaseExpressionRef operator+(const BigRational &x, const BigRational &y) {
+	return Heap::BigRational(x.value + y.value);
 }
 
 inline BaseExpressionRef operator*(const BigInteger &x, const BigInteger &y) {
@@ -206,37 +206,37 @@ inline BaseExpressionRef operator*(const MachineInteger &x, const BigInteger &y)
 	return y * x;
 }
 
-inline BaseExpressionRef operator*(const Rational &x, const MachineInteger &y) {
+inline BaseExpressionRef operator*(const BigRational &x, const MachineInteger &y) {
 	const mpq_class q(x.value * long(y.value));
 	if (q.get_den() == 1) {
 		return from_primitive(q.get_num());
 	} else {
-		return Heap::Rational(q);
+		return Heap::BigRational(q);
 	}
 }
 
-inline BaseExpressionRef operator*(const MachineInteger &x, const Rational &y) {
-	return y + x;
+inline BaseExpressionRef operator*(const MachineInteger &x, const BigRational &y) {
+	return y * x;
 }
 
-inline BaseExpressionRef operator*(const Rational &x, const BigInteger &y) {
+inline BaseExpressionRef operator*(const BigRational &x, const BigInteger &y) {
 	const mpq_class q(x.value * y.value);
 	if (q.get_den() == 1) {
 		return from_primitive(q.get_num());
 	} else {
-		return Heap::Rational(q);
+		return Heap::BigRational(q);
 	}
 }
 
-inline BaseExpressionRef operator*(const BigInteger &x, const Rational &y) {
+inline BaseExpressionRef operator*(const BigInteger &x, const BigRational &y) {
 	return y * x;
 }
 
-inline BaseExpressionRef operator*(const MachineReal &x, const Rational &y) {
+inline BaseExpressionRef operator*(const MachineReal &x, const BigRational &y) {
 	return Heap::MachineReal(x.value * y.value.get_d());
 }
 
-inline BaseExpressionRef operator*(const Rational &x, const MachineReal &y) {
+inline BaseExpressionRef operator*(const BigRational &x, const MachineReal &y) {
 	return y * x;
 }
 
@@ -260,7 +260,7 @@ inline BaseExpressionRef operator*(const MachineInteger &x, const BigReal &y) {
 }
 
 inline BaseExpressionRef operator*(const BigReal &x, const MachineInteger &y) {
-	return y + x;
+	return y * x;
 }
 
 inline BaseExpressionRef operator*(const BigInteger &x, const MachineReal &y) {
@@ -304,7 +304,7 @@ inline BaseExpressionRef operator*(const BigReal &x, const BigInteger &y) {
 	return y * x;
 }
 
-inline BaseExpressionRef operator*(const Rational &x, const BigReal &y) {
+inline BaseExpressionRef operator*(const BigRational &x, const BigReal &y) {
 	arf_t num;
 	arf_init(num);
 	arf_set_mpz(num, x.value.get_num().get_mpz_t());
@@ -328,12 +328,12 @@ inline BaseExpressionRef operator*(const Rational &x, const BigReal &y) {
 	return Heap::BigReal(r, y.prec);
 }
 
-inline BaseExpressionRef operator*(const BigReal &x, const Rational &y) {
+inline BaseExpressionRef operator*(const BigReal &x, const BigRational &y) {
 	return y * x;
 }
 
-inline BaseExpressionRef operator*(const Rational &x, const Rational &y) {
-	return Heap::Rational(x.value * y.value);
+inline BaseExpressionRef operator*(const BigRational &x, const BigRational &y) {
+	return Heap::BigRational(x.value * y.value);
 }
 
 template<>
@@ -385,17 +385,17 @@ struct Comparison<BigReal, BigInteger> {
 };
 
 template<>
-struct Comparison<Rational, BigReal> {
+struct Comparison<BigRational, BigReal> {
 	template<typename F>
-	inline static bool compare(const Rational &u, const BigReal &v, const F &f) {
+	inline static bool compare(const BigRational &u, const BigReal &v, const F &f) {
 		return f(Numeric::R(u.value, v.prec), Numeric::R(v.value));
 	}
 };
 
 template<>
-struct Comparison<BigReal, Rational> {
+struct Comparison<BigReal, BigRational> {
 	template<typename F>
-	inline static bool compare(const BigReal &u, const Rational &v, const F &f) {
+	inline static bool compare(const BigReal &u, const BigRational &v, const F &f) {
 		return f(Numeric::R(u.value), Numeric::R(v.value, u.prec));
 	}
 };
@@ -452,31 +452,31 @@ public:
 	BinaryArithmetic() {
 		BinaryOperator<F>::template init<MachineInteger, MachineInteger>();
 		BinaryOperator<F>::template init<MachineInteger, BigInteger>();
-		BinaryOperator<F>::template init<MachineInteger, Rational>();
+		BinaryOperator<F>::template init<MachineInteger, BigRational>();
 		BinaryOperator<F>::template init<MachineInteger, MachineReal>();
 		BinaryOperator<F>::template init<MachineInteger, BigReal>();
 
 		BinaryOperator<F>::template init<BigInteger, MachineInteger>();
 		BinaryOperator<F>::template init<BigInteger, BigInteger>();
-		BinaryOperator<F>::template init<BigInteger, Rational>();
+		BinaryOperator<F>::template init<BigInteger, BigRational>();
 		BinaryOperator<F>::template init<BigInteger, MachineReal>();
 		BinaryOperator<F>::template init<BigInteger, BigReal>();
 
-		BinaryOperator<F>::template init<Rational, MachineInteger>();
-		BinaryOperator<F>::template init<Rational, BigInteger>();
-		BinaryOperator<F>::template init<Rational, MachineReal>();
-		BinaryOperator<F>::template init<Rational, BigReal>();
-		BinaryOperator<F>::template init<Rational, Rational>();
+		BinaryOperator<F>::template init<BigRational, MachineInteger>();
+		BinaryOperator<F>::template init<BigRational, BigInteger>();
+		BinaryOperator<F>::template init<BigRational, MachineReal>();
+		BinaryOperator<F>::template init<BigRational, BigReal>();
+		BinaryOperator<F>::template init<BigRational, BigRational>();
 
 		BinaryOperator<F>::template init<MachineReal, MachineInteger>();
 		BinaryOperator<F>::template init<MachineReal, BigInteger>();
-		BinaryOperator<F>::template init<MachineReal, Rational>();
+		BinaryOperator<F>::template init<MachineReal, BigRational>();
 		BinaryOperator<F>::template init<MachineReal, MachineReal>();
 		BinaryOperator<F>::template init<MachineReal, BigReal>();
 
 		BinaryOperator<F>::template init<BigReal, MachineInteger>();
 		BinaryOperator<F>::template init<BigReal, BigInteger>();
-		BinaryOperator<F>::template init<BigReal, Rational>();
+		BinaryOperator<F>::template init<BigReal, BigRational>();
 		BinaryOperator<F>::template init<BigReal, MachineReal>();
 		BinaryOperator<F>::template init<BigReal, BigReal>();
 	}
@@ -560,74 +560,74 @@ public:
 		// detect Times[x, Power[y, -1]] and use fast divide if possible.
 
 		BinaryOperator<times>::template init<MachineInteger, Expression>(
-				[] (const BaseExpression *a, const BaseExpression *b) {
+			[] (const BaseExpression *a, const BaseExpression *b) {
 
-					const BaseExpression *divisor = if_divisor(b);
-					if (!divisor) {
-						return BaseExpressionRef(); // leave this for SymEngine to evaluate
-					}
-
-					switch (divisor->type()) {
-						case MachineIntegerType: {
-							const machine_integer_t x =
-									static_cast<const MachineInteger*>(a)->value;
-							const machine_integer_t y =
-									static_cast<const MachineInteger*>(divisor)->value;
-							const auto r = std::div(x, y);
-							if (r.rem == 0) {
-								return Heap::MachineInteger(r.quot);
-							} else {
-								return Heap::Rational(x, y);
-							}
-						}
-
-						case MachineRealType: {
-							const machine_integer_t x =
-									static_cast<const MachineInteger*>(a)->value;
-							const machine_real_t y =
-									static_cast<const MachineReal*>(divisor)->value;
-							return Heap::MachineReal(x / y);
-						}
-
-						default:
-							break;
-					}
-
+				const BaseExpression *divisor = if_divisor(b);
+				if (!divisor) {
 					return BaseExpressionRef(); // leave this for SymEngine to evaluate
 				}
+
+				switch (divisor->type()) {
+					case MachineIntegerType: {
+						const machine_integer_t x =
+							static_cast<const MachineInteger*>(a)->value;
+						const machine_integer_t y =
+							static_cast<const MachineInteger*>(divisor)->value;
+						const auto r = std::div(x, y);
+						if (r.rem == 0) {
+							return Heap::MachineInteger(r.quot);
+						} else {
+							return Heap::BigRational(x, y);
+						}
+					}
+
+					case MachineRealType: {
+						const machine_integer_t x =
+							static_cast<const MachineInteger*>(a)->value;
+						const machine_real_t y =
+							static_cast<const MachineReal*>(divisor)->value;
+						return Heap::MachineReal(x / y);
+					}
+
+					default:
+						break;
+				}
+
+				return BaseExpressionRef(); // leave this for SymEngine to evaluate
+			}
 		);
 
 		BinaryOperator<times>::template init<MachineReal, Expression>(
-				[] (const BaseExpression *a, const BaseExpression *b) {
+			[] (const BaseExpression *a, const BaseExpression *b) {
 
-					const BaseExpression *divisor = if_divisor(b);
-					if (!divisor) {
-						return BaseExpressionRef(); // leave this for SymEngine to evaluate
-					}
-
-					switch (divisor->type()) {
-						case MachineIntegerType: {
-							const machine_integer_t x =
-									static_cast<const MachineReal*>(a)->value;
-							const machine_integer_t y =
-									static_cast<const MachineInteger*>(divisor)->value;
-							return Heap::MachineReal(x / y);
-						}
-
-						case MachineRealType: {
-							const machine_real_t x =
-									static_cast<const MachineReal*>(a)->value;
-							const machine_real_t y =
-									static_cast<const MachineReal*>(divisor)->value;
-							return Heap::MachineReal(x / y);
-						}
-
-						default:
-							break;
-					}
-
+				const BaseExpression *divisor = if_divisor(b);
+				if (!divisor) {
 					return BaseExpressionRef(); // leave this for SymEngine to evaluate
 				}
+
+				switch (divisor->type()) {
+					case MachineIntegerType: {
+						const machine_integer_t x =
+							static_cast<const MachineReal*>(a)->value;
+						const machine_integer_t y =
+							static_cast<const MachineInteger*>(divisor)->value;
+						return Heap::MachineReal(x / y);
+					}
+
+					case MachineRealType: {
+						const machine_real_t x =
+							static_cast<const MachineReal*>(a)->value;
+						const machine_real_t y =
+							static_cast<const MachineReal*>(divisor)->value;
+						return Heap::MachineReal(x / y);
+					}
+
+					default:
+						break;
+				}
+
+				return BaseExpressionRef(); // leave this for SymEngine to evaluate
+			}
 		);
 	}
 };
@@ -636,11 +636,11 @@ template<machine_integer_t Value>
 class EmptyConstantRule : public ExactlyNRule<0> {
 public:
 	EmptyConstantRule(const SymbolRef &head, const Definitions &definitions) :
-			ExactlyNRule<0>(head, definitions) {
+        ExactlyNRule<0>(head, definitions) {
 	}
 
 	virtual BaseExpressionRef try_apply(
-			const Expression *expr, const Evaluation &evaluation) const {
+        const Expression *expr, const Evaluation &evaluation) const {
 
 		return Heap::MachineInteger(Value);
 	}
@@ -649,11 +649,11 @@ public:
 class IdentityRule : public ExactlyNRule<1> {
 public:
 	IdentityRule(const SymbolRef &head, const Definitions &definitions) :
-			ExactlyNRule<1>(head, definitions) {
+        ExactlyNRule<1>(head, definitions) {
 	}
 
 	virtual BaseExpressionRef try_apply(
-			const Expression *expr, const Evaluation &evaluation) const {
+        const Expression *expr, const Evaluation &evaluation) const {
 
 		return expr->static_leaves<1>()[0];
 	}
@@ -666,11 +666,11 @@ private:
 
 public:
 	BinaryOperatorRule(const SymbolRef &head, const Definitions &definitions) :
-			ExactlyNRule<2>(head, definitions), _operator() {
+        ExactlyNRule<2>(head, definitions), _operator() {
 	}
 
 	virtual BaseExpressionRef try_apply(
-			const Expression *expr, const Evaluation &evaluation) const {
+        const Expression *expr, const Evaluation &evaluation) const {
 
 		return _operator(evaluation.definitions, expr->static_leaves<2>());
 	}
@@ -687,7 +687,7 @@ public:
 	using AtLeastNRule<3>::AtLeastNRule;
 
 	virtual BaseExpressionRef try_apply(
-			const Expression *expr, const Evaluation &evaluation) const;
+        const Expression *expr, const Evaluation &evaluation) const;
 };
 
 BaseExpressionRef Plus3Rule::try_apply(
@@ -703,7 +703,7 @@ public:
 	using ExactlyNRule<2>::ExactlyNRule;
 
 	virtual BaseExpressionRef try_apply(
-			const Expression *expr, const Evaluation &evaluation) const {
+        const Expression *expr, const Evaluation &evaluation) const {
 
 		const BaseExpressionRef *refs = expr->static_leaves<2>();
 		const BaseExpressionRef &a = refs[0];
@@ -755,6 +755,12 @@ void Builtin::Arithmetic::initialize() {
 	    Attributes::None, {
 			rewrite("Sqrt[x_]", "x ^ (1 / 2)")
 	    }
+	);
+
+	add("Exp",
+		Attributes::None, {
+			rewrite("Exp[x_]", "E ^ x")
+		}
 	);
 
 	add("Less",

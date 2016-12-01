@@ -24,10 +24,11 @@ enum Type : uint8_t { // values represented as bits in TypeMasks
 	BigIntegerType = 2,
 	MachineRealType = 3,
 	BigRealType = 4,
-	RationalType = 5,
-	ComplexType = 6,
-	ExpressionType = 7,
-	StringType = 8
+	MachineRationalType = 5,
+    BigRationalType = 6,
+	ComplexType = 7,
+	ExpressionType = 8,
+	StringType = 9
 };
 
 // CoreTypeBits is the number of bits needed to represent every value in
@@ -61,7 +62,8 @@ enum ExtendedType : uint16_t {
 	BigIntegerExtendedType = BigIntegerType << CoreTypeShift,
 	MachineRealExtendedType = MachineRealType << CoreTypeShift,
 	BigRealExtendedType = BigRealType << CoreTypeShift,
-	RationalExtendedType = RationalType << CoreTypeShift,
+    MachineRationalExtendedType = MachineRationalType << CoreTypeShift,
+	BigRationalExtendedType = BigRationalType << CoreTypeShift,
 	ComplexExtendedType = ComplexType << CoreTypeShift,
 	ExpressionExtendedType = ExpressionType << CoreTypeShift,
 	StringExtendedType = StringType << CoreTypeShift
