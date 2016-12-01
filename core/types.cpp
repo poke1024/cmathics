@@ -148,6 +148,14 @@ void InstantiateSymbolicForm::init() {
             return false;
         }
     });
+
+	add(SymbolTan, [] (const Expression *expr) {
+		if (expr->size() == 1) {
+			return expr->symbolic_1(SymEngine::tan);
+		} else {
+			return false;
+		}
+	});
 }
 
 BaseExpressionRef from_symbolic_expr(
@@ -211,11 +219,27 @@ BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation 
             expr = from_symbolic_expr(form, evaluation.Sin, evaluation);
             break;
 
+        case SymEngine::TAN:
+            expr = from_symbolic_expr(form, evaluation.Tan, evaluation);
+            break;
+
 		case SymEngine::CONSTANT:
-			if (form->compare(*SymEngine::pi.get()) == 0) {
+			if (form->__eq__(*SymEngine::pi.get())) {
 				expr = evaluation.Pi;
                 break;
 			}
+            else if (form->__eq__(*SymEngine::I.get())) {
+                expr = evaluation.I;
+                break;
+            }
+            else if (form->__eq__(*SymEngine::E.get())) {
+                expr = evaluation.E;
+                break;
+            }
+            else if (form->__eq__(*SymEngine::EulerGamma.get())) {
+                expr = evaluation.EulerGamma;
+                break;
+            }
 			// fallthrough
 
 		default: {

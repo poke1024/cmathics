@@ -107,13 +107,20 @@ set(SOURCE_FILES
     core/runtime.h
     core/python.h
     core/parser.h
+    core/symbol.cpp
 
     builtin/arithmetic.cpp
     builtin/arithmetic.h
     builtin/lists.cpp
     builtin/lists.h
     builtin/control.cpp
-    builtin/control.h builtin/assignment.cpp builtin/assignment.h builtin/functional.cpp builtin/functional.h)
+    builtin/control.h
+    builtin/assignment.cpp
+    builtin/assignment.h
+    builtin/functional.cpp
+    builtin/functional.h
+    builtin/exptrig.cpp
+    builtin/exptrig.h)
 
 add_custom_target(standalone)
 

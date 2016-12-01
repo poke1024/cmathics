@@ -32,8 +32,13 @@ SYMBOL(Plus)
 SYMBOL(Times)
 SYMBOL(Power)
 
+SYMBOL(E)
 SYMBOL(Pi)
+SYMBOL(EulerGamma)
+SYMBOL(I)
+
 SYMBOL(Cos)
 SYMBOL(Sin)
+SYMBOL(Tan)
 
 SYMBOL(StateModuleNumber)

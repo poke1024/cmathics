@@ -27,6 +27,7 @@
 #include "builtin/arithmetic.h"
 #include "builtin/assignment.h"
 #include "builtin/control.h"
+#include "builtin/exptrig.h"
 #include "builtin/functional.h"
 #include "builtin/lists.h"
 
@@ -131,6 +132,7 @@ void mini_console() {
 	Builtin::Arithmetic(runtime).initialize();
 	Builtin::Assignment(runtime).initialize();
 	Builtin::Control(runtime).initialize();
+	Builtin::ExpTrig(runtime).initialize();
 	Builtin::Functional(runtime).initialize();
 	Builtin::Lists(runtime).initialize();
 

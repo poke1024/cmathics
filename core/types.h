@@ -332,13 +332,21 @@ public:
 	}
 
 	inline bool instantiated_symbolic_form() const {
-        // note that _symbolic_form, even though set, might be nullptr.
+        // note that _symbolic_form, even though set, might be a nullptr.
         // this indicates that the instantiate_symbol_form was performed,
         // but that there is no matching form in SymEngine for this expr
         // (also see set_no_symbolic_form()).
 
 		return bool(_symbolic_form);
 	}
+
+    inline bool no_symbolic_form() const {
+        // checks whether there is no SymEngine form for this expression.
+        // if false is returned, it can also mean that the answer is not
+        // known currently and symbolic_form() needs to be called.
+
+        return _symbolic_form and (*_symbolic_form).is_null();
+    }
 
 	inline SymbolicForm symbolic_form() const {
 		if (!_symbolic_form) {

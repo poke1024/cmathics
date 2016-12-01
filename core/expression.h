@@ -328,6 +328,12 @@ public:
 	}
 
 	virtual optional<SymEngine::vec_basic> symbolic_operands() const {
+		for (const auto &leaf : _leaves.leaves()) {
+			if (leaf->no_symbolic_form()) {
+				return optional<SymEngine::vec_basic>();
+			}
+		}
+
 		SymEngine::vec_basic operands;
         operands.reserve(size());
 		for (const auto &leaf : _leaves.leaves()) {
@@ -337,6 +343,7 @@ public:
             }
 			operands.push_back(form);
 		}
+
 		return operands;
 	}
 };
@@ -360,10 +367,17 @@ inline bool Expression::symbolic_1(const SymEngineUnaryFunction &f) const {
 }
 
 inline bool Expression::symbolic_2(const SymEngineBinaryFunction &f) const {
-    const BaseExpressionRef * const leaves = static_leaves<2>();
-    const SymbolicForm symbolic_a = leaves[0]->symbolic_form();
+	const BaseExpressionRef * const leaves = static_leaves<2>();
+	const BaseExpressionRef &a = leaves[0];
+	const BaseExpressionRef &b = leaves[1];
+
+	if (a->no_symbolic_form() || b->no_symbolic_form()) {
+		return false;
+	}
+
+    const SymbolicForm symbolic_a = a->symbolic_form();
     if (!symbolic_a.is_null()) {
-        const SymbolicForm symbolic_b = leaves[1]->symbolic_form();
+        const SymbolicForm symbolic_b = b->symbolic_form();
         if (!symbolic_b.is_null()) {
             _symbolic_form = f(symbolic_a, symbolic_b);
             return true;
