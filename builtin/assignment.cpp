@@ -12,7 +12,7 @@ inline BaseExpressionRef assign(
 		const_cast<Symbol*>(name)->add_rule(lhs, rhs);
 	}
 
-	return BaseExpressionRef(evaluation.Null);
+	return rhs; // or evaluation.Null?
 }
 
 void Builtin::Assignment::initialize() {

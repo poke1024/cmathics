@@ -163,6 +163,8 @@ private:
 
     boost::object_pool<ExpressionImplementation<DynamicSlice>> _expression_refs;
 
+	boost::object_pool<String> _strings;
+
 	boost::object_pool<Cache> _caches;
 
 	Heap();
@@ -227,6 +229,8 @@ public:
     static inline PackedExpressionRef<U> Expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
         return PackedExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
     }
+
+	static inline StringRef String(const char *text);
 
 	static inline Cache *new_cache() {
 		return _s_instance->_caches.construct();

@@ -5,14 +5,32 @@
 #include "builtin.h"
 #include "parser.h"
 
+class RulesBuilder {
+private:
+    const SymbolRef m_symbol;
+    Definitions &m_definitions;
+
+public:
+    inline RulesBuilder(const SymbolRef &symbol, Definitions &definitions) :
+        m_symbol(symbol), m_definitions(definitions) {
+    }
+
+    template<int N, typename F>
+    void builtin(F func) {
+        const auto rule = make_builtin_rule<N, F>(func);
+        m_symbol->add_rule(rule(m_symbol, m_definitions));
+    }
+};
+
+typedef std::function<void(RulesBuilder&, const SymbolRef)> SpecifyRules;
+
 class Runtime {
 private:
 	Definitions _definitions;
 	Parser _parser;
 
 public:
-	Runtime() : _parser(_definitions) {
-	}
+	Runtime();
 
 	inline Definitions &definitions() {
 		return _definitions;
@@ -26,14 +44,16 @@ public:
 		return _parser.parse(s);
 	}
 
-	void add(const char *name, Attributes attributes, const std::initializer_list <NewRuleRef> &rules) {
-		const std::string full_down = std::string("System`") + name;
-		const SymbolRef symbol = _definitions.lookup(full_down.c_str());
-		symbol->set_attributes(attributes);
-		for (const NewRuleRef &new_rule : rules) {
-			symbol->add_rule(new_rule(symbol, _definitions));
-		}
-	}
+	void add(
+		const char *name,
+		Attributes attributes,
+		const std::initializer_list <NewRuleRef> &rules);
+
+	void add(
+		const char *name,
+		Attributes attributes,
+        SpecifyRules &rules);
+
 };
 
 class Unit {
@@ -41,10 +61,23 @@ private:
 	Runtime &m_runtime;
 
 protected:
-	inline void add(const char *name, Attributes attributes, const std::initializer_list<NewRuleRef> &rules) const {
+	inline void add(
+		const char *name,
+		Attributes attributes,
+		const std::initializer_list<NewRuleRef> &rules) const {
+
 		m_runtime.add(name, attributes, rules);
 	}
 
+	inline void add(
+		const char *name,
+		Attributes attributes,
+        SpecifyRules rules) const {
+
+		m_runtime.add(name, attributes, rules);
+	}
+
+public:
 	template<int N, typename F>
 	inline NewRuleRef builtin(F func) const {
 		return make_builtin_rule<N, F>(func);

@@ -65,6 +65,18 @@ class Definitions;
 
 class Evaluate;
 
+class Messages {
+private:
+	std::vector<RuleRef> m_rules;
+
+public:
+	void add(const SymbolRef &name, const char *tag, const char *text, const Definitions &definitions);
+
+	StringRef lookup(const Expression *message, const Evaluation &evaluation) const;
+};
+
+typedef std::shared_ptr<Messages> MessagesRef;
+
 class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
@@ -81,6 +93,7 @@ protected:
 	Attributes _attributes;
 	const Evaluate *_evaluate_with_head;
 
+	MessagesRef _messages;
 
 protected:
     virtual bool instantiate_symbolic_form() const;
@@ -109,6 +122,15 @@ public:
 	RuleTable up_rules;
 	RuleTable down_rules;
 
+	void add_message(
+		const char *tag,
+		const char *text,
+		const Definitions &definitions);
+
+	StringRef lookup_message(
+		const Expression *message,
+		const Evaluation &evaluation) const;
+
 	virtual bool same(const BaseExpression &expr) const {
 		// compare as pointers: Symbol instances are unique
 		return &expr == this;
@@ -122,7 +144,19 @@ public:
 		return name();
 	}
 
-	const char *name() const {
+	inline const char *short_name() const {
+		const char *s = name();
+		const char *short_string = s;
+		while (*s) {
+			if (*s == '`') {
+				short_string = s + 1;
+			}
+			s++;
+		}
+		return short_string;
+	};
+
+	inline const char *name() const {
 		return _name;
 	}
 

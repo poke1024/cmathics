@@ -1,4 +1,55 @@
+#include "types.h"
+#include "expression.h"
 #include "symbol.h"
+#include "builtin.h"
+
+void Messages::add(
+    const SymbolRef &name,
+    const char *tag,
+    const char *text,
+    const Definitions &definitions) {
+
+    m_rules.push_back(std::make_shared<RewriteRule>(
+        expression(definitions.symbols().MessageName, name, Heap::String(tag)),
+        Heap::String(text)));
+}
+
+StringRef Messages::lookup(
+    const Expression *message,
+    const Evaluation &evaluation) const {
+
+    // FIXME. this is not efficient.
+    for (const RuleRef &rule : m_rules) {
+        const BaseExpressionRef result = rule->try_apply(message, evaluation);
+        if (result && result->type() == StringType) {
+            return boost::static_pointer_cast<const String>(result);
+        }
+    }
+
+    return StringRef();
+}
+
+void Symbol::add_message(
+    const char *tag,
+    const char *text,
+    const Definitions &definitions) {
+
+    if (!_messages) {
+        _messages = std::make_shared<Messages>();
+    }
+    _messages->add(SymbolRef(this), tag, text, definitions);
+}
+
+StringRef Symbol::lookup_message(
+    const Expression *message,
+    const Evaluation &evaluation) const {
+
+    if (_messages) {
+        return _messages->lookup(message, evaluation);
+    } else {
+        return StringRef();
+    }
+}
 
 bool Symbol::instantiate_symbolic_form() const {
     switch (extended_type()) {

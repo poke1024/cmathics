@@ -42,4 +42,8 @@ SYMBOL(Cos)
 SYMBOL(Sin)
 SYMBOL(Tan)
 
+SYMBOL(General)
+SYMBOL(MessageName)
+
+SYMBOL(StateLine)
 SYMBOL(StateModuleNumber)

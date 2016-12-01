@@ -20,7 +20,6 @@ Evaluation::Evaluation(Definitions &new_definitions, bool new_catch_interrupts) 
     out = NULL;
 }
 
-
 void send_message(Evaluation* evaluation, Symbol* symbol, char* tag) {
 }
 
@@ -54,4 +53,29 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
     // TODO clear aborts
 
     return evaluated;
+}
+
+void Evaluation::message(const SymbolRef &name, const char *tag) const {
+    const auto &symbols = definitions.symbols();
+
+    const ExpressionRef message = expression(
+        symbols.MessageName, name, Heap::String(tag));
+    StringRef text = name->lookup_message(message.get(), *this);
+
+    if (!text) {
+        const ExpressionRef general_message = expression(
+            symbols.MessageName, symbols.General, Heap::String(tag));
+
+        text = symbols.General->lookup_message(general_message.get(), *this);
+    }
+
+    if (text) {
+        std::cout << name->short_name() << "::" << tag << ": " << text->c_str() << std::endl;
+    }
+}
+
+void Evaluation::message(const SymbolRef &name, const char *tag, const BaseExpressionRef &arg1) const {
+}
+
+void Evaluation::message(const SymbolRef &name, const char *tag, const BaseExpressionRef &arg1, const BaseExpressionRef &arg2) const {
 }

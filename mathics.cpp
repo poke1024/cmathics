@@ -136,23 +136,34 @@ void mini_console() {
 	Builtin::Functional(runtime).initialize();
 	Builtin::Lists(runtime).initialize();
 
-    std::cout << ">> ";
+	const SymbolRef Line = runtime.definitions().symbols().StateLine;
+
+	Line->own_value = Heap::MachineInteger(1);
+    std::cout << "In[" << 1 << "]:= ";
     for (std::string line; std::getline(std::cin, line);) {
 	    if (line.empty()) {
 		    break;
 	    }
 
 	    try {
-		    auto expr = runtime.parse(line.c_str());
+		    const auto expr = runtime.parse(line.c_str());
 
 		    Evaluation evaluation(runtime.definitions(), true);
 		    BaseExpressionRef evaluated = evaluation.evaluate(expr);
-		    std::cout << evaluated << std::endl;
+
+			assert(Line->own_value);
+		    std::cout << "Out[" << Line->own_value->fullform() << "]= " << evaluated << std::endl;
 	    } catch (parse_exception) {
 		    std::cout << ": " << line << " could not be parsed." << std::endl;
 	    }
 
-	    std::cout << ">> ";
+		// FIXME use increment().
+		assert(Line->own_value && Line->own_value->type() == MachineIntegerType);
+		Line->own_value = Heap::MachineInteger(
+			static_cast<const MachineInteger*>(Line->own_value.get())->value + 1);
+
+		std::cout << std::endl;
+		std::cout << "In[" << Line->own_value->fullform() << "]:= ";
 	    std::cout.flush();
     }
 }

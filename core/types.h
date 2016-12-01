@@ -282,6 +282,10 @@ class Symbol;
 // change, after all, if rules are added.
 typedef boost::intrusive_ptr<Symbol> SymbolRef;
 
+class String;
+
+typedef boost::intrusive_ptr<const String> StringRef;
+
 class Evaluation;
 
 class SortKey;
@@ -508,6 +512,9 @@ class Expression : public BaseExpression, virtual public OperationsInterface {
 private:
 	mutable Cache *_cache;
 
+protected:
+	virtual BaseExpressionRef slow_leaf(size_t i) const = 0;
+
 public:
     static constexpr Type Type = ExpressionType;
 
@@ -556,7 +563,14 @@ public:
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 
-	virtual BaseExpressionRef leaf(size_t i) const = 0;
+	inline BaseExpressionRef leaf(size_t i) const {
+		const BaseExpressionRef *leaves = _slice_ptr->_address;
+		if (leaves) {
+			return leaves[i];
+		} else {
+			return slow_leaf(i);
+		}
+	}
 
 	virtual BaseExpressionRef head() const {
 		return _head;

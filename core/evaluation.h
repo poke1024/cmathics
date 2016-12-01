@@ -57,6 +57,10 @@ public:
     Evaluation(Definitions &definitions, bool new_catch_interrupts);
 
     BaseExpressionRef evaluate(BaseExpressionRef expression);
+
+    void message(const SymbolRef &name, const char *tag) const;
+    void message(const SymbolRef &name, const char *tag, const BaseExpressionRef &arg1) const;
+    void message(const SymbolRef &name, const char *tag, const BaseExpressionRef &arg1, const BaseExpressionRef &arg2) const;
 };
 
 

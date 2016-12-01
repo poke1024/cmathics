@@ -30,6 +30,11 @@ public:
 template<typename Slice>
 class ExpressionImplementation :
 	public Expression, public AllOperationsImplementation<ExpressionImplementation<Slice>> {
+protected:
+	virtual BaseExpressionRef slow_leaf(size_t i) const {
+		return _leaves[i];
+	}
+
 public:
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const;
 
@@ -48,10 +53,6 @@ public:
 
 	inline ExpressionImplementation(ExpressionImplementation<Slice> &&expr) :
 		Expression(expr._head, Slice::code(), &_leaves), _leaves(expr.leaves) {
-	}
-
-	virtual BaseExpressionRef leaf(size_t i) const {
-		return _leaves[i];
 	}
 
 	inline auto leaves() const {

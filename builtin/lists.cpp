@@ -136,22 +136,22 @@ void Builtin::Lists::initialize() {
 	    });
 
 	add("First",
-	    Attributes::None, {
-			builtin<1>(
-				[](const BaseExpressionRef &x, const Evaluation &evaluation) {
-				    if (x->type() != ExpressionType) {
-					    throw std::runtime_error("expected Expression at position 1");
-				    }
-				    const Expression *list = static_cast<const Expression*>(x.get());
-				    return list->with_leaves_array([] (const BaseExpressionRef *leaves, size_t size) {
-					    if (size < 1) {
-						    throw std::runtime_error("Expression is empty");
-					    }
-					    return leaves[0];
-				    });
-			    }
-		    )
-	    });
+	    Attributes::None,
+        [] (RulesBuilder &build, const SymbolRef First) {
+            build.builtin<1>(
+                [First] (const BaseExpressionRef &x, const Evaluation &evaluation) {
+                    if (x->type() != ExpressionType) {
+                        evaluation.message(First, "normal");
+                        return BaseExpressionRef();
+                    }
+                    const Expression *expr = static_cast<const Expression*>(x.get());
+                    if (expr->size() < 1) {
+                        throw std::runtime_error("Expression is empty");
+                    }
+                    return expr->leaf(0);
+                }
+            );
+		});
 
 	add("Length",
 	    Attributes::None, {

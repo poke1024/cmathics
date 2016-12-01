@@ -120,7 +120,7 @@ set(SOURCE_FILES
     builtin/functional.cpp
     builtin/functional.h
     builtin/exptrig.cpp
-    builtin/exptrig.h)
+    builtin/exptrig.h core/runtime.cpp)
 
 add_custom_target(standalone)
 

@@ -45,7 +45,7 @@ inline BaseExpressionRef Heap::BigRational(machine_integer_t x, machine_integer_
 
 inline BaseExpressionRef Heap::BigRational(const mpq_class &value) {
 	assert(_s_instance);
-	return BaseExpressionRef(_s_instance->_big_rationals.construct(value));
+	return _s_instance->_big_rationals.construct(value);
 }
 
 inline StaticExpressionRef<0> Heap::EmptyExpression(const BaseExpressionRef &head) {
@@ -55,6 +55,11 @@ inline StaticExpressionRef<0> Heap::EmptyExpression(const BaseExpressionRef &hea
 inline DynamicExpressionRef Heap::Expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
 	assert(_s_instance);
 	return DynamicExpressionRef(_s_instance->_expression_refs.construct(head, slice));
+}
+
+inline StringRef Heap::String(const char *text) {
+	assert(_s_instance);
+	return StringRef(_s_instance->_strings.construct(text));
 }
 
 inline void Heap::release(BaseExpression *expr) {
@@ -95,6 +100,11 @@ inline void Heap::release(BaseExpression *expr) {
 			} else {
 				throw std::runtime_error("encountered unsupported slice type id");
 			}
+			break;
+		}
+
+		case StringType: {
+			_s_instance->_strings.free(static_cast<class String*>(expr));
 			break;
 		}
 
