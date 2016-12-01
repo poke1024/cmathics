@@ -27,6 +27,10 @@ public:
 	}
 
 	virtual MatchSize match_size() const;
+
+	inline optional<hash_t> match_hash() const {
+		return pattern->match_hash();
+	}
 };
 
 BaseExpressionRef exactly_n_pattern(
@@ -61,6 +65,23 @@ public:
 
 typedef std::shared_ptr<Rule> RuleRef;
 
-typedef std::vector<RuleRef> RuleTable[NumberOfSliceCodes];
+class Rules {
+public:
+	struct Entry {
+		RuleRef rule;
+		optional<hash_t> match_hash;
+	};
+
+private:
+	std::vector<Entry> m_rules[NumberOfSliceCodes];
+
+public:
+	void add(const RuleRef &rule);
+
+	inline BaseExpressionRef operator()(
+		SliceCode code,
+		const Expression *expr,
+		const Evaluation &evaluation) const;
+};
 
 #endif //CMATHICS_RULE_H

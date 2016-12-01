@@ -308,6 +308,10 @@ protected:
         throw std::runtime_error("instantiate_symbolic_form not implemented");
     }
 
+	virtual optional<hash_t> compute_match_hash() const {
+		throw std::runtime_error("compute_match_hash not implemented");
+	}
+
 public:
     template<typename T>
     inline void set_symbolic_form(const SymEngine::RCP<const T> &form) const {
@@ -335,6 +339,14 @@ public:
 
 	inline TypeMask base_type_mask() const {
 		return ((TypeMask)1) << type();
+	}
+
+	inline optional<hash_t> match_hash() const {
+		if (type() == ExpressionType) {
+			return compute_match_hash();
+		} else {
+			return hash();
+		}
 	}
 
 	inline bool instantiated_symbolic_form() const {
@@ -637,6 +649,34 @@ inline bool instantiate_symbolic_form(const Expression *expr) {
 inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
 	s << boost::static_pointer_cast<const BaseExpression>(expr);
 	return s;
+}
+
+inline BaseExpressionRef Rules::operator()(
+	SliceCode code,
+	const Expression *expr,
+	const Evaluation &evaluation) const {
+
+	hash_t match_hash;
+	bool match_hash_valid = false;
+
+	for (const Entry &entry : m_rules[code]) {
+		if (entry.match_hash) {
+			if (!match_hash_valid) {
+				match_hash = expr->hash();
+				match_hash_valid = true;
+			}
+			if (match_hash != *entry.match_hash) {
+				continue;
+			}
+		}
+		const BaseExpressionRef result =
+			entry.rule->try_apply(expr, evaluation);
+		if (result) {
+			return result;
+		}
+	}
+
+	return BaseExpressionRef();
 }
 
 #endif

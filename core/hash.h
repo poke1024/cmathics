@@ -37,5 +37,4 @@ extern const hash_t machine_real_hash;
 extern const hash_t string_hash;
 extern const hash_t rational_hash;
 
-
 #endif

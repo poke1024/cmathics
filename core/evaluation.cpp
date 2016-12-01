@@ -20,9 +20,6 @@ Evaluation::Evaluation(Definitions &new_definitions, bool new_catch_interrupts) 
     out = NULL;
 }
 
-void send_message(Evaluation* evaluation, Symbol* symbol, char* tag) {
-}
-
 BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
     // int64_t line_no;
 

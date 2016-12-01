@@ -55,41 +55,6 @@ Symbol::~Symbol() {
 	}
 }
 
-static struct {
-	bool operator()(const RuleRef &rule, const SortKey &key) const {
-		return rule->key.compare(key) < 0;
-	}
-} CompareSortKey;
-
-inline void insert_rule(std::vector<RuleRef> &rules, const RuleRef &rule) {
-	const SortKey key = rule->key;
-	const auto i = std::lower_bound(
-		rules.begin(), rules.end(), key, CompareSortKey);
-	if (i != rules.end() && (*i)->pattern->same(rule->pattern)) {
-		*i = rule;
-	} else {
-		rules.insert(i, rule);
-	}
-}
-
-void Symbol::add_down_rule(const RuleRef &rule) {
-	const MatchSize match_size = rule->match_size();
-	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
-		if (match_size.matches(SliceCode(code))) {
-			insert_rule(down_rules[code], rule);
-		}
-	}
-}
-
-void Symbol::add_sub_rule(const RuleRef &rule) {
-	const MatchSize match_size = rule->match_size();
-	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
-		if (match_size.matches(SliceCode(code))) {
-			insert_rule(sub_rules[code], rule);
-		}
-	}
-}
-
 BaseExpressionRef Symbol::replace_all(const Match &match) const {
 	if (match.id() == _match_id) {
 		return _match_value;

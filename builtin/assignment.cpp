@@ -19,12 +19,12 @@ void Builtin::Assignment::initialize() {
 
 	add("SetDelayed",
 		Attributes::HoldAll + Attributes::SequenceHold, {
-		builtin<2>(assign)
+			builtin<2>(assign)
 	});
 
 	add("Set",
 		Attributes::HoldFirst + Attributes::SequenceHold, {
-		builtin<2>(assign)
+			builtin<2>(assign)
 	});
 
 }

@@ -9,21 +9,21 @@ void Messages::add(
     const char *text,
     const Definitions &definitions) {
 
-    m_rules.push_back(std::make_shared<RewriteRule>(
-        expression(definitions.symbols().MessageName, name, Heap::String(tag)),
-        Heap::String(text)));
+    m_rules.add(
+		std::make_shared<RewriteRule>(
+			expression(definitions.symbols().MessageName, name, Heap::String(tag)),
+			Heap::String(text)));
 }
 
 StringRef Messages::lookup(
     const Expression *message,
     const Evaluation &evaluation) const {
 
-    // FIXME. this is not efficient.
-    for (const RuleRef &rule : m_rules) {
-        const BaseExpressionRef result = rule->try_apply(message, evaluation);
-        if (result && result->type() == StringType) {
-            return boost::static_pointer_cast<const String>(result);
-        }
+	const BaseExpressionRef result = m_rules(
+		message->slice_code(), message, evaluation);
+
+    if (result && result->type() == StringType) {
+        return boost::static_pointer_cast<const String>(result);
     }
 
     return StringRef();

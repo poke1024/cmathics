@@ -67,7 +67,7 @@ class Evaluate;
 
 class Messages {
 private:
-	std::vector<RuleRef> m_rules;
+	Rules m_rules;
 
 public:
 	void add(const SymbolRef &name, const char *tag, const char *text, const Definitions &definitions);
@@ -118,9 +118,9 @@ public:
 	}
 
 	BaseExpressionRef own_value;
-	RuleTable sub_rules;
-	RuleTable up_rules;
-	RuleTable down_rules;
+	Rules sub_rules;
+	Rules up_rules;
+	Rules down_rules;
 
 	void add_message(
 		const char *tag,
@@ -164,9 +164,13 @@ public:
 		return own_value;
 	}
 
-	void add_down_rule(const RuleRef &rule);
+	inline void add_down_rule(const RuleRef &rule) {
+		down_rules.add(rule);
+	}
 
-	void add_sub_rule(const RuleRef &rule);
+	void add_sub_rule(const RuleRef &rule) {
+		sub_rules.add(rule);
+	}
 
 	virtual bool match(const BaseExpression &expr) const {
 		return same(expr);

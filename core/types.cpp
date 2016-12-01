@@ -11,7 +11,7 @@ BaseExpressionRef exactly_n_pattern(
 	const auto &Blank = definitions.symbols().Blank;
 	return expression(head, [n, &Blank] (auto &storage) {
 		for (size_t i = 0; i < n; i++) {
-			storage << Blank;
+			storage << expression(Blank);
 		}
 	}, n);
 }
@@ -25,9 +25,9 @@ BaseExpressionRef at_least_n_pattern(
 
 	return expression(head, [n, &Blank, &BlankNullSequence] (auto &storage) {
 		for (size_t i = 0; i < n; i++) {
-			storage << Blank;
+			storage << expression(Blank);
 		}
-		storage << BlankNullSequence;
+		storage << expression(BlankNullSequence);
 	}, n + 1);
 }
 
@@ -39,7 +39,7 @@ BaseExpressionRef function_pattern(
 	const auto &BlankSequence = symbols.BlankSequence;
 	const auto &BlankNullSequence = symbols.BlankNullSequence;
 
-	return expression(expression(head, {BlankSequence}), {BlankNullSequence});
+	return expression(expression(head, expression(BlankSequence)), expression(BlankNullSequence));
 }
 
 MatchSize Rule::match_size() const {

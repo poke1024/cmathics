@@ -102,14 +102,6 @@ public:
 		return true;
 	}
 
-	virtual hash_t hash() const {
-		hash_t result = hash_combine(result, _head->hash());
-		for (auto leaf : _leaves.leaves()) {
-			result = hash_combine(result, leaf->hash());
-		}
-		return result;
-	}
-
 	virtual std::string fullform() const {
 		std::stringstream result;
 
@@ -140,13 +132,13 @@ public:
 		if (_head->type() == ExpressionType) {
 			auto head_head = boost::static_pointer_cast<const Expression>(_head)->_head.get();
 			if (head_head->type() == SymbolType) {
-				const Symbol *head_symbol = static_cast<const Symbol *>(head_head);
+				const Symbol * const head_symbol = static_cast<const Symbol *>(head_head);
 
-				for (const RuleRef &rule : head_symbol->sub_rules[Slice::code()]) {
-					auto child_result = rule->try_apply(this, evaluation);
-					if (child_result) {
-						return child_result;
-					}
+				const BaseExpressionRef sub_form =
+					head_symbol->sub_rules(Slice::code(), this, evaluation);
+
+				if (sub_form) {
+					return sub_form;
 				}
 			}
 		}
@@ -159,6 +151,46 @@ public:
 	virtual BaseExpressionRef clone() const;
 
 	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const;
+
+	virtual hash_t hash() const {
+		hash_t result = hash_combine(_leaves.size(), _head->hash());
+		for (const auto &leaf : _leaves.leaves()) {
+			result = hash_combine(result, leaf->hash());
+		}
+		return result;
+	}
+
+	virtual optional<hash_t> compute_match_hash() const {
+		switch (_head->extended_type()) {
+			case SymbolBlank:
+			case SymbolBlankSequence:
+			case SymbolBlankNullSequence:
+			case SymbolPattern:
+			case SymbolAlternatives:
+			case SymbolRepeated:
+				return optional<hash_t>();
+
+			default: {
+				// note that this must yield the same value as hash()
+				// defined above if this Expression is not a pattern.
+
+				const auto head_hash = _head->match_hash();
+				if (!head_hash) {
+					return optional<hash_t>();
+				}
+
+				hash_t result = hash_combine(_leaves.size(), *head_hash);
+				for (const auto &leaf : _leaves.leaves()) {
+					const auto leaf_hash = leaf->match_hash();
+					if (!leaf_hash) {
+						return optional<hash_t>();
+					}
+					result = hash_combine(result, *leaf_hash);
+				}
+				return result;
+			}
+		}
+	}
 
 	virtual MatchSize match_size() const {
 		switch (_head->extended_type()) {
@@ -432,6 +464,12 @@ inline ExpressionRef expression(
 				return Heap::Expression(head, DynamicSlice(leaves, type_mask));
 		}
 	}
+}
+
+inline ExpressionRef expression(
+	const BaseExpressionRef &head) {
+
+	return Heap::EmptyExpression(head);
 }
 
 inline ExpressionRef expression(

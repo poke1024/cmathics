@@ -223,7 +223,7 @@ BaseExpressionRef evaluate(
 
 	const Slice &slice = static_cast<const Slice&>(generic_slice);
 
-	const Symbol *head_symbol = static_cast<const Symbol*>(head.get());
+	const Symbol * const head_symbol = static_cast<const Symbol*>(head.get());
 
 	const eval_range eval_leaf(Hold::eval(slice));
 
@@ -261,10 +261,11 @@ BaseExpressionRef evaluate(
 	// Step 4
 	// Evaluate the head with leaves. (DownValue)
 
-	for (const RuleRef &rule : head_symbol->down_rules[Slice::code()]) {
-		const BaseExpressionRef result = rule->try_apply(safe_intermediate_form, evaluation);
-		if (result) {
-			return result;
+	{
+		const BaseExpressionRef down_form = head_symbol->down_rules(
+			Slice::code(), safe_intermediate_form, evaluation);
+		if (down_form) {
+			return down_form;
 		}
 	}
 
