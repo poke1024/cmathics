@@ -158,6 +158,7 @@ void mini_console() {
 int main() {
     Heap::init();
 	EvaluateDispatch::init();
+	InstantiateSymbolicForm::init();
 
     python::Context context;
 

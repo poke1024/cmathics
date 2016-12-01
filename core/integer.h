@@ -45,8 +45,9 @@ public:
     }
 
 protected:
-	virtual SymbolicForm instantiate_symbolic_form() const {
-		return SymEngine::integer(value);
+	virtual bool instantiate_symbolic_form() const {
+        set_symbolic_form(SymEngine::integer(value));
+        return true;
 	}
 };
 
@@ -82,8 +83,9 @@ public:
     }
 
 protected:
-	virtual SymbolicForm instantiate_symbolic_form() const {
-		return SymEngine::integer(value.get_mpz_t());
+	virtual bool instantiate_symbolic_form() const {
+		set_symbolic_form(SymEngine::integer(value.get_mpz_t()));
+        return true;
 	}
 };
 

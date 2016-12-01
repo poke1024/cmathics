@@ -56,8 +56,9 @@ public:
     };*/
 
 protected:
-    virtual SymbolicForm instantiate_symbolic_form() const {
-        return SymEngine::Rational::from_mpq(value.get_mpq_t());
+    virtual bool instantiate_symbolic_form() const {
+        set_symbolic_form(SymEngine::Rational::from_mpq(value.get_mpq_t()));
+        return true;
     }
 };
 

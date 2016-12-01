@@ -82,10 +82,11 @@ protected:
 	const Evaluate *_evaluate_with_head;
 
 protected:
-    virtual SymbolicForm instantiate_symbolic_form() const {
+    virtual bool instantiate_symbolic_form() const {
         switch (extended_type()) {
             case SymbolPi:
-                return SymEngine::pi;
+				set_symbolic_form(SymEngine::pi);
+				return true;
 
             default: {
                 // quite a hack currently. we store the pointer to our symbol to avoid having
@@ -94,7 +95,8 @@ protected:
                 const Symbol * const addr = this;
                 std::string name;
                 name.append(reinterpret_cast<const char*>(&addr), sizeof(addr) / sizeof(char));
-                return SymEngine::symbol(name);
+				set_symbolic_form(SymEngine::symbol(name));
+				return true;
             }
         }
     }

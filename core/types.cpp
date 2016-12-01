@@ -100,6 +100,56 @@ std::ostream &operator<<(std::ostream &s, const Match &m) {
     return s;
 }
 
+InstantiateSymbolicForm::Function InstantiateSymbolicForm::s_functions[256];
+
+void InstantiateSymbolicForm::add(ExtendedType type, const Function &f) {
+    s_functions[index(type)] = f;
+}
+
+void InstantiateSymbolicForm::init() {
+    std::memset(s_functions, 0, sizeof(s_functions));
+
+	add(SymbolPlus, [] (const Expression *expr) {
+		if (expr->size() == 2) {
+			return expr->symbolic_2(SymEngine::add);
+		} else {
+			return expr->symbolic_n(SymEngine::add);
+		}
+	});
+
+    add(SymbolTimes, [] (const Expression *expr) {
+        if (expr->size() == 2) {
+            return expr->symbolic_2(SymEngine::mul);
+        } else {
+            return expr->symbolic_n(SymEngine::mul);
+        }
+    });
+
+    add(SymbolPower, [] (const Expression *expr) {
+        if (expr->size() == 2) {
+            return expr->symbolic_2(SymEngine::pow);
+        } else {
+            return false;
+        }
+    });
+
+    add(SymbolCos, [] (const Expression *expr) {
+        if (expr->size() == 1) {
+            return expr->symbolic_1(SymEngine::cos);
+        } else {
+            return false;
+        }
+    });
+
+    add(SymbolSin, [] (const Expression *expr) {
+        if (expr->size() == 1) {
+            return expr->symbolic_1(SymEngine::sin);
+        } else {
+            return false;
+        }
+    });
+}
+
 BaseExpressionRef from_symbolic_expr(
 	const SymbolicForm &form,
 	const BaseExpressionRef &head,
@@ -117,15 +167,19 @@ BaseExpressionRef from_symbolic_expr(
 }
 
 BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation &evaluation) {
+    BaseExpressionRef expr;
+
 	switch (form->get_type_code()) {
 		case SymEngine::INTEGER: {
 			const mpz_class value(static_cast<const SymEngine::Integer*>(form.get())->i.get_mpz_t());
-			return from_primitive(value);
+			expr = from_primitive(value);
+            break;
 		}
 
 		case SymEngine::RATIONAL: {
 			const mpq_class value(static_cast<const SymEngine::Rational*>(form.get())->i.get_mpq_t());
-			return from_primitive(value);
+			expr = from_primitive(value);
+            break;
 		}
 
 		case SymEngine::SYMBOL: {
@@ -133,30 +187,36 @@ BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation 
 			const Symbol *addr;
 			assert(name.length() == sizeof(addr) / sizeof(char));
 			std::memcpy(&addr, name.data(), sizeof(addr));
-			return BaseExpressionRef(addr);
+			expr = BaseExpressionRef(addr);
+            break;
 		}
 
 		case SymEngine::ADD:
-			return from_symbolic_expr(form, evaluation.Plus, evaluation);
+			expr = from_symbolic_expr(form, evaluation.Plus, evaluation);
+            break;
 
 		case SymEngine::MUL:
-			return from_symbolic_expr(form, evaluation.Times, evaluation);
+			expr = from_symbolic_expr(form, evaluation.Times, evaluation);
+            break;
 
 		case SymEngine::POW:
-			return from_symbolic_expr(form, evaluation.Power, evaluation);
+			expr = from_symbolic_expr(form, evaluation.Power, evaluation);
+            break;
 
         case SymEngine::COS:
-            return from_symbolic_expr(form, evaluation.Cos, evaluation);
+            expr = from_symbolic_expr(form, evaluation.Cos, evaluation);
+            break;
 
         case SymEngine::SIN:
-            return from_symbolic_expr(form, evaluation.Sin, evaluation);
+            expr = from_symbolic_expr(form, evaluation.Sin, evaluation);
+            break;
 
 		case SymEngine::CONSTANT:
 			if (form->compare(*SymEngine::pi.get()) == 0) {
-				return evaluation.Pi;
+				expr = evaluation.Pi;
+                break;
 			}
 			// fallthrough
-
 
 		default: {
 			std::ostringstream s;
@@ -164,4 +224,7 @@ BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation 
 			throw std::runtime_error(s.str());
 		}
 	}
+
+    expr->set_symbolic_form(form);
+    return expr;
 }

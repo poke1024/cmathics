@@ -53,5 +53,5 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
 
     // TODO clear aborts
 
-    return coalesce(evaluated->simplify(*this), evaluated); // experimental
+    return evaluated;
 }

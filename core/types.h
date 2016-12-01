@@ -292,17 +292,26 @@ BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation 
 
 class BaseExpression {
 protected:
-	const ExtendedType _extended_type;
+    const ExtendedType _extended_type;
 
 protected:
     mutable size_t _ref_count;
-	mutable optional<SymbolicForm> _symbolic_form;
+    mutable optional<SymbolicForm> _symbolic_form;
 
-    virtual SymbolicForm instantiate_symbolic_form() const {
+    virtual bool instantiate_symbolic_form() const {
         throw std::runtime_error("instantiate_symbolic_form not implemented");
     }
 
 public:
+    template<typename T>
+    inline void set_symbolic_form(const SymEngine::RCP<const T> &form) const {
+       _symbolic_form = SymEngine::rcp_static_cast<const SymEngine::Basic>(form);
+    }
+
+    inline void set_no_symbolic_form() const {
+        _symbolic_form = SymbolicForm();
+    }
+
     inline BaseExpression(ExtendedType type) : _extended_type(type), _ref_count(0) {
     }
 
@@ -322,13 +331,23 @@ public:
 		return ((TypeMask)1) << type();
 	}
 
+	inline bool instantiated_symbolic_form() const {
+        // note that _symbolic_form, even though set, might be nullptr.
+        // this indicates that the instantiate_symbol_form was performed,
+        // but that there is no matching form in SymEngine for this expr
+        // (also see set_no_symbolic_form()).
+
+		return bool(_symbolic_form);
+	}
+
 	inline SymbolicForm symbolic_form() const {
-		if (_symbolic_form) {
-            return *_symbolic_form;
-        } else {
-			_symbolic_form = instantiate_symbolic_form();
-            return *_symbolic_form;
+		if (!_symbolic_form) {
+			if (!instantiate_symbolic_form()) {
+                set_no_symbolic_form();
+			}
 		}
+
+		return *_symbolic_form;
 	}
 
 	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
@@ -442,6 +461,39 @@ public:
 	}
 };
 
+typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineUnaryFunction)(
+	const SymEngine::RCP<const SymEngine::Basic>&);
+
+typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineBinaryFunction)(
+	const SymEngine::RCP<const SymEngine::Basic>&,
+	const SymEngine::RCP<const SymEngine::Basic>&);
+
+typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineNAryFunction)(
+	const SymEngine::vec_basic&);
+
+class InstantiateSymbolicForm {
+public:
+    typedef std::function<bool(const Expression *expr)> Function;
+
+private:
+    static Function s_functions[256];
+
+    static void add(ExtendedType type, const Function &f);
+
+    static inline constexpr uint8_t index(ExtendedType type) {
+        const size_t index = type & ((1LL << CoreTypeShift) - 1);
+        assert(index < 256);
+        return uint8_t(index);
+    }
+
+public:
+    static void init();
+
+    static inline const Function &lookup(ExtendedType type) {
+        return s_functions[index(type)];
+    }
+};
+
 class Expression : public BaseExpression, virtual public OperationsInterface {
 private:
 	mutable Cache *_cache;
@@ -464,10 +516,7 @@ public:
 	}
 
 	template<size_t N>
-	const BaseExpressionRef *static_leaves() const {
-		static_assert(N <= MaxStaticSliceSize, "N is too large");
-		return static_cast<const StaticSlice<N>*>(_slice_ptr)->refs();
-	}
+	inline const BaseExpressionRef *static_leaves() const;
 
 	inline SliceCode slice_code() const {
 		return SliceCode(extended_type_info(_extended_type));
@@ -533,7 +582,33 @@ public:
 	}
 
 	virtual optional<SymEngine::vec_basic> symbolic_operands() const = 0;
+
+    virtual bool instantiate_symbolic_form() const;
+
+	inline bool symbolic_1(const SymEngineUnaryFunction &f) const;
+
+	inline bool symbolic_2(const SymEngineBinaryFunction &f) const;
+
+	inline bool symbolic_n(const SymEngineNAryFunction &f) const {
+		const optional<SymEngine::vec_basic> operands = symbolic_operands();
+		if (operands) {
+			_symbolic_form = f(*operands);
+			return true;
+		} else {
+			return false;
+		}
+	}
 };
+
+inline bool instantiate_symbolic_form(const Expression *expr) {
+    const auto &f = InstantiateSymbolicForm::lookup(
+        expr->_head->extended_type());
+    if (f) {
+        return f(expr);
+    } else {
+        return false;
+    }
+}
 
 inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
 	s << boost::static_pointer_cast<const BaseExpression>(expr);

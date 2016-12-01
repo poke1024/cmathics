@@ -44,3 +44,7 @@ BaseExpressionRef Expression::evaluate_expression(
 			evaluation);
 	}
 }
+
+bool Expression::instantiate_symbolic_form() const {
+    return ::instantiate_symbolic_form(this);
+}

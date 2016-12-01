@@ -268,6 +268,21 @@ BaseExpressionRef evaluate(
 		}
 	}
 
+	// Simplify symbolic form, if possible. We guarantee that no vcall
+    // happens unless a symbolic resolution is really necessary.
+
+	if (!safe_intermediate_form->instantiated_symbolic_form()) {
+		// if this expression already has a symbolic form attached, then
+		// we already simplified it earlier and we must not recheck here;
+        // note that we end up in an infinite loop otherwise.
+
+		if (::instantiate_symbolic_form(safe_intermediate_form)) {
+            return from_symbolic_form(safe_intermediate_form->symbolic_form(), evaluation);
+        } else {
+            safe_intermediate_form->set_no_symbolic_form();
+        }
+	}
+
 	return intermediate_form;
 }
 

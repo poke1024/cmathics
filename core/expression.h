@@ -16,17 +16,6 @@
 #include <symengine/mul.h>
 #include <symengine/pow.h>
 
-
-typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineUnaryFunction)(
-    const SymEngine::RCP<const SymEngine::Basic>&);
-
-typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineBinaryFunction)(
-    const SymEngine::RCP<const SymEngine::Basic>&,
-    const SymEngine::RCP<const SymEngine::Basic>&);
-
-typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineNAryFunction)(
-    const SymEngine::vec_basic&);
-
 template<typename T>
 class AllOperationsImplementation :
     virtual public OperationsInterface,
@@ -338,17 +327,6 @@ public:
             evaluation);
 	}
 
-    virtual BaseExpressionRef simplify(const Evaluation &evaluation) const {
-        return do_symbolic(
-            [] (const SymbolicForm &form) {
-                return optional<SymbolicForm>(form);
-            },
-            [] (const BaseExpressionRef &leaf, const Evaluation &evaluation) {
-                return leaf->simplify(evaluation);
-            },
-            evaluation);
-    }
-
 	virtual optional<SymEngine::vec_basic> symbolic_operands() const {
 		SymEngine::vec_basic operands;
         operands.reserve(size());
@@ -361,18 +339,38 @@ public:
 		}
 		return operands;
 	}
-
-protected:
-    inline SymbolicForm symbolic_1(const SymEngineUnaryFunction &f) const;
-
-    inline SymbolicForm symbolic_2(const SymEngineBinaryFunction &f) const;
-
-    inline SymbolicForm symbolic_n(const SymEngineNAryFunction &f) const;
-
-    SymbolicForm instantiate_symbolic_form() const;
 };
 
 #include "leaves.tcc"
+
+template<size_t N>
+inline const BaseExpressionRef *Expression::static_leaves() const {
+    static_assert(N <= MaxStaticSliceSize, "N is too large");
+    return static_cast<const StaticSlice<N>*>(_slice_ptr)->refs();
+}
+
+inline bool Expression::symbolic_1(const SymEngineUnaryFunction &f) const {
+    const SymbolicForm symbolic_a = static_leaves<1>()[0]->symbolic_form();
+    if (!symbolic_a.is_null()) {
+        _symbolic_form = f(symbolic_a);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+inline bool Expression::symbolic_2(const SymEngineBinaryFunction &f) const {
+    const BaseExpressionRef * const leaves = static_leaves<2>();
+    const SymbolicForm symbolic_a = leaves[0]->symbolic_form();
+    if (!symbolic_a.is_null()) {
+        const SymbolicForm symbolic_b = leaves[1]->symbolic_form();
+        if (!symbolic_b.is_null()) {
+            _symbolic_form = f(symbolic_a, symbolic_b);
+            return true;
+        }
+    }
+    return false;
+}
 
 template<typename U>
 inline PackedExpressionRef<U> expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
@@ -543,79 +541,6 @@ const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(BaseExpres
 	auto expr = expression(_head, _leaves.unpack());
 	materialized = expr;
 	return expr->_leaves.refs();
-}
-
-template<typename Slice>
-inline SymbolicForm ExpressionImplementation<Slice>::symbolic_1(const SymEngineUnaryFunction &f) const {
-	SymbolicForm symbolic_a = _leaves[0]->symbolic_form();
-	if (!symbolic_a.is_null()) {
-		return f(symbolic_a);
-	}
-	return SymbolicForm();
-}
-
-template<typename Slice>
-inline SymbolicForm ExpressionImplementation<Slice>::symbolic_2(const SymEngineBinaryFunction &f) const {
-	SymbolicForm symbolic_a = _leaves[0]->symbolic_form();
-	if (!symbolic_a.is_null()) {
-		SymbolicForm symbolic_b = _leaves[1]->symbolic_form();
-		if (!symbolic_b.is_null()) {
-			return f(symbolic_a, symbolic_b);
-		}
-	}
-	return SymbolicForm();
-}
-
-template<typename Slice>
-inline SymbolicForm ExpressionImplementation<Slice>::symbolic_n(const SymEngineNAryFunction &f) const {
-	const optional<SymEngine::vec_basic> operands = symbolic_operands();
-	if (operands) {
-		return f(*operands);
-	} else {
-		return SymbolicForm();
-	}
-}
-
-template<typename Slice>
-SymbolicForm ExpressionImplementation<Slice>::instantiate_symbolic_form() const {
-	switch (_head->extended_type()) {
-		case SymbolPlus:
-			if (size() == 2) {
-				return symbolic_2(SymEngine::add);
-			} else {
-				return symbolic_n(SymEngine::add);
-			}
-
-		case SymbolTimes:
-			if (size() == 2) {
-				return symbolic_2(SymEngine::mul);
-			} else {
-				return symbolic_n(SymEngine::mul);
-			}
-
-		case SymbolPower:
-			if (size() == 2) {
-				return symbolic_2(SymEngine::pow);
-			}
-			break;
-
-		case SymbolCos:
-			if (size() == 1) {
-				return symbolic_1(SymEngine::cos);
-			}
-			break;
-
-		case SymbolSin:
-			if (size() == 1) {
-				return symbolic_1(SymEngine::sin);
-			}
-			break;
-
-		default:
-			break;
-	}
-
-	return SymbolicForm();
 }
 
 #endif
