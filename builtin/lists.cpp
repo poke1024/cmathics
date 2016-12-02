@@ -18,7 +18,7 @@ public:
         if (x->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
-            const Expression *expr = static_cast<const Expression*>(x.get());
+            const Expression *expr = x->as_expression();
             if (expr->size() < 1) {
                 evaluation.message(m_symbol, "nofirst", x);
             } else {
@@ -46,7 +46,7 @@ public:
         if (x->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
-            const Expression *expr = static_cast<const Expression*>(x.get());
+            const Expression *expr = x->as_expression();
             const size_t size = expr->size();
             if (size < 1) {
                 evaluation.message(m_symbol, "nolast", x);
@@ -75,7 +75,7 @@ public:
         if (x->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
-            const Expression *expr = static_cast<const Expression*>(x.get());
+            const Expression *expr = x->as_expression();
             if (expr->size() < 1) {
                 evaluation.message(m_symbol, "nomost", expr);
             } else {
@@ -103,7 +103,7 @@ public:
         if (x->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
-            const Expression *expr = static_cast<const Expression*>(x.get());
+            const Expression *expr = x->as_expression();
             if (expr->size() < 1) {
                 evaluation.message(m_symbol, "norest", expr);
             } else {
@@ -133,8 +133,7 @@ public:
         if (list->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
-            return static_cast<const Expression*>(
-			    list.get())->select(cond, evaluation);
+            return list->as_expression()->select(cond, evaluation);
         }
         return BaseExpressionRef();
     }
@@ -313,7 +312,7 @@ public:
 
 inline const Expression *if_list(const BaseExpressionRef &item) {
     if (item->type() == ExpressionType) {
-        const Expression *expr = static_cast<const Expression*>(item.get());
+        const Expression *expr =item->as_expression();
         if (expr->head()->extended_type() == SymbolList) {
             return expr;
         }
@@ -472,8 +471,7 @@ void Builtins::Lists::initialize() {
         Attributes::None, {
             builtin<1>([](const BaseExpressionRef &x, const Evaluation &evaluation) {
                 if (x->type() == ExpressionType) {
-                    return evaluation.Boolean(
-                        static_cast<const Expression*>(x.get())->_head == evaluation.List);
+                    return evaluation.Boolean(x->as_expression()->_head == evaluation.List);
                 } else {
                     return evaluation.False;
                 }
@@ -484,8 +482,7 @@ void Builtins::Lists::initialize() {
         Attributes::None, {
             builtin<1>([](const BaseExpressionRef &x, const Evaluation &evaluation) {
                 if (x->type() == ExpressionType) {
-                    return evaluation.Boolean(
-                        static_cast<const Expression*>(x.get())->_head != evaluation.List);
+                    return evaluation.Boolean(x->as_expression()->_head != evaluation.List);
                 } else {
                     return evaluation.True;
                 }
@@ -499,7 +496,7 @@ void Builtins::Lists::initialize() {
                      if (x->type() != ExpressionType) {
                         return from_primitive(machine_integer_t(0));
                      } else {
-                         const Expression *list = static_cast<const Expression *>(x.get());
+                         const Expression *list = x->as_expression();
                          return from_primitive(machine_integer_t(list->size()));
                      }
                  }
@@ -532,7 +529,7 @@ void Builtins::Lists::initialize() {
 				    if (expr->type() != ExpressionType) {
 					    return BaseExpressionRef();
 				    }
-				    const Expression *list = static_cast<const Expression*>(expr.get());
+				    const Expression *list = expr->as_expression();
 				    return list->map(f, evaluation);
 			    }
 		    )

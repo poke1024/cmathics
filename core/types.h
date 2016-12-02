@@ -290,6 +290,7 @@ class SortKey;
 typedef SymEngine::RCP<const SymEngine::Basic> SymbolicForm;
 
 class BaseExpression;
+class Expression;
 
 BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation &evaluation);
 
@@ -450,6 +451,8 @@ public:
     inline bool is_true() const {
         return extended_type() == SymbolTrue;
     }
+
+	inline const Expression *as_expression() const;
 
 	virtual SortKey sort_key() const;
 	virtual SortKey pattern_key() const;
@@ -735,5 +738,9 @@ inline auto with_leaves_pair(const Expression *a, const Expression *b, const F &
 		}
 	}
 };
+
+inline const Expression *BaseExpression::as_expression() const {
+	return static_cast<const Expression*>(this);
+}
 
 #endif
