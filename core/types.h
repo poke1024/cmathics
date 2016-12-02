@@ -349,11 +349,13 @@ public:
 		}
 	}
 
-	inline bool instantiated_symbolic_form() const {
-        // note that _symbolic_form, even though set, might be a nullptr.
-        // this indicates that the instantiate_symbol_form was performed,
-        // but that there is no matching form in SymEngine for this expr
-        // (also see set_no_symbolic_form()).
+	inline bool is_symengine_simplified() const {
+		// this returns true if this expression has already been converted
+		// into and then rebuilt from the SymEngine representation.
+
+		// it also returns true if no SymEngine represenation was found in
+		// that process (i.e. _symbolic_form is set, but to nullptr). this
+		// just means that is can not be simplified any more.
 
 		return bool(_symbolic_form);
 	}
@@ -379,10 +381,6 @@ public:
 	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
 		return BaseExpressionRef();
 	}
-
-    virtual BaseExpressionRef simplify(const Evaluation &evaluation) const {
-        return BaseExpressionRef();
-    }
 
 	inline bool same(const BaseExpressionRef &expr) const {
         return same(*expr);
@@ -651,15 +649,22 @@ inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
 	return s;
 }
 
-inline BaseExpressionRef Rules::operator()(
-	SliceCode code,
+template<bool CheckMatchSize>
+inline BaseExpressionRef Rules::do_try_and_apply(
+	const std::vector<Entry> &entries,
 	const Expression *expr,
 	const Evaluation &evaluation) const {
 
 	hash_t match_hash;
 	bool match_hash_valid = false;
 
-	for (const Entry &entry : m_rules[code]) {
+	const size_t size = CheckMatchSize ? expr->size() : 0;
+
+	for (const Entry &entry : entries) {
+		if (CheckMatchSize && !entry.match_size.contains(size)) {
+			continue;
+		}
+
 		if (entry.match_hash) {
 			if (!match_hash_valid) {
 				match_hash = expr->hash();
@@ -669,6 +674,7 @@ inline BaseExpressionRef Rules::operator()(
 				continue;
 			}
 		}
+
 		const BaseExpressionRef result =
 			entry.rule->try_apply(expr, evaluation);
 		if (result) {

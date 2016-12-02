@@ -254,16 +254,18 @@ BaseExpressionRef evaluate(
 			intermediate_form.get() :
             self;
 
-	// Step 3
-	// Apply UpValues for leaves
-	// TODO
+	const SymbolRules *rules = head_symbol->rules();
 
-	// Step 4
-	// Evaluate the head with leaves. (DownValue)
+	if (rules) {
+		// Step 3
+		// Apply UpValues for leaves
+		// TODO
 
-	{
-		const BaseExpressionRef down_form = head_symbol->down_rules(
-			Slice::code(), safe_intermediate_form, evaluation);
+		// Step 4
+		// Evaluate the head with leaves. (DownValue)
+
+		const BaseExpressionRef down_form = rules->down_rules.try_and_apply<Slice>(
+				safe_intermediate_form, evaluation);
 		if (down_form) {
 			return down_form;
 		}
@@ -272,7 +274,7 @@ BaseExpressionRef evaluate(
 	// Simplify symbolic form, if possible. We guarantee that no vcall
     // happens unless a symbolic resolution is really necessary.
 
-	if (!safe_intermediate_form->instantiated_symbolic_form()) {
+	if (!safe_intermediate_form->is_symengine_simplified()) {
 		// if this expression already has a symbolic form attached, then
 		// we already simplified it earlier and we must not recheck here;
         // note that we end up in an infinite loop otherwise.

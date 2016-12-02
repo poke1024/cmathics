@@ -19,7 +19,7 @@ StringRef Messages::lookup(
     const Expression *message,
     const Evaluation &evaluation) const {
 
-	const BaseExpressionRef result = m_rules(
+	const BaseExpressionRef result = m_rules.try_and_apply(
 		message->slice_code(), message, evaluation);
 
     if (result && result->type() == StringType) {
@@ -34,18 +34,20 @@ void Symbol::add_message(
     const char *text,
     const Definitions &definitions) {
 
-    if (!_messages) {
-        _messages = std::make_shared<Messages>();
+	SymbolRules *rules = create_rules();
+    if (!rules->messages) {
+	    rules->messages = std::make_shared<Messages>();
     }
-    _messages->add(SymbolRef(this), tag, text, definitions);
+	rules->messages->add(SymbolRef(this), tag, text, definitions);
 }
 
 StringRef Symbol::lookup_message(
     const Expression *message,
     const Evaluation &evaluation) const {
 
-    if (_messages) {
-        return _messages->lookup(message, evaluation);
+	const SymbolRulesRef &rules = _rules;
+    if (rules && rules->messages) {
+        return rules->messages->lookup(message, evaluation);
     } else {
         return StringRef();
     }

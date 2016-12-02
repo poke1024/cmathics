@@ -69,19 +69,47 @@ class Rules {
 public:
 	struct Entry {
 		RuleRef rule;
+		MatchSize match_size;
 		optional<hash_t> match_hash;
 	};
 
 private:
 	std::vector<Entry> m_rules[NumberOfSliceCodes];
 
+	template<bool CheckMatchSize>
+	inline BaseExpressionRef do_try_and_apply(
+		const std::vector<Entry> &entries,
+		const Expression *expr,
+		const Evaluation &evaluation) const;
+
 public:
 	void add(const RuleRef &rule);
 
-	inline BaseExpressionRef operator()(
-		SliceCode code,
+	inline BaseExpressionRef try_and_apply(
+		const SliceCode slice_code,
 		const Expression *expr,
-		const Evaluation &evaluation) const;
+		const Evaluation &evaluation) const {
+
+		if (is_static_slice(slice_code)) {
+			return do_try_and_apply<false>(m_rules[slice_code], expr, evaluation);
+		} else {
+			return do_try_and_apply<true>(m_rules[slice_code], expr, evaluation);
+		}
+	}
+
+	template<typename Slice>
+	inline BaseExpressionRef try_and_apply(
+		const Expression *expr,
+		const Evaluation &evaluation) const {
+
+		constexpr SliceCode slice_code = Slice::code();
+
+		if (is_static_slice(slice_code)) {
+			return do_try_and_apply<false>(m_rules[slice_code], expr, evaluation);
+		} else {
+			return do_try_and_apply<true>(m_rules[slice_code], expr, evaluation);
+		}
+	}
 };
 
 #endif //CMATHICS_RULE_H

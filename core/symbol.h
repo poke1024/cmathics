@@ -77,6 +77,22 @@ public:
 
 typedef std::shared_ptr<Messages> MessagesRef;
 
+struct SymbolRules {
+	Rules sub_rules;
+	Rules up_rules;
+	Rules down_rules;
+	MessagesRef messages;
+
+	/*
+	Expression* n_values;
+	Expression* format_values;
+	Expression* default_values;
+	Expression* options;
+	*/
+};
+
+typedef std::shared_ptr<SymbolRules> SymbolRulesRef;
+
 class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
@@ -93,7 +109,14 @@ protected:
 	Attributes _attributes;
 	const Evaluate *_evaluate_with_head;
 
-	MessagesRef _messages;
+	SymbolRulesRef _rules;
+
+	inline SymbolRules *create_rules() {
+		if (!_rules) {
+			_rules = std::make_shared<SymbolRules>();
+		}
+		return _rules.get();
+	}
 
 protected:
     virtual bool instantiate_symbolic_form() const;
@@ -103,33 +126,11 @@ public:
 
 	~Symbol();
 
-	/*Expression* own_values;
-	Expression* sub_values;
-	Expression* up_values;
-	Expression* down_values;
-	Expression* n_values;
-	Expression* format_values;
-	Expression* default_values;
-	Expression* messages;
-	Expression* options;*/
-
 	inline const Evaluate &evaluate_with_head() const {
 		return *_evaluate_with_head;
 	}
 
 	BaseExpressionRef own_value;
-	Rules sub_rules;
-	Rules up_rules;
-	Rules down_rules;
-
-	void add_message(
-		const char *tag,
-		const char *text,
-		const Definitions &definitions);
-
-	StringRef lookup_message(
-		const Expression *message,
-		const Evaluation &evaluation) const;
 
 	virtual bool same(const BaseExpression &expr) const {
 		// compare as pointers: Symbol instances are unique
@@ -138,6 +139,10 @@ public:
 
 	virtual hash_t hash() const {
 		return hash_pair(symbol_hash, (std::uintptr_t)this);
+	}
+
+	inline SymbolRules *rules() const {
+		return _rules.get();
 	}
 
 	virtual std::string fullform() const {
@@ -165,12 +170,21 @@ public:
 	}
 
 	inline void add_down_rule(const RuleRef &rule) {
-		down_rules.add(rule);
+		create_rules()->down_rules.add(rule);
 	}
 
-	void add_sub_rule(const RuleRef &rule) {
-		sub_rules.add(rule);
+	inline void add_sub_rule(const RuleRef &rule) {
+		create_rules()->sub_rules.add(rule);
 	}
+
+	void add_message(
+		const char *tag,
+		const char *text,
+		const Definitions &definitions);
+
+	StringRef lookup_message(
+		const Expression *message,
+		const Evaluation &evaluation) const;
 
 	virtual bool match(const BaseExpression &expr) const {
 		return same(expr);

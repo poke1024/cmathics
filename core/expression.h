@@ -130,15 +130,21 @@ public:
 		// Step 4
 		// Apply SubValues
 		if (_head->type() == ExpressionType) {
-			auto head_head = boost::static_pointer_cast<const Expression>(_head)->_head.get();
+			const BaseExpression * const head_head =
+				static_cast<const Expression*>(_head.get())->_head.get();
+
 			if (head_head->type() == SymbolType) {
 				const Symbol * const head_symbol = static_cast<const Symbol *>(head_head);
 
-				const BaseExpressionRef sub_form =
-					head_symbol->sub_rules(Slice::code(), this, evaluation);
+				const SymbolRules * const rules = head_symbol->rules();
 
-				if (sub_form) {
-					return sub_form;
+				if (rules) {
+					const BaseExpressionRef sub_form =
+						rules->sub_rules.try_and_apply<Slice>(this, evaluation);
+
+					if (sub_form) {
+						return sub_form;
+					}
 				}
 			}
 		}
