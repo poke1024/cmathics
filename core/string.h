@@ -31,6 +31,10 @@ public:
         return value;
     }
 
+    inline std::string str() const {
+        return value;
+    }
+
     inline const char *c_str() const {
         return value.c_str();
     }

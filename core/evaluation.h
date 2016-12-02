@@ -31,6 +31,39 @@ typedef enum {
 
 class Definitions;
 
+inline std::string message_placeholder(size_t index) {
+    std::ostringstream s;
+    s << "`";
+    s << index;
+    s << "`";
+    return s.str();
+}
+
+inline std::string message_text(
+    std::string &&text,
+    size_t index) {
+
+    return text;
+}
+
+template<typename... Args>
+std::string message_text(
+    std::string &&text,
+    size_t index,
+    const BaseExpressionRef &arg,
+    Args... args) {
+
+    std::string new_text(text);
+    const std::string placeholder(message_placeholder(index));
+
+    const auto pos = new_text.find(placeholder);
+    if (pos != std::string::npos) {
+        new_text = new_text.replace(pos, placeholder.length(), arg->fullform());
+    }
+
+    return message_text(std::move(new_text), index + 1, args...);
+}
+
 class Evaluation : public Symbols {
 public:
     Definitions &definitions;
@@ -46,9 +79,8 @@ public:
 
     BaseExpressionRef evaluate(BaseExpressionRef expression);
 
-    void message(const SymbolRef &name, const char *tag) const;
-    void message(const SymbolRef &name, const char *tag, const BaseExpressionRef &arg1) const;
-    void message(const SymbolRef &name, const char *tag, const BaseExpressionRef &arg1, const BaseExpressionRef &arg2) const;
+    template<typename... Args>
+    void message(const SymbolRef &name, const char *tag, Args... args) const;
 };
 
 #endif

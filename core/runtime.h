@@ -115,8 +115,14 @@ protected:
 		m_symbol->add_rule(rule(m_symbol, m_definitions));
 	}
 
+    inline void message(const char *tag, const char *text) {
+        m_symbol->add_message(tag, text, m_definitions);
+    }
+
 public:
-	Builtin(Runtime &runtime, const SymbolRef &symbol, Definitions &definitions) :
+    static constexpr auto attributes = Attributes::None;
+
+    Builtin(Runtime &runtime, const SymbolRef &symbol, Definitions &definitions) :
 		m_runtime(runtime), m_symbol(symbol), m_definitions(definitions) {
 	}
 };

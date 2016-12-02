@@ -5,13 +5,13 @@ class First : public Builtin {
 public:
     static constexpr auto name = "First";
 
-    static constexpr auto attributes = Attributes::None;
-
 public:
     using Builtin::Builtin;
 
     void init() {
-        builtin<First>(&First::apply);
+        builtin(&First::apply);
+
+        message("nofirst", "There is no first element in `1`.");
     }
 
     BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
@@ -21,7 +21,8 @@ public:
         }
         const Expression *expr = static_cast<const Expression*>(x.get());
         if (expr->size() < 1) {
-            throw std::runtime_error("Expression is empty");
+            evaluation.message(m_symbol, "nofirst", x);
+            return BaseExpressionRef();
         }
         return expr->leaf(0);
     }
@@ -31,15 +32,13 @@ class Range : public Builtin {
 public:
 	static constexpr auto name = "Range";
 
-	static constexpr auto attributes = Attributes::None;
-
 public:
 	using Builtin::Builtin;
 
 	void init() {
 		rewrite("Range[imax_]", "Range[1, imax, 1]");
 		rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]");
-		builtin<Range>(&Range::apply);
+		builtin(&Range::apply);
 	}
 
 protected:
@@ -265,13 +264,11 @@ class Table : public IterationFunction {
 public:
     static constexpr auto name = "Table";
 
-    static constexpr auto attributes = Attributes::None;
-
 public:
     using IterationFunction::IterationFunction;
 
     void init() {
-        builtin<Table>(&Table::apply);
+        builtin(&Table::apply);
     }
 
     BaseExpressionRef apply(

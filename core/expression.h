@@ -597,4 +597,28 @@ const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(BaseExpres
 	return expr->_leaves.refs();
 }
 
+template<typename... Args>
+void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) const {
+	const auto &symbols = definitions.symbols();
+
+	const ExpressionRef message = expression(
+		symbols.MessageName, name, Heap::String(tag));
+	StringRef text_template = name->lookup_message(message.get(), *this);
+
+	if (!text_template) {
+		const ExpressionRef general_message = expression(
+			symbols.MessageName, symbols.General, Heap::String(tag));
+
+		text_template = symbols.General->lookup_message(general_message.get(), *this);
+	}
+
+	if (text_template) {
+		std::string text(text_template->str());
+		std::string full_text = message_text(std::move(text), 1, args...);
+		std::cout <<
+			name->short_name() << "::" << tag << ": " <<
+		   full_text.c_str() << std::endl;
+	}
+}
+
 #endif
