@@ -257,10 +257,6 @@ public:
 
 	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const;
 
-	/*virtual SliceCode slice_code() const {
-		return Slice::code();
-	}*/
-
 	virtual const Symbol *lookup_name() const {
 		return _head->lookup_name();
 	}
@@ -463,9 +459,6 @@ inline ExpressionRef expression(
 			case MakeTypeMask(MachineRealType):
 				return expression(head, PackedSlice<machine_real_t>(
 					collect<MachineReal, machine_real_t>(leaves)));
-			case MakeTypeMask(StringType):
-				return expression(head, PackedSlice<std::string>(
-					collect<String, std::string>(leaves)));
 			default:
 				return Heap::Expression(head, DynamicSlice(leaves, type_mask));
 		}

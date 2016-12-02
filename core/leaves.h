@@ -209,36 +209,21 @@ public:
 };
 
 template<typename U>
-struct PackedSliceCode {
+struct PackedSliceInfo {
 };
 
 template<>
-struct PackedSliceCode<machine_integer_t> {
-	static const SliceCode code = PackedSliceMachineIntegerCode;
+struct PackedSliceInfo<machine_integer_t> {
+	static constexpr SliceCode code = PackedSliceMachineIntegerCode;
 };
 
 template<>
-struct PackedSliceCode<machine_real_t> {
-	static const SliceCode code = PackedSliceMachineRealCode;
-};
-
-template<>
-struct PackedSliceCode<mpz_class> {
-	static const SliceCode code = PackedSliceBigIntegerCode;
-};
-
-template<>
-struct PackedSliceCode<mpq_class> {
-	static const SliceCode code = PackedSliceRationalCode;
-};
-
-template<>
-struct PackedSliceCode<std::string> {
-	static const SliceCode code = PackedSliceStringCode;
+struct PackedSliceInfo<machine_real_t> {
+	static constexpr SliceCode code = PackedSliceMachineRealCode;
 };
 
 template<typename U>
-class PackedSlice : public TypedSlice<PackedSliceCode<U>::code> {
+class PackedSlice : public TypedSlice<PackedSliceInfo<U>::code> {
 private:
 	typename PackExtent<U>::Ref _extent;
 	const U * const _begin;
@@ -249,7 +234,7 @@ public:
 
 	using LeafCollection = PointerCollection<U, PrimitiveToBaseExpression<U>>;
 
-	using BaseSlice = TypedSlice<PackedSliceCode<U>::code>;
+	using BaseSlice = TypedSlice<PackedSliceInfo<U>::code>;
 
 public:
 	inline size_t size() const {
@@ -588,6 +573,5 @@ inline DynamicSlice PackedSlice<U>::unpack() const {
 	}
 	return DynamicSlice(std::move(leaves), type_mask());
 }
-
 
 #endif //CMATHICS_LEAVES_H

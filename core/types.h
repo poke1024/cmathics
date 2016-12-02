@@ -10,8 +10,6 @@
 #include <experimental/optional>
 #include <symengine/basic.h>
 
-#include "hash.h"
-
 using std::experimental::optional;
 
 class BaseExpression;
@@ -107,6 +105,8 @@ const char *type_name(Type type);
 typedef int64_t machine_integer_t;
 typedef double machine_real_t;
 
+#include "hash.h"
+
 constexpr int MaxStaticSliceSize = 4;
 static_assert(MaxStaticSliceSize >= 4, "must be >= 4");
 
@@ -125,16 +125,13 @@ enum SliceCode : uint8_t {
 
 	PackedSliceMachineIntegerCode = DynamicSliceCode + 1,
 	PackedSliceMachineRealCode = DynamicSliceCode + 2,
-	PackedSliceBigIntegerCode = DynamicSliceCode + 3,
-	PackedSliceRationalCode = DynamicSliceCode + 4,
-	PackedSliceStringCode = DynamicSliceCode + 5,
 
-	NumberOfSliceCodes = PackedSliceStringCode + 1,
+	NumberOfSliceCodes = PackedSliceMachineRealCode + 1,
 	Unknown = 255
 };
 
 constexpr inline bool is_packed_slice(SliceCode id) {
-	return id >= PackedSliceMachineIntegerCode && id <= PackedSliceStringCode;
+	return id >= PackedSliceMachineIntegerCode && id <= PackedSliceMachineRealCode;
 }
 
 constexpr inline bool is_static_slice(SliceCode code) {

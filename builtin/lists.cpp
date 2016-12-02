@@ -5,13 +5,13 @@ template<typename F>
 BaseExpressionRef compute(TypeMask mask, const F &f) {
 	// expression contains a Real
 	if (mask & MakeTypeMask(MachineRealType)) {
-		return f.template compute<double>();
+		return f.template compute_packed<machine_real_t>();
 	}
 
 	constexpr TypeMask machine_int_mask = MakeTypeMask(MachineIntegerType);
 	// expression is all MachineIntegers
 	if ((mask & machine_int_mask) == mask) {
-		return f.template compute<int64_t>();
+		return f.template compute_packed<machine_integer_t>();
 	}
 
 	constexpr TypeMask int_mask = MakeTypeMask(BigIntegerType) | MakeTypeMask(MachineIntegerType);
@@ -45,7 +45,7 @@ public:
 	}
 
 	template<typename T>
-	BaseExpressionRef compute() const {
+	BaseExpressionRef compute_packed() const {
 		const T imin = to_primitive<T>(_imin);
 		const T imax = to_primitive<T>(_imax);
 		const T di = to_primitive<T>(_di);
@@ -56,6 +56,20 @@ public:
 		}
 
 		return expression(_evaluation.List, PackedSlice<T>(std::move(leaves)));
+	}
+
+	template<typename T>
+	BaseExpressionRef compute() const {
+		const T imin = to_primitive<T>(_imin);
+		const T imax = to_primitive<T>(_imax);
+		const T di = to_primitive<T>(_di);
+
+		std::vector<BaseExpressionRef> leaves;
+		for (T x = imin; x <= imax; x += di) {
+			leaves.push_back(from_primitive(x));
+		}
+
+		return expression(_evaluation.List, std::move(leaves));
 	}
 };
 

@@ -316,15 +316,12 @@ public:
 
 	template<typename Hold>
 	void initialize() {
-		static_assert(1 + PackedSliceStringCode - StaticSlice0Code == NumberOfSliceCodes, "slice code ids error");
+		static_assert(1 + PackedSliceMachineRealCode - StaticSlice0Code == NumberOfSliceCodes, "slice code ids error");
 
 		_vtable[DynamicSliceCode] = ::evaluate<DynamicSlice, Hold>;
 
 		_vtable[PackedSliceMachineIntegerCode] = ::evaluate<PackedSlice<machine_integer_t>, Hold>;
 		_vtable[PackedSliceMachineRealCode] = ::evaluate<PackedSlice<machine_real_t>, Hold>;
-		_vtable[PackedSliceBigIntegerCode] = ::evaluate<PackedSlice<mpz_class>, Hold>;
-		_vtable[PackedSliceRationalCode] = ::evaluate<PackedSlice<mpq_class>, Hold>;
-		_vtable[PackedSliceStringCode] = ::evaluate<PackedSlice<std::string>, Hold>;
 
 		initialize_static_slice<Hold, MaxStaticSliceSize>();
 	}

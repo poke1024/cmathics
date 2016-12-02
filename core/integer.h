@@ -33,7 +33,7 @@ public:
     }
 
     virtual hash_t hash() const {
-        return hash_pair(machine_integer_hash, value);
+	    return hash_pair(machine_integer_hash, value);
     }
 
     virtual std::string fullform() const {

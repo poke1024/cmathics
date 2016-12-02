@@ -91,7 +91,7 @@ struct SymbolRules {
 	*/
 };
 
-typedef std::shared_ptr<SymbolRules> SymbolRulesRef;
+typedef std::unique_ptr<SymbolRules> SymbolRulesRef;
 
 class Symbol : public BaseExpression {
 protected:
@@ -113,7 +113,7 @@ protected:
 
 	inline SymbolRules *create_rules() {
 		if (!_rules) {
-			_rules = std::make_shared<SymbolRules>();
+			_rules = std::make_unique<SymbolRules>();
 		}
 		return _rules.get();
 	}
