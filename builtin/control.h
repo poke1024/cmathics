@@ -3,7 +3,7 @@
 
 #include "../core/runtime.h"
 
-namespace Builtin {
+namespace Builtins {
 
 	class Control : public Unit {
 	public:
@@ -13,6 +13,6 @@ namespace Builtin {
 		void initialize();
 	};
 
-} // end namespace Builtin
+} // end namespace Builtins
 
 #endif //CMATHICS_CONTROL_H

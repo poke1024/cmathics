@@ -1,6 +1,6 @@
 #include "control.h"
 
-void Builtin::Control::initialize() {
+void Builtins::Control::initialize() {
 
 	add("If", Attributes::HoldRest, {
 		builtin<2>([](

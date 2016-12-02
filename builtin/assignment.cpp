@@ -15,7 +15,7 @@ inline BaseExpressionRef assign(
 	return rhs; // or evaluation.Null?
 }
 
-void Builtin::Assignment::initialize() {
+void Builtins::Assignment::initialize() {
 
 	add("SetDelayed",
 		Attributes::HoldAll + Attributes::SequenceHold, {

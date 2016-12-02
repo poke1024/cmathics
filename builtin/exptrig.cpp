@@ -3,7 +3,7 @@
 #include "control.h"
 
 template<typename F>
-void Builtin::ExpTrig::add_unary(
+void Builtins::ExpTrig::add_unary(
     const char *name,
     const F& f) {
 
@@ -24,7 +24,7 @@ void Builtin::ExpTrig::add_unary(
 
 }
 
-void Builtin::ExpTrig::initialize() {
+void Builtins::ExpTrig::initialize() {
 
     add_unary("Sin", [] (machine_real_t x) {
         return std::sin(x); });

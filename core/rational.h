@@ -56,6 +56,10 @@ public:
         return from_primitive(value.get_den());
     };*/
 
+    virtual double round_to_float() const {
+        return value.get_d();
+    }
+
 protected:
     virtual bool instantiate_symbolic_form() const {
         set_symbolic_form(SymEngine::Rational::from_mpq(value.get_mpq_t()));

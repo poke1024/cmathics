@@ -100,7 +100,7 @@ public:
 	}
 };
 
-void Builtin::Functional::initialize() {
+void Builtins::Functional::initialize() {
 
 	add("Function",
 		Attributes::HoldAll, {

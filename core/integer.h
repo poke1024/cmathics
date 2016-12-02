@@ -44,6 +44,10 @@ public:
         return same(expr);
     }
 
+    virtual double round_to_float() const {
+        return value;
+    }
+
 protected:
 	virtual bool instantiate_symbolic_form() const {
         set_symbolic_form(SymEngine::integer(value));
@@ -80,6 +84,10 @@ public:
 
     virtual std::string fullform() const {
         return value.get_str();
+    }
+
+    virtual double round_to_float() const {
+        return value.get_d();
     }
 
 protected:

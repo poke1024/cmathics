@@ -3,7 +3,7 @@
 
 #include "../core/runtime.h"
 
-namespace Builtin {
+namespace Builtins {
 
     class ExpTrig : public Unit {
     private:
@@ -19,6 +19,6 @@ namespace Builtin {
         void initialize();
     };
 
-} // end namespace Builtin
+} // end namespace Builtins
 
 #endif //CMATHICS_EXPTRIG_H

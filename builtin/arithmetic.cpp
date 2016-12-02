@@ -725,7 +725,7 @@ constexpr auto LessEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<less_equa
 constexpr auto Greater = NewRule<BinaryOperatorRule<BinaryArithmetic<greater>>>;
 constexpr auto GreaterEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<greater_equal>>>;
 
-void Builtin::Arithmetic::initialize() {
+void Builtins::Arithmetic::initialize() {
 
 	add("Plus",
 	    Attributes::None, {

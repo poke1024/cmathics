@@ -3,7 +3,7 @@
 
 #include "../core/runtime.h"
 
-namespace Builtin {
+namespace Builtins {
 
 class Arithmetic : public Unit {
 public:
@@ -13,6 +13,6 @@ public:
 	void initialize();
 };
 
-} // end namespace Builtin
+} // end namespace Builtins
 
 #endif //CMATHICS_ARITHMETIC_H

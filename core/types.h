@@ -437,6 +437,10 @@ public:
 		throw std::runtime_error(std::string("cannot create refs expression for ") + typeid(this).name());
 	}
 
+    virtual double round_to_float() const {
+        throw std::runtime_error("not implemented");
+    }
+
 	virtual const Symbol *lookup_name() const {
 		return nullptr;
 	}

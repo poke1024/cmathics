@@ -47,6 +47,10 @@ public:
         return same(expr);
     }
 
+    virtual double round_to_float() const {
+        return value;
+    }
+
 protected:
     virtual bool instantiate_symbolic_form() const {
         set_symbolic_form(SymEngine::real_double(value));
@@ -132,6 +136,10 @@ public:
 
     inline double as_double() const {
         return arf_get_d(arb_midref(value), ARF_RND_DOWN); // FIXME
+    }
+
+    virtual double round_to_float() const {
+        return as_double();
     }
 
 protected:

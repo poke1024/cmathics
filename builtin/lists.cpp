@@ -1,141 +1,363 @@
 #include "lists.h"
 #include "../core/definitions.h"
 
-template<typename F>
-BaseExpressionRef compute(TypeMask mask, const F &f) {
-	// expression contains a Real
-	if (mask & MakeTypeMask(MachineRealType)) {
-		return f.template compute_packed<machine_real_t>();
-	}
+class First : public Builtin {
+public:
+    static constexpr auto name = "First";
 
-	constexpr TypeMask machine_int_mask = MakeTypeMask(MachineIntegerType);
-	// expression is all MachineIntegers
-	if ((mask & machine_int_mask) == mask) {
-		return f.template compute_packed<machine_integer_t>();
-	}
-
-	constexpr TypeMask int_mask = MakeTypeMask(BigIntegerType) | MakeTypeMask(MachineIntegerType);
-	// expression is all Integers
-	if ((mask & int_mask) == mask) {
-		return f.template compute<Numeric::Z>();
-	}
-
-	constexpr TypeMask rational_mask = MakeTypeMask(BigRationalType);
-	// expression is all Rationals
-	if ((mask & rational_mask) == mask) {
-		return f.template compute<mpq_class>();
-	}
-
-	return BaseExpressionRef(); // cannot evaluate
-}
-
-class RangeComputation {
-private:
-	const BaseExpressionRef &_imin;
-	const BaseExpressionRef &_imax;
-	const BaseExpressionRef &_di;
-	const Evaluation &_evaluation;
+    static constexpr auto attributes = Attributes::None;
 
 public:
-	inline RangeComputation(
-		const BaseExpressionRef &imin,
-		const BaseExpressionRef &imax,
-		const BaseExpressionRef &di,
-		const Evaluation &evaluation) : _imin(imin), _imax(imax), _di(di), _evaluation(evaluation) {
+    using Builtin::Builtin;
+
+    void init() {
+        builtin<First>(&First::apply);
+    }
+
+    BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
+        if (x->type() != ExpressionType) {
+            evaluation.message(m_symbol, "normal");
+            return BaseExpressionRef();
+        }
+        const Expression *expr = static_cast<const Expression*>(x.get());
+        if (expr->size() < 1) {
+            throw std::runtime_error("Expression is empty");
+        }
+        return expr->leaf(0);
+    }
+};
+
+class Range : public Builtin {
+public:
+	static constexpr auto name = "Range";
+
+	static constexpr auto attributes = Attributes::None;
+
+public:
+	using Builtin::Builtin;
+
+	void init() {
+		rewrite("Range[imax_]", "Range[1, imax, 1]");
+		rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]");
+		builtin<Range>(&Range::apply);
 	}
 
-	template<typename T>
-	BaseExpressionRef compute_packed() const {
-		const T imin = to_primitive<T>(_imin);
-		const T imax = to_primitive<T>(_imax);
-		const T di = to_primitive<T>(_di);
+protected:
+	BaseExpressionRef MachineInteger(
+		const BaseExpressionRef &imin_expr,
+		const BaseExpressionRef &imax_expr,
+		const BaseExpressionRef &di_expr,
+		const Evaluation &evaluation) {
 
-		std::vector<T> leaves;
-		for (T x = imin; x <= imax; x += di) {
+		const machine_integer_t imin = static_cast<const class MachineInteger*>(imin_expr.get())->value;
+		const machine_integer_t imax = static_cast<const class MachineInteger*>(imax_expr.get())->value;
+		const machine_integer_t di = static_cast<const class MachineInteger*>(di_expr.get())->value;
+
+		if (imin > imax) {
+			return expression(evaluation.List);
+		}
+
+		machine_integer_t range;
+
+		if (__builtin_ssubll_overflow(imax, imin, &range)) {
+            evaluation.message(m_symbol, "iterb");
+			return BaseExpressionRef(); // error; too large
+		}
+
+		if (di < 1) {
+            evaluation.message(m_symbol, "iterb");
+			return BaseExpressionRef(); // error
+		}
+
+		machine_integer_t n;
+
+		if (__builtin_saddll_overflow(range / di, 1, &n)) {
+            evaluation.message(m_symbol, "iterb");
+			return BaseExpressionRef(); // error; too large
+		}
+
+		if (n >= MinPackedSliceSize) {
+			std::vector<machine_integer_t> leaves;
+			leaves.reserve(n);
+			for (machine_integer_t x = imin; x <= imax; x += di) {
+				leaves.push_back(x);
+			}
+			return expression(
+				evaluation.List,
+				PackedSlice<machine_integer_t>(std::move(leaves)));
+		} else {
+			return expression(
+				evaluation.List,
+				[imin, imax, di] (auto &storage) {
+					for (machine_integer_t x = imin; x <= imax; x += di) {
+						storage << Heap::MachineInteger(x);
+					}
+				},
+				n
+			);
+		}
+	}
+
+	BaseExpressionRef MachineReal(
+		const BaseExpressionRef &imin_expr,
+		const BaseExpressionRef &imax_expr,
+		const BaseExpressionRef &di_expr,
+		const Evaluation &evaluation) {
+
+		const machine_real_t imin = imin_expr->round_to_float();
+		const machine_real_t imax = imax_expr->round_to_float();
+		const machine_real_t di = di_expr->round_to_float();
+
+		if (imin > imax) {
+			return expression(evaluation.List);
+		}
+
+		if (di <= 0.) {
+            evaluation.message(m_symbol, "iterb");
+			return BaseExpressionRef(); // error
+		}
+
+		std::vector<machine_real_t> leaves;
+		leaves.reserve(size_t(std::ceil((imax - imin) / di)));
+		for (machine_real_t x = imin; x <= imax; x += di) {
 			leaves.push_back(x);
 		}
 
-		return expression(_evaluation.List, PackedSlice<T>(std::move(leaves)));
+		if (leaves.size() >= MinPackedSliceSize) {
+			return expression(
+				evaluation.List,
+				PackedSlice<machine_real_t>(std::move(leaves)));
+		} else {
+			return expression(
+				evaluation.List,
+				[&leaves] (auto &storage) {
+					for (machine_real_t x : leaves) {
+						storage << Heap::MachineReal(x);
+					}
+				},
+				leaves.size()
+			);
+		}
 	}
 
-	template<typename T>
-	BaseExpressionRef compute() const {
-		const T imin = to_primitive<T>(_imin);
-		const T imax = to_primitive<T>(_imax);
-		const T di = to_primitive<T>(_di);
+	BaseExpressionRef generic(
+		const BaseExpressionRef &imin,
+		const BaseExpressionRef &imax,
+		const BaseExpressionRef &di,
+		const Evaluation &evaluation) {
 
-		std::vector<BaseExpressionRef> leaves;
-		for (T x = imin; x <= imax; x += di) {
-			leaves.push_back(from_primitive(x));
+		const BaseExpressionRef &LessEqual = evaluation.LessEqual;
+		const BaseExpressionRef &Plus = evaluation.Plus;
+
+		std::vector<BaseExpressionRef> result;
+		TypeMask type_mask = 0;
+
+		BaseExpressionRef index = imin;
+		while (true) {
+			const ExtendedType if_continue =
+				expression(LessEqual, index, imax)->
+					evaluate_or_copy(evaluation)->extended_type();
+
+			if (if_continue == SymbolFalse) {
+				break;
+			} else if (if_continue != SymbolTrue) {
+				evaluation.message(m_symbol, "iterb");
+				return BaseExpressionRef();
+			}
+
+			type_mask |= index->base_type_mask();
+			result.push_back(index);
+
+			index = expression(Plus, index, di)->evaluate_or_copy(evaluation);
 		}
 
-		return expression(_evaluation.List, std::move(leaves));
+		return expression(evaluation.List, std::move(result), type_mask);
+	}
+
+public:
+	BaseExpressionRef apply(
+		const BaseExpressionRef &imin,
+		const BaseExpressionRef &imax,
+		const BaseExpressionRef &di,
+		const Evaluation &evaluation) {
+
+		const TypeMask type_mask =
+			imin->base_type_mask() |
+			imax->base_type_mask() |
+			di->base_type_mask();
+
+		if (type_mask & MakeTypeMask(MachineRealType)) { // expression contains a MachineReal
+			return MachineReal(imin, imax, di, evaluation);
+		}
+
+		constexpr TypeMask machine_int_mask = MakeTypeMask(MachineIntegerType);
+
+		if ((type_mask & machine_int_mask) == type_mask) { // expression is all MachineIntegers
+			return MachineInteger(imin, imax, di, evaluation);
+		}
+
+		return generic(imin, imax, di, evaluation);
 	}
 };
 
-BaseExpressionRef Range(
-	const BaseExpressionRef &imin,
-	const BaseExpressionRef &imax,
-	const BaseExpressionRef &di,
-	const Evaluation &evaluation) {
-
-	return compute(
-		imin->base_type_mask() | imax->base_type_mask() | di->base_type_mask(),
-		RangeComputation(imin, imax, di, evaluation));
-}
-
 inline const Expression *if_list(const BaseExpressionRef &item) {
-	if (item->type() == ExpressionType) {
-		const Expression *expr = static_cast<const Expression*>(item.get());
-		if (expr->head()->extended_type() == SymbolList) {
-			return expr;
-		}
-	}
-	return nullptr;
+    if (item->type() == ExpressionType) {
+        const Expression *expr = static_cast<const Expression*>(item.get());
+        if (expr->head()->extended_type() == SymbolList) {
+            return expr;
+        }
+    }
+    return nullptr;
 }
 
-template<bool SYMBOL>
-ExpressionRef iterate(
-	const BaseExpressionRef &expr,
-	Symbol *iterator,
-	const BaseExpressionRef &imin,
-	const BaseExpressionRef &imax,
-	const BaseExpressionRef &di,
-	const Evaluation &evaluation) {
+class IterationFunction : public Builtin {
+protected:
+    template<bool SYMBOL>
+    ExpressionRef iterate(
+        const BaseExpressionRef &expr,
+        Symbol *iterator,
+        const BaseExpressionRef &imin,
+        const BaseExpressionRef &imax,
+        const BaseExpressionRef &di,
+        const Evaluation &evaluation) {
 
-	const BaseExpressionRef &LessEqual = evaluation.LessEqual;
-	const BaseExpressionRef &Plus = evaluation.Plus;
+        const BaseExpressionRef &LessEqual = evaluation.LessEqual;
+        const BaseExpressionRef &Plus = evaluation.Plus;
 
-	std::vector<BaseExpressionRef> result;
+        std::vector<BaseExpressionRef> result;
+        TypeMask type_mask = 0;
 
-	BaseExpressionRef index = imin;
-	while (true) {
-		const ExtendedType if_continue =
-				expression(LessEqual, index, imax)->
-						evaluate_or_copy(evaluation)->extended_type();
+        BaseExpressionRef index = imin;
+        while (true) {
+            const ExtendedType if_continue =
+                expression(LessEqual, index, imax)->
+                    evaluate_or_copy(evaluation)->extended_type();
 
-		if (if_continue == SymbolFalse) {
-			break;
-		} else if (if_continue != SymbolTrue) {
-			// FIXME error
-			break;
-		}
+            if (if_continue == SymbolFalse) {
+                break;
+            } else if (if_continue != SymbolTrue) {
+                evaluation.message(m_symbol, "iterb");
+                return ExpressionRef();
+            }
 
-		if (SYMBOL) {
-			result.push_back(scope(iterator, index, [&expr, &evaluation] () {
-				return expr->evaluate_or_copy(evaluation);
-			}));
-		} else {
-			result.push_back(expr->evaluate_or_copy(evaluation));
-		}
+            BaseExpressionRef leaf;
+            if (SYMBOL) {
+                leaf = scope(iterator, index, [&expr, &evaluation]() {
+                    return expr->evaluate_or_copy(evaluation);
+                });
+            } else {
+                leaf = expr->evaluate_or_copy(evaluation);
+            }
+            type_mask |= leaf->base_type_mask();
+            result.push_back(std::move(leaf));
 
-		index = expression(Plus, index, di)->evaluate_or_copy(evaluation);
-	}
+            index = expression(Plus, index, di)->evaluate_or_copy(evaluation);
+        }
 
-	return expression(evaluation.List, std::move(result));
-}
+        return expression(evaluation.List, std::move(result), type_mask);
+    }
 
-void Builtin::Lists::initialize() {
+public:
+    using Builtin::Builtin;
+};
+
+class Table : public IterationFunction {
+public:
+    static constexpr auto name = "Table";
+
+    static constexpr auto attributes = Attributes::None;
+
+public:
+    using IterationFunction::IterationFunction;
+
+    void init() {
+        builtin<Table>(&Table::apply);
+    }
+
+    BaseExpressionRef apply(
+        const BaseExpressionRef &expr,
+        const BaseExpressionRef &iter,
+        const Evaluation &evaluation) {
+
+        const Expression *list = if_list(iter);
+        if (!list) {
+            return BaseExpressionRef();
+        }
+
+        switch (list->size()) {
+            case 1: { // {imax_}
+                const BaseExpressionRef *leaves = list->static_leaves<1>();
+                return iterate<false>(
+                    expr,
+                    nullptr,
+                    Heap::MachineInteger(0),
+                    leaves[0]->evaluate_or_copy(evaluation),
+                    Heap::MachineInteger(1),
+                    evaluation);
+            }
+
+            case 2: { // {i_Symbol, imax_} or {i_Symbol, {items___}}
+                const BaseExpressionRef *leaves = list->static_leaves<2>();
+                const BaseExpressionRef &iterator = leaves[0];
+
+                if (iterator->type() == SymbolType) {
+                    const BaseExpressionRef &domain = leaves[1];
+                    const Expression *domain_list = if_list(domain);
+
+                    if (domain_list) {
+                        domain_list = if_list(domain_list->evaluate_or_copy(evaluation));
+                        if (domain_list) {
+                            return domain_list->iterate(iterator->as_symbol(), expr, evaluation);
+                        }
+                    } else {
+                        return iterate<true>(
+                            expr,
+                            iterator->as_symbol(),
+                            Heap::MachineInteger(1),
+                            leaves[1]->evaluate_or_copy(evaluation),
+                            Heap::MachineInteger(1),
+                            evaluation);
+                    }
+                }
+                break;
+            }
+            case 3: { // {i_Symbol, imin_, imax_}
+                const BaseExpressionRef *leaves = list->static_leaves<3>();
+                const BaseExpressionRef &iterator = leaves[0];
+
+                if (iterator->type() == SymbolType) {
+                    return iterate<true>(
+                        expr,
+                        iterator->as_symbol(),
+                        leaves[1]->evaluate_or_copy(evaluation),
+                        leaves[2]->evaluate_or_copy(evaluation),
+                        Heap::MachineInteger(1),
+                        evaluation);
+                }
+                break;
+            }
+            case 4: { // {i_Symbol, imin_, imax_, di_}
+                const BaseExpressionRef *leaves = list->static_leaves<4>();
+                const BaseExpressionRef &iterator = leaves[0];
+
+                if (iterator->type() == SymbolType) {
+                    return iterate<true>(
+                        expr,
+                        iterator->as_symbol(),
+                        leaves[1]->evaluate_or_copy(evaluation),
+                        leaves[2]->evaluate_or_copy(evaluation),
+                        leaves[3]->evaluate_or_copy(evaluation),
+                         evaluation);
+                }
+                break;
+            }
+        }
+
+        return BaseExpressionRef();
+    }
+};
+
+void Builtins::Lists::initialize() {
 
 	add("Apply",
 	    Attributes::None, {
@@ -149,23 +371,7 @@ void Builtin::Lists::initialize() {
 		    )
 	    });
 
-	add("First",
-	    Attributes::None,
-        [] (RulesBuilder &build, const SymbolRef First) {
-            build.builtin<1>(
-                [First] (const BaseExpressionRef &x, const Evaluation &evaluation) {
-                    if (x->type() != ExpressionType) {
-                        evaluation.message(First, "normal");
-                        return BaseExpressionRef();
-                    }
-                    const Expression *expr = static_cast<const Expression*>(x.get());
-                    if (expr->size() < 1) {
-                        throw std::runtime_error("Expression is empty");
-                    }
-                    return expr->leaf(0);
-                }
-            );
-		});
+	add<First>();
 
 	add("Length",
 	    Attributes::None, {
@@ -207,15 +413,7 @@ void Builtin::Lists::initialize() {
 		    )
 	    });
 
-	add("Range",
-	    Attributes::None, {
-			rewrite("Range[imax_]", "Range[1, imax, 1]"),
-		    rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]"),
-		    builtin<3>(
-				Range
-		    )
-	    });
-
+	add<Range>();
 
 	add("Mean",
 	    Attributes::None, {
@@ -228,89 +426,5 @@ void Builtin::Lists::initialize() {
 			rewrite("Total[head_, n_]", "Apply[Plus, Flatten[head, n]]"),
 	    });
 
-	add("Table",
-		Attributes::HoldAll, {
-			builtin<2>([] (
-				const BaseExpressionRef &expr,
-				const BaseExpressionRef &iter,
-				const Evaluation &evaluation) -> ExpressionRef {
-
-				const Expression *list = if_list(iter);
-				if (!list) {
-					return ExpressionRef();
-				}
-
-				switch (list->size()) {
-					case 1: { // {imax_}
-						const BaseExpressionRef *leaves = list->static_leaves<1>();
-						return iterate<false>(
-							expr,
-							nullptr,
-							Heap::MachineInteger(0),
-							leaves[0]->evaluate_or_copy(evaluation),
-							Heap::MachineInteger(1),
-							evaluation);
-					}
-
-					case 2: { // {i_Symbol, imax_} or {i_Symbol, {items___}}
-						const BaseExpressionRef *leaves = list->static_leaves<2>();
-						const BaseExpressionRef &iterator = leaves[0];
-
-						if (iterator->type() == SymbolType) {
-							const BaseExpressionRef &domain = leaves[1];
-							const Expression *domain_list = if_list(domain);
-
-							if (domain_list) {
-								domain_list = if_list(domain_list->evaluate_or_copy(evaluation));
-								if (domain_list) {
-									return domain_list->iterate(iterator->as_symbol(), expr, evaluation);
-								}
-							} else {
-								return iterate<true>(
-									expr,
-									iterator->as_symbol(),
-									Heap::MachineInteger(1),
-									leaves[1]->evaluate_or_copy(evaluation),
-									Heap::MachineInteger(1),
-									evaluation);
-							}
-						}
-						break;
-					}
-					case 3: { // {i_Symbol, imin_, imax_}
-						const BaseExpressionRef *leaves = list->static_leaves<3>();
-						const BaseExpressionRef &iterator = leaves[0];
-
-						if (iterator->type() == SymbolType) {
-							return iterate<true>(
-								expr,
-								iterator->as_symbol(),
-								leaves[1]->evaluate_or_copy(evaluation),
-								leaves[2]->evaluate_or_copy(evaluation),
-								Heap::MachineInteger(1),
-								evaluation);
-						}
-						break;
-					}
-					case 4: { // {i_Symbol, imin_, imax_, di_}
-						const BaseExpressionRef *leaves = list->static_leaves<4>();
-						const BaseExpressionRef &iterator = leaves[0];
-
-						if (iterator->type() == SymbolType) {
-							return iterate<true>(
-								expr,
-								iterator->as_symbol(),
-								leaves[1]->evaluate_or_copy(evaluation),
-								leaves[2]->evaluate_or_copy(evaluation),
-								leaves[3]->evaluate_or_copy(evaluation),
-								evaluation);
-						}
-						break;
-					}
-				}
-
-				return ExpressionRef();
-			})
-        }
-	);
+    add<Table>();
 }

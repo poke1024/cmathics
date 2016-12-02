@@ -454,10 +454,10 @@ inline ExpressionRef expression(
             some_type_mask : exact_type_mask(leaves);
 		switch (type_mask) {
 			case MakeTypeMask(MachineIntegerType):
-				return expression(head, PackedSlice<machine_integer_t>(
+				return Heap::Expression(head, PackedSlice<machine_integer_t>(
 					collect<MachineInteger, machine_integer_t>(leaves)));
 			case MakeTypeMask(MachineRealType):
-				return expression(head, PackedSlice<machine_real_t>(
+				return Heap::Expression(head, PackedSlice<machine_real_t>(
 					collect<MachineReal, machine_real_t>(leaves)));
 			default:
 				return Heap::Expression(head, DynamicSlice(leaves, type_mask));
@@ -524,7 +524,9 @@ ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end)
 	constexpr SliceCode slice_code = Slice::code();
 	const BaseExpressionRef &head = _head;
 
-	if (new_size > MaxStaticSliceSize && (slice_code == DynamicSliceCode || is_packed_slice(slice_code))) {
+    if (is_packed_slice(slice_code) && new_size >= MinPackedSliceSize) {
+        return expression(head, _leaves.slice(begin, end));
+    } else if (slice_code == DynamicSliceCode && new_size > MaxStaticSliceSize) {
 		return expression(head, _leaves.slice(begin, end));
 	} else {
 		const Slice &slice = _leaves;

@@ -245,21 +245,25 @@ public:
 		_extent(std::make_shared<PackExtent<U>>(data)),
 		_begin(_extent->address()),
 		BaseSlice(nullptr, data.size()) {
+		assert(data.size() >= MinPackedSliceSize);
 	}
 
 	inline PackedSlice(std::vector<U> &&data) :
 		_extent(std::make_shared<PackExtent<U>>(data)),
 		_begin(_extent->address()),
 		BaseSlice(nullptr, data.size()) {
+		assert(data.size() >= MinPackedSliceSize);
 	}
 
 	inline PackedSlice(const typename PackExtent<U>::Ref &extent, const U *begin, size_t size) :
 		_extent(extent),
 		_begin(begin),
 		BaseSlice(nullptr, size) {
+		assert(size >= MinPackedSliceSize);
 	}
 
 	inline PackedSlice<U> slice(size_t begin, size_t end) const {
+		assert(end - begin >= MinPackedSliceSize);
 		return PackedSlice<U>(_extent, _begin + begin, end - begin);
 	}
 

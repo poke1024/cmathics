@@ -129,12 +129,12 @@ void mini_console() {
 
 	Experimental(runtime).initialize();
 
-	Builtin::Arithmetic(runtime).initialize();
-	Builtin::Assignment(runtime).initialize();
-	Builtin::Control(runtime).initialize();
-	Builtin::ExpTrig(runtime).initialize();
-	Builtin::Functional(runtime).initialize();
-	Builtin::Lists(runtime).initialize();
+	Builtins::Arithmetic(runtime).initialize();
+	Builtins::Assignment(runtime).initialize();
+	Builtins::Control(runtime).initialize();
+	Builtins::ExpTrig(runtime).initialize();
+	Builtins::Functional(runtime).initialize();
+	Builtins::Lists(runtime).initialize();
 
 	const SymbolRef Line = runtime.definitions().symbols().StateLine;
 
