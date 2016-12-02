@@ -1,4 +1,5 @@
 #include "types.h"
+#include "expression.h"
 
 int SortKey::compare(const SortKey &key) const {
 	int cmp;
