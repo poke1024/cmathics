@@ -14,7 +14,7 @@ public:
         builtin(&First::apply);
     }
 
-    BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
+    inline BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
         if (x->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
@@ -42,7 +42,7 @@ public:
         builtin(&Last::apply);
     }
 
-    BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
+	inline BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
         if (x->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
@@ -71,7 +71,7 @@ public:
         builtin(&Most::apply);
     }
 
-    BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
+	inline BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
         if (x->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
@@ -99,7 +99,7 @@ public:
         builtin(&Rest::apply);
     }
 
-    BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
+	inline BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
         if (x->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
@@ -125,7 +125,7 @@ public:
         builtin(&Select::apply);
     }
 
-    BaseExpressionRef apply(
+	inline BaseExpressionRef apply(
         const BaseExpressionRef &list,
         const BaseExpressionRef &cond,
         const Evaluation &evaluation) {
@@ -133,13 +133,8 @@ public:
         if (list->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
-            const Expression *list_expr = static_cast<const Expression*>(list.get());
-
-            return list_expr->filter(
-                list_expr->_head,
-                [&cond, &evaluation] (const BaseExpressionRef &leaf) {
-                    return expression(cond, leaf)->evaluate(evaluation)->is_true();
-                });
+            return static_cast<const Expression*>(
+			    list.get())->select(cond, evaluation);
         }
         return BaseExpressionRef();
     }

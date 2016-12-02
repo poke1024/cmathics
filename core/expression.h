@@ -621,33 +621,4 @@ void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) c
 	}
 }
 
-template<typename F>
-inline ExpressionRef Expression::filter(
-    const BaseExpressionRef &head,
-    const F &filter) const {
-
-    const size_t n = size();
-    std::vector<BaseExpressionRef> remaining;
-    remaining.reserve(n);
-
-    const BaseExpressionRef * const leaves = _slice_ptr->_address;
-    if (leaves) {
-        for (size_t i = 0; i < n; i++) {
-            const BaseExpressionRef &leaf = leaves[i];
-            if (filter(leaf)) {
-                remaining.push_back(leaf);
-            }
-        }
-    } else {
-        for (size_t i = 0; i < n; i++) {
-            const BaseExpressionRef &leaf = slow_leaf(i);
-            if (filter(leaf)) {
-                remaining.push_back(leaf);
-            }
-        }
-    }
-
-    return expression(head, std::move(remaining));
-}
-
 #endif

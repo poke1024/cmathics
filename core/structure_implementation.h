@@ -20,6 +20,25 @@ BaseExpressionRef StructureOperationsImplementation<T>::map(
 }
 
 template<typename T>
+BaseExpressionRef StructureOperationsImplementation<T>::select(
+	const BaseExpressionRef &cond, const Evaluation &evaluation) const {
+
+	const T &self = this->expr();
+	const auto &leaves = self._leaves;
+
+	std::vector<BaseExpressionRef> remaining;
+	remaining.reserve(self.size());
+
+	for (const auto &leaf : leaves.leaves()) {
+		if (expression(cond, leaf)->evaluate(evaluation)->is_true()) {
+			remaining.push_back(leaf);
+		}
+	}
+
+	return expression(self.head(), std::move(remaining));
+}
+
+template<typename T>
 ExpressionRef StructureOperationsImplementation<T>::iterate(
 	Symbol *iterator, const BaseExpressionRef &expr, const Evaluation &evaluation) const {
 

@@ -636,11 +636,6 @@ public:
 			return false;
 		}
 	}
-
-    template<typename F>
-    inline ExpressionRef filter(
-        const BaseExpressionRef &head,
-        const F &filter) const;
 };
 
 inline bool instantiate_symbolic_form(const Expression *expr) {

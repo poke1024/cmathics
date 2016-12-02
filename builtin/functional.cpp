@@ -40,6 +40,10 @@ public:
 				}
 				const Expression *vars_ptr = static_cast<const Expression*>(vars.get());
 
+				if (vars_ptr->size() != args->size()) { // exit early if params don't match
+					return BaseExpressionRef();
+				}
+
 				const BaseExpressionRef &body = slice->leaf(1);
 				if (body->type() != ExpressionType) {
 					break;
@@ -52,10 +56,6 @@ public:
 						return vars_ptr->with_leaves_array(
 							[args, n_args, vars_ptr, body_ptr, &evaluation]
 							(const BaseExpressionRef *vars, size_t n_vars) {
-
-								if (n_vars != n_args) {
-									return BaseExpressionRef();
-								}
 
 								for (size_t i = 0; i < n_vars; i++) {
 									if (vars[i]->type() != SymbolType) {

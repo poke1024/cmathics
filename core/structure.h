@@ -9,6 +9,9 @@ public:
 	virtual BaseExpressionRef map(
 		const BaseExpressionRef &f, const Evaluation &evaluation) const = 0;
 
+	virtual BaseExpressionRef select(
+		const BaseExpressionRef &cond, const Evaluation &evaluation) const = 0;
+
 	virtual ExpressionRef iterate(
 		Symbol *iterator, const BaseExpressionRef &expr, const Evaluation &evaluation) const = 0;
 
@@ -25,6 +28,9 @@ class StructureOperationsImplementation :
 public:
 	virtual BaseExpressionRef map(
 		const BaseExpressionRef &f, const Evaluation &evaluation) const;
+
+	virtual BaseExpressionRef select(
+		const BaseExpressionRef &cond, const Evaluation &evaluation) const;
 
 	virtual ExpressionRef iterate(
 		Symbol *iterator, const BaseExpressionRef &expr, const Evaluation &evaluation) const;
