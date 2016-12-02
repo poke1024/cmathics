@@ -217,9 +217,10 @@ public:
 				const Expression *patt_expr = static_cast<const Expression*>(patt.get());
 				const Matcher *matcher = this;
 
-				return patt_expr->with_leaves_array([matcher, patt_expr] (const BaseExpressionRef *patt_leaves, size_t size) {
-					return matcher->match_sequence_with_head(patt_expr->_head, patt_leaves, patt_leaves + size);
-				});
+				return patt_expr->with_leaves_array(
+					[matcher, patt_expr] (const BaseExpressionRef *patt_leaves, size_t size) {
+						return matcher->match_sequence_with_head(patt_expr->_head, patt_leaves, patt_leaves + size);
+					});
 			}
 
 			default:

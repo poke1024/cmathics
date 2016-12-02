@@ -30,13 +30,13 @@ public:
 template<typename Slice>
 class ExpressionImplementation :
 	public Expression, public AllOperationsImplementation<ExpressionImplementation<Slice>> {
-protected:
-	virtual BaseExpressionRef slow_leaf(size_t i) const {
-		return _leaves[i];
-	}
 
 public:
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const;
+
+    virtual BaseExpressionRef slow_leaf(size_t i) const {
+        return _leaves[i];
+    }
 
 public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
@@ -619,6 +619,35 @@ void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) c
 			name->short_name() << "::" << tag << ": " <<
 		   full_text.c_str() << std::endl;
 	}
+}
+
+template<typename F>
+inline ExpressionRef Expression::filter(
+    const BaseExpressionRef &head,
+    const F &filter) const {
+
+    const size_t n = size();
+    std::vector<BaseExpressionRef> remaining;
+    remaining.reserve(n);
+
+    const BaseExpressionRef * const leaves = _slice_ptr->_address;
+    if (leaves) {
+        for (size_t i = 0; i < n; i++) {
+            const BaseExpressionRef &leaf = leaves[i];
+            if (filter(leaf)) {
+                remaining.push_back(leaf);
+            }
+        }
+    } else {
+        for (size_t i = 0; i < n; i++) {
+            const BaseExpressionRef &leaf = slow_leaf(i);
+            if (filter(leaf)) {
+                remaining.push_back(leaf);
+            }
+        }
+    }
+
+    return expression(head, std::move(remaining));
 }
 
 #endif

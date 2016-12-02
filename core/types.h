@@ -447,6 +447,10 @@ public:
 
     inline Symbol *as_symbol() const;
 
+    inline bool is_true() const {
+        return extended_type() == SymbolTrue;
+    }
+
 	virtual SortKey sort_key() const;
 	virtual SortKey pattern_key() const;
 
@@ -523,9 +527,6 @@ class Expression : public BaseExpression, virtual public OperationsInterface {
 private:
 	mutable Cache *_cache;
 
-protected:
-	virtual BaseExpressionRef slow_leaf(size_t i) const = 0;
-
 public:
     static constexpr Type Type = ExpressionType;
 
@@ -575,7 +576,7 @@ public:
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 
 	inline BaseExpressionRef leaf(size_t i) const {
-		const BaseExpressionRef *leaves = _slice_ptr->_address;
+		const BaseExpressionRef * const leaves = _slice_ptr->_address;
 		if (leaves) {
 			return leaves[i];
 		} else {
@@ -591,7 +592,9 @@ public:
 		return _head.get();
 	}
 
-	virtual bool is_sequence() const {
+    virtual BaseExpressionRef slow_leaf(size_t i) const = 0;
+
+    virtual bool is_sequence() const {
 		return _head->extended_type() == SymbolSequence;
 	}
 
@@ -633,6 +636,11 @@ public:
 			return false;
 		}
 	}
+
+    template<typename F>
+    inline ExpressionRef filter(
+        const BaseExpressionRef &head,
+        const F &filter) const;
 };
 
 inline bool instantiate_symbolic_form(const Expression *expr) {
@@ -685,5 +693,52 @@ inline BaseExpressionRef Rules::do_try_and_apply(
 
 	return BaseExpressionRef();
 }
+
+template<typename F>
+inline auto with_leaves_pair(const Expression *a, const Expression *b, const F &f) {
+	const size_t size_a = a->size();
+	const size_t size_b = b->size();
+
+	const BaseExpressionRef * const leaves_a = a->_slice_ptr->_address;
+	const BaseExpressionRef * const leaves_b = b->_slice_ptr->_address;
+
+	if (leaves_a) {
+		if (leaves_b) {
+			return f(
+				[leaves_a] (size_t i) {
+					return leaves_a[i];
+				}, size_a,
+				[leaves_b] (size_t i) {
+					return leaves_b[i];
+				}, size_b);
+		} else {
+			return f(
+				[leaves_a] (size_t i) {
+					return leaves_a[i];
+				}, size_a,
+				[b] (size_t i) {
+					return b->slow_leaf(i);
+				}, size_b);
+		}
+	} else {
+		if (leaves_b) {
+			return f(
+				[a] (size_t i) {
+					return a->slow_leaf(i);
+				}, size_a,
+				[leaves_b] (size_t i) {
+					return leaves_b[i];
+				}, size_b);
+		} else {
+			return f(
+				[a] (size_t i) {
+					return a->slow_leaf(i);
+				}, size_a,
+				[b] (size_t i) {
+					return b->slow_leaf(i);
+				}, size_b);
+		}
+	}
+};
 
 #endif

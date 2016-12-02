@@ -21,7 +21,7 @@ int SortKey::compare(const SortKey &key) const {
 	if (a && b) {
 		// compare the heads.
 		cmp = sort_key(a->head(), head_pattern_sort).compare(
-				sort_key(b->head(), key.head_pattern_sort));
+			sort_key(b->head(), key.head_pattern_sort));
 		if (cmp) {
 			return cmp;
 		}
@@ -32,32 +32,27 @@ int SortKey::compare(const SortKey &key) const {
 
 		const bool precedence = leaf_precedence;
 
-		cmp = a->with_leaves_array(
-				[pa, pb, b, precedence](const BaseExpressionRef *la, size_t na) {
-					return b->with_leaves_array(
-							[la, na, pa, pb, precedence](const BaseExpressionRef *lb, size_t nb) {
+		cmp = with_leaves_pair(a, b, [pa, pb, precedence] (auto la, size_t na, auto lb, size_t nb) {
+			const size_t size = std::min(na, nb);
 
-								const size_t size = std::min(na, nb);
+			for (size_t i = 0; i < size; i++) {
+				const int cmp = sort_key(la(i), pa).compare(sort_key(lb(i), pb));
+				if (cmp) {
+					return cmp;
+				}
+			}
 
-								for (size_t i = 0; i < size; i++) {
-									const int cmp = sort_key(la[i], pa).compare(sort_key(lb[i], pb));
-									if (cmp) {
-										return cmp;
-									}
-								}
+			if (precedence) {
+				return 1;
+			} else if (na < nb) {
+				return -1;
+			} else if (na > nb) {
+				return 1;
+			} else {
+				return 0;
+			}
+		});
 
-								if (precedence) {
-									return 1;
-								} else if (na < nb) {
-									return -1;
-								} else if (na > nb) {
-									return 1;
-								} else {
-									return 0;
-								}
-
-							});
-				});
 		if (cmp) {
 			return cmp;
 		}

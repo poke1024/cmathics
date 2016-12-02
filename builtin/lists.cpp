@@ -3,39 +3,156 @@
 
 class First : public Builtin {
 public:
-    static constexpr auto name = "First";
+    static constexpr const char *name = "First";
 
 public:
     using Builtin::Builtin;
 
-    void init() {
-        builtin(&First::apply);
-
+    void build() {
         message("nofirst", "There is no first element in `1`.");
+
+        builtin(&First::apply);
     }
 
     BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
         if (x->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
-            return BaseExpressionRef();
+        } else {
+            const Expression *expr = static_cast<const Expression*>(x.get());
+            if (expr->size() < 1) {
+                evaluation.message(m_symbol, "nofirst", x);
+            } else {
+                return expr->leaf(0);
+            }
         }
-        const Expression *expr = static_cast<const Expression*>(x.get());
-        if (expr->size() < 1) {
-            evaluation.message(m_symbol, "nofirst", x);
-            return BaseExpressionRef();
+        return BaseExpressionRef();
+    }
+};
+
+class Last : public Builtin {
+public:
+    static constexpr const char *name = "Last";
+
+public:
+    using Builtin::Builtin;
+
+    void build() {
+        message("nolast", "There is no last element in `1`.");
+
+        builtin(&Last::apply);
+    }
+
+    BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
+        if (x->type() != ExpressionType) {
+            evaluation.message(m_symbol, "normal");
+        } else {
+            const Expression *expr = static_cast<const Expression*>(x.get());
+            const size_t size = expr->size();
+            if (size < 1) {
+                evaluation.message(m_symbol, "nolast", x);
+            } else {
+                return expr->leaf(size - 1);
+            }
         }
-        return expr->leaf(0);
+        return BaseExpressionRef();
+    }
+};
+
+class Most : public Builtin {
+public:
+    static constexpr const char *name = "Most";
+
+public:
+    using Builtin::Builtin;
+
+    void build() {
+        message("nomost", "Most is not applicable to `1`.");
+
+        builtin(&Most::apply);
+    }
+
+    BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
+        if (x->type() != ExpressionType) {
+            evaluation.message(m_symbol, "normal");
+        } else {
+            const Expression *expr = static_cast<const Expression*>(x.get());
+            if (expr->size() < 1) {
+                evaluation.message(m_symbol, "nomost", expr);
+            } else {
+                return expr->slice(0, -1);
+            }
+        }
+        return BaseExpressionRef();
+    }
+};
+
+class Rest : public Builtin {
+public:
+    static constexpr const char *name = "Rest";
+
+public:
+    using Builtin::Builtin;
+
+    void build() {
+        message("norest", "Rest is not applicable to `1`.");
+
+        builtin(&Rest::apply);
+    }
+
+    BaseExpressionRef apply(const BaseExpressionRef &x, const Evaluation &evaluation) {
+        if (x->type() != ExpressionType) {
+            evaluation.message(m_symbol, "normal");
+        } else {
+            const Expression *expr = static_cast<const Expression*>(x.get());
+            if (expr->size() < 1) {
+                evaluation.message(m_symbol, "norest", expr);
+            } else {
+                return expr->slice(1);
+            }
+        }
+        return BaseExpressionRef();
+    }
+};
+
+class Select : public Builtin {
+public:
+    static constexpr const char *name = "Select";
+
+public:
+    using Builtin::Builtin;
+
+    void build() {
+        builtin(&Select::apply);
+    }
+
+    BaseExpressionRef apply(
+        const BaseExpressionRef &list,
+        const BaseExpressionRef &cond,
+        const Evaluation &evaluation) {
+
+        if (list->type() != ExpressionType) {
+            evaluation.message(m_symbol, "normal");
+        } else {
+            const Expression *list_expr = static_cast<const Expression*>(list.get());
+
+            return list_expr->filter(
+                list_expr->_head,
+                [&cond, &evaluation] (const BaseExpressionRef &leaf) {
+                    return expression(cond, leaf)->evaluate(evaluation)->is_true();
+                });
+        }
+        return BaseExpressionRef();
     }
 };
 
 class Range : public Builtin {
 public:
-	static constexpr auto name = "Range";
+	static constexpr const char *name = "Range";
 
 public:
 	using Builtin::Builtin;
 
-	void init() {
+	void build() {
 		rewrite("Range[imax_]", "Range[1, imax, 1]");
 		rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]");
 		builtin(&Range::apply);
@@ -262,12 +379,12 @@ public:
 
 class Table : public IterationFunction {
 public:
-    static constexpr auto name = "Table";
+    static constexpr const char *name = "Table";
 
 public:
     using IterationFunction::IterationFunction;
 
-    void init() {
+    void build() {
         builtin(&Table::apply);
     }
 
@@ -356,7 +473,45 @@ public:
 
 void Builtins::Lists::initialize() {
 
-	add("Apply",
+    add("ListQ",
+        Attributes::None, {
+            builtin<1>([](const BaseExpressionRef &x, const Evaluation &evaluation) {
+                if (x->type() == ExpressionType) {
+                    return evaluation.Boolean(
+                        static_cast<const Expression*>(x.get())->_head == evaluation.List);
+                } else {
+                    return evaluation.False;
+                }
+            })
+        });
+
+    add("NotListQ",
+        Attributes::None, {
+            builtin<1>([](const BaseExpressionRef &x, const Evaluation &evaluation) {
+                if (x->type() == ExpressionType) {
+                    return evaluation.Boolean(
+                        static_cast<const Expression*>(x.get())->_head != evaluation.List);
+                } else {
+                    return evaluation.True;
+                }
+            })
+        });
+
+    add("Length",
+        Attributes::None, {
+             builtin<1>(
+                 [](const BaseExpressionRef &x, const Evaluation &evaluation) {
+                     if (x->type() != ExpressionType) {
+                        return from_primitive(machine_integer_t(0));
+                     } else {
+                         const Expression *list = static_cast<const Expression *>(x.get());
+                         return from_primitive(machine_integer_t(list->size()));
+                     }
+                 }
+             )
+        });
+
+    add("Apply",
 	    Attributes::None, {
 			builtin<2>(
 				[](const BaseExpressionRef &f, const BaseExpressionRef &x, const Evaluation &evaluation) {
@@ -369,20 +524,11 @@ void Builtins::Lists::initialize() {
 	    });
 
 	add<First>();
+    add<Last>();
+    add<Most>();
+    add<Rest>();
 
-	add("Length",
-	    Attributes::None, {
-			builtin<1>(
-			    [](const BaseExpressionRef &x, const Evaluation &evaluation) {
-				    if (x->type() != ExpressionType) {
-					    return from_primitive(machine_integer_t(0));
-				    } else {
-					    const Expression *list = static_cast<const Expression*>(x.get());
-					    return from_primitive(machine_integer_t(list->size()));
-				    }
-			    }
-	        )
-	    });
+    add<Select>();
 
 	add("Map",
 	    Attributes::None, {
@@ -393,19 +539,6 @@ void Builtins::Lists::initialize() {
 				    }
 				    const Expression *list = static_cast<const Expression*>(expr.get());
 				    return list->map(f, evaluation);
-			    }
-		    )
-	    });
-
-	add("Most",
-	    Attributes::None, {
-			builtin<1>(
-				[](const BaseExpressionRef &x, const Evaluation &evaluation) -> BaseExpressionRef {
-				    if (x->type() != ExpressionType) {
-					    return BaseExpressionRef();
-				    }
-				    const Expression *list = static_cast<const Expression*>(x.get());
-				    return list->slice(0, -1);
 			    }
 		    )
 	    });

@@ -37,15 +37,14 @@ public:
 		symbol->set_attributes(T::attributes);
 
 		auto command = std::make_shared<T>(*this, symbol, _definitions);
-		command->init();
-	}
+		command->build();
+    }
 };
 
 class Builtin : public std::enable_shared_from_this<Builtin> {
 protected:
 	Runtime &m_runtime;
 	const SymbolRef m_symbol;
-	Definitions &m_definitions;
 
     template<typename T>
     using F1 = BaseExpressionRef (T::*) (
@@ -76,7 +75,7 @@ protected:
                 auto p = self.get();
                 return (p->*fptr)(a, evaluation);
             });
-		m_symbol->add_rule(rule(m_symbol, m_definitions));
+		m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
 	}
 
     template<typename T>
@@ -91,7 +90,7 @@ protected:
                     auto p = self.get();
                     return (p->*fptr)(a, b, evaluation);
                 });
-        m_symbol->add_rule(rule(m_symbol, m_definitions));
+        m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
     }
 
     template<typename T>
@@ -107,23 +106,23 @@ protected:
                     auto p = self.get();
                     return (p->*fptr)(a, b, c, evaluation);
                 });
-        m_symbol->add_rule(rule(m_symbol, m_definitions));
+        m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
     }
 
 	inline void rewrite(const char *pattern, const char *into) {
 		const auto rule = make_rewrite_rule(m_runtime.parse(pattern), m_runtime.parse(into));
-		m_symbol->add_rule(rule(m_symbol, m_definitions));
+		m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
 	}
 
     inline void message(const char *tag, const char *text) {
-        m_symbol->add_message(tag, text, m_definitions);
+        m_symbol->add_message(tag, text, m_runtime.definitions());
     }
 
 public:
     static constexpr auto attributes = Attributes::None;
 
     Builtin(Runtime &runtime, const SymbolRef &symbol, Definitions &definitions) :
-		m_runtime(runtime), m_symbol(symbol), m_definitions(definitions) {
+		m_runtime(runtime), m_symbol(symbol) {
 	}
 };
 
