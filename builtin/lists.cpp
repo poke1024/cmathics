@@ -17,7 +17,7 @@ BaseExpressionRef compute(TypeMask mask, const F &f) {
 	constexpr TypeMask int_mask = MakeTypeMask(BigIntegerType) | MakeTypeMask(MachineIntegerType);
 	// expression is all Integers
 	if ((mask & int_mask) == mask) {
-		return f.template compute<mpz_class>();
+		return f.template compute<Numeric::Z>();
 	}
 
 	constexpr TypeMask rational_mask = MakeTypeMask(BigRationalType);

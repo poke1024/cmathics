@@ -129,6 +129,22 @@ namespace Numeric {
 			return *this;
 		}
 
+		bool operator<=(const Z &other) {
+			if (!is_big) {
+				if (!other.is_big) {
+					return machine_value < other.machine_value;
+				} else {
+					return mpz_cmp_si(other.big_value, machine_value) >= 0;
+				}
+			} else {
+				if (!other.is_big) {
+					return mpz_cmp_si(big_value, other.machine_value) <= 0;
+				} else {
+					return mpz_cmp(big_value, other.big_value) <= 0;
+				}
+			}
+		}
+
 		mpz_class to_primitive() const {
 			if (!is_big) {
 				return machine_integer_to_mpz(machine_value);
