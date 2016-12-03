@@ -558,23 +558,33 @@ public:
 		return _slice_ptr->_size;
 	}
 
-	template<SliceCode SliceCode = SliceCode::Unknown, typename F>
+	template<SliceCode StaticSliceCode = SliceCode::Unknown, typename F>
 	inline auto with_leaves_array(const F &f) const {
-		const BaseExpressionRef *leaves = _slice_ptr->_address;
+		const BaseExpressionRef * const leaves = _slice_ptr->_address;
 
 		// the check with slice_needs_no_materialize() here is really just an additional
 		// optimization that allows the compiler to reduce this code to the first case
 		// alone if it's statically clear that we're always dealing with a non-packed
 		// slice.
 
-		if (slice_needs_no_materialize(SliceCode) || leaves) {
+		if (slice_needs_no_materialize(StaticSliceCode) || leaves) {
 			return f(leaves, size());
 		} else {
 			BaseExpressionRef materialized;
-			leaves = materialize(materialized);
-			return f(leaves, size());
+			return f(materialize(materialized), size());
 		}
 	}
+
+	// use with_leaves to write code that accesses leaves but that does not need to
+	// provide different optimized implementations for different expression sizes.
+	// for the latter, use OperationsImplementation to implement an operation; note
+	// though that this will generate code for each single slice code, including each
+	// static slice code size. in constrast, with_leaves generates one implementation
+	// for all unpacked slices (regardless of size), an one implementation for each
+	// type of packed slice.
+
+	template<SliceCode StaticSliceCode = SliceCode::Unknown, typename F>
+	inline auto with_leaves(const F &f) const;
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 

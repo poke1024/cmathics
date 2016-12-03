@@ -621,4 +621,41 @@ void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) c
 	}
 }
 
+template<SliceCode StaticSliceCode, typename F>
+inline auto Expression::with_leaves(const F &f) const {
+	const BaseExpressionRef * const leaves = _slice_ptr->_address;
+
+	// the check with slice_needs_no_materialize() here is really just an additional
+	// optimization that allows the compiler to reduce this code to the first case
+	// alone if it's statically clear that we're always dealing with a non-packed
+	// slice.
+
+	if (slice_needs_no_materialize(StaticSliceCode) || leaves) {
+		return f([leaves] (size_t index) {
+			return leaves[index];
+		}, size());
+	} else {
+		const SliceCode runtime_slice_code =
+			StaticSliceCode == SliceCode::Unknown ? slice_code() : StaticSliceCode;
+		const Slice * const slice_ptr = _slice_ptr;
+
+		switch (runtime_slice_code) {
+			case PackedSliceMachineIntegerCode: {
+				const auto &slice = *static_cast<const PackedSlice<machine_integer_t>*>(slice_ptr);
+				return f([&slice] (size_t index) {
+					return slice[index];
+				}, size());
+			}
+			case PackedSliceMachineRealCode: {
+				const auto &slice = *static_cast<const PackedSlice<machine_real_t>*>(slice_ptr);
+				return f([&slice](size_t index) {
+					return slice[index];
+				}, size());
+			}
+			default:
+				throw std::runtime_error("unimplemented packed slice type");
+		}
+	}
+}
+
 #endif

@@ -214,7 +214,7 @@ public:
 
 		switch (patt->type()) {
 			case ExpressionType: {
-				const Expression *patt_expr = static_cast<const Expression*>(patt.get());
+				const Expression *patt_expr = patt->as_expression();
 				const Matcher *matcher = this;
 
 				return patt_expr->with_leaves_array(

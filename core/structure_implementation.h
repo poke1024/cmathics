@@ -25,11 +25,13 @@ BaseExpressionRef StructureOperationsImplementation<T>::select(
 
 	const T &self = this->expr();
 	const auto &leaves = self._leaves;
+	const size_t size = self.size();
 
 	std::vector<BaseExpressionRef> remaining;
 	remaining.reserve(self.size());
 
-	for (const auto &leaf : leaves.leaves()) {
+	for (size_t i = 0; i < size; i++) {
+		const auto leaf = leaves[i];
 		if (expression(cond, leaf)->evaluate(evaluation)->is_true()) {
 			remaining.push_back(leaf);
 		}
@@ -110,7 +112,7 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
 
 	BaseExpressionRef new_head;
 	if (head->type() == ExpressionType) {
-		new_head = static_cast<const Expression*>(head.get())->replace_slots(slots, n_slots, evaluation);
+		new_head = head->as_expression()->replace_slots(slots, n_slots, evaluation);
 	}
 
 	const ExpressionRef result = apply(
@@ -119,7 +121,7 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_slots(
         0,
 		leaves.size(),
         [&slots, n_slots, &evaluation] (const BaseExpressionRef &ref) {
-			return static_cast<const Expression*>(ref.get())->replace_slots(slots, n_slots, evaluation);
+			return ref->as_expression()->replace_slots(slots, n_slots, evaluation);
         },
 		(bool)new_head,
 		MakeTypeMask(ExpressionType));
@@ -153,7 +155,7 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_vars(Name name) 
 				return *r;
 			}
 		} else if (type == ExpressionType) {
-			return static_cast<const Expression*>(expr.get())->replace_vars(name);
+			return expr->as_expression()->replace_vars(name);
 		}
 
 		return BaseExpressionRef();
