@@ -133,7 +133,22 @@ public:
         if (list->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
-            return list->as_expression()->select(cond, evaluation);
+	        return list->as_expression()->with_slice([list, &cond, &evaluation] (const auto &slice) {
+
+		        const size_t size = slice.size();
+
+		        std::vector<BaseExpressionRef> remaining;
+		        remaining.reserve(size);
+
+		        for (size_t i = 0; i < size; i++) {
+			        const auto leaf = slice[i];
+			        if (expression(cond, leaf)->evaluate(evaluation)->is_true()) {
+				        remaining.push_back(leaf);
+			        }
+		        }
+
+		        return expression(list->as_expression()->head(), std::move(remaining));
+	        });
         }
         return BaseExpressionRef();
     }
@@ -527,10 +542,19 @@ void Builtins::Lists::initialize() {
 			builtin<2>(
 				[](const BaseExpressionRef &f, const BaseExpressionRef &expr, const Evaluation &evaluation) {
 				    if (expr->type() != ExpressionType) {
-					    return BaseExpressionRef();
+					    return ExpressionRef();
 				    }
-				    const Expression *list = expr->as_expression();
-				    return list->map(f, evaluation);
+					return expr->as_expression()->with_slice([&f, &expr] (const auto &slice) {
+
+						return expression(expr->as_expression()->head(), [&f, &slice] (auto &storage) {
+							const size_t size = slice.size();
+
+							for (size_t i = 0; i < size; i++) {
+								const auto leaf = slice[i];
+								storage << expression(f, StaticSlice<1>(&leaf, leaf->base_type_mask()));
+							}
+						}, slice.size());
+					});
 			    }
 		    )
 	    });

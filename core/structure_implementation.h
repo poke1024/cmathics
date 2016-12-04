@@ -6,41 +6,6 @@
 #include "evaluate.h"
 
 template<typename T>
-BaseExpressionRef StructureOperationsImplementation<T>::map(
-	const BaseExpressionRef &f, const Evaluation &evaluation) const {
-
-	const T &self = this->expr();
-	const auto &leaves = self._leaves;
-
-	return expression(self._head, [&f, &leaves] (auto &storage) {
-		for (const BaseExpressionRef &leaf : leaves.leaves()) {
-			storage << expression(f, StaticSlice<1>(&leaf, leaf->base_type_mask()));
-		}
-	}, leaves.size());
-}
-
-template<typename T>
-BaseExpressionRef StructureOperationsImplementation<T>::select(
-	const BaseExpressionRef &cond, const Evaluation &evaluation) const {
-
-	const T &self = this->expr();
-	const auto &leaves = self._leaves;
-	const size_t size = self.size();
-
-	std::vector<BaseExpressionRef> remaining;
-	remaining.reserve(self.size());
-
-	for (size_t i = 0; i < size; i++) {
-		const auto leaf = leaves[i];
-		if (expression(cond, leaf)->evaluate(evaluation)->is_true()) {
-			remaining.push_back(leaf);
-		}
-	}
-
-	return expression(self.head(), std::move(remaining));
-}
-
-template<typename T>
 ExpressionRef StructureOperationsImplementation<T>::iterate(
 	Symbol *iterator, const BaseExpressionRef &expr, const Evaluation &evaluation) const {
 

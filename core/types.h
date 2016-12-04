@@ -123,11 +123,27 @@ enum SliceCode : uint8_t {
 
 	DynamicSliceCode = StaticSliceNCode + 1,
 
-	PackedSliceMachineIntegerCode = DynamicSliceCode + 1,
-	PackedSliceMachineRealCode = DynamicSliceCode + 2,
+	PackedSlice0Code = DynamicSliceCode + 1,
+	PackedSliceMachineIntegerCode = PackedSlice0Code,
+	PackedSliceMachineRealCode,
+	PackedSliceNCode = PackedSliceMachineRealCode,
 
-	NumberOfSliceCodes = PackedSliceMachineRealCode + 1,
+	NumberOfSliceCodes = PackedSliceNCode + 1,
 	Unknown = 255
+};
+
+template<SliceCode slice_code>
+struct PackedSliceType {
+};
+
+template<>
+struct PackedSliceType<PackedSliceMachineIntegerCode> {
+	typedef machine_integer_t type;
+};
+
+template<>
+struct PackedSliceType<PackedSliceMachineRealCode> {
+	typedef machine_real_t type;
 };
 
 constexpr inline bool is_packed_slice(SliceCode id) {
@@ -585,6 +601,9 @@ public:
 
 	template<SliceCode StaticSliceCode = SliceCode::Unknown, typename F>
 	inline auto with_leaves(const F &f) const;
+
+	template<typename F>
+	inline auto with_slice(const F &f) const;
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 
