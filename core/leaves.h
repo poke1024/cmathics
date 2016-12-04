@@ -238,7 +238,11 @@ public:
 
 public:
 	inline size_t size() const {
-		return BaseSlice::_size;
+		const size_t n = BaseSlice::_size;
+		if (n < MinPackedSliceSize) {
+			__builtin_unreachable();
+		}
+		return n;
 	}
 
 	inline PackedSlice(const std::vector<U> &data) :
@@ -401,7 +405,11 @@ public:
 	}
 
 	inline size_t size() const {
-		return _size;
+		const size_t n = _size;
+		if (n <= MaxStaticSliceSize) {
+			__builtin_unreachable();
+		}
+		return n;
 	}
 
 public:
@@ -430,14 +438,20 @@ public:
 
     inline DynamicSlice(const std::vector<BaseExpressionRef> &data, TypeMask type_mask) :
 		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
+
+	    assert(data.size() > MaxStaticSliceSize);
 	}
 
 	inline DynamicSlice(std::vector<BaseExpressionRef> &&data, TypeMask type_mask) :
 		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
+
+		assert(data.size() > MaxStaticSliceSize);
 	}
 
 	inline DynamicSlice(const std::initializer_list<BaseExpressionRef> &data, TypeMask type_mask) :
 		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
+
+		assert(data.size() > MaxStaticSliceSize);
 	}
 
 	inline DynamicSlice(
@@ -447,6 +461,8 @@ public:
         TypeMask type_mask) :
         BaseRefsSlice(begin, end - begin, type_mask),
 		_extent(extent) {
+
+		assert(end - begin > MaxStaticSliceSize);
 	}
 
 	inline DynamicSlice slice(size_t begin, size_t end) const {

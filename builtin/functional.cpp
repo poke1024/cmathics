@@ -5,6 +5,78 @@
 BaseExpressionRef function_pattern(
 	const SymbolRef &head, const Definitions &definitions);
 
+template<typename Slots>
+inline BaseExpressionRef replace_slots(
+	const Expression *expr,
+	const Slots &slots,
+	const Evaluation &evaluation) {
+
+	if (expr->has_cache() && expr->cache()->skip_slots) {
+		return BaseExpressionRef();
+	}
+
+	return expr->with_slice<CompileToSliceType>(
+		[expr, &slots, &evaluation] (const auto &slice) -> BaseExpressionRef {
+			const BaseExpressionRef &head = expr->head();
+
+			switch (head->extended_type()) {
+				case SymbolSlot:
+					if (slice.size() != 1) {
+						// error
+					} else {
+						const auto slot = slice[0];
+						if (slot->type() == MachineIntegerType) {
+							const machine_integer_t slot_id =
+								static_cast<const MachineInteger*>(slot.get())->value;
+							if (slot_id < 1) {
+								// error
+							} else if (slot_id > slots.size()) {
+								// error
+							} else {
+								return slots[slot_id - 1];
+							}
+						} else {
+							// error
+						}
+					}
+					break;
+
+				case SymbolFunction:
+					if (slice.size() == 1) {
+						// do not replace Slots in nested Functions
+						return BaseExpressionRef();
+					}
+
+				default: {
+					// nothing
+				}
+			}
+
+			BaseExpressionRef new_head;
+			if (head->type() == ExpressionType) {
+				new_head = replace_slots(head->as_expression(), slots, evaluation);
+			}
+
+			const BaseExpressionRef result = apply(
+				new_head ? new_head : head,
+				slice,
+				0,
+				slice.size(),
+				[&slots, &evaluation] (const BaseExpressionRef &ref) {
+					return replace_slots(ref->as_expression(), slots, evaluation);
+				},
+				(bool)new_head,
+				MakeTypeMask(ExpressionType));
+
+			if (!result) {
+				expr->cache()->skip_slots = true;
+			}
+
+			return result;
+		});
+}
+
+
 class FunctionRule : public Rule {
 public:
 	FunctionRule(const SymbolRef &head, const Definitions &definitions) :
@@ -16,7 +88,7 @@ public:
 		if (head->type() != ExpressionType) {
 			return BaseExpressionRef();
 		}
-		return head->as_expression()->with_slice<OptimizeForSpeed>([args, &evaluation] (const auto &head_slice) {
+		return head->as_expression()->with_slice<CompileToSliceType>([args, &evaluation] (const auto &head_slice) {
 
 			switch (head_slice.size()) {
 				case 1: { // Function[body_][args___]
@@ -25,12 +97,9 @@ public:
 					if (body->type() != ExpressionType) {
 						return BaseExpressionRef();
 					}
-					const Expression *body_ptr = body->as_expression();
-					return args->with_leaves_array(
-						[body_ptr, &evaluation] (const BaseExpressionRef *slots, size_t n_slots) {
-							return body_ptr->replace_slots(slots, n_slots, evaluation);
-						});
-
+					return args->with_slice([&body, &evaluation] (const auto &slots) {
+						return replace_slots(body->as_expression(), slots, evaluation);
+					});
 				}
 
 				case 2: { // Function[vars_, body_][args___]
@@ -55,8 +124,7 @@ public:
 						(const BaseExpressionRef *args, size_t n_args) {
 
 							return vars_ptr->with_slice(
-								[args, n_args, vars_ptr, body_ptr, &evaluation]
-										(const auto &vars_slice) {
+								[args, n_args, vars_ptr, body_ptr, &evaluation] (const auto &vars_slice) {
 
 									const size_t n_vars = vars_slice.size();
 

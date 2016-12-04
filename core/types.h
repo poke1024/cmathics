@@ -543,9 +543,9 @@ public:
 };
 
 enum SliceMethodOptimizeTarget {
-	OptimizeForSize, // smallest code size (in compiled binary)
-	OptimizeForSpeed, // fastest runtime
-	OptimizeFor1Leaf = OptimizeForSize // best strategy to access single leaf
+	DoNotCompileToSliceType,
+	CompileToSliceType,
+	CompileToPackedSliceType
 };
 
 template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
@@ -613,7 +613,7 @@ public:
 		}
 	}
 
-	template<SliceMethodOptimizeTarget Optimize = OptimizeForSize, typename F>
+	template<SliceMethodOptimizeTarget Optimize = DoNotCompileToSliceType, typename F>
 	inline auto with_slice(const F &f) const;
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;

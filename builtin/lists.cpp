@@ -346,7 +346,7 @@ protected:
         const BaseExpressionRef &imin,
         const BaseExpressionRef &imax,
         const BaseExpressionRef &di,
-        const Evaluation &evaluation) {
+        const Evaluation &evaluation) const {
 
         const BaseExpressionRef &LessEqual = evaluation.LessEqual;
         const BaseExpressionRef &Plus = evaluation.Plus;
@@ -399,7 +399,7 @@ public:
         builtin(&Table::apply);
     }
 
-    BaseExpressionRef apply(
+    inline BaseExpressionRef apply(
         const BaseExpressionRef &expr,
         const BaseExpressionRef &iter,
         const Evaluation &evaluation) {
@@ -409,76 +409,95 @@ public:
             return BaseExpressionRef();
         }
 
-        switch (list->size()) {
-            case 1: { // {imax_}
-                const BaseExpressionRef *leaves = list->static_leaves<1>();
-                return iterate<false>(
-                    expr,
-                    nullptr,
-                    Heap::MachineInteger(0),
-                    leaves[0]->evaluate_or_copy(evaluation),
-                    Heap::MachineInteger(1),
-                    evaluation);
-            }
+	    const Table * const self = this;
+	    return list->with_slice<CompileToSliceType>([self, &expr, &evaluation] (const auto &slice) {
+		    switch (slice.size()) {
+			    case 1: { // {imax_}
+				    return self->iterate<false>(
+					    expr,
+					    nullptr,
+					    Heap::MachineInteger(0),
+					    slice[0]->evaluate_or_copy(evaluation),
+					    Heap::MachineInteger(1),
+					    evaluation);
+			    }
 
-            case 2: { // {i_Symbol, imax_} or {i_Symbol, {items___}}
-                const BaseExpressionRef *leaves = list->static_leaves<2>();
-                const BaseExpressionRef &iterator = leaves[0];
+			    case 2: { // {i_Symbol, imax_} or {i_Symbol, {items___}}
+				    const BaseExpressionRef &iterator_expr = slice[0];
 
-                if (iterator->type() == SymbolType) {
-                    const BaseExpressionRef &domain = leaves[1];
-                    const Expression *domain_list = if_list(domain);
+				    if (iterator_expr->type() == SymbolType) {
+					    Symbol * const iterator = iterator_expr->as_symbol();
 
-                    if (domain_list) {
-                        domain_list = if_list(domain_list->evaluate_or_copy(evaluation));
-                        if (domain_list) {
-                            return domain_list->iterate(iterator->as_symbol(), expr, evaluation);
-                        }
-                    } else {
-                        return iterate<true>(
-                            expr,
-                            iterator->as_symbol(),
-                            Heap::MachineInteger(1),
-                            leaves[1]->evaluate_or_copy(evaluation),
-                            Heap::MachineInteger(1),
-                            evaluation);
-                    }
-                }
-                break;
-            }
-            case 3: { // {i_Symbol, imin_, imax_}
-                const BaseExpressionRef *leaves = list->static_leaves<3>();
-                const BaseExpressionRef &iterator = leaves[0];
+					    const BaseExpressionRef &domain = slice[1];
+					    const Expression *domain_list = if_list(domain);
 
-                if (iterator->type() == SymbolType) {
-                    return iterate<true>(
-                        expr,
-                        iterator->as_symbol(),
-                        leaves[1]->evaluate_or_copy(evaluation),
-                        leaves[2]->evaluate_or_copy(evaluation),
-                        Heap::MachineInteger(1),
-                        evaluation);
-                }
-                break;
-            }
-            case 4: { // {i_Symbol, imin_, imax_, di_}
-                const BaseExpressionRef *leaves = list->static_leaves<4>();
-                const BaseExpressionRef &iterator = leaves[0];
+					    if (domain_list) {
+						    domain_list = if_list(domain_list->evaluate_or_copy(evaluation));
+						    if (domain_list) {
+							    return domain_list->with_slice<CompileToSliceType>(
+								    [iterator, &expr, &evaluation] (const auto &slice) {
+									    return expression(
+										    evaluation.List,
+										    [iterator, &slice, &expr, &evaluation] (auto &storage) {
+											    const size_t n = slice.size();
 
-                if (iterator->type() == SymbolType) {
-                    return iterate<true>(
-                        expr,
-                        iterator->as_symbol(),
-                        leaves[1]->evaluate_or_copy(evaluation),
-                        leaves[2]->evaluate_or_copy(evaluation),
-                        leaves[3]->evaluate_or_copy(evaluation),
-                         evaluation);
-                }
-                break;
-            }
-        }
+											    for (size_t i = 0; i < n; i++) {
+												    storage << scope(
+													    iterator,
+													    slice[i],
+													    [&expr, &evaluation] () {
+														    return expr->evaluate(evaluation);
+													    });
+											    }
+										    },
+										    slice.size()
+									    );
+								    });
+						    }
+					    } else {
+						    return self->iterate<true>(
+							    expr,
+							    iterator,
+							    Heap::MachineInteger(1),
+							    slice[1]->evaluate_or_copy(evaluation),
+							    Heap::MachineInteger(1),
+							    evaluation);
+					    }
+				    }
+				    break;
+			    }
+			    case 3: { // {i_Symbol, imin_, imax_}
+				    const BaseExpressionRef &iterator = slice[0];
 
-        return BaseExpressionRef();
+				    if (iterator->type() == SymbolType) {
+					    return self->iterate<true>(
+						    expr,
+						    iterator->as_symbol(),
+						    slice[1]->evaluate_or_copy(evaluation),
+						    slice[2]->evaluate_or_copy(evaluation),
+						    Heap::MachineInteger(1),
+						    evaluation);
+				    }
+				    break;
+			    }
+			    case 4: { // {i_Symbol, imin_, imax_, di_}
+				    const BaseExpressionRef &iterator = slice[0];
+
+				    if (iterator->type() == SymbolType) {
+					    return self->iterate<true>(
+						    expr,
+						    iterator->as_symbol(),
+						    slice[1]->evaluate_or_copy(evaluation),
+						    slice[2]->evaluate_or_copy(evaluation),
+						    slice[3]->evaluate_or_copy(evaluation),
+						    evaluation);
+				    }
+				    break;
+			    }
+		    }
+
+		    return ExpressionRef();
+	    });
     }
 };
 
@@ -546,7 +565,7 @@ void Builtins::Lists::initialize() {
 				    if (expr->type() != ExpressionType) {
 					    return ExpressionRef();
 				    }
-					return expr->as_expression()->with_slice<OptimizeForSpeed>([&f, &expr] (const auto &slice) {
+					return expr->as_expression()->with_slice<CompileToSliceType>([&f, &expr] (const auto &slice) {
 
 						return expression(expr->as_expression()->head(), [&f, &slice] (auto &storage) {
 							const size_t size = slice.size();

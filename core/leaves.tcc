@@ -24,7 +24,7 @@ inline BaseExpressionRef PackedSlice<U>::operator[](size_t i) const {
 }
 
 template<typename R, typename F>
-class SliceMethod<OptimizeForSpeed, R, F> {
+class SliceMethod<CompileToSliceType, R, F> {
 private:
 	std::function<R(const F&, const Expression *)> m_implementations[NumberOfSliceCodes];
 
@@ -82,6 +82,39 @@ public:
 	}
 };
 
+template<typename R, typename F>
+class SliceMethod<CompileToPackedSliceType, R, F> {
+private:
+	std::function<R(const F&, const Expression *)> m_implementations[1 + PackedSliceNCode - PackedSlice0Code];
+
+	template<SliceCode slice_code>
+	void init_packed_slice() {
+		m_implementations[slice_code - PackedSlice0Code] = [] (const F &f, const Expression *expr) {
+			return f(*static_cast<const PackedSlice<typename PackedSliceType<slice_code>::type>*>(expr->_slice_ptr));
+		};
+		STATIC_IF (slice_code < PackedSliceNCode) {
+			init_packed_slice<SliceCode(slice_code + 1)>();
+		} STATIC_ENDIF
+	}
+
+public:
+	SliceMethod() {
+		init_packed_slice<PackedSlice0Code>();
+	}
+
+	inline R operator()(const F &f, const Expression *expr) const {
+		const BaseExpressionRef * const leaves = expr->_slice_ptr->_address;
+		if (leaves) {
+			const ArraySlice slice(leaves, expr->size());
+			return f(slice);
+		} else {
+			const SliceCode slice_code = expr->slice_code();
+			assert(is_packed_slice(slice_code));
+			return m_implementations[slice_code - PackedSlice0Code](f, expr);
+		}
+	}
+};
+
 class VCallSlice {
 private:
 	const Expression * const m_expr;
@@ -100,7 +133,7 @@ public:
 };
 
 template<typename R, typename F>
-class SliceMethod<OptimizeForSize, R, F> {
+class SliceMethod<DoNotCompileToSliceType, R, F> {
 public:
 	SliceMethod() {
 	}
@@ -128,7 +161,7 @@ inline auto Expression::with_slice(const F &f) const {
 }
 
 inline BaseExpressionRef Expression::leaf(size_t i) const {
-	return with_slice<OptimizeFor1Leaf>([i] (const auto &slice) {
+	return with_slice([i] (const auto &slice) {
 		return slice[i];
 	});
 }
