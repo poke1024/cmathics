@@ -543,20 +543,34 @@ public:
 };
 
 enum SliceMethodOptimizeTarget {
-	OptimizeForSize, // only instantiate code once, use vcalls for packed slices at runtime; slower
-	OptimizeForSpeedAndSize, // only instantiate separate code for packed slice codes; fast
-	OptimizeForSpeed // instantiate code for every slice code, including static slices; fastest
+	OptimizeForSize, // smallest code size (in compiled binary)
+	OptimizeForSpeed, // fastest runtime
+	OptimizeFor1Leaf = OptimizeForSize // best strategy to access single leaf
+};
+
+template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
+class SliceMethod {
 };
 
 class Expression : public BaseExpression, virtual public OperationsInterface {
 private:
 	mutable Cache *_cache;
 
+protected:
+	template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
+	friend class SliceMethod;
+
+	friend class ArraySlice;
+	friend class VCallSlice;
+
+	const Slice * const _slice_ptr;
+
+	virtual BaseExpressionRef materialize_leaf(size_t i) const = 0;
+
 public:
     static constexpr Type Type = ExpressionType;
 
 	const BaseExpressionRef _head;
-	const Slice * const _slice_ptr;
 
 	inline Expression(const BaseExpressionRef &head, SliceCode slice_id, const Slice *slice_ptr) :
 		BaseExpression(build_extended_type(ExpressionType, slice_id)),
@@ -580,6 +594,8 @@ public:
 		return _slice_ptr->_size;
 	}
 
+	inline BaseExpressionRef leaf(size_t i) const;
+
 	template<SliceCode StaticSliceCode = SliceCode::Unknown, typename F>
 	inline auto with_leaves_array(const F &f) const {
 		const BaseExpressionRef * const leaves = _slice_ptr->_address;
@@ -602,15 +618,6 @@ public:
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 
-	inline BaseExpressionRef leaf(size_t i) const {
-		const BaseExpressionRef * const leaves = _slice_ptr->_address;
-		if (leaves) {
-			return leaves[i];
-		} else {
-			return slow_leaf(i);
-		}
-	}
-
 	virtual BaseExpressionRef head() const {
 		return _head;
 	}
@@ -618,8 +625,6 @@ public:
 	virtual BaseExpressionPtr head_ptr() const {
 		return _head.get();
 	}
-
-    virtual BaseExpressionRef slow_leaf(size_t i) const = 0;
 
     virtual bool is_sequence() const {
 		return _head->extended_type() == SymbolSequence;
@@ -717,50 +722,12 @@ inline BaseExpressionRef Rules::do_try_and_apply(
 }
 
 template<typename F>
-inline auto with_leaves_pair(const Expression *a, const Expression *b, const F &f) {
-	const size_t size_a = a->size();
-	const size_t size_b = b->size();
-
-	const BaseExpressionRef * const leaves_a = a->_slice_ptr->_address;
-	const BaseExpressionRef * const leaves_b = b->_slice_ptr->_address;
-
-	if (leaves_a) {
-		if (leaves_b) {
-			return f(
-				[leaves_a] (size_t i) {
-					return leaves_a[i];
-				}, size_a,
-				[leaves_b] (size_t i) {
-					return leaves_b[i];
-				}, size_b);
-		} else {
-			return f(
-				[leaves_a] (size_t i) {
-					return leaves_a[i];
-				}, size_a,
-				[b] (size_t i) {
-					return b->slow_leaf(i);
-				}, size_b);
-		}
-	} else {
-		if (leaves_b) {
-			return f(
-				[a] (size_t i) {
-					return a->slow_leaf(i);
-				}, size_a,
-				[leaves_b] (size_t i) {
-					return leaves_b[i];
-				}, size_b);
-		} else {
-			return f(
-				[a] (size_t i) {
-					return a->slow_leaf(i);
-				}, size_a,
-				[b] (size_t i) {
-					return b->slow_leaf(i);
-				}, size_b);
-		}
-	}
+inline auto with_slices(const Expression *a, const Expression *b, const F &f) {
+	return a->with_slice([b, &f] (const auto &slice_a) {
+		return b->with_slice([&f, &slice_a] (const auto &slice_b) {
+			return f(slice_a, slice_b);
+		});
+	});
 };
 
 inline const Expression *BaseExpression::as_expression() const {

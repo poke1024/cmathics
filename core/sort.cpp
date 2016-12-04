@@ -33,11 +33,14 @@ int SortKey::compare(const SortKey &key) const {
 
 		const bool precedence = leaf_precedence;
 
-		cmp = with_leaves_pair(a, b, [pa, pb, precedence] (auto la, size_t na, auto lb, size_t nb) {
+		cmp = with_slices(a, b, [pa, pb, precedence] (const auto &slice_a, const auto &slice_b) {
+			const size_t na = slice_a.size();
+			const size_t nb = slice_b.size();
+
 			const size_t size = std::min(na, nb);
 
 			for (size_t i = 0; i < size; i++) {
-				const int cmp = sort_key(la(i), pa).compare(sort_key(lb(i), pb));
+				const int cmp = sort_key(slice_a[i], pa).compare(sort_key(slice_b[i], pb));
 				if (cmp) {
 					return cmp;
 				}

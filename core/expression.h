@@ -31,12 +31,13 @@ template<typename Slice>
 class ExpressionImplementation :
 	public Expression, public AllOperationsImplementation<ExpressionImplementation<Slice>> {
 
+protected:
+	virtual BaseExpressionRef materialize_leaf(size_t i) const {
+		return _leaves[i];
+	}
+
 public:
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const;
-
-    virtual BaseExpressionRef slow_leaf(size_t i) const {
-        return _leaves[i];
-    }
 
 public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
@@ -93,13 +94,18 @@ public:
 		if (size != expr->size()) {
 			return false;
 		}
-		for (size_t i = 0; i < size; i++) {
-			if (!_leaves[i]->same(expr->leaf(i))) {
-				return false;
-			}
-		}
 
-		return true;
+		const auto &self = _leaves;
+		return expr->with_slice([&self, size] (const auto &slice) {
+
+			for (size_t i = 0; i < size; i++) {
+				if (!self[i]->same(slice[i])) {
+					return false;
+				}
+			}
+
+			return true;
+		});
 	}
 
 	virtual std::string fullform() const {

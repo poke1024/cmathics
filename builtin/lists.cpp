@@ -22,7 +22,7 @@ public:
             if (expr->size() < 1) {
                 evaluation.message(m_symbol, "nofirst", x);
             } else {
-                return expr->leaf(0);
+	            return expr->leaf(0);
             }
         }
         return BaseExpressionRef();
@@ -51,7 +51,7 @@ public:
             if (size < 1) {
                 evaluation.message(m_symbol, "nolast", x);
             } else {
-                return expr->leaf(size - 1);
+	            return expr->leaf(size - 1);
             }
         }
         return BaseExpressionRef();

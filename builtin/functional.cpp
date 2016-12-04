@@ -16,83 +16,85 @@ public:
 		if (head->type() != ExpressionType) {
 			return BaseExpressionRef();
 		}
-		const Expression *head_ptr = static_cast<const Expression*>(head.get());
+		return head->as_expression()->with_slice<OptimizeForSpeed>([args, &evaluation] (const auto &head_slice) {
 
-		switch (head_ptr->slice_code()) {
-			case SliceCode::StaticSlice1Code: { // Function[body_][args___]
-				const BaseExpressionRef &body = static_cast<const StaticSlice<1>*>(head_ptr->_slice_ptr)->leaf(0);
-				if (body->type() != ExpressionType) {
-					break;
-				}
-				const Expression *body_ptr = static_cast<const Expression*>(body.get());
+			switch (head_slice.size()) {
+				case 1: { // Function[body_][args___]
 
-				return args->with_leaves_array(
-					[body_ptr, &evaluation] (const BaseExpressionRef *slots, size_t n_slots) {
-						return body_ptr->replace_slots(slots, n_slots, evaluation);
-					});
-			}
-			case SliceCode::StaticSlice2Code: { // Function[vars_, body_][args___]
-				const auto *slice = static_cast<const StaticSlice<1>*>(head_ptr->_slice_ptr);
+					const BaseExpressionRef &body = head_slice[0];
+					if (body->type() != ExpressionType) {
+						return BaseExpressionRef();
+					}
+					const Expression *body_ptr = body->as_expression();
+					return args->with_leaves_array(
+						[body_ptr, &evaluation] (const BaseExpressionRef *slots, size_t n_slots) {
+							return body_ptr->replace_slots(slots, n_slots, evaluation);
+						});
 
-				const BaseExpressionRef &vars = slice->leaf(0);
-				if (vars->type() != ExpressionType) {
-					break;
-				}
-				const Expression *vars_ptr = static_cast<const Expression*>(vars.get());
-
-				if (vars_ptr->size() != args->size()) { // exit early if params don't match
-					return BaseExpressionRef();
 				}
 
-				const BaseExpressionRef &body = slice->leaf(1);
-				if (body->type() != ExpressionType) {
-					break;
-				}
-				const Expression *body_ptr = static_cast<const Expression*>(body.get());
+				case 2: { // Function[vars_, body_][args___]
+					const BaseExpressionRef &vars = head_slice[0];
+					if (vars->type() != ExpressionType) {
+						return BaseExpressionRef();
+					}
+					const Expression *vars_ptr = vars->as_expression();
 
-				return args->with_leaves_array(
-					[vars_ptr, body_ptr, &evaluation] (const BaseExpressionRef *args, size_t n_args) {
+					if (vars_ptr->size() != args->size()) { // exit early if params don't match
+						return BaseExpressionRef();
+					}
 
-						return vars_ptr->with_leaves_array(
-							[args, n_args, vars_ptr, body_ptr, &evaluation]
-							(const BaseExpressionRef *vars, size_t n_vars) {
+					const BaseExpressionRef &body = head_slice[1];
+					if (body->type() != ExpressionType) {
+						return BaseExpressionRef();
+					}
+					const Expression *body_ptr = body->as_expression();
 
-								for (size_t i = 0; i < n_vars; i++) {
-									if (vars[i]->type() != SymbolType) {
-										return BaseExpressionRef();
-									}
-								}
+					return args->with_leaves_array(
+						[vars_ptr, body_ptr, &evaluation]
+						(const BaseExpressionRef *args, size_t n_args) {
 
-								BaseExpressionRef return_expr;
+							return vars_ptr->with_slice(
+								[args, n_args, vars_ptr, body_ptr, &evaluation]
+										(const auto &vars_slice) {
 
-								for (size_t i = 0; i < n_vars; i++) {
-									static_cast<const Symbol*>(vars[i].get())->set_replacement(&args[i]);
-								}
+									const size_t n_vars = vars_slice.size();
 
-								try {
-									return_expr = body_ptr->replace_vars(vars_ptr->cache()->name());
-								} catch(...) {
 									for (size_t i = 0; i < n_vars; i++) {
-										static_cast<const Symbol*>(vars[i].get())->clear_replacement();
+										if (vars_slice[i]->type() != SymbolType) {
+											return BaseExpressionRef();
+										}
 									}
-									throw;
-								}
 
-								for (size_t i = 0; i < n_vars; i++) {
-									static_cast<const Symbol*>(vars[i].get())->clear_replacement();
-								}
+									BaseExpressionRef return_expr;
 
-								return return_expr;
-							});
-					});
+									for (size_t i = 0; i < n_vars; i++) {
+										static_cast<const Symbol*>(vars_slice[i].get())->set_replacement(&args[i]);
+									}
+
+									try {
+										return_expr = body_ptr->replace_vars(vars_ptr->cache()->name());
+									} catch(...) {
+										for (size_t i = 0; i < n_vars; i++) {
+											static_cast<const Symbol*>(vars_slice[i].get())->clear_replacement();
+										}
+										throw;
+									}
+
+									for (size_t i = 0; i < n_vars; i++) {
+										static_cast<const Symbol*>(vars_slice[i].get())->clear_replacement();
+									}
+
+									return return_expr;
+								});
+						}
+					);
+				}
+
+				default:
+					return BaseExpressionRef();
 			}
-
-			default:
-				// nothing
-				break;
-		}
-
-		return BaseExpressionRef();
+		});
 	}
 
 	virtual MatchSize match_size() const {

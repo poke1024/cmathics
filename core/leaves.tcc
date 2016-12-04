@@ -23,10 +23,6 @@ inline BaseExpressionRef PackedSlice<U>::operator[](size_t i) const {
 	return from_primitive(_begin[i]);
 }
 
-template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
-class SliceMethod {
-};
-
 template<typename R, typename F>
 class SliceMethod<OptimizeForSpeed, R, F> {
 private:
@@ -86,59 +82,26 @@ public:
 	}
 };
 
-template<typename R, typename F>
-class SliceMethod<OptimizeForSpeedAndSize, R, F> {
+class VCallSlice {
 private:
-	std::function<R(const F&, const Expression *)> m_implementations[1 + PackedSliceNCode - PackedSlice0Code];
-
-	template<SliceCode slice_code>
-	void init_packed_slice() {
-		m_implementations[slice_code - PackedSlice0Code] = [] (const F &f, const Expression *expr) {
-			return f(*static_cast<const PackedSlice<typename PackedSliceType<slice_code>::type>*>(expr->_slice_ptr));
-		};
-		STATIC_IF (slice_code < PackedSliceNCode) {
-			init_packed_slice<SliceCode(slice_code + 1)>();
-		} STATIC_ENDIF
-	}
+	const Expression * const m_expr;
 
 public:
-	SliceMethod() {
-		init_packed_slice<PackedSlice0Code>();
+	inline VCallSlice(const Expression *expr) : m_expr(expr) {
 	}
 
-	inline R operator()(const F &f, const Expression *expr) const {
-		const BaseExpressionRef * const leaves = expr->_slice_ptr->_address;
-		if (leaves) {
-			const ArraySlice slice(leaves, expr->size());
-			return f(slice);
-		} else {
-			const SliceCode slice_code = expr->slice_code();
-			assert(is_packed_slice(slice_code));
-			return m_implementations[slice_code - PackedSlice0Code](f, expr);
-		}
+	inline const BaseExpressionRef operator[](size_t i) const {
+		return m_expr->materialize_leaf(i);
+	}
+
+	inline size_t size() const {
+		return m_expr->size();
 	}
 };
 
 template<typename R, typename F>
 class SliceMethod<OptimizeForSize, R, F> {
 public:
-	class VCallSlice {
-	private:
-		const Expression * const m_expr;
-
-	public:
-		inline VCallSlice(const Expression *expr) : m_expr(expr) {
-		}
-
-		inline const BaseExpressionRef operator[](size_t i) const {
-			return m_expr->slow_leaf(i);
-		}
-
-		inline size_t size() const {
-			return m_expr->size();
-		}
-	};
-
 	SliceMethod() {
 	}
 
@@ -162,4 +125,10 @@ inline auto Expression::with_slice(const F &f) const {
 
 	static const SliceMethod<Optimize, R, F> method;
 	return method(f, this);
+}
+
+inline BaseExpressionRef Expression::leaf(size_t i) const {
+	return with_slice<OptimizeFor1Leaf>([i] (const auto &slice) {
+		return slice[i];
+	});
 }
