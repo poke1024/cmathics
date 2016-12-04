@@ -147,7 +147,7 @@ struct PackedSliceType<PackedSliceMachineRealCode> {
 };
 
 constexpr inline bool is_packed_slice(SliceCode id) {
-	return id >= PackedSliceMachineIntegerCode && id <= PackedSliceMachineRealCode;
+	return id >= PackedSlice0Code && id <= PackedSliceNCode;
 }
 
 constexpr inline bool is_static_slice(SliceCode code) {
@@ -542,6 +542,12 @@ public:
     }
 };
 
+enum SliceMethodOptimizeTarget {
+	OptimizeForSize, // only instantiate code once, use vcalls for packed slices at runtime; slower
+	OptimizeForSpeedAndSize, // only instantiate separate code for packed slice codes; fast
+	OptimizeForSpeed // instantiate code for every slice code, including static slices; fastest
+};
+
 class Expression : public BaseExpression, virtual public OperationsInterface {
 private:
 	mutable Cache *_cache;
@@ -591,18 +597,7 @@ public:
 		}
 	}
 
-	// use with_leaves to write code that accesses leaves but that does not need to
-	// provide different optimized implementations for different expression sizes.
-	// for the latter, use OperationsImplementation to implement an operation; note
-	// though that this will generate code for each single slice code, including each
-	// static slice code size. in constrast, with_leaves generates one implementation
-	// for all unpacked slices (regardless of size), an one implementation for each
-	// type of packed slice.
-
-	template<SliceCode StaticSliceCode = SliceCode::Unknown, typename F>
-	inline auto with_leaves(const F &f) const;
-
-	template<typename F>
+	template<SliceMethodOptimizeTarget Optimize = OptimizeForSize, typename F>
 	inline auto with_slice(const F &f) const;
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;

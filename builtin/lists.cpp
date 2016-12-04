@@ -133,22 +133,24 @@ public:
         if (list->type() != ExpressionType) {
             evaluation.message(m_symbol, "normal");
         } else {
-	        return list->as_expression()->with_slice([list, &cond, &evaluation] (const auto &slice) {
+	        return list->as_expression()->with_slice(
+			    [list, &cond, &evaluation] (const auto &slice) {
 
-		        const size_t size = slice.size();
+		            const size_t size = slice.size();
 
-		        std::vector<BaseExpressionRef> remaining;
-		        remaining.reserve(size);
+			        std::vector<BaseExpressionRef> remaining;
+			        remaining.reserve(size);
 
-		        for (size_t i = 0; i < size; i++) {
-			        const auto leaf = slice[i];
-			        if (expression(cond, leaf)->evaluate(evaluation)->is_true()) {
-				        remaining.push_back(leaf);
+			        for (size_t i = 0; i < size; i++) {
+				        const auto leaf = slice[i];
+				        if (expression(cond, leaf)->evaluate(evaluation)->is_true()) {
+					        remaining.push_back(leaf);
+				        }
 			        }
-		        }
 
-		        return expression(list->as_expression()->head(), std::move(remaining));
-	        });
+			        return expression(list->as_expression()->head(), std::move(remaining));
+	           }
+	        );
         }
         return BaseExpressionRef();
     }
@@ -544,7 +546,7 @@ void Builtins::Lists::initialize() {
 				    if (expr->type() != ExpressionType) {
 					    return ExpressionRef();
 				    }
-					return expr->as_expression()->with_slice([&f, &expr] (const auto &slice) {
+					return expr->as_expression()->with_slice<OptimizeForSpeed>([&f, &expr] (const auto &slice) {
 
 						return expression(expr->as_expression()->head(), [&f, &slice] (auto &storage) {
 							const size_t size = slice.size();
