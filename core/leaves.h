@@ -316,16 +316,17 @@ class RefsExtent {
 private:
 	const std::vector<BaseExpressionRef> _data;
 
+protected:
+	size_t _ref_count;
+
 public:
-	typedef std::shared_ptr<RefsExtent> Ref;
-
-	inline explicit RefsExtent(const std::vector<BaseExpressionRef> &data) : _data(data) {
+	inline explicit RefsExtent(const std::vector<BaseExpressionRef> &data) : _data(data), _ref_count(0) {
 	}
 
-	inline explicit RefsExtent(std::vector<BaseExpressionRef> &&data) : _data(data) {
+	inline explicit RefsExtent(std::vector<BaseExpressionRef> &&data) : _data(data), _ref_count(0) {
 	}
 
-	inline explicit RefsExtent(const std::initializer_list<BaseExpressionRef> &data) : _data(data) {
+	inline explicit RefsExtent(const std::initializer_list<BaseExpressionRef> &data) : _data(data), _ref_count(0) {
 	}
 
 	inline const BaseExpressionRef *address() const {
@@ -335,7 +336,36 @@ public:
 	inline size_t size() const {
 		return _data.size();
 	}
+
+	friend void intrusive_ptr_add_ref(RefsExtent *extent);
+	friend void intrusive_ptr_release(RefsExtent *extent);
 };
+
+inline RefsExtentRef Heap::RefsExtent(const std::vector<BaseExpressionRef> &data) {
+	return RefsExtentRef(_s_instance->_refs_extents.construct(data));
+}
+
+inline RefsExtentRef Heap::RefsExtent(std::vector<BaseExpressionRef> &&data) {
+	return RefsExtentRef(_s_instance->_refs_extents.construct(data));
+}
+
+inline RefsExtentRef Heap::RefsExtent(const std::initializer_list<BaseExpressionRef> &data) {
+	return RefsExtentRef(_s_instance->_refs_extents.construct(data));
+}
+
+inline void Heap::release_refs_extent(class RefsExtent *extent) {
+	_s_instance->_refs_extents.free(extent);
+}
+
+inline void intrusive_ptr_add_ref(RefsExtent *extent) {
+	extent->_ref_count++;
+}
+
+inline void intrusive_ptr_release(RefsExtent *extent) {
+	if (--extent->_ref_count == 0) {
+		Heap::release_refs_extent(extent);
+	}
+}
 
 template<SliceCode _code>
 class BaseRefsSlice : public TypedSlice<_code> {
@@ -389,9 +419,9 @@ public:
 
 class DynamicSlice : public BaseRefsSlice<SliceCode::DynamicSliceCode> {
 private:
-	typename RefsExtent::Ref _extent;
+	RefsExtentRef _extent;
 
-    inline DynamicSlice(const typename RefsExtent::Ref &extent, TypeMask type_mask) :
+    inline DynamicSlice(const RefsExtentRef &extent, TypeMask type_mask) :
         BaseRefsSlice(extent->address(), extent->size(), type_mask),
         _extent(extent) {
     }
@@ -442,25 +472,25 @@ public:
 	}
 
     inline DynamicSlice(const std::vector<BaseExpressionRef> &data, TypeMask type_mask) :
-		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
+		DynamicSlice(Heap::RefsExtent(data), type_mask) {
 
 	    assert(data.size() > MaxStaticSliceSize);
 	}
 
 	inline DynamicSlice(std::vector<BaseExpressionRef> &&data, TypeMask type_mask) :
-		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
+		DynamicSlice(Heap::RefsExtent(data), type_mask) {
 
 		assert(data.size() > MaxStaticSliceSize);
 	}
 
 	inline DynamicSlice(const std::initializer_list<BaseExpressionRef> &data, TypeMask type_mask) :
-		DynamicSlice(std::make_shared<RefsExtent>(data), type_mask) {
+		DynamicSlice(Heap::RefsExtent(data), type_mask) {
 
 		assert(data.size() > MaxStaticSliceSize);
 	}
 
 	inline DynamicSlice(
-        const typename RefsExtent::Ref &extent,
+        const RefsExtentRef &extent,
 		const BaseExpressionRef * const begin,
         const BaseExpressionRef * const end,
         TypeMask type_mask) :

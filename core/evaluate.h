@@ -12,7 +12,7 @@ typedef std::function<BaseExpressionRef(
 typedef std::pair<size_t, size_t> eval_range;
 
 struct _HoldNone {
-	static bool const do_eval = true;
+	static bool const need_eval = true;
 
 	template<typename Slice>
 	static inline eval_range eval(const Slice &slice) {
@@ -21,7 +21,7 @@ struct _HoldNone {
 };
 
 struct _HoldFirst {
-	static bool const do_eval = true;
+	static bool const need_eval = true;
 
 	template<typename Slice>
 	static inline eval_range eval(const Slice &slice) {
@@ -30,7 +30,7 @@ struct _HoldFirst {
 };
 
 struct _HoldRest {
-	static bool const do_eval = true;
+	static bool const need_eval = true;
 
 	template<typename Slice>
 	static inline eval_range eval(const Slice &slice) {
@@ -39,7 +39,7 @@ struct _HoldRest {
 };
 
 struct _HoldAll {
-	static bool const do_eval = true;
+	static bool const need_eval = true;
 
 	template<typename Slice>
 	static inline eval_range eval(const Slice &slice) {
@@ -49,7 +49,7 @@ struct _HoldAll {
 };
 
 struct _HoldAllComplete {
-	static bool const do_eval = false;
+	static bool const need_eval = false;
 
 	template<typename Slice>
 	static inline eval_range eval(const Slice &slice) {
@@ -60,6 +60,7 @@ struct _HoldAllComplete {
 class heap_storage {
 private:
 	std::vector<BaseExpressionRef> _leaves;
+	std::vector<machine_integer_t> integers;
 	TypeMask _type_mask;
 
 public:
@@ -80,7 +81,110 @@ public:
 	}
 
 	inline ExpressionRef to_expression(const BaseExpressionRef &head) {
-		return expression(head, std::move(_leaves), _type_mask);
+		if (!integers.empty()) {
+			return expression(head, PackedSlice<machine_integer_t>(std::move(integers)));
+		} else {
+			return expression(head, std::move(_leaves), _type_mask);
+		}
+	}
+};
+
+class adder {
+public:
+	virtual ~adder() {
+	}
+
+	virtual adder *add(const BaseExpressionRef &expr) = 0;
+
+	virtual ExpressionRef to_expression(const BaseExpressionRef &head) = 0;
+
+	virtual void release() = 0;
+};
+
+class generic_adder : public adder {
+private:
+	std::vector<BaseExpressionRef> m_leaves;
+	TypeMask m_type_mask;
+
+public:
+	inline explicit generic_adder(const BaseExpressionRef &expr, size_t size) {
+		m_leaves.reserve(size);
+		m_leaves.push_back(expr);
+		m_type_mask = expr->base_type_mask();
+	}
+
+	inline explicit generic_adder(const std::vector<BaseExpressionRef> &leaves, TypeMask type_mask) : m_leaves(leaves) {
+		m_type_mask = type_mask;
+	}
+
+	virtual adder *add(const BaseExpressionRef &expr) {
+		m_leaves.push_back(expr);
+		m_type_mask |= expr->base_type_mask();
+		return this;
+	}
+
+	virtual ExpressionRef to_expression(const BaseExpressionRef &head) {
+		return expression(head, std::move(m_leaves), m_type_mask);
+	}
+
+	virtual void release();
+};
+
+class integer_adder : public adder {
+private:
+	const size_t m_size;
+	std::vector<machine_integer_t> m_integers;
+
+public:
+	inline integer_adder(const BaseExpressionRef &expr, size_t size) : m_size(size) {
+		m_integers.reserve(size);
+		m_integers.push_back(static_cast<const MachineInteger*>(expr.get())->value);
+	}
+
+	virtual adder *add(const BaseExpressionRef &expr);
+
+	virtual ExpressionRef to_expression(const BaseExpressionRef &head) {
+		return expression(head, PackedSlice<machine_integer_t>(std::move(m_integers)));
+	}
+
+	virtual void release();
+};
+
+class initial_adder : public adder {
+private:
+	const size_t m_size;
+
+public:
+	inline initial_adder(size_t size) : m_size(size) {
+	}
+
+	virtual adder *add(const BaseExpressionRef &expr);
+
+	virtual ExpressionRef to_expression(const BaseExpressionRef &head) {
+		return expression(head);
+	}
+
+	virtual void release();
+};
+
+class packable_heap_storage {
+private:
+	adder *m_adder;
+
+public:
+	packable_heap_storage(size_t size);
+
+	~packable_heap_storage() {
+		m_adder->release();
+	}
+
+	inline packable_heap_storage &operator<<(const BaseExpressionRef &expr) {
+		m_adder = m_adder->add(expr);
+		return *this;
+	}
+
+	inline ExpressionRef to_expression(const BaseExpressionRef &head) {
+		return m_adder->to_expression(head);
 	}
 };
 
@@ -129,7 +233,11 @@ template<typename F>
 inline ExpressionRef expression(const BaseExpressionRef &head, const F &generate, size_t size) {
 	if (size <= MaxStaticSliceSize) {
 		return tiny_expression(head, generate, size);
-	} else {
+	} /*else if (size >= MinPackedSliceSize) {
+		packable_heap_storage storage(size);
+		generate(storage);
+		return storage.to_expression(head);
+	}*/ else {
 		heap_storage storage(size);
 		generate(storage);
 		return storage.to_expression(head);
@@ -216,7 +324,7 @@ BaseExpressionRef evaluate(
 	const GenericSlice &generic_slice,
 	const Evaluation &evaluation) {
 
-	if (!Hold::do_eval) {
+	if (!Hold::need_eval) {
 		// no more evaluation is applied
 		return BaseExpressionRef();
 	}

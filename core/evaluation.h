@@ -75,6 +75,9 @@ public:
     EvaluationInterrupt interrupt;
     Out* out;
 
+    const BaseExpressionRef zero;
+    const BaseExpressionRef one;
+
     Evaluation(Definitions &definitions, bool new_catch_interrupts);
 
     BaseExpressionRef evaluate(BaseExpressionRef expression);

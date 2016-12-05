@@ -244,19 +244,15 @@ public:
         const machine_integer_t n,
         const Evaluation &evaluation) const {
 
-        std::vector<BaseExpressionRef> result;
-        result.reserve(n);
-        TypeMask type_mask = 0;
+	    const F &func = m_func;
 
-        machine_integer_t index = imin;
-        while (index <= imax) {
-            BaseExpressionRef leaf = m_func(Heap::MachineInteger(index));
-            type_mask |= leaf->base_type_mask();
-            result.emplace_back(std::move(leaf));
-            index += di;
-        }
-
-        return expression(evaluation.List, std::move(result), type_mask);
+	    return expression(evaluation.List, [imin, imax, di, func] (auto &storage) {
+		    machine_integer_t index = imin;
+		    while (index <= imax) {
+			    storage << func(Heap::MachineInteger(index));
+			    index += di;
+		    }
+	    }, n);
     }
 };
 
@@ -469,9 +465,9 @@ public:
 					    [&f] (const BaseExpressionRef &) {
                             return f();
                         },
-                        Heap::MachineInteger(0),
+                        evaluation.zero,
                         slice[0]->evaluate_or_copy(evaluation),
-                        Heap::MachineInteger(1),
+					    evaluation.one,
                         evaluation);
 			    }
 
@@ -508,9 +504,9 @@ public:
 					    } else {
 						    return self->iterate(
                                 scoped(iterator->as_symbol(), f),
-							    Heap::MachineInteger(1),
+								evaluation.one,
 							    slice[1]->evaluate_or_copy(evaluation),
-							    Heap::MachineInteger(1),
+								evaluation.one,
 							    evaluation);
 					    }
 				    }
@@ -524,7 +520,7 @@ public:
                             scoped(iterator->as_symbol(), f),
 						    slice[1]->evaluate_or_copy(evaluation),
 						    slice[2]->evaluate_or_copy(evaluation),
-						    Heap::MachineInteger(1),
+						    evaluation.one,
 						    evaluation);
 				    }
 				    break;

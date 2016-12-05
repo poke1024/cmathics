@@ -18,6 +18,9 @@ class Precision;
 class MachineReal;
 class BigReal;
 
+class RefsExtent;
+typedef boost::intrusive_ptr<RefsExtent> RefsExtentRef;
+
 template<int N>
 class StaticSlice;
 
@@ -167,6 +170,7 @@ private:
 	boost::object_pool<String> _strings;
 
 	boost::object_pool<Cache> _caches;
+	boost::object_pool<RefsExtent> _refs_extents;
 
 	Heap();
 
@@ -240,6 +244,14 @@ public:
 	static inline void release_cache(Cache *cache) {
 		_s_instance->_caches.free(cache);
 	}
+
+	static inline RefsExtentRef RefsExtent(const std::vector<BaseExpressionRef> &data);
+
+	static inline RefsExtentRef RefsExtent(std::vector<BaseExpressionRef> &&data);
+
+	static inline RefsExtentRef RefsExtent(const std::initializer_list<BaseExpressionRef> &data);
+
+	static inline void release_refs_extent(class RefsExtent *extent);
 };
 
 #endif //CMATHICS_HEAP_H
