@@ -271,6 +271,11 @@ public:
 		return PackedSlice<U>(_extent, _begin + begin, end - begin);
 	}
 
+    template<int M>
+    inline PackedSlice<U> drop() const {
+        return slice(M, size());
+    }
+
     inline constexpr TypeMask type_mask() const {
 	    // constexpr is important here, as it allows apply() to optimize this for most cases that
 	    // need specific type masks (e.g. optimize evaluate of leaves on PackSlices to a noop).
@@ -469,6 +474,11 @@ public:
 		return DynamicSlice(_extent, _address + begin, _address + end, sliced_type_mask(end - begin));
 	}
 
+    template<int M>
+    inline DynamicSlice drop() const {
+        return slice(M, size());
+    }
+
 	inline bool is_packed() const {
 		return false;
 	}
@@ -482,7 +492,21 @@ public:
 	}
 };
 
-template<size_t N>
+template<int N, bool valid>
+struct StaticSlicePart {
+};
+
+template<int N>
+struct StaticSlicePart<N, true> {
+    using type = StaticSlice<N>;
+};
+
+template<int N>
+struct StaticSlicePart<N, false> {
+    using type = StaticSlice<0>;
+};
+
+template<int N>
 class StaticSlice : public BaseRefsSlice<static_slice_code(N)> {
 private:
     mutable BaseExpressionRef _refs[N];
@@ -559,7 +583,15 @@ public:
     }
 
 	inline StaticSlice slice(size_t begin, size_t end) const {
-		throw std::runtime_error("cannot slice a StaticSlice");
+		throw std::runtime_error("cannot dynamically slice a StaticSlice");
+	}
+
+    template<int M>
+    using Rest = typename StaticSlicePart<N - M, N - M >= 0>::type;
+
+    template<int M>
+	inline Rest<M> drop() const {
+        return Rest<M>(&_refs[M]);
 	}
 
 	std::tuple<BaseExpressionRef*, TypeMask*> late_init() const {

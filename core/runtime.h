@@ -82,14 +82,14 @@ protected:
     inline void builtin(F2<T> fptr) {
         auto self = std::static_pointer_cast<T>(shared_from_this());
         const auto rule = make_builtin_rule<2>(
-                [self, fptr] (
-                    const BaseExpressionRef &a,
-                    const BaseExpressionRef &b,
-                    const Evaluation &evaluation) {
+			[self, fptr] (
+				const BaseExpressionRef &a,
+				const BaseExpressionRef &b,
+				const Evaluation &evaluation) {
 
-                    auto p = self.get();
-                    return (p->*fptr)(a, b, evaluation);
-                });
+				auto p = self.get();
+				return (p->*fptr)(a, b, evaluation);
+			});
         m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
     }
 
@@ -97,15 +97,15 @@ protected:
     inline void builtin(F3<T> fptr) {
         auto self = std::static_pointer_cast<T>(shared_from_this());
         const auto rule = make_builtin_rule<3>(
-                [self, fptr] (
-                    const BaseExpressionRef &a,
-                    const BaseExpressionRef &b,
-                    const BaseExpressionRef &c,
-                    const Evaluation &evaluation) {
+			[self, fptr] (
+				const BaseExpressionRef &a,
+				const BaseExpressionRef &b,
+				const BaseExpressionRef &c,
+				const Evaluation &evaluation) {
 
-                    auto p = self.get();
-                    return (p->*fptr)(a, b, c, evaluation);
-                });
+				auto p = self.get();
+				return (p->*fptr)(a, b, c, evaluation);
+			});
         m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
     }
 
@@ -125,6 +125,8 @@ public:
 		m_runtime(runtime), m_symbol(symbol) {
 	}
 };
+
+typedef std::shared_ptr<Builtin> BuiltinRef;
 
 class Unit {
 private:

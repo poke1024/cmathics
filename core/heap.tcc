@@ -54,7 +54,7 @@ inline StaticExpressionRef<0> Heap::EmptyExpression(const BaseExpressionRef &hea
 
 inline DynamicExpressionRef Heap::Expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
 	assert(_s_instance);
-	return DynamicExpressionRef(_s_instance->_expression_refs.construct(head, slice));
+	return DynamicExpressionRef(_s_instance->_dynamic_expressions.construct(head, slice));
 }
 
 inline StringRef Heap::String(const char *text) {
@@ -93,7 +93,7 @@ inline void Heap::release(BaseExpression *expr) {
 			if (is_static_slice(code)) {
 				_s_instance->_static_expression_heap.free(expr, code);
 			} else if (code == SliceCode::DynamicSliceCode) {
-				_s_instance->_expression_refs.free(
+				_s_instance->_dynamic_expressions.free(
 					static_cast<ExpressionImplementation<DynamicSlice>*>(expr));
 			} else if (is_packed_slice(code)) {
 				delete expr;

@@ -507,7 +507,7 @@ inline DynamicExpressionRef expression(const BaseExpressionRef &head, const Dyna
 	return Heap::Expression(head, slice);
 }
 
-template<size_t N>
+template<int N>
 inline StaticExpressionRef<N> expression(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
     return Heap::StaticExpression<N>(head, slice);
 }

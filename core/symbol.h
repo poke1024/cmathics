@@ -367,4 +367,14 @@ inline BaseExpressionRef scope(
 	return result;
 }
 
+template<typename F>
+inline auto scoped(
+	Symbol *symbol,
+	const F &f) {
+
+	return [symbol, &f] (const BaseExpressionRef &value) {
+		return scope(symbol, value, f);
+	};
+}
+
 #endif //CMATHICS_SYMBOL_H_H

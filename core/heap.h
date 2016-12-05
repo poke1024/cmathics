@@ -18,7 +18,7 @@ class Precision;
 class MachineReal;
 class BigReal;
 
-template<size_t N>
+template<int N>
 class StaticSlice;
 
 template<typename U>
@@ -33,15 +33,17 @@ using PackedExpression = ExpressionImplementation<PackedSlice<U>>;
 template<typename U>
 using PackedExpressionRef = boost::intrusive_ptr<ExpressionImplementation<PackedSlice<U>>>;
 
-template<size_t N>
+template<int N>
 using StaticExpression = ExpressionImplementation<StaticSlice<N>>;
 
-template<size_t N>
+template<int N>
 using StaticExpressionRef = boost::intrusive_ptr<ExpressionImplementation<StaticSlice<N>>>;
 
 template<int UpToSize>
 class StaticExpressionHeap {
 private:
+    const size_t m_chunk_size;
+
 	typedef
 	std::function<ExpressionRef(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves)>
 	MakeFromVector;
@@ -62,7 +64,7 @@ private:
 
 	template<int N>
 	void initialize() {
-		const auto pool = new boost::object_pool<ExpressionImplementation<StaticSlice<N>>>;
+		const auto pool = new boost::object_pool<ExpressionImplementation<StaticSlice<N>>>(m_chunk_size);
 
 		_pool[N] = pool;
 
@@ -112,7 +114,7 @@ private:
 	}
 
 public:
-	inline StaticExpressionHeap() {
+	inline StaticExpressionHeap(size_t chunk_size) : m_chunk_size(chunk_size) {
 		initialize<UpToSize>();
 	}
 
@@ -160,8 +162,7 @@ private:
     boost::object_pool<BigReal> _big_reals;
 
 	StaticExpressionHeap<MaxStaticSliceSize> _static_expression_heap;
-
-    boost::object_pool<ExpressionImplementation<DynamicSlice>> _expression_refs;
+    boost::object_pool<ExpressionImplementation<DynamicSlice>> _dynamic_expressions;
 
 	boost::object_pool<String> _strings;
 

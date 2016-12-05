@@ -156,6 +156,110 @@ public:
     }
 };
 
+template<typename F>
+inline bool iterate_integer_range(
+    const SymbolRef &command,
+    const F &f,
+    const BaseExpressionRef &imin,
+    const BaseExpressionRef &imax,
+    const BaseExpressionRef &di,
+    const Evaluation &evaluation,
+    ExpressionRef &result) {
+
+    const machine_integer_t imin_integer =
+        static_cast<const class MachineInteger *>(imin.get())->value;
+    const machine_integer_t imax_integer =
+        static_cast<const class MachineInteger *>(imax.get())->value;
+    const machine_integer_t di_integer =
+        static_cast<const class MachineInteger *>(di.get())->value;
+
+    if (imin_integer > imax_integer) {
+        result = expression(evaluation.List);
+        return true;
+    }
+
+    machine_integer_t range;
+
+    if (__builtin_ssubll_overflow(imax_integer, imin_integer, &range)) {
+        return false;
+    }
+
+    if (di_integer < 1) {
+        evaluation.message(command, "iterb");
+        return true;
+    }
+
+    machine_integer_t n_integer;
+
+    if (__builtin_saddll_overflow(range / di_integer, 1, &n_integer)) {
+        return false;
+    }
+
+    result = f(imin_integer, imax_integer, di_integer, n_integer, evaluation);
+    return true;
+}
+
+inline ExpressionRef machine_integer_range(
+    const machine_integer_t imin,
+    const machine_integer_t imax,
+    const machine_integer_t di,
+    const machine_integer_t n,
+    const Evaluation &evaluation) {
+
+    if (n >= MinPackedSliceSize) {
+        std::vector<machine_integer_t> leaves;
+        leaves.reserve(n);
+        for (machine_integer_t x = imin; x <= imax; x += di) {
+            leaves.push_back(x);
+        }
+        return expression(
+            evaluation.List,
+            PackedSlice<machine_integer_t>(std::move(leaves)));
+    } else {
+        return expression(
+            evaluation.List,
+            [imin, imax, di] (auto &storage) {
+                for (machine_integer_t x = imin; x <= imax; x += di) {
+                    storage << Heap::MachineInteger(x);
+                }
+            },
+            n
+        );
+    }
+}
+
+template<typename F>
+class machine_integer_table {
+private:
+    const F &m_func;
+
+public:
+    inline machine_integer_table(const F &func) : m_func(func) {
+    }
+
+    inline ExpressionRef operator()(
+        const machine_integer_t imin,
+        const machine_integer_t imax,
+        const machine_integer_t di,
+        const machine_integer_t n,
+        const Evaluation &evaluation) const {
+
+        std::vector<BaseExpressionRef> result;
+        result.reserve(n);
+        TypeMask type_mask = 0;
+
+        machine_integer_t index = imin;
+        while (index <= imax) {
+            BaseExpressionRef leaf = m_func(Heap::MachineInteger(index));
+            type_mask |= leaf->base_type_mask();
+            result.push_back(std::move(leaf));
+            index += di;
+        }
+
+        return expression(evaluation.List, std::move(result), type_mask);
+    }
+};
+
 class Range : public Builtin {
 public:
 	static constexpr const char *name = "Range";
@@ -170,61 +274,6 @@ public:
 	}
 
 protected:
-	BaseExpressionRef MachineInteger(
-		const BaseExpressionRef &imin_expr,
-		const BaseExpressionRef &imax_expr,
-		const BaseExpressionRef &di_expr,
-		const Evaluation &evaluation) {
-
-		const machine_integer_t imin = static_cast<const class MachineInteger*>(imin_expr.get())->value;
-		const machine_integer_t imax = static_cast<const class MachineInteger*>(imax_expr.get())->value;
-		const machine_integer_t di = static_cast<const class MachineInteger*>(di_expr.get())->value;
-
-		if (imin > imax) {
-			return expression(evaluation.List);
-		}
-
-		machine_integer_t range;
-
-		if (__builtin_ssubll_overflow(imax, imin, &range)) {
-            evaluation.message(m_symbol, "iterb");
-			return BaseExpressionRef(); // error; too large
-		}
-
-		if (di < 1) {
-            evaluation.message(m_symbol, "iterb");
-			return BaseExpressionRef(); // error
-		}
-
-		machine_integer_t n;
-
-		if (__builtin_saddll_overflow(range / di, 1, &n)) {
-            evaluation.message(m_symbol, "iterb");
-			return BaseExpressionRef(); // error; too large
-		}
-
-		if (n >= MinPackedSliceSize) {
-			std::vector<machine_integer_t> leaves;
-			leaves.reserve(n);
-			for (machine_integer_t x = imin; x <= imax; x += di) {
-				leaves.push_back(x);
-			}
-			return expression(
-				evaluation.List,
-				PackedSlice<machine_integer_t>(std::move(leaves)));
-		} else {
-			return expression(
-				evaluation.List,
-				[imin, imax, di] (auto &storage) {
-					for (machine_integer_t x = imin; x <= imax; x += di) {
-						storage << Heap::MachineInteger(x);
-					}
-				},
-				n
-			);
-		}
-	}
-
 	BaseExpressionRef MachineReal(
 		const BaseExpressionRef &imin_expr,
 		const BaseExpressionRef &imax_expr,
@@ -320,7 +369,10 @@ public:
 		constexpr TypeMask machine_int_mask = MakeTypeMask(MachineIntegerType);
 
 		if ((type_mask & machine_int_mask) == type_mask) { // expression is all MachineIntegers
-			return MachineInteger(imin, imax, di, evaluation);
+            ExpressionRef result;
+            if (iterate_integer_range(m_symbol, machine_integer_range, imin, imax, di, evaluation, result)) {
+                return result;
+            }
 		}
 
 		return generic(imin, imax, di, evaluation);
@@ -337,16 +389,27 @@ inline const Expression *if_list(const BaseExpressionRef &item) {
     return nullptr;
 }
 
-class IterationFunction : public Builtin {
+class IterationFunction {
 protected:
-    template<bool SYMBOL>
+    const SymbolRef m_symbol;
+
+    template<typename F>
     ExpressionRef iterate(
-        const BaseExpressionRef &expr,
-        Symbol *iterator,
+        const F &f,
         const BaseExpressionRef &imin,
         const BaseExpressionRef &imax,
         const BaseExpressionRef &di,
         const Evaluation &evaluation) const {
+
+        if (imin->type() == MachineIntegerType &&
+            imax->type() == MachineIntegerType &&
+            di->type() == MachineIntegerType) {
+
+            ExpressionRef result;
+            if (iterate_integer_range(m_symbol, machine_integer_table<F>(f), imin, imax, di, evaluation, result)) {
+                return result;
+            }
+        }
 
         const BaseExpressionRef &LessEqual = evaluation.LessEqual;
         const BaseExpressionRef &Plus = evaluation.Plus;
@@ -367,14 +430,7 @@ protected:
                 return ExpressionRef();
             }
 
-            BaseExpressionRef leaf;
-            if (SYMBOL) {
-                leaf = scope(iterator, index, [&expr, &evaluation]() {
-                    return expr->evaluate_or_copy(evaluation);
-                });
-            } else {
-                leaf = expr->evaluate_or_copy(evaluation);
-            }
+            BaseExpressionRef leaf = f(index);
             type_mask |= leaf->base_type_mask();
             result.push_back(std::move(leaf));
 
@@ -385,41 +441,38 @@ protected:
     }
 
 public:
-    using Builtin::Builtin;
+    IterationFunction(const SymbolRef &symbol) : m_symbol(symbol) {
+    }
 };
 
 class Table : public IterationFunction {
 public:
-    static constexpr const char *name = "Table";
+	using IterationFunction::IterationFunction;
 
-public:
-    using IterationFunction::IterationFunction;
-
-    void build() {
-        builtin(&Table::apply);
-    }
-
-    inline BaseExpressionRef apply(
-        const BaseExpressionRef &expr,
+    template<typename F>
+    inline ExpressionRef apply(
+        const F &f,
         const BaseExpressionRef &iter,
-        const Evaluation &evaluation) {
+        const Evaluation &evaluation) const {
 
         const Expression *list = if_list(iter);
         if (!list) {
-            return BaseExpressionRef();
+            evaluation.message(m_symbol, "iterb");
+            return ExpressionRef();
         }
 
 	    const Table * const self = this;
-	    return list->with_slice<CompileToSliceType>([self, &expr, &evaluation] (const auto &slice) {
+	    return list->with_slice<CompileToSliceType>([self, &f, &evaluation] (const auto &slice) {
 		    switch (slice.size()) {
 			    case 1: { // {imax_}
-				    return self->iterate<false>(
-					    expr,
-					    nullptr,
-					    Heap::MachineInteger(0),
-					    slice[0]->evaluate_or_copy(evaluation),
-					    Heap::MachineInteger(1),
-					    evaluation);
+				    return self->iterate(
+					    [&f] (const BaseExpressionRef &) {
+                            return f();
+                        },
+                        Heap::MachineInteger(0),
+                        slice[0]->evaluate_or_copy(evaluation),
+                        Heap::MachineInteger(1),
+                        evaluation);
 			    }
 
 			    case 2: { // {i_Symbol, imax_} or {i_Symbol, {items___}}
@@ -435,19 +488,17 @@ public:
 						    domain_list = if_list(domain_list->evaluate_or_copy(evaluation));
 						    if (domain_list) {
 							    return domain_list->with_slice<CompileToSliceType>(
-								    [iterator, &expr, &evaluation] (const auto &slice) {
+								    [iterator, &f, &evaluation] (const auto &slice) {
 									    return expression(
 										    evaluation.List,
-										    [iterator, &slice, &expr, &evaluation] (auto &storage) {
+										    [iterator, &slice, &f, &evaluation] (auto &storage) {
 											    const size_t n = slice.size();
 
 											    for (size_t i = 0; i < n; i++) {
 												    storage << scope(
 													    iterator,
 													    slice[i],
-													    [&expr, &evaluation] () {
-														    return expr->evaluate(evaluation);
-													    });
+													    f);
 											    }
 										    },
 										    slice.size()
@@ -455,9 +506,8 @@ public:
 								    });
 						    }
 					    } else {
-						    return self->iterate<true>(
-							    expr,
-							    iterator,
+						    return self->iterate(
+                                scoped(iterator->as_symbol(), f),
 							    Heap::MachineInteger(1),
 							    slice[1]->evaluate_or_copy(evaluation),
 							    Heap::MachineInteger(1),
@@ -470,9 +520,8 @@ public:
 				    const BaseExpressionRef &iterator = slice[0];
 
 				    if (iterator->type() == SymbolType) {
-					    return self->iterate<true>(
-						    expr,
-						    iterator->as_symbol(),
+					    return self->iterate(
+                            scoped(iterator->as_symbol(), f),
 						    slice[1]->evaluate_or_copy(evaluation),
 						    slice[2]->evaluate_or_copy(evaluation),
 						    Heap::MachineInteger(1),
@@ -484,9 +533,8 @@ public:
 				    const BaseExpressionRef &iterator = slice[0];
 
 				    if (iterator->type() == SymbolType) {
-					    return self->iterate<true>(
-						    expr,
-						    iterator->as_symbol(),
+					    return self->iterate(
+                            scoped(iterator->as_symbol(), f),
 						    slice[1]->evaluate_or_copy(evaluation),
 						    slice[2]->evaluate_or_copy(evaluation),
 						    slice[3]->evaluate_or_copy(evaluation),
@@ -494,12 +542,64 @@ public:
 				    }
 				    break;
 			    }
-		    }
+
+                default:
+                    evaluation.message(self->m_symbol, "iterb");
+                    break;
+            }
 
 		    return ExpressionRef();
 	    });
     }
 };
+
+template<typename F>
+class IterationFunctionRule : public AtLeastNRule<2> {
+private:
+    const SymbolRef m_head;
+    const F m_function;
+
+    ExpressionRef apply(
+        const BaseExpressionRef &expr,
+        const BaseExpressionRef *iter_begin,
+        const BaseExpressionRef *iter_end,
+        const Evaluation &evaluation) const {
+
+        if (iter_end - iter_begin == 1) {
+            return m_function.apply([&expr, &evaluation] () {
+                return expr->evaluate_or_copy(evaluation);
+            }, iter_begin[0], evaluation);
+        } else {
+            const auto self = this;
+
+            return m_function.apply([self, &expr, iter_begin, iter_end, &evaluation] () {
+                return self->apply(expr, iter_begin + 1, iter_end, evaluation);
+            }, iter_begin[0], evaluation);
+        }
+    }
+
+public:
+    IterationFunctionRule(const SymbolRef &head, const Definitions &definitions) :
+        AtLeastNRule<2>(head, definitions), m_head(head), m_function(head) {
+    }
+
+    virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
+        const auto self = this;
+
+        auto result = expr->with_leaves_array([self, &evaluation] (const BaseExpressionRef *leaves, size_t n) {
+            return self->apply(leaves[0], leaves + 1, leaves + n, evaluation);
+        });
+
+		return result;
+    }
+};
+
+template<typename F>
+NewRuleRef make_iteration_function_rule() {
+    return [] (const SymbolRef &head, const Definitions &definitions) {
+        return std::make_shared<IterationFunctionRule<F>>(head, definitions);
+    };
+}
 
 void Builtins::Lists::initialize() {
 
@@ -593,5 +693,8 @@ void Builtins::Lists::initialize() {
 			rewrite("Total[head_, n_]", "Apply[Plus, Flatten[head, n]]"),
 	    });
 
-    add<Table>();
+    add("Table",
+        Attributes::HoldAll, {
+            make_iteration_function_rule<Table>()
+        });
 }
