@@ -75,7 +75,7 @@ public:
 
 	inline heap_storage &operator<<(BaseExpressionRef &&expr) {
 		_type_mask |= expr->base_type_mask();
-		_leaves.push_back(expr);
+		_leaves.emplace_back(expr);
 		return *this;
 	}
 

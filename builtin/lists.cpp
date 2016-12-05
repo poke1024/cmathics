@@ -252,7 +252,7 @@ public:
         while (index <= imax) {
             BaseExpressionRef leaf = m_func(Heap::MachineInteger(index));
             type_mask |= leaf->base_type_mask();
-            result.push_back(std::move(leaf));
+            result.emplace_back(std::move(leaf));
             index += di;
         }
 
@@ -432,7 +432,7 @@ protected:
 
             BaseExpressionRef leaf = f(index);
             type_mask |= leaf->base_type_mask();
-            result.push_back(std::move(leaf));
+            result.emplace_back(std::move(leaf));
 
             index = expression(Plus, index, di)->evaluate_or_copy(evaluation);
         }
