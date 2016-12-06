@@ -471,12 +471,6 @@ public:
 	inline DynamicSlice() : BaseRefsSlice(nullptr, 0, 0) {
 	}
 
-    inline DynamicSlice(const std::vector<BaseExpressionRef> &data, TypeMask type_mask) :
-		DynamicSlice(Heap::RefsExtent(data), type_mask) {
-
-	    assert(data.size() > MaxStaticSliceSize);
-	}
-
 	inline DynamicSlice(std::vector<BaseExpressionRef> &&data, TypeMask type_mask) :
 		DynamicSlice(Heap::RefsExtent(data), type_mask) {
 

@@ -454,7 +454,7 @@ inline ExpressionRef expression(
 	if (size <= MaxStaticSliceSize) {
 		return Heap::StaticExpression(head, leaves);
 	} else if (size < MinPackedSliceSize) {
-		return Heap::Expression(head, DynamicSlice(leaves, some_type_mask));
+		return Heap::Expression(head, DynamicSlice(std::move(leaves), some_type_mask));
 	} else {
 		const TypeMask type_mask = is_exact_type_mask(some_type_mask) ?
             some_type_mask : exact_type_mask(leaves);
@@ -466,7 +466,7 @@ inline ExpressionRef expression(
 				return Heap::Expression(head, PackedSlice<machine_real_t>(
 					collect<MachineReal, machine_real_t>(leaves)));
 			default:
-				return Heap::Expression(head, DynamicSlice(leaves, type_mask));
+				return Heap::Expression(head, DynamicSlice(std::move(leaves), type_mask));
 		}
 	}
 }
