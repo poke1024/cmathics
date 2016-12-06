@@ -390,22 +390,12 @@ protected:
     const SymbolRef m_symbol;
 
     template<typename F>
-    ExpressionRef iterate(
+    ExpressionRef iterate_generic(
         const F &f,
         const BaseExpressionRef &imin,
         const BaseExpressionRef &imax,
         const BaseExpressionRef &di,
         const Evaluation &evaluation) const {
-
-        if (imin->type() == MachineIntegerType &&
-            imax->type() == MachineIntegerType &&
-            di->type() == MachineIntegerType) {
-
-            ExpressionRef result;
-            if (iterate_integer_range(m_symbol, machine_integer_table<F>(f), imin, imax, di, evaluation, result)) {
-                return result;
-            }
-        }
 
         const BaseExpressionRef &LessEqual = evaluation.LessEqual;
         const BaseExpressionRef &Plus = evaluation.Plus;
@@ -434,6 +424,30 @@ protected:
         }
 
         return expression(evaluation.List, std::move(result), type_mask);
+    }
+
+    template<typename F>
+    inline ExpressionRef iterate(
+        const F &f,
+        const BaseExpressionRef &imin,
+        const BaseExpressionRef &imax,
+        const BaseExpressionRef &di,
+        const Evaluation &evaluation) const {
+
+        if (imin->type() == MachineIntegerType &&
+            imax->type() == MachineIntegerType &&
+            di->type() == MachineIntegerType) {
+
+            ExpressionRef result;
+            if (iterate_integer_range(m_symbol,
+                machine_integer_table<F>(f),
+                imin, imax, di, evaluation, result)) {
+
+                return result;
+            }
+        }
+
+        return iterate_generic(f, imin, imax, di, evaluation);
     }
 
 public:
