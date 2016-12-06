@@ -4,59 +4,50 @@ void Builtins::Control::initialize() {
 
 	add("If", Attributes::HoldRest, {
 		builtin<2>([](
-			const BaseExpressionRef &cond,
-			const BaseExpressionRef &t,
+			BaseExpressionPtr cond,
+			BaseExpressionPtr t,
 			const Evaluation &evaluation) {
 
 			const ExtendedType type = cond->extended_type();
 			if (type == SymbolTrue) {
-				const BaseExpressionRef r = t->evaluate(evaluation);
-				return r ? r : t;
+				return t->evaluate_or_copy(evaluation);
 			} else if (type == SymbolFalse) {
-					const Definitions &definitions = evaluation.definitions;
-					return BaseExpressionRef(definitions.symbols().Null);
-				} else {
-					return BaseExpressionRef();
-				}
+				return BaseExpressionRef(evaluation.Null);
+			} else {
+				return BaseExpressionRef();
+			}
 		}
 		),
 		builtin<3>([](
-			const BaseExpressionRef &cond,
-			const BaseExpressionRef &t,
-			const BaseExpressionRef &f,
+			BaseExpressionPtr cond,
+			BaseExpressionPtr t,
+			BaseExpressionPtr f,
 			const Evaluation &evaluation) {
 
 			const ExtendedType type = cond->extended_type();
 			if (type == SymbolTrue) {
-				const BaseExpressionRef r = t->evaluate(evaluation);
-				return r ? r : t;
+				return t->evaluate_or_copy(evaluation);
 			} else if (type == SymbolFalse) {
-					const BaseExpressionRef r = f->evaluate(evaluation);
-					return r ? r : f;
-				} else {
-					return BaseExpressionRef();
-				}
-		}
-		),
-		builtin<4>([](
-			const BaseExpressionRef &cond,
-			const BaseExpressionRef &t,
-			const BaseExpressionRef &f,
-			const BaseExpressionRef &u,
-			const Evaluation &evaluation) {
-
-			const ExtendedType type = cond->extended_type();
-			if (type == SymbolTrue) {
-				const BaseExpressionRef r = t->evaluate(evaluation);
-				return r ? r : t;
-			} else if (type == SymbolFalse) {
-					const BaseExpressionRef r = f->evaluate(evaluation);
-					return r ? r : f;
-				} else {
-					const BaseExpressionRef r = u->evaluate(evaluation);
-					return r ? r : u;
-				}
+				return f->evaluate_or_copy(evaluation);
+			} else {
+				return BaseExpressionRef();
 			}
-		)
+		}),
+		builtin<4>([](
+			BaseExpressionPtr cond,
+			BaseExpressionPtr t,
+			BaseExpressionPtr f,
+			BaseExpressionPtr u,
+			const Evaluation &evaluation) {
+
+			const ExtendedType type = cond->extended_type();
+			if (type == SymbolTrue) {
+				return t->evaluate_or_copy(evaluation);
+			} else if (type == SymbolFalse) {
+				return f->evaluate_or_copy(evaluation);
+			} else {
+				return u->evaluate_or_copy(evaluation);
+			}
+		})
 	});
 }

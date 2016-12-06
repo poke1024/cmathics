@@ -9,12 +9,12 @@ void Builtins::ExpTrig::add_unary(
 
     add(name, Attributes::None, {
         builtin<1>([&f] (
-            const BaseExpressionRef &x,
+            BaseExpressionPtr x,
             const Evaluation &evaluation) {
 
             if (x->type() == MachineRealType) {
                 return Heap::MachineReal(f(
-                    static_cast<const MachineReal*>(x.get())->value));
+                    static_cast<const MachineReal*>(x)->value));
             } else {
                 return BaseExpressionRef(); // leave to SymEngine
             }

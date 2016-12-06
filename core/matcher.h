@@ -99,7 +99,7 @@ template<int M, int N>
 struct unpack_leaves {
 	void operator()(const BaseExpressionRef *leaves, typename BaseExpressionTuple<M>::type &t) {
 		// symbols are already ordered in the order of their (first) appearance in the original pattern.
-		std::get<N>(t) = *leaves;
+		std::get<N>(t) = leaves->get();
 		unpack_leaves<M, N + 1>()(leaves + 1, t);
 	}
 };

@@ -48,20 +48,20 @@ protected:
 
     template<typename T>
     using F1 = BaseExpressionRef (T::*) (
-        const BaseExpressionRef &,
+		BaseExpressionPtr,
         const Evaluation &);
 
     template<typename T>
     using F2 = BaseExpressionRef (T::*) (
-        const BaseExpressionRef &,
-        const BaseExpressionRef &,
+		BaseExpressionPtr,
+		BaseExpressionPtr,
         const Evaluation &);
 
     template<typename T>
     using F3 = BaseExpressionRef (T::*) (
-        const BaseExpressionRef &,
-        const BaseExpressionRef &,
-        const BaseExpressionRef &,
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		BaseExpressionPtr,
         const Evaluation &);
 
     template<typename T>
@@ -69,7 +69,7 @@ protected:
         auto self = std::static_pointer_cast<T>(shared_from_this());
 		const auto rule = make_builtin_rule<1>(
             [self, fptr] (
-                const BaseExpressionRef &a,
+				BaseExpressionPtr a,
                 const Evaluation &evaluation) {
 
                 auto p = self.get();
@@ -83,8 +83,8 @@ protected:
         auto self = std::static_pointer_cast<T>(shared_from_this());
         const auto rule = make_builtin_rule<2>(
 			[self, fptr] (
-				const BaseExpressionRef &a,
-				const BaseExpressionRef &b,
+				BaseExpressionPtr a,
+				BaseExpressionPtr b,
 				const Evaluation &evaluation) {
 
 				auto p = self.get();
@@ -98,9 +98,9 @@ protected:
         auto self = std::static_pointer_cast<T>(shared_from_this());
         const auto rule = make_builtin_rule<3>(
 			[self, fptr] (
-				const BaseExpressionRef &a,
-				const BaseExpressionRef &b,
-				const BaseExpressionRef &c,
+				BaseExpressionPtr a,
+				BaseExpressionPtr b,
+				BaseExpressionPtr c,
 				const Evaluation &evaluation) {
 
 				auto p = self.get();

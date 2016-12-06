@@ -244,7 +244,7 @@ public:
 		return this;
 	}
 
-	void add_rule(const BaseExpressionRef &lhs, const BaseExpressionRef &rhs);
+	void add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs);
 
 	void add_rule(const RuleRef &rule);
 };
@@ -355,22 +355,20 @@ inline Symbol *BaseExpression::as_symbol() const {
 template<typename F>
 inline BaseExpressionRef scope(
 	Symbol *symbol,
-	const BaseExpressionRef &value,
+	BaseExpressionRef &&value,
 	const F &f) {
 
-	BaseExpressionRef result;
+    BaseExpressionRef swapped(value);
+    std::swap(swapped, symbol->own_value);
 
-	const BaseExpressionRef safed_own_value = symbol->own_value;
 	try {
-		symbol->own_value = value;
-		result = f();
+		const BaseExpressionRef result = f();
+        std::swap(swapped, symbol->own_value);
+        return result;
 	} catch(...) {
-		symbol->own_value = safed_own_value;
+        std::swap(swapped, symbol->own_value);
 		throw;
 	}
-	symbol->own_value = safed_own_value;
-
-	return result;
 }
 
 template<typename F>
@@ -378,8 +376,8 @@ inline auto scoped(
 	Symbol *symbol,
 	const F &f) {
 
-	return [symbol, &f] (const BaseExpressionRef &value) {
-		return scope(symbol, value, f);
+	return [symbol, &f] (BaseExpressionRef &&value) {
+		return scope(symbol, std::move(value), f);
 	};
 }
 

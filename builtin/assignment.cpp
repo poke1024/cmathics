@@ -1,8 +1,8 @@
 #include "assignment.h"
 
 inline BaseExpressionRef assign(
-	const BaseExpressionRef &lhs,
-	const BaseExpressionRef &rhs,
+	BaseExpressionPtr lhs,
+	BaseExpressionPtr rhs,
 	const Evaluation &evaluation) {
 
 	// FIXME this is just a super simple example implementation.

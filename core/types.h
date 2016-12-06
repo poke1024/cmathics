@@ -232,7 +232,7 @@ class Symbol;
 
 template<int N, typename... refs>
 struct BaseExpressionTuple {
-    typedef typename BaseExpressionTuple<N - 1, BaseExpressionRef, refs...>::type type;
+    typedef typename BaseExpressionTuple<N - 1, BaseExpressionPtr, refs...>::type type;
 };
 
 template<typename... refs>

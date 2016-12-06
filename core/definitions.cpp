@@ -7,7 +7,7 @@
 #include "builtin.h"
 
 inline DefinitionsPos get_definitions_pos(
-	const BaseExpressionRef &pattern,
+	BaseExpressionPtr pattern,
 	const Symbol *symbol) {
 
 	// see core/definitions.py:get_tag_position()
@@ -68,7 +68,7 @@ void Symbol::set_attributes(Attributes a) {
 	_evaluate_with_head = EvaluateDispatch::pick(_attributes);
 }
 
-void Symbol::add_rule(const BaseExpressionRef &lhs, const BaseExpressionRef &rhs) {
+void Symbol::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
 	switch (get_definitions_pos(lhs, this)) {
 		case DefinitionsPos::None:
 			break;
@@ -85,7 +85,7 @@ void Symbol::add_rule(const BaseExpressionRef &lhs, const BaseExpressionRef &rhs
 }
 
 void Symbol::add_rule(const RuleRef &rule) {
-	switch (get_definitions_pos(rule->pattern, this)) {
+	switch (get_definitions_pos(rule->pattern.get(), this)) {
 		case DefinitionsPos::None:
 			break;
 		case DefinitionsPos::Own:
