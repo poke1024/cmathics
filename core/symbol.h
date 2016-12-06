@@ -304,31 +304,37 @@ namespace std {
 inline BaseExpressionRef BaseExpression::evaluate(
 	const Evaluation &evaluation) const {
 
-	BaseExpressionRef result;
+    BaseExpressionRef result;
 
-	while (true) {
-		BaseExpressionRef form;
+    while (true) {
+        const BaseExpression *expr = result ? result.get() : this;
 
-		const BaseExpression *expr = result ? result.get() : this;
-		switch (expr->type()) {
-			case ExpressionType:
-				form = static_cast<const Expression*>(expr)->evaluate_expression(evaluation);
-				break;
-			case SymbolType:
-				form = static_cast<const Symbol*>(expr)->evaluate_symbol();
-				break;
-			default:
-				return result;
-		}
+        switch (expr->type()) {
+            case ExpressionType: {
+                BaseExpressionRef form =
+                    static_cast<const Expression*>(expr)->evaluate_expression(evaluation);
+                if (form) {
+                    result = std::move(form);
+                } else {
+                    return result;
+                }
+                break;
+            }
 
-		if (form) {
-			result = form;
-		} else {
-			break;
-		}
-	}
+            case SymbolType: {
+                BaseExpressionRef form =
+                    static_cast<const Symbol*>(expr)->evaluate_symbol();
+                if (form) {
+                    result = std::move(form);
+                } else {
+                    return result;
+                }
+            }
 
-	return result;
+            default:
+                return result;
+        }
+    }
 }
 
 inline BaseExpressionRef BaseExpression::evaluate_or_copy(
