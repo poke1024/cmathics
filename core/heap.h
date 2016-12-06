@@ -102,7 +102,7 @@ private:
 				return pool->construct(head, StaticSlice<N>(leaves));
 			};
 			_make_late_init[N] = [pool] (const BaseExpressionRef &head) {
-				StaticExpressionRef<N> expr = pool->construct(head, StaticSlice<N>());
+				StaticExpressionRef<N> expr = pool->construct(head);
 				return std::tuple_cat(std::make_tuple(expr), expr->_leaves.late_init());
 			};
 		}
