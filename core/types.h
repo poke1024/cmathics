@@ -462,11 +462,15 @@ public:
 		return nullptr;
 	}
 
-    inline Symbol *as_symbol() const;
-
     inline bool is_true() const {
         return extended_type() == SymbolTrue;
     }
+
+	inline bool is_zero() const;
+
+	inline bool is_one() const;
+
+	inline Symbol *as_symbol() const;
 
 	inline const Expression *as_expression() const;
 

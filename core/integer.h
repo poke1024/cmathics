@@ -105,4 +105,20 @@ inline mpz_class machine_integer_to_mpz(machine_integer_t machine_value) {
 	return value;
 }
 
+inline bool BaseExpression::is_zero() const {
+    if (type() == MachineIntegerType) {
+        return static_cast<const MachineInteger*>(this)->value == 0;
+    } else {
+        return false;
+    }
+}
+
+inline bool BaseExpression::is_one() const {
+    if (type() == MachineIntegerType) {
+        return static_cast<const MachineInteger*>(this)->value == 1;
+    } else {
+        return false;
+    }
+}
+
 #endif

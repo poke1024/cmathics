@@ -1,11 +1,65 @@
 #include "lists.h"
 #include "../core/definitions.h"
 
-/*std::tuple<size_t, size_t> levelspec(const BaseExpressionRef &spec) {
-    if (spec.extended_type() == SymbolListExtendedType) {
-
+inline const Expression *if_list(const BaseExpressionRef &item) {
+    if (item->type() == ExpressionType) {
+        const Expression *expr =item->as_expression();
+        if (expr->head()->extended_type() == SymbolList) {
+            return expr;
+        }
     }
-}*/
+    return nullptr;
+}
+
+class invalid_levelspec_error : public std::runtime_error {
+public:
+    invalid_levelspec_error() : std::runtime_error("invalid levelspec") {
+    }
+};
+
+size_t value_to_level(const BaseExpressionRef &item) {
+    switch (item->type()) {
+        case MachineIntegerType:
+            return static_cast<const MachineInteger*>(item.get())->value;
+        case ExpressionType: {
+            const Expression *expr = item->as_expression();
+
+            if (expr->head()->extended_type() == SymbolDirectedInfinity &&
+                expr->size() == 1 &&
+                expr->leaf(0)->is_one()) {
+
+                return SIZE_MAX;
+            } else {
+                throw invalid_levelspec_error();
+            }
+        }
+        default:
+            throw invalid_levelspec_error();
+    }
+}
+
+std::tuple<size_t, size_t> levelspec(BaseExpressionPtr spec) {
+    const Expression *list = if_list(spec);
+    if (list) {
+        switch (list->size()) {
+            case 1: {
+                const size_t i = value_to_level(list->leaf(0));
+                return std::make_tuple(i, i);
+            }
+            case 2: {
+                const size_t i = value_to_level(list->leaf(0));
+                const size_t j = value_to_level(list->leaf(1));
+                return std::make_tuple(i, j);
+            }
+            default:
+                throw invalid_levelspec_error();
+        }
+    } else if (spec->extended_type() == SymbolAll) {
+        return std::make_tuple(0, SIZE_MAX);
+    } else {
+        return std::make_tuple(1, value_to_level(spec));
+    }
+}
 
 class First : public Builtin {
 public:
@@ -380,16 +434,6 @@ public:
 		return generic(imin, imax, di, evaluation);
 	}
 };
-
-inline const Expression *if_list(const BaseExpressionRef &item) {
-    if (item->type() == ExpressionType) {
-        const Expression *expr =item->as_expression();
-        if (expr->head()->extended_type() == SymbolList) {
-            return expr;
-        }
-    }
-    return nullptr;
-}
 
 class IterationFunction {
 protected:

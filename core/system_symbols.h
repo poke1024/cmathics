@@ -42,6 +42,9 @@ SYMBOL(Cos)
 SYMBOL(Sin)
 SYMBOL(Tan)
 
+SYMBOL(DirectedInfinity)
+SYMBOL(All)
+
 SYMBOL(General)
 SYMBOL(MessageName)
 
