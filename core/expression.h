@@ -36,6 +36,10 @@ protected:
 		return _leaves[i];
 	}
 
+	virtual TypeMask materialize_type_mask() const {
+		return type_mask();
+	}
+
 public:
 	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const;
 
@@ -162,7 +166,7 @@ public:
 
 	virtual BaseExpressionRef clone() const;
 
-	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const;
+	virtual ExpressionRef clone(const BaseExpressionRef &head) const;
 
 	virtual hash_t hash() const {
 		hash_t result = hash_combine(_leaves.size(), _head->hash());
@@ -339,12 +343,12 @@ public:
                 return BaseExpressionRef();
             }
         } else {
-            return apply(
+            return transform(
                 _head,
                 _leaves,
                 0,
                 _leaves.size(),
-                [&recurse, &evaluation] (size_t, const BaseExpressionRef &leaf) {
+                [&recurse, &evaluation] (const BaseExpressionRef &leaf) {
                     return recurse(leaf, evaluation);
                 },
                 false,
@@ -471,28 +475,6 @@ inline ExpressionRef expression(
 	}
 }
 
-class vector_storage {
-private:
-    std::vector<BaseExpressionRef> leaves;
-
-public:
-    inline vector_storage &operator<<(const BaseExpressionRef &leaf) {
-        leaves.push_back(leaf);
-        return *this;
-    }
-
-    inline ExpressionRef to_expression(const BaseExpressionRef &head) {
-        return expression(head, std::move(leaves));
-    }
-};
-
-template<typename F>
-inline ExpressionRef generate_expression(const BaseExpressionRef &head, const F &generate) {
-    vector_storage storage;
-    generate(storage);
-    return storage.to_expression(head);
-}
-
 inline ExpressionRef expression(
 	const BaseExpressionRef &head) {
 
@@ -596,12 +578,12 @@ template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const Match &match) const {
 	const BaseExpressionRef &old_head = _head;
 	const BaseExpressionRef new_head = old_head->replace_all(match);
-	return apply(
+	return transform(
 		new_head ? new_head : old_head,
 		_leaves,
 		0,
 		_leaves.size(),
-		[&match](size_t, const BaseExpressionRef &leaf) {
+		[&match](const BaseExpressionRef &leaf) {
 			return leaf->replace_all(match);
 		},
 		(bool)new_head,
@@ -614,7 +596,7 @@ BaseExpressionRef ExpressionImplementation<Slice>::clone() const {
 }
 
 template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::clone(const BaseExpressionRef &head) const {
+ExpressionRef ExpressionImplementation<Slice>::clone(const BaseExpressionRef &head) const {
 	return expression(head, Slice(_leaves));
 }
 

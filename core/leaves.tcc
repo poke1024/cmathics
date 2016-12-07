@@ -67,10 +67,10 @@ public:
 class ArraySlice {
 private:
 	const BaseExpressionRef * const m_leaves;
-	const size_t m_size;
+	const Expression * const m_expr;
 
 public:
-	inline ArraySlice(const BaseExpressionRef *leaves, size_t size) : m_leaves(leaves), m_size(size) {
+	inline ArraySlice(const BaseExpressionRef *leaves, const Expression *expr) : m_leaves(leaves), m_expr(expr) {
 	}
 
 	inline const BaseExpressionRef &operator[](size_t i) const {
@@ -78,7 +78,15 @@ public:
 	}
 
 	inline size_t size() const {
-		return m_size;
+		return m_expr->size();
+	}
+
+	inline TypeMask type_mask() const {
+		return m_expr->materialize_type_mask();
+	}
+
+	inline ExpressionRef clone(const BaseExpressionRef &head) const {
+		return m_expr->clone(head);
 	}
 };
 
@@ -105,7 +113,7 @@ public:
 	inline R operator()(const F &f, const Expression *expr) const {
 		const BaseExpressionRef * const leaves = expr->_slice_ptr->_address;
 		if (leaves) {
-			const ArraySlice slice(leaves, expr->size());
+			const ArraySlice slice(leaves, expr);
 			return f(slice);
 		} else {
 			const SliceCode slice_code = expr->slice_code();
@@ -130,6 +138,14 @@ public:
 	inline size_t size() const {
 		return m_expr->size();
 	}
+
+	inline TypeMask type_mask() const {
+		return m_expr->materialize_type_mask();
+	}
+
+	inline ExpressionRef clone(const BaseExpressionRef &head) const {
+		return m_expr->clone(head);
+	}
 };
 
 template<typename R, typename F>
@@ -141,7 +157,7 @@ public:
 	inline R operator()(const F &f, const Expression *expr) const {
 		const BaseExpressionRef * const leaves = expr->_slice_ptr->_address;
 		if (leaves) {
-			const ArraySlice slice(leaves, expr->size());
+			const ArraySlice slice(leaves, expr);
 			return f(slice);
 		} else {
 			const VCallSlice slice(expr);

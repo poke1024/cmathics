@@ -12,6 +12,9 @@
 
 using std::experimental::optional;
 
+struct nothing {
+};
+
 class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
 typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
@@ -446,7 +449,7 @@ public:
         throw std::runtime_error("not implemented yet");
     }
 
-	virtual BaseExpressionRef clone(const BaseExpressionRef &head) const {
+	virtual ExpressionRef clone(const BaseExpressionRef &head) const {
 		throw std::runtime_error("cannot clone with head");
 	}
 
@@ -570,6 +573,8 @@ protected:
 	const Slice * const _slice_ptr;
 
 	virtual BaseExpressionRef materialize_leaf(size_t i) const = 0;
+
+	virtual TypeMask materialize_type_mask() const = 0;
 
 public:
     static constexpr Type Type = ExpressionType;

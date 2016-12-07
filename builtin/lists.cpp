@@ -108,12 +108,17 @@ public:
         return start <= current && current <= stop;
     }
 
-    template<typename Callback>
+	enum WalkMode {
+		Select,
+		Mutable
+	};
+
+    template<WalkMode Mode, typename Callback>
     std::tuple<BaseExpressionRef, size_t> walk(
         const BaseExpressionRef &node,
         const Callback &callback,
         index_t current = 0,
-        const Position *pos = nullptr) {
+        const Position *pos = nullptr) const {
 
         size_t depth = 0;
         BaseExpressionRef new_node;
@@ -127,33 +132,33 @@ public:
             Position new_pos;
             new_pos.up = pos;
 
-            Levelspec *self = this;
+            const Levelspec *self = this;
 
-            /*new_node = expr->with_slice<CompileToSliceType>(
+            std::tie(new_node, depth) = expr->with_slice<Mode == Select ? DoNotCompileToSliceType : CompileToSliceType>(
                 [self, current, &callback, &head, &new_pos, &depth]
-                (const auto &slice) mutable {
+                (const auto &slice)  {
 
-                    return apply(head, slice, 0, slice.size(),
+                    return transform(head, slice, 0, slice.size(),
                         [self, current, &callback, &new_pos, &depth]
-                        (size_t index0, const BaseExpressionRef &leaf) mutable {
+                        (size_t index0, const BaseExpressionRef &leaf, size_t depth)  {
 
                             BaseExpressionRef walk_leaf;
                             size_t walk_leaf_depth;
 
                             new_pos.index = index0;
 
-                            std::tie(walk_leaf, walk_leaf_depth) = self->walk(
+                            std::tie(walk_leaf, walk_leaf_depth) = self->walk<Mode>(
                                 leaf, callback, current + 1, &new_pos);
 
                             if (walk_leaf_depth + 1 > depth) {
                                 depth = walk_leaf_depth + 1;
                             }
 
-                            return walk_leaf;
+                            return std::make_tuple(walk_leaf, depth);
 
-                    }, false, UnknownTypeMask);
+                    }, depth, false);
 
-            });*/
+            });
         }
 
         if (is_in_level(current, depth)) {
@@ -177,8 +182,8 @@ public:
 
     inline BaseExpressionRef apply(BaseExpressionPtr expr, BaseExpressionPtr ls, const Evaluation &evaluation) {
         Levelspec levelspec(ls);
-        return generate_expression(evaluation.List, [&expr, &levelspec] (auto &storage) {
-            levelspec.walk(BaseExpressionRef(expr), [&storage] (const auto &node, const auto *pos) {
+        return expression_from_generator(evaluation.List, [&expr, &levelspec] (auto &storage) {
+            levelspec.walk<Levelspec::Select>(BaseExpressionRef(expr), [&storage] (const auto &node, const auto *pos) {
                 storage << node;
                 return BaseExpressionRef();
             });

@@ -188,6 +188,9 @@ public:
 	TypeMask _type_mask;
 
 public:
+	inline heap_storage() : _type_mask(0) {
+	}
+
 	inline heap_storage(size_t size) : _type_mask(0) {
 		_leaves.reserve(size);
 	}
@@ -292,8 +295,8 @@ public:
 		assert(size >= MinPackedSliceSize);
 	}
 
-	template<typename F>
-	static inline DynamicSlice create(const F &f, size_t n);
+	template<typename F, typename T>
+	static inline DynamicSlice create(const F &f, size_t n, T &r);
 
 	template<typename F>
 	inline DynamicSlice map(const F &f) const;
@@ -526,10 +529,10 @@ public:
 		assert(end - begin > MaxStaticSliceSize);
 	}
 
-	template<typename F>
-	static inline DynamicSlice create(const F &f, size_t n) {
+	template<typename F, typename T>
+	static inline DynamicSlice create(const F &f, size_t n, T &r) {
 		heap_storage storage(n);
-		f(storage);
+		r = f(storage);
 		return DynamicSlice(std::move(storage._leaves), storage._type_mask);
 	}
 
@@ -563,10 +566,10 @@ public:
 };
 
 template<typename U>
-template<typename F>
-inline DynamicSlice PackedSlice<U>::create(const F &f, size_t n) {
+template<typename F, typename T>
+inline DynamicSlice PackedSlice<U>::create(const F &f, size_t n, T &r) {
 	heap_storage storage(n);
-	f(storage);
+	r = f(storage);
 	return DynamicSlice(std::move(storage._leaves), storage._type_mask);
 }
 
@@ -615,10 +618,10 @@ public:
 	}
 };
 
-template<int N, typename F>
-auto static_slice_array(const F &f) {
+template<int N, typename F, typename T>
+auto static_slice_array(const F &f, T &r) {
 	static_slice_storage<N> storage;
-	f(storage);
+	r = f(storage);
 	return std::move(storage.m_array);
 }
 
@@ -698,24 +701,25 @@ public:
         std::copy(refs, refs + N, Array::data());
     }
 
-	template<typename F>
-	inline explicit StaticSlice(const create_using_generator&, const F &f) :
-		Array(static_slice_array<N>(f)), BaseSlice(Array::data(), N, N == 0 ? 0 : UnknownTypeMask) {
+	inline explicit StaticSlice(Array &&array) :
+		Array(array), BaseSlice(Array::data(), N, N == 0 ? 0 : UnknownTypeMask) {
 
 	}
 
-	template<typename F>
-	static inline StaticSlice create(const F &f, size_t n) {
+	template<typename T, typename F>
+	static inline StaticSlice create(const F &f, size_t n, T &r) {
 		assert(n == N);
-		return StaticSlice(create_using_generator(), f);
+		return StaticSlice(std::move(static_slice_array<N>(f, r)));
 	}
 
 	template<typename F>
 	inline StaticSlice map(const F &f) const {
 		const auto &self = *this;
-		return StaticSlice(create_using_generator(), [&f, &self] (auto &storage) {
+		nothing dummy;
+		return StaticSlice::create([&f, &self] (auto &storage) {
 			f(self, storage);
-		});
+			return nothing();
+		}, N, dummy);
 	}
 
 	inline StaticSlice slice(size_t begin, size_t end) const {
