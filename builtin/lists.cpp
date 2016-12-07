@@ -741,14 +741,16 @@ void Builtins::Lists::initialize() {
 				    }
 					return expr->as_expression()->with_slice<CompileToSliceType>([&f, &expr] (const auto &slice) {
 
-						return expression(expr->as_expression()->head(), [&f, &slice] (auto &storage) {
+						return ExpressionRef(expression(expr->as_expression()->head(),
+							slice.map([&f] (const auto &slice, auto &storage) {
+
 							const size_t size = slice.size();
 
 							for (size_t i = 0; i < size; i++) {
 								const auto leaf = slice[i];
 								storage << expression(f, StaticSlice<1>(&leaf, leaf->base_type_mask()));
 							}
-						}, slice.size());
+						})));
 					});
 			    }
 		    )

@@ -86,7 +86,7 @@ private:
 			};
 			_make_late_init[N] = [pool] (const BaseExpressionRef &head) {
 				StaticExpressionRef<N> expr = pool->construct(head);
-				return std::tuple_cat(std::make_tuple(expr), expr->_leaves.late_init());
+				return std::tuple_cat(std::make_tuple(expr), const_cast<StaticSlice<N>&>(expr->_leaves).late_init());
 			};
 		} else {
 			_make_from_vector[N] = [pool] (
@@ -103,7 +103,7 @@ private:
 			};
 			_make_late_init[N] = [pool] (const BaseExpressionRef &head) {
 				StaticExpressionRef<N> expr = pool->construct(head);
-				return std::tuple_cat(std::make_tuple(expr), expr->_leaves.late_init());
+				return std::tuple_cat(std::make_tuple(expr), const_cast<StaticSlice<N>&>(expr->_leaves).late_init());
 			};
 		}
 
@@ -122,7 +122,7 @@ public:
 	}
 
 	template<int N>
-	StaticExpressionRef<N> allocate(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
+	StaticExpressionRef<N> allocate(const BaseExpressionRef &head, StaticSlice<N> &&slice) {
 		static_assert(N <= UpToSize, "N must not be be greater than UpToSize");
 		return StaticExpressionRef<N>(static_cast<boost::object_pool<ExpressionImplementation<StaticSlice<N>>>*>(
   		    _pool[N])->construct(head, slice));
@@ -198,10 +198,10 @@ public:
 	template<int N>
 	static inline StaticExpressionRef<N> StaticExpression(
 		const BaseExpressionRef &head,
-		const StaticSlice<N> &slice) {
+		StaticSlice<N> &&slice) {
 
 		assert(_s_instance);
-		return _s_instance->_static_expression_heap.allocate<N>(head, slice);
+		return _s_instance->_static_expression_heap.allocate<N>(head, std::move(slice));
 	}
 
 	static inline ExpressionRef StaticExpression(

@@ -80,8 +80,7 @@ public:
 							    const auto end_time = std::chrono::steady_clock::now();
 							    const auto microseconds = std::chrono::duration_cast<
 									    std::chrono::microseconds>(end_time - start_time).count();
-							    return expression(List, {
-									    from_primitive(double(microseconds) / 1000000.0), evaluated});
+							    return expression(List, from_primitive(double(microseconds) / 1000000.0), evaluated);
 						    }
 				    )
 		    });

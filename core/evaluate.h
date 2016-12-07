@@ -57,33 +57,9 @@ struct _HoldAllComplete {
 	}
 };
 
-class heap_storage {
-private:
-	std::vector<BaseExpressionRef> _leaves;
-	std::vector<machine_integer_t> integers;
-	TypeMask _type_mask;
-
-public:
-	inline heap_storage(size_t size) : _type_mask(0) {
-		_leaves.reserve(size);
-	}
-
-	inline heap_storage &operator<<(const BaseExpressionRef &expr) {
-		_type_mask |= expr->base_type_mask();
-		_leaves.push_back(expr);
-		return *this;
-	}
-
-	inline heap_storage &operator<<(BaseExpressionRef &&expr) {
-		_type_mask |= expr->base_type_mask();
-		_leaves.emplace_back(expr);
-		return *this;
-	}
-
-	inline ExpressionRef to_expression(const BaseExpressionRef &head) {
-		return expression(head, std::move(_leaves), _type_mask);
-	}
-};
+inline ExpressionRef heap_storage::to_expression(const BaseExpressionRef &head) {
+	return expression(head, std::move(_leaves), _type_mask);
+}
 
 class direct_storage {
 protected:
@@ -200,13 +176,13 @@ ExpressionRef apply(
 
 				};
 
-				return expression(head, generate_leaves, size);
+				return expression(head, Slice::create(generate_leaves, size));
 			}
 		}
 	}
 
 	if (apply_head) {
-		return expression(head, slice);
+		return expression(head, Slice(slice));
 	} else {
 		return ExpressionRef();
 	}

@@ -452,7 +452,7 @@ bool Matcher<Slice>::shift(size_t match_size, const Symbol *head, bool make_sequ
 	} else {
 		return match_variable(match_size, expression(
 			_context.definitions.symbols().Sequence,
-			_sequence)->slice(0, match_size));
+			Slice(_sequence))->slice(0, match_size));
 	}
 }
 

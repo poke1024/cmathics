@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <climits>
 #include <vector>
+#include <array>
 
 #include "primitives.h"
 #include "string.h"
@@ -181,6 +182,50 @@ public:
 	}
 };
 
+class heap_storage {
+public:
+	std::vector<BaseExpressionRef> _leaves;
+	TypeMask _type_mask;
+
+public:
+	inline heap_storage(size_t size) : _type_mask(0) {
+		_leaves.reserve(size);
+	}
+
+	inline heap_storage &operator<<(const BaseExpressionRef &expr) {
+		_type_mask |= expr->base_type_mask();
+		_leaves.push_back(expr);
+		return *this;
+	}
+
+	inline heap_storage &operator<<(BaseExpressionRef &&expr) {
+		_type_mask |= expr->base_type_mask();
+		_leaves.emplace_back(std::move(expr));
+		return *this;
+	}
+
+	inline ExpressionRef to_expression(const BaseExpressionRef &head);
+};
+
+class static_slice_storage {
+protected:
+	BaseExpressionRef *m_addr;
+
+public:
+	inline static_slice_storage(BaseExpressionRef *addr) : m_addr(addr) {
+	}
+
+	inline static_slice_storage &operator<<(const BaseExpressionRef &expr) {
+		*m_addr++ = expr;
+		return *this;
+	}
+
+	inline static_slice_storage &operator<<(BaseExpressionRef &&expr) {
+		*m_addr++ = std::move(expr);
+		return *this;
+	}
+};
+
 template<typename U>
 class PackExtent {
 private:
@@ -265,6 +310,12 @@ public:
 		BaseSlice(nullptr, size) {
 		assert(size >= MinPackedSliceSize);
 	}
+
+	template<typename F>
+	static inline DynamicSlice create(const F &f, size_t n);
+
+	template<typename F>
+	inline DynamicSlice map(const F &f) const;
 
 	inline PackedSlice<U> slice(size_t begin, size_t end) const {
 		assert(end - begin >= MinPackedSliceSize);
@@ -494,6 +545,20 @@ public:
 		assert(end - begin > MaxStaticSliceSize);
 	}
 
+	template<typename F>
+	static inline DynamicSlice create(const F &f, size_t n) {
+		heap_storage storage(n);
+		f(storage);
+		return DynamicSlice(std::move(storage._leaves), storage._type_mask);
+	}
+
+	template<typename F>
+	inline DynamicSlice map(const F &f) const {
+		heap_storage storage(size());
+		f(*this, storage);
+		return DynamicSlice(std::move(storage._leaves), storage._type_mask);
+	}
+
 	inline DynamicSlice slice(size_t begin, size_t end) const {
 		return DynamicSlice(_extent, _address + begin, _address + end, sliced_type_mask(end - begin));
 	}
@@ -516,6 +581,22 @@ public:
 	}
 };
 
+template<typename U>
+template<typename F>
+inline DynamicSlice PackedSlice<U>::create(const F &f, size_t n) {
+	heap_storage storage(n);
+	f(storage);
+	return DynamicSlice(std::move(storage._leaves), storage._type_mask);
+}
+
+template<typename U>
+template<typename F>
+inline DynamicSlice PackedSlice<U>::map(const F &f) const {
+	heap_storage storage(size());
+	f(*this, storage);
+	return DynamicSlice(std::move(storage._leaves), storage._type_mask);
+}
+
 template<int N, bool valid>
 struct StaticSlicePart {
 };
@@ -530,24 +611,27 @@ struct StaticSlicePart<N, false> {
     using type = StaticSlice<0>;
 };
 
-template<int N>
-class StaticSlice : public BaseRefsSlice<static_slice_code(N)> {
-private:
-    mutable BaseExpressionRef _refs[N];
+struct create_using_generator {
+};
 
+template<int N>
+class StaticSlice : protected std::array<BaseExpressionRef, N>, public BaseRefsSlice<static_slice_code(N)> {
+private:
 	typedef BaseRefsSlice<static_slice_code(N)> BaseSlice;
+
+	typedef std::array<BaseExpressionRef, N> Array;
 
 public:
 	inline const BaseExpressionRef *begin() const {
-		return &_refs[0];
+		return Array::data();
 	}
 
 	inline const BaseExpressionRef *end() const {
-		return &_refs[N];
+		return Array::data() + N;
 	}
 
 	inline const BaseExpressionRef &operator[](size_t i) const {
-		return _refs[i];
+		return Array::data()[i];
 	}
 
 	constexpr size_t size() const {
@@ -571,40 +655,62 @@ public:
 
 public:
 	inline StaticSlice() :
-		BaseSlice(&_refs[0], N, N == 0 ? 0 : UnknownTypeMask) {
+		BaseSlice(Array::data(), N, N == 0 ? 0 : UnknownTypeMask) {
 	}
 
     inline StaticSlice(const StaticSlice<N> &slice) :
-		BaseSlice(&_refs[0], N, slice._type_mask) {
+		BaseSlice(Array::data(), N, slice._type_mask) {
         // mighty important to provide a copy iterator so that _begin won't get copied from other slice.
-        std::copy(slice._refs, slice._refs + N, _refs);
+        std::copy(slice.data(), slice.data() + N, Array::data());
     }
 
     inline StaticSlice(
 	    const std::vector<BaseExpressionRef> &refs,
 	    TypeMask type_mask = UnknownTypeMask) :
 
-	    BaseSlice(&_refs[0], N, type_mask) {
+	    BaseSlice(Array::data(), N, type_mask) {
         assert(refs.size() == N);
-        std::copy(refs.begin(), refs.end(), _refs);
+        std::copy(refs.begin(), refs.end(), Array::data());
     }
 
 	inline StaticSlice(
 		const std::initializer_list<BaseExpressionRef> &refs,
 		TypeMask type_mask = UnknownTypeMask) :
 
-		BaseSlice(&_refs[0], N, type_mask) {
+		BaseSlice(Array::data(), N, type_mask) {
 		assert(refs.size() == N);
-		std::copy(refs.begin(), refs.end(), _refs);
+		std::copy(refs.begin(), refs.end(), Array::data());
 	}
 
     inline StaticSlice(
 	    const BaseExpressionRef *refs,
         TypeMask type_mask = UnknownTypeMask) :
 
-	    BaseSlice(&_refs[0], N, type_mask) {
-        std::copy(refs, refs + N, _refs);
+	    BaseSlice(Array::data(), N, type_mask) {
+        std::copy(refs, refs + N, Array::data());
     }
+
+	template<typename F>
+	inline explicit StaticSlice(const create_using_generator&, const F &f) :
+		BaseSlice(Array::data(), N, N == 0 ? 0 : UnknownTypeMask) {
+
+		static_slice_storage storage(Array::data());
+		f(storage);
+	}
+
+	template<typename F>
+	static inline StaticSlice create(const F &f, size_t n) {
+		assert(n == N);
+		return StaticSlice(create_using_generator(), f);
+	}
+
+	template<typename F>
+	inline StaticSlice map(const F &f) const {
+		const auto &self = *this;
+		return StaticSlice(create_using_generator(), [&f, &self] (auto &storage) {
+			f(self, storage);
+		});
+	}
 
 	inline StaticSlice slice(size_t begin, size_t end) const {
 		throw std::runtime_error("cannot dynamically slice a StaticSlice");
@@ -615,11 +721,11 @@ public:
 
     template<int M>
 	inline Rest<M> drop() const {
-        return Rest<M>(&_refs[M]);
+        return Rest<M>(Array::data() + M);
 	}
 
-	std::tuple<BaseExpressionRef*, TypeMask*> late_init() const {
-		return std::make_tuple(&_refs[0], &this->_type_mask);
+	std::tuple<BaseExpressionRef*, TypeMask*> late_init() {
+		return std::make_tuple(Array::data(), &this->_type_mask);
 	}
 
 	inline bool is_packed() const {
@@ -631,11 +737,11 @@ public:
 	}
 
 	inline const BaseExpressionRef *refs() const {
-		return &_refs[0];
+		return Array::data();
 	}
 
 	inline BaseExpressionRef leaf(size_t i) const {
-		return _refs[i];
+		return Array::data()[i];
 	}
 };
 

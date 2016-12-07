@@ -503,13 +503,13 @@ inline ExpressionRef expression(
 	}
 }
 
-inline DynamicExpressionRef expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
+inline DynamicExpressionRef expression(const BaseExpressionRef &head, DynamicSlice &&slice) {
 	return Heap::Expression(head, slice);
 }
 
 template<int N>
-inline StaticExpressionRef<N> expression(const BaseExpressionRef &head, const StaticSlice<N> &slice) {
-    return Heap::StaticExpression<N>(head, slice);
+inline StaticExpressionRef<N> expression(const BaseExpressionRef &head, StaticSlice<N> &&slice) {
+    return Heap::StaticExpression<N>(head, std::move(slice));
 }
 
 template<typename Slice>
@@ -588,12 +588,12 @@ BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const Match &matc
 
 template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::clone() const {
-	return expression(_head, _leaves);
+	return expression(_head, Slice(_leaves));
 }
 
 template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::clone(const BaseExpressionRef &head) const {
-	return expression(head, _leaves);
+	return expression(head, Slice(_leaves));
 }
 
 template<typename Slice>
