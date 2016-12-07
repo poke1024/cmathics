@@ -160,6 +160,13 @@ inline auto Expression::with_slice(const F &f) const {
 	return method(f, this);
 }
 
+template<typename F>
+inline auto Expression::map(const BaseExpressionRef &head, const F &f) const {
+	return with_slice<CompileToSliceType>([&f, &head] (const auto &slice) {
+		return ExpressionRef(expression(head, slice.map(f)));
+	});
+}
+
 inline BaseExpressionRef Expression::leaf(size_t i) const {
 	return with_slice([i] (const auto &slice) {
 		return slice[i];

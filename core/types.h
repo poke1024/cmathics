@@ -620,6 +620,9 @@ public:
 	template<SliceMethodOptimizeTarget Optimize = DoNotCompileToSliceType, typename F>
 	inline auto with_slice(const F &f) const;
 
+	template<typename F>
+	inline auto map(const BaseExpressionRef &head, const F &f) const;
+
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 
 	virtual BaseExpressionRef head() const {

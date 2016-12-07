@@ -207,25 +207,6 @@ public:
 	inline ExpressionRef to_expression(const BaseExpressionRef &head);
 };
 
-class static_slice_storage {
-protected:
-	BaseExpressionRef *m_addr;
-
-public:
-	inline static_slice_storage(BaseExpressionRef *addr) : m_addr(addr) {
-	}
-
-	inline static_slice_storage &operator<<(const BaseExpressionRef &expr) {
-		*m_addr++ = expr;
-		return *this;
-	}
-
-	inline static_slice_storage &operator<<(BaseExpressionRef &&expr) {
-		*m_addr++ = std::move(expr);
-		return *this;
-	}
-};
-
 template<typename U>
 class PackExtent {
 private:
@@ -615,6 +596,33 @@ struct create_using_generator {
 };
 
 template<int N>
+class static_slice_storage {
+public:
+	std::array<BaseExpressionRef, N> m_array;
+	int m_index;
+
+	inline static_slice_storage() : m_index(0) {
+	}
+
+	inline static_slice_storage &operator<<(const BaseExpressionRef &expr) {
+		m_array[m_index++] = expr;
+		return *this;
+	}
+
+	inline static_slice_storage &operator<<(BaseExpressionRef &&expr) {
+		m_array[m_index++] = std::move(expr);
+		return *this;
+	}
+};
+
+template<int N, typename F>
+auto static_slice_array(const F &f) {
+	static_slice_storage<N> storage;
+	f(storage);
+	return std::move(storage.m_array);
+}
+
+template<int N>
 class StaticSlice : protected std::array<BaseExpressionRef, N>, public BaseRefsSlice<static_slice_code(N)> {
 private:
 	typedef BaseRefsSlice<static_slice_code(N)> BaseSlice;
@@ -692,10 +700,8 @@ public:
 
 	template<typename F>
 	inline explicit StaticSlice(const create_using_generator&, const F &f) :
-		BaseSlice(Array::data(), N, N == 0 ? 0 : UnknownTypeMask) {
+		Array(static_slice_array<N>(f)), BaseSlice(Array::data(), N, N == 0 ? 0 : UnknownTypeMask) {
 
-		static_slice_storage storage(Array::data());
-		f(storage);
 	}
 
 	template<typename F>

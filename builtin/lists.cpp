@@ -551,24 +551,18 @@ public:
 					    if (domain_list) {
 						    domain_list = if_list(domain_list->evaluate_or_copy(evaluation));
 						    if (domain_list) {
-							    return domain_list->with_slice<CompileToSliceType>(
-								    [iterator, &f, &evaluation] (const auto &slice) {
-									    return expression(
-										    evaluation.List,
-										    [iterator, &slice, &f, &evaluation] (auto &storage) {
-											    const size_t n = slice.size();
+							    return domain_list->map(evaluation.List,
+									[iterator, &f] (const auto &slice, auto &storage) {
+									    const size_t n = slice.size();
 
-											    for (size_t i = 0; i < n; i++) {
-                                                    BaseExpressionRef value = slice[i];
-												    storage << scope(
-													    iterator,
-													    std::move(value),
-													    f);
-											    }
-										    },
-										    slice.size()
-									    );
-								    });
+									    for (size_t i = 0; i < n; i++) {
+										    BaseExpressionRef value = slice[i];
+										    storage << scope(
+											    iterator,
+											    std::move(value),
+											    f);
+									    }
+							        });
 						    }
 					    } else {
                             const BaseExpressionRef imax(slice[1]->evaluate_or_copy(evaluation));
@@ -739,18 +733,15 @@ void Builtins::Lists::initialize() {
 				    if (expr->type() != ExpressionType) {
 					    return ExpressionRef();
 				    }
-					return expr->as_expression()->with_slice<CompileToSliceType>([&f, &expr] (const auto &slice) {
+					const Expression *list = expr->as_expression();
 
-						return ExpressionRef(expression(expr->as_expression()->head(),
-							slice.map([&f] (const auto &slice, auto &storage) {
+					return list->map(list->head(), [&f] (const auto &slice, auto &storage) {
+						const size_t size = slice.size();
 
-							const size_t size = slice.size();
-
-							for (size_t i = 0; i < size; i++) {
-								const auto leaf = slice[i];
-								storage << expression(f, StaticSlice<1>(&leaf, leaf->base_type_mask()));
-							}
-						})));
+						for (size_t i = 0; i < size; i++) {
+							const auto leaf = slice[i];
+							storage << expression(f, StaticSlice<1>(&leaf, leaf->base_type_mask()));
+						}
 					});
 			    }
 		    )
