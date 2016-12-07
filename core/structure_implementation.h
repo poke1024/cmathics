@@ -17,7 +17,7 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_vars(Name name) 
 	const BaseExpressionRef &head = self._head;
 	const auto &leaves = self._leaves;
 
-	auto replace = [name] (const BaseExpressionRef &expr) {
+	auto replace = [name] (size_t, const BaseExpressionRef &expr) {
 		const Type type = expr->type();
 
 		if (type == SymbolType) {
@@ -33,7 +33,7 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_vars(Name name) 
 		return BaseExpressionRef();
 	};
 
-	const BaseExpressionRef new_head = replace(head);
+	const BaseExpressionRef new_head = replace(0, head);
 
 	const ExpressionRef result = apply(
 		new_head ? new_head : head,

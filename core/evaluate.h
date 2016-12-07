@@ -143,7 +143,7 @@ ExpressionRef apply(
 				continue;
 			}
 
-			const auto leaf0 = f(leaf);
+			const auto leaf0 = f(i0, leaf);
 
 			if (leaf0) { // copy is needed now
 				const size_t size = slice.size();
@@ -161,7 +161,7 @@ ExpressionRef apply(
 						if ((old_leaf->base_type_mask() & type_mask) == 0) {
 							storage << old_leaf;
 						} else {
-							auto new_leaf = f(old_leaf);
+							auto new_leaf = f(j, old_leaf);
 							if (new_leaf) {
 								storage << new_leaf;
 							} else {
@@ -217,7 +217,7 @@ BaseExpressionRef evaluate(
 		slice,
 		eval_leaf.first,
 		eval_leaf.second,
-		[&evaluation](const BaseExpressionRef &leaf) {
+		[&evaluation](size_t, const BaseExpressionRef &leaf) {
 			return leaf->evaluate(evaluation);
 		},
 		head != self->_head,

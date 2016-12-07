@@ -17,49 +17,174 @@ public:
     }
 };
 
-size_t value_to_level(const BaseExpressionRef &item) {
-    switch (item->type()) {
-        case MachineIntegerType:
-            return static_cast<const MachineInteger*>(item.get())->value;
-        case ExpressionType: {
-            const Expression *expr = item->as_expression();
-
-            if (expr->head()->extended_type() == SymbolDirectedInfinity &&
-                expr->size() == 1 &&
-                expr->leaf(0)->is_one()) {
-
-                return SIZE_MAX;
-            } else {
-                throw invalid_levelspec_error();
-            }
-        }
-        default:
-            throw invalid_levelspec_error();
+inline bool is_infinity(const Expression *expr) {
+    if (expr->head()->extended_type() != SymbolDirectedInfinity) {
+        return false;
     }
+    if (expr->size() != 1) {
+        return false;
+    }
+    if (!expr->static_leaves<1>()[0]->is_one()) {
+        return false;
+    }
+    return true;
 }
 
-std::tuple<size_t, size_t> levelspec(BaseExpressionPtr spec) {
-    const Expression *list = if_list(spec);
-    if (list) {
-        switch (list->size()) {
-            case 1: {
-                const size_t i = value_to_level(list->leaf(0));
-                return std::make_tuple(i, i);
-            }
-            case 2: {
-                const size_t i = value_to_level(list->leaf(0));
-                const size_t j = value_to_level(list->leaf(1));
-                return std::make_tuple(i, j);
-            }
+class Levelspec {
+public:
+    struct Position {
+        const Position *up;
+        size_t index;
+    };
+
+private:
+    optional<machine_integer_t> m_start;
+    optional<machine_integer_t> m_stop;
+
+    static optional<machine_integer_t> value_to_level(const BaseExpressionRef &item) {
+        switch (item->type()) {
+            case MachineIntegerType:
+                return static_cast<const MachineInteger*>(item.get())->value;
+            case ExpressionType:
+                if (is_infinity(item->as_expression())) {
+                    return optional<machine_integer_t>();
+                } else {
+                    throw invalid_levelspec_error();
+                }
             default:
                 throw invalid_levelspec_error();
         }
-    } else if (spec->extended_type() == SymbolAll) {
-        return std::make_tuple(0, SIZE_MAX);
-    } else {
-        return std::make_tuple(1, value_to_level(spec));
     }
-}
+
+public:
+    Levelspec(BaseExpressionPtr spec) {
+        const Expression *list = if_list(spec);
+        if (list) {
+            switch (list->size()) {
+                case 1: {
+                    const BaseExpressionRef *leaves = list->static_leaves<1>();
+                    const optional<machine_integer_t> i = value_to_level(leaves[0]);
+                    m_start = i;
+                    m_stop = i;
+                    break;
+                }
+                case 2: {
+                    const BaseExpressionRef *leaves = list->static_leaves<2>();
+                    m_start = value_to_level(leaves[0]);
+                    m_stop = value_to_level(leaves[1]);
+                    break;
+                }
+                default:
+                    throw invalid_levelspec_error();
+            }
+        } else if (spec->extended_type() == SymbolAll) {
+            m_start = 0;
+            m_stop = optional<machine_integer_t>();
+        } else {
+            m_start = 1;
+            m_stop = value_to_level(spec);
+        }
+    }
+
+    bool is_in_level(index_t current, index_t depth) const {
+        index_t start;
+        if (m_start) {
+            start = *m_start;
+        } else {
+            return false;
+        }
+        index_t stop;
+        if (m_stop) {
+            stop = *m_stop;
+        } else {
+            stop = current;
+        }
+        if (start < 0) {
+            start += current + depth + 1;
+        }
+        if (stop < 0) {
+            stop += current + depth + 1;
+        }
+        return start <= current && current <= stop;
+    }
+
+    template<typename Callback>
+    std::tuple<BaseExpressionRef, size_t> walk(
+        const BaseExpressionRef &node,
+        const Callback &callback,
+        index_t current = 0,
+        const Position *pos = nullptr) {
+
+        size_t depth = 0;
+        BaseExpressionRef new_node;
+
+        if (node->type() == ExpressionType) {
+            const Expression * const expr =
+                static_cast<const Expression*>(node.get());
+
+            BaseExpressionRef head = expr->head();
+
+            Position new_pos;
+            new_pos.up = pos;
+
+            Levelspec *self = this;
+
+            /*new_node = expr->with_slice<CompileToSliceType>(
+                [self, current, &callback, &head, &new_pos, &depth]
+                (const auto &slice) mutable {
+
+                    return apply(head, slice, 0, slice.size(),
+                        [self, current, &callback, &new_pos, &depth]
+                        (size_t index0, const BaseExpressionRef &leaf) mutable {
+
+                            BaseExpressionRef walk_leaf;
+                            size_t walk_leaf_depth;
+
+                            new_pos.index = index0;
+
+                            std::tie(walk_leaf, walk_leaf_depth) = self->walk(
+                                leaf, callback, current + 1, &new_pos);
+
+                            if (walk_leaf_depth + 1 > depth) {
+                                depth = walk_leaf_depth + 1;
+                            }
+
+                            return walk_leaf;
+
+                    }, false, UnknownTypeMask);
+
+            });*/
+        }
+
+        if (is_in_level(current, depth)) {
+            return std::make_tuple(callback(new_node ? new_node : node, pos), depth);
+        } else {
+            return std::make_tuple(new_node, depth);
+        }
+    }
+};
+
+class Level : public Builtin {
+public:
+    static constexpr const char *name = "Level";
+
+public:
+    using Builtin::Builtin;
+
+    void build() {
+        builtin(&Level::apply);
+    }
+
+    inline BaseExpressionRef apply(BaseExpressionPtr expr, BaseExpressionPtr ls, const Evaluation &evaluation) {
+        Levelspec levelspec(ls);
+        return generate_expression(evaluation.List, [&expr, &levelspec] (auto &storage) {
+            levelspec.walk(BaseExpressionRef(expr), [&storage] (const auto &node, const auto *pos) {
+                storage << node;
+                return BaseExpressionRef();
+            });
+        });
+    }
+};
 
 class First : public Builtin {
 public:
@@ -670,6 +795,8 @@ NewRuleRef make_iteration_function_rule() {
 }
 
 void Builtins::Lists::initialize() {
+
+    add<Level>();
 
     add("ListQ",
         Attributes::None, {

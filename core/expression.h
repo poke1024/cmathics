@@ -344,7 +344,7 @@ public:
                 _leaves,
                 0,
                 _leaves.size(),
-                [&recurse, &evaluation] (const BaseExpressionRef &leaf) {
+                [&recurse, &evaluation] (size_t, const BaseExpressionRef &leaf) {
                     return recurse(leaf, evaluation);
                 },
                 false,
@@ -471,6 +471,28 @@ inline ExpressionRef expression(
 	}
 }
 
+class vector_storage {
+private:
+    std::vector<BaseExpressionRef> leaves;
+
+public:
+    inline vector_storage &operator<<(const BaseExpressionRef &leaf) {
+        leaves.push_back(leaf);
+        return *this;
+    }
+
+    inline ExpressionRef to_expression(const BaseExpressionRef &head) {
+        return expression(head, std::move(leaves));
+    }
+};
+
+template<typename F>
+inline ExpressionRef generate_expression(const BaseExpressionRef &head, const F &generate) {
+    vector_storage storage;
+    generate(storage);
+    return storage.to_expression(head);
+}
+
 inline ExpressionRef expression(
 	const BaseExpressionRef &head) {
 
@@ -579,7 +601,7 @@ BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const Match &matc
 		_leaves,
 		0,
 		_leaves.size(),
-		[&match](const BaseExpressionRef &leaf) {
+		[&match](size_t, const BaseExpressionRef &leaf) {
 			return leaf->replace_all(match);
 		},
 		(bool)new_head,

@@ -62,7 +62,7 @@ inline BaseExpressionRef replace_slots(
 				slice,
 				0,
 				slice.size(),
-				[&slots, &evaluation] (const BaseExpressionRef &ref) {
+				[&slots, &evaluation] (size_t, const BaseExpressionRef &ref) {
 					return replace_slots(ref->as_expression(), slots, evaluation);
 				},
 				(bool)new_head,
