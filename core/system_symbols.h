@@ -4,6 +4,7 @@
 
 SYMBOL(List)
 SYMBOL(Sequence)
+SYMBOL(Rule)
 
 SYMBOL(True)
 SYMBOL(False)

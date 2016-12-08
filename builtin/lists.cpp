@@ -41,7 +41,7 @@ private:
     optional<machine_integer_t> m_start;
     optional<machine_integer_t> m_stop;
 
-    static optional<machine_integer_t> value_to_level(const BaseExpressionRef &item) {
+    static inline optional<machine_integer_t> value_to_level(const BaseExpressionRef &item) {
         switch (item->type()) {
             case MachineIntegerType:
                 return static_cast<const MachineInteger*>(item.get())->value;
@@ -86,7 +86,7 @@ public:
         }
     }
 
-    bool is_in_level(index_t current, index_t depth) const {
+    inline bool is_in_level(index_t current, index_t depth) const {
         index_t start;
         if (m_start) {
             start = *m_start;

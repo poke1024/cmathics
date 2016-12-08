@@ -45,21 +45,81 @@ public:
 	}
 
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
-		if (N <= MaxStaticSliceSize || expr->size() == N) {
-			constexpr SliceCode slice_code =
-				N <= MaxStaticSliceSize ? static_slice_code(N) : SliceCode::Unknown;
-			const F &func = _func;
-			return expr->with_leaves_array<slice_code>(
-				[&func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
-					typename BaseExpressionTuple<N>::type t;
-					unpack_leaves<N, 0>()(leaves, t);
-					return apply_from_tuple(
-						func,
-						std::tuple_cat(t, std::make_tuple(evaluation)));
-				});
-		} else {
-			return BaseExpressionRef();
-		}
+		constexpr SliceCode slice_code =
+			N <= MaxStaticSliceSize ? static_slice_code(N) : SliceCode::Unknown;
+		const F &func = _func;
+		return expr->with_leaves_array<slice_code>(
+			[&func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
+				typename BaseExpressionTuple<N>::type t;
+				unpack_leaves<N, 0>()(leaves, t);
+				return apply_from_tuple(
+					func,
+					std::tuple_cat(t, std::make_tuple(evaluation)));
+			});
+	}
+};
+
+typedef const std::initializer_list<std::pair<const char*, BaseExpressionRef>> OptionsInitializerList;
+
+class OptionsMap : public std::map<SymbolRef, BaseExpressionRef> {
+public:
+	OptionsMap(const Definitions &definitions, OptionsInitializerList &options) {
+
+	}
+};
+
+class OptionsDictionary {
+public:
+	void set(const BaseExpressionRef &key, const BaseExpressionRef &value) {
+		// FIXME
+	}
+};
+
+template<int N, typename F>
+class OptionsBuiltinRule : public AtLeastNRule<N> {
+private:
+	const F m_func;
+	const OptionsMap m_default_options;
+
+public:
+	OptionsBuiltinRule(
+		const SymbolRef &head,
+		const Definitions &definitions,
+		const F &func,
+		const OptionsInitializerList &options) :
+
+		AtLeastNRule<N>(head, definitions), m_func(func), m_default_options(definitions, options) {
+	}
+
+	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
+		const F &func = m_func;
+		return expr->with_leaves_array(
+			[&func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
+				OptionsDictionary options;
+
+				size_t n = size;
+				while (n > N) {
+					const BaseExpressionRef &last = leaves[n - 1];
+					// FIXME: option expected
+					// item->has_form(SymbolRule, 2)
+					if (last->type() != ExpressionType) {
+						const Expression *expr = last->as_expression();
+						if (expr->head()->extended_type() == SymbolRule && expr->size() == 2) {
+							const BaseExpressionRef *data = expr->static_leaves<2>();
+							// FIXME: check unknown option
+							// if (m_default_options.find(data[0]) != m_default_options.end())
+							options.set(data[0], data[1]);
+						}
+					}
+					n -= 1;
+				}
+
+				typename BaseExpressionTuple<N>::type t;
+				unpack_leaves<N, 0>()(leaves, t);
+				return apply_from_tuple(
+					func,
+					std::tuple_cat(t, std::make_tuple(options, evaluation)));
+			});
 	}
 };
 

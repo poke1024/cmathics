@@ -35,14 +35,13 @@ BaseExpressionRef StructureOperationsImplementation<T>::replace_vars(Name name) 
 
 	const BaseExpressionRef new_head = replace(head);
 
-	const ExpressionRef result = transform(
+	const ExpressionRef result = transform<MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType)>(
 		new_head ? new_head : head,
 		leaves,
 		0,
 		leaves.size(),
 		replace,
-		(bool)new_head,
-		MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType));
+		(bool)new_head);
 
 	if (!result) {
 		self.cache()->skip_replace_vars.add(name);

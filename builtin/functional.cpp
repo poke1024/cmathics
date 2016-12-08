@@ -57,7 +57,7 @@ inline BaseExpressionRef replace_slots(
 				new_head = replace_slots(head->as_expression(), slots, evaluation);
 			}
 
-			const BaseExpressionRef result = transform(
+			const BaseExpressionRef result = transform<MakeTypeMask(ExpressionType)>(
 				new_head ? new_head : head,
 				slice,
 				0,
@@ -65,8 +65,7 @@ inline BaseExpressionRef replace_slots(
 				[&slots, &evaluation] (const BaseExpressionRef &ref) {
 					return replace_slots(ref->as_expression(), slots, evaluation);
 				},
-				(bool)new_head,
-				MakeTypeMask(ExpressionType));
+				(bool)new_head);
 
 			if (!result) {
 				expr->cache()->skip_slots = true;

@@ -163,56 +163,55 @@ struct transform_utils<VCallSlice> {
 	}
 };
 
-template<typename Slice, typename T, typename F>
+template<TypeMask Types = UnknownTypeMask, typename Slice, typename T, typename F>
 std::tuple<ExpressionRef, T> transform(
 	const BaseExpressionRef &head,
 	const Slice &slice,
-	size_t begin,
-	size_t end,
+	const size_t begin,
+	const size_t end,
 	const F &f,
-	T initial_state,
-	bool apply_head,
-	TypeMask type_mask = UnknownTypeMask) {
+	const T initial_state,
+	const bool apply_head) {
 
 	T state = initial_state;
 
 	// check against the (possibly inexact) type mask to exit early.
 	// if no decision can be made, do not compute the type mask here,
 	// as this corresponds to iterating all leaves, which we do anyway.
-	if (type_mask == UnknownTypeMask || (type_mask & slice.type_mask()) != 0) {
+	if (Types == UnknownTypeMask || (Types & slice.type_mask()) != 0) {
 
 		for (size_t i0 = begin; i0 < end; i0++) {
 			const auto leaf = slice[i0];
 
-			if ((leaf->base_type_mask() & type_mask) == 0) {
+			if ((leaf->base_type_mask() & Types) == 0) {
 				continue;
 			}
 
-			BaseExpressionRef leaf0;
-			std::tie(leaf0, state) = f(i0, leaf, state);
+			const std::tuple<BaseExpressionRef, T> result = f(i0, leaf, state);
+			state = std::get<1>(result);
 
-			if (leaf0) { // copy is needed now
+			if (std::get<0>(result)) { // copy is needed now
 				const size_t size = slice.size();
 
-				auto generate = [i0, end, size, type_mask, &slice, &f, &leaf0, &state] (auto &storage) {
+				auto generate = [i0, end, size, &slice, &f, &result, &state] (auto &storage) {
 					for (size_t j = 0; j < i0; j++) {
 						storage << slice[j];
 					}
 
-					storage << leaf0; // leaves[i0]
+					storage << std::get<0>(result); // leaves[i0]
 
 					T inner_state = state;
 					for (size_t j = i0 + 1; j < end; j++) {
 						const auto old_leaf = slice[j];
 
-						if ((old_leaf->base_type_mask() & type_mask) == 0) {
+						if ((old_leaf->base_type_mask() & Types) == 0) {
 							storage << old_leaf;
 						} else {
-							BaseExpressionRef new_leaf;
-							std::tie(new_leaf, inner_state) = f(j, old_leaf, inner_state);
+							std::tuple<BaseExpressionRef, T> inner_result = f(j, old_leaf, inner_state);
+							inner_state = std::get<1>(inner_result);
 
-							if (new_leaf) {
-								storage << new_leaf;
+							if (std::get<0>(inner_result)) {
+								storage << std::move(std::get<0>(inner_result));
 							} else {
 								storage << old_leaf;
 							}
@@ -239,20 +238,19 @@ std::tuple<ExpressionRef, T> transform(
 	}
 }
 
-template<typename Slice, typename F>
+template<TypeMask Types, typename Slice, typename F>
 ExpressionRef transform(
 	const BaseExpressionRef &head,
 	const Slice &slice,
-	size_t begin,
-	size_t end,
+	const size_t begin,
+	const size_t end,
 	const F &f,
-	bool apply_head,
-	TypeMask type_mask) {
+	const bool apply_head) {
 
-	return std::get<0>(transform<Slice, nothing>(
+	return std::get<0>(transform<Types, Slice, nothing>(
 		head, slice, begin, end, [&f] (size_t, const BaseExpressionRef &leaf, nothing) {
 			return std::make_tuple(f(leaf), nothing());
-	}, nothing(), apply_head, type_mask));
+	}, nothing(), apply_head));
 };
 
 
@@ -280,7 +278,7 @@ BaseExpressionRef evaluate(
 	assert(eval_leaf.first <= eval_leaf.second);
 	assert(eval_leaf.second <= slice.size());
 
-	const ExpressionRef intermediate_form = transform(
+	const ExpressionRef intermediate_form = transform<MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType)>(
 		head,
 		slice,
 		eval_leaf.first,
@@ -288,8 +286,7 @@ BaseExpressionRef evaluate(
 		[&evaluation](const BaseExpressionRef &leaf) {
 			return leaf->evaluate(evaluation);
 		},
-		head != self->_head,
-		MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType));
+		head != self->_head);
 
 	if (false) { // debug
 		std::cout

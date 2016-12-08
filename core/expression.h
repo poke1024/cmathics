@@ -331,30 +331,7 @@ public:
     BaseExpressionRef do_symbolic(
         const Compute &compute,
         const Recurse &recurse,
-        const Evaluation &evaluation) const {
-
-        const SymbolicForm form = symbolic_form();
-
-        if (!form.is_null()) {
-            const optional<SymbolicForm> new_form = compute(form);
-            if (new_form) {
-                return from_symbolic_form(*new_form, evaluation);
-            } else {
-                return BaseExpressionRef();
-            }
-        } else {
-            return transform(
-                _head,
-                _leaves,
-                0,
-                _leaves.size(),
-                [&recurse, &evaluation] (const BaseExpressionRef &leaf) {
-                    return recurse(leaf, evaluation);
-                },
-                false,
-                MakeTypeMask(ExpressionType));
-        }
-    }
+        const Evaluation &evaluation) const;
 
 	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
         return do_symbolic(
@@ -578,7 +555,7 @@ template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const Match &match) const {
 	const BaseExpressionRef &old_head = _head;
 	const BaseExpressionRef new_head = old_head->replace_all(match);
-	return transform(
+	return transform<MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType)>(
 		new_head ? new_head : old_head,
 		_leaves,
 		0,
@@ -586,8 +563,7 @@ BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const Match &matc
 		[&match](const BaseExpressionRef &leaf) {
 			return leaf->replace_all(match);
 		},
-		(bool)new_head,
-		MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType));
+		(bool)new_head);
 }
 
 template<typename Slice>
@@ -631,4 +607,32 @@ void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) c
 	}
 }
 
+template<typename Slice>
+template<typename Compute, typename Recurse>
+BaseExpressionRef ExpressionImplementation<Slice>::do_symbolic(
+	const Compute &compute,
+	const Recurse &recurse,
+	const Evaluation &evaluation) const {
+
+	const SymbolicForm form = symbolic_form();
+
+	if (!form.is_null()) {
+		const optional<SymbolicForm> new_form = compute(form);
+		if (new_form) {
+			return from_symbolic_form(*new_form, evaluation);
+		} else {
+			return BaseExpressionRef();
+		}
+	} else {
+		return transform<MakeTypeMask(ExpressionType)>(
+			_head,
+			_leaves,
+			0,
+			_leaves.size(),
+			[&recurse, &evaluation] (const BaseExpressionRef &leaf) {
+				return recurse(leaf, evaluation);
+			},
+			false);
+	}
+}
 #endif
