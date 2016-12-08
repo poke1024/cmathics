@@ -589,7 +589,8 @@ void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) c
 
 	const ExpressionRef message = expression(
 		symbols.MessageName, name, Heap::String(tag));
-	StringRef text_template = name->lookup_message(message.get(), *this);
+	StringRef text_template = static_cast<const Symbol*>(
+		name.get())->lookup_message(message.get(), *this);
 
 	if (!text_template) {
 		const ExpressionRef general_message = expression(
@@ -603,7 +604,7 @@ void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) c
 		std::string full_text = message_text(std::move(text), 1, args...);
 		std::cout <<
 			name->short_name() << "::" << tag << ": " <<
-		   full_text.c_str() << std::endl;
+		    full_text.c_str() << std::endl;
 	}
 }
 

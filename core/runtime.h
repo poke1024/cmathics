@@ -77,68 +77,85 @@ protected:
 
 	template<typename T>
 	inline void builtin(F1<T> fptr) {
-        auto self = std::static_pointer_cast<T>(shared_from_this());
-		const auto rule = make_builtin_rule<1>(
-            [self, fptr] (
-				BaseExpressionPtr a,
-                const Evaluation &evaluation) {
+        const auto self = std::static_pointer_cast<T>(shared_from_this());
 
-                auto p = self.get();
-                return (p->*fptr)(a, evaluation);
-            });
-		m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
+		auto func = [self, fptr] (
+			BaseExpressionPtr a,
+			const Evaluation &evaluation) {
+
+			auto p = self.get();
+			return (p->*fptr)(a, evaluation);
+		};
+
+		m_symbol->add_rule(std::make_shared<BuiltinRule<1, decltype(func)>>(
+			m_symbol,
+			m_runtime.definitions(),
+			func));
 	}
 
     template<typename T>
     inline void builtin(F2<T> fptr) {
-        auto self = std::static_pointer_cast<T>(shared_from_this());
-        const auto rule = make_builtin_rule<2>(
-			[self, fptr] (
-				BaseExpressionPtr a,
-				BaseExpressionPtr b,
-				const Evaluation &evaluation) {
+        const auto self = std::static_pointer_cast<T>(shared_from_this());
 
-				auto p = self.get();
-				return (p->*fptr)(a, b, evaluation);
-			});
-        m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
+	    auto func = [self, fptr] (
+		    BaseExpressionPtr a,
+		    BaseExpressionPtr b,
+		    const Evaluation &evaluation) {
+
+		    auto p = self.get();
+		    return (p->*fptr)(a, b, evaluation);
+	    };
+
+	    m_symbol->add_rule(std::make_shared<BuiltinRule<2, decltype(func)>>(
+		    m_symbol,
+		    m_runtime.definitions(),
+		    func));
     }
 
     template<typename T>
     inline void builtin(F3<T> fptr) {
-        auto self = std::static_pointer_cast<T>(shared_from_this());
-        const auto rule = make_builtin_rule<3>(
-			[self, fptr] (
-				BaseExpressionPtr a,
-				BaseExpressionPtr b,
-				BaseExpressionPtr c,
-				const Evaluation &evaluation) {
+        const auto self = std::static_pointer_cast<T>(shared_from_this());
 
-				auto p = self.get();
-				return (p->*fptr)(a, b, c, evaluation);
-			});
-        m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
+	    auto func = [self, fptr] (
+		    BaseExpressionPtr a,
+		    BaseExpressionPtr b,
+		    BaseExpressionPtr c,
+		    const Evaluation &evaluation) {
+
+		    auto p = self.get();
+		    return (p->*fptr)(a, b, c, evaluation);
+	    };
+
+	    m_symbol->add_rule(std::make_shared<BuiltinRule<3, decltype(func)>>(
+		    m_symbol,
+		    m_runtime.definitions(),
+            func));
     }
 
 	template<typename T, typename Options>
 	inline void builtin(const OptionsInitializerList &options, OptionsF2<T, Options> fptr) {
-		auto self = std::static_pointer_cast<T>(shared_from_this());
-		const auto rule = make_options_builtin_rule<2, Options>(
-			[self, fptr] (
-				BaseExpressionPtr a,
-				BaseExpressionPtr b,
-				const Options &options,
-				const Evaluation &evaluation) {
+		const auto self = std::static_pointer_cast<T>(shared_from_this());
 
-				auto p = self.get();
-				return (p->*fptr)(a, b, options, evaluation);
-			}, options);
-		m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
+		auto func = [self, fptr] (
+			BaseExpressionPtr a,
+			BaseExpressionPtr b,
+			const Options &options,
+			const Evaluation &evaluation) {
+
+			auto p = self.get();
+			return (p->*fptr)(a, b, options, evaluation);
+		};
+
+		m_symbol->add_rule(std::make_shared<OptionsBuiltinRule<2, Options, decltype(func)>>(
+			m_symbol,
+			m_runtime.definitions(),
+			options,
+			func));
 	}
 
 	inline void rewrite(const char *pattern, const char *into) {
-		const auto rule = make_rewrite_rule(m_runtime.parse(pattern), m_runtime.parse(into));
-		m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
+		m_symbol->add_rule(std::make_shared<RewriteRule>(
+			m_runtime.parse(pattern), m_runtime.parse(into)));
 	}
 
     inline void message(const char *tag, const char *text) {

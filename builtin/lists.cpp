@@ -35,7 +35,23 @@ public:
     struct Position {
         const Position *up;
         size_t index;
+
+	    inline void set_up(const Position *p) {
+		    up = p;
+	    }
+
+	    inline void set_index(size_t i) {
+		    index = i;
+	    }
     };
+
+	struct NoPosition {
+		inline void set_up(const NoPosition *p) {
+		}
+
+		inline void set_index(size_t i) {
+		}
+	};
 
 private:
     optional<machine_integer_t> m_start;
@@ -109,23 +125,23 @@ public:
     }
 
 	enum WalkMode {
-		Select,
-		Mutable
+		ImmutableCallback = 0,
+		MutableCallback = 1
 	};
 
-    template<WalkMode Mode, typename Callback>
+    template<WalkMode Mode, typename PositionType, typename Callback>
     std::tuple<BaseExpressionRef, size_t> walk(
         const BaseExpressionRef &node,
         const bool heads,
         const Callback &callback,
         const index_t current = 0,
-        const Position *pos = nullptr) const {
+        const PositionType *pos = nullptr) const {
 
         size_t depth = 0;
         BaseExpressionRef new_node;
 
 	    constexpr SliceMethodOptimizeTarget Optimize =
-		    Mode == Select ? DoNotCompileToSliceType : CompileToSliceType;
+		    (Mode & MutableCallback) ? DoNotCompileToSliceType : CompileToSliceType;
 
         if (node->type() == ExpressionType) {
             const Expression * const expr =
@@ -134,18 +150,19 @@ public:
             BaseExpressionRef head;
 
 	        if (heads) {
-		        Position head_pos;
-		        head_pos.up = pos;
-		        head_pos.index = 0;
+		        PositionType head_pos;
 
-		        head = std::get<0>(walk<Mode>(
+		        head_pos.set_up(pos);
+		        head_pos.set_index(0);
+
+		        head = std::get<0>(walk<Mode, PositionType>(
 			        expr->head(), heads, callback, current + 1, &head_pos));
 	        } else {
 		        head = expr->head();
 	        }
 
-            Position new_pos;
-            new_pos.up = pos;
+	        PositionType new_pos;
+	        new_pos.set_up(pos);
 
             const Levelspec *self = this;
 
@@ -160,9 +177,9 @@ public:
                             BaseExpressionRef walk_leaf;
                             size_t walk_leaf_depth;
 
-                            new_pos.index = index0;
+	                        new_pos.set_index(index0);
 
-                            std::tie(walk_leaf, walk_leaf_depth) = self->walk<Mode>(
+                            std::tie(walk_leaf, walk_leaf_depth) = self->walk<Mode, PositionType>(
                                 leaf, heads, callback, current + 1, &new_pos);
 
                             if (walk_leaf_depth + 1 > depth) {
@@ -177,7 +194,7 @@ public:
         }
 
         if (is_in_level(current, depth)) {
-            return std::make_tuple(callback(new_node ? new_node : node, pos), depth);
+            return std::make_tuple(callback(new_node ? new_node : node, *pos), depth);
         } else {
             return std::make_tuple(new_node, depth);
         }
@@ -196,10 +213,8 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-	    const auto &symbols = runtime.symbols();
-
 	    const OptionsInitializerList options = {
-		    {"Heads", offsetof(LevelOptions, Heads), symbols.False}
+		    {"Heads", offsetof(LevelOptions, Heads), "False"}
 	    };
 
 	    builtin(options, &Level::apply);
@@ -211,14 +226,21 @@ public:
 	    const LevelOptions &options,
 	    const Evaluation &evaluation) {
 
-	    Levelspec levelspec(ls);
-        return expression_from_generator(evaluation.List, [&options, &expr, &levelspec] (auto &storage) {
-            levelspec.walk<Levelspec::Select>(BaseExpressionRef(expr), options.Heads->is_true(),
-                [&storage] (const auto &node, const auto *pos) {
-	                storage << node;
-	                return BaseExpressionRef();
-            });
-        });
+	    try {
+		    Levelspec levelspec(ls);
+
+		    return expression_from_generator(evaluation.List, [&options, &expr, &levelspec](auto &storage) {
+			    levelspec.walk<Levelspec::ImmutableCallback, Levelspec::NoPosition>(
+					    BaseExpressionRef(expr), options.Heads->is_true(),
+					    [&storage](const auto &node, Levelspec::NoPosition) {
+						    storage << node;
+						    return BaseExpressionRef();
+					    });
+		    });
+	    } catch (const invalid_levelspec_error&) {
+		    evaluation.message(m_symbol, "level", ls);
+		    return BaseExpressionRef();
+	    }
     }
 };
 

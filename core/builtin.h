@@ -59,7 +59,11 @@ public:
 	}
 };
 
-typedef const std::initializer_list<std::tuple<const char*, size_t, BaseExpressionRef>> OptionsInitializerList;
+inline std::string ensure_context(const char *name) {
+	return std::string("System`") + name;
+}
+
+typedef const std::initializer_list<std::tuple<const char*, size_t, const char*>> OptionsInitializerList;
 
 class OptionsDefinitionsBase {
 protected:
@@ -80,10 +84,8 @@ protected:
 		for (auto t : options) {
 			const char *name = std::get<0>(t);
 			const size_t offset = std::get<1>(t);
-			const BaseExpressionRef &value = std::get<2>(t);
-
-			const std::string fullname = std::string("System`") + name;
-			const SymbolRef symbol = definitions.lookup(fullname.c_str());
+			const BaseExpressionRef value = definitions.lookup(ensure_context(std::get<2>(t)).c_str());
+			const SymbolRef symbol = definitions.lookup(ensure_context(name).c_str());
 
 			m_offsets[symbol] = offset;
 			m_values.push_back(value);
@@ -122,6 +124,7 @@ public:
 template<int N, typename Options, typename F>
 class OptionsBuiltinRule : public AtLeastNRule<N> {
 private:
+	const SymbolRef m_head;
 	const F m_func;
 	const OptionsDefinitions<Options> m_options;
 
@@ -129,33 +132,38 @@ public:
 	OptionsBuiltinRule(
 		const SymbolRef &head,
 		Definitions &definitions,
-		const F &func,
-		const OptionsInitializerList &options) :
+		const OptionsInitializerList &options,
+		const F &func) :
 
-		AtLeastNRule<N>(head, definitions), m_func(func), m_options(definitions, options) {
+		AtLeastNRule<N>(head, definitions), m_head(head), m_func(func), m_options(definitions, options) {
 	}
 
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
+		const SymbolRef &head = m_head;
 		const F &func = m_func;
 		const OptionsDefinitions<Options> &options_definitions = m_options;
 
 		return expr->with_leaves_array(
-			[&func, &options_definitions, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
+			[expr, &head, &func, &options_definitions, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
 				Options options;
 				options_definitions.initialize_defaults(options);
 
 				size_t n = size;
 				while (n > N) {
 					const BaseExpressionRef &last = leaves[n - 1];
-					// FIXME: option expected
+
 					if (last->has_form<SymbolRule, 2>()) {
 						const BaseExpressionRef * const option =
 							last->as_expression()->static_leaves<2>();
 
 						if (!options_definitions.set(options, option[0], option[1])) {
-							// FIXME: check unknown option
+							evaluation.message(head, "optx", option[0], BaseExpressionRef(expr));
+							return BaseExpressionRef();
 						}
+					} else {
+						// FIXME: option expected
 					}
+
 					n -= 1;
 				}
 
@@ -174,13 +182,6 @@ template<int N, typename F>
 inline NewRuleRef make_builtin_rule(const F &func) {
 	return [&func] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
 		return std::make_shared<BuiltinRule<N, F>>(head, definitions, func);
-	};
-}
-
-template<int N, typename Options, typename F>
-inline NewRuleRef make_options_builtin_rule(const F &func, const OptionsInitializerList &options) {
-	return [&func, &options] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
-		return std::make_shared<OptionsBuiltinRule<N, Options, F>>(head, definitions, func, options);
 	};
 }
 
