@@ -59,43 +59,59 @@ public:
 	}
 };
 
-typedef const std::initializer_list<std::pair<const char*, BaseExpressionRef>> OptionsInitializerList;
+typedef const std::initializer_list<std::tuple<const char*, size_t, BaseExpressionRef>> OptionsInitializerList;
 
-class OptionsMap : public std::map<SymbolRef, BaseExpressionRef> {
+template<typename Options>
+class OptionsDefinitions {
+private:
+	std::map<SymbolRef, size_t> m_offsets;
+	std::vector<BaseExpressionRef> m_values;
+	Options m_defaults;
+
 public:
-	OptionsMap(const Definitions &definitions, OptionsInitializerList &options) {
+	OptionsDefinitions(Definitions &definitions, OptionsInitializerList &options) {
+		std::memset(&m_defaults, 0, sizeof(m_defaults));
+		for (auto t : options) {
+			const char *name = std::get<0>(t);
+			const size_t offset = std::get<1>(t);
+			const BaseExpressionRef value = std::get<2>(t);
 
+			m_offsets[definitions.lookup(name)] = offset;
+			m_values.push_back(value);
+			*reinterpret_cast<BaseExpressionPtr*>(reinterpret_cast<uint8_t*>(&m_defaults) + offset) = value.get();
+		}
+	}
+
+	inline void initialize_defaults(Options &options) const {
+		std::memcpy(&options, &m_defaults, sizeof(Options));
 	}
 };
 
-class OptionsDictionary {
-public:
-	void set(const BaseExpressionRef &key, const BaseExpressionRef &value) {
-		// FIXME
-	}
-};
-
-template<int N, typename F>
+template<int N, typename Options, typename F>
 class OptionsBuiltinRule : public AtLeastNRule<N> {
 private:
 	const F m_func;
-	const OptionsMap m_default_options;
+	const OptionsDefinitions<Options> m_options;
 
 public:
 	OptionsBuiltinRule(
 		const SymbolRef &head,
-		const Definitions &definitions,
+		Definitions &definitions,
 		const F &func,
 		const OptionsInitializerList &options) :
 
-		AtLeastNRule<N>(head, definitions), m_func(func), m_default_options(definitions, options) {
+		AtLeastNRule<N>(head, definitions), m_func(func), m_options(definitions, options) {
 	}
 
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		const F &func = m_func;
+		const OptionsDefinitions<Options> &options_definitions = m_options;
+
 		return expr->with_leaves_array(
-			[&func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
-				OptionsDictionary options;
+			[&func, &options_definitions, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
+				Options options;
+
+				options_definitions.initialize_defaults(options);
 
 				size_t n = size;
 				while (n > N) {
@@ -108,7 +124,7 @@ public:
 							const BaseExpressionRef *data = expr->static_leaves<2>();
 							// FIXME: check unknown option
 							// if (m_default_options.find(data[0]) != m_default_options.end())
-							options.set(data[0], data[1]);
+							// options.set(data[0], data[1]);
 						}
 					}
 					n -= 1;

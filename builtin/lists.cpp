@@ -169,6 +169,10 @@ public:
     }
 };
 
+struct LevelOptions {
+	BaseExpressionPtr Heads;
+};
+
 class Level : public Builtin {
 public:
     static constexpr const char *name = "Level";
@@ -177,6 +181,10 @@ public:
     using Builtin::Builtin;
 
     void build() {
+	    const OptionsInitializerList options = {
+		    {"Heads", offsetof(LevelOptions, Heads), BaseExpressionRef()}
+	    };
+
         builtin(&Level::apply);
     }
 
