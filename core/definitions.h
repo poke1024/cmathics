@@ -44,6 +44,16 @@ public:
 
     SymbolRef lookup(const char *name);
 
+	inline SymbolRef lookup_no_create(const char *name) const {
+		const auto it = _definitions.find(SymbolKey(name));
+
+		if (it == _definitions.end()) {
+			return SymbolRef();
+		} else {
+			return it->second;
+		}
+	}
+
 	inline const Symbols &symbols() const {
 		return _symbols;
 	}

@@ -144,7 +144,9 @@ public:
 		const OptionsDefinitions<Options> &options_definitions = m_options;
 
 		return expr->with_leaves_array(
-			[expr, &head, &func, &options_definitions, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
+			[expr, &head, &func, &options_definitions, &evaluation]
+			(const BaseExpressionRef *leaves, size_t size) {
+
 				Options options;
 				options_definitions.initialize_defaults(options);
 
@@ -156,8 +158,21 @@ public:
 						const BaseExpressionRef * const option =
 							last->as_expression()->static_leaves<2>();
 
-						if (!options_definitions.set(options, option[0], option[1])) {
-							evaluation.message(head, "optx", option[0], BaseExpressionRef(expr));
+						const BaseExpressionRef &key = option[0];
+						const BaseExpressionRef &value = option[1];
+
+						bool ok;
+
+						if (key->type() == StringType) {
+							const BaseExpressionRef resolved_key =
+								static_cast<const String*>(key.get())->option_symbol(evaluation);
+							ok = options_definitions.set(options, resolved_key, value);
+						} else {
+							ok = options_definitions.set(options, key, value);
+						}
+
+						if (!ok) {
+							evaluation.message(head, "optx", key, BaseExpressionRef(expr));
 							return BaseExpressionRef();
 						}
 					} else {

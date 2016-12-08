@@ -6,6 +6,9 @@
 #include "hash.h"
 
 class String : public BaseExpression {
+private:
+	mutable optional<SymbolRef> m_option_symbol; // "System`" + value
+
 public:
     const std::string value;
 
@@ -14,6 +17,8 @@ public:
 
     explicit String(const std::string &text) : BaseExpression(StringExtendedType), value(text) {
     }
+
+	inline SymbolRef option_symbol(const Evaluation &evaluation) const;
 
     virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == StringType) {

@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include "definitions.h"
+#include "string.h"
 
 typedef enum {
     PrintType, MessageType
@@ -85,5 +86,13 @@ public:
     template<typename... Args>
     void message(const SymbolRef &name, const char *tag, Args... args) const;
 };
+
+inline SymbolRef String::option_symbol(const Evaluation &evaluation) const {
+	if (!m_option_symbol) {
+		const std::string fullname = std::string("System`") + value;
+		m_option_symbol = evaluation.definitions.lookup_no_create(fullname.c_str());
+	}
+	return *m_option_symbol;
+}
 
 #endif

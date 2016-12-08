@@ -11,12 +11,6 @@ inline const Expression *if_list(const BaseExpressionRef &item) {
     return nullptr;
 }
 
-class invalid_levelspec_error : public std::runtime_error {
-public:
-    invalid_levelspec_error() : std::runtime_error("invalid levelspec") {
-    }
-};
-
 inline bool is_infinity(const Expression *expr) {
     if (expr->head()->extended_type() != SymbolDirectedInfinity) {
         return false;
@@ -32,6 +26,12 @@ inline bool is_infinity(const Expression *expr) {
 
 class Levelspec {
 public:
+	class InvalidError : public std::runtime_error {
+	public:
+		InvalidError() : std::runtime_error("invalid levelspec") {
+		}
+	};
+
     struct Position {
         const Position *up;
         size_t index;
@@ -65,10 +65,10 @@ private:
                 if (is_infinity(item->as_expression())) {
                     return optional<machine_integer_t>();
                 } else {
-                    throw invalid_levelspec_error();
+                    throw InvalidError();
                 }
             default:
-                throw invalid_levelspec_error();
+                throw InvalidError();
         }
     }
 
@@ -91,7 +91,7 @@ public:
                     break;
                 }
                 default:
-                    throw invalid_levelspec_error();
+                    throw InvalidError();
             }
         } else if (spec->extended_type() == SymbolAll) {
             m_start = 0;
@@ -231,13 +231,13 @@ public:
 
 		    return expression_from_generator(evaluation.List, [&options, &expr, &levelspec](auto &storage) {
 			    levelspec.walk<Levelspec::ImmutableCallback, Levelspec::NoPosition>(
-					    BaseExpressionRef(expr), options.Heads->is_true(),
-					    [&storage](const auto &node, Levelspec::NoPosition) {
-						    storage << node;
-						    return BaseExpressionRef();
-					    });
+				    BaseExpressionRef(expr), options.Heads->is_true(),
+				    [&storage](const auto &node, Levelspec::NoPosition) {
+					    storage << node;
+					    return BaseExpressionRef();
+				    });
 		    });
-	    } catch (const invalid_levelspec_error&) {
+	    } catch (const Levelspec::InvalidError&) {
 		    evaluation.message(m_symbol, "level", ls);
 		    return BaseExpressionRef();
 	    }

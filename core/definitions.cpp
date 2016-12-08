@@ -123,12 +123,13 @@ Symbol *Definitions::system_symbol(const char *name, ExtendedType type) {
 }
 
 SymbolRef Definitions::lookup(const char *name) {
-    auto it = _definitions.find(SymbolKey(name));
+    const auto it = _definitions.find(SymbolKey(name));
 
     if (it == _definitions.end()) {
-        return new_symbol(name); // FIXME do we really want this?
+        return new_symbol(name);
     } else {
         return it->second;
     }
 }
+
 
