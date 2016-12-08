@@ -116,30 +116,45 @@ public:
     template<WalkMode Mode, typename Callback>
     std::tuple<BaseExpressionRef, size_t> walk(
         const BaseExpressionRef &node,
+        const bool heads,
         const Callback &callback,
-        index_t current = 0,
+        const index_t current = 0,
         const Position *pos = nullptr) const {
 
         size_t depth = 0;
         BaseExpressionRef new_node;
 
+	    constexpr SliceMethodOptimizeTarget Optimize =
+		    Mode == Select ? DoNotCompileToSliceType : CompileToSliceType;
+
         if (node->type() == ExpressionType) {
             const Expression * const expr =
                 static_cast<const Expression*>(node.get());
 
-            BaseExpressionRef head = expr->head();
+            BaseExpressionRef head;
+
+	        if (heads) {
+		        Position head_pos;
+		        head_pos.up = pos;
+		        head_pos.index = 0;
+
+		        head = std::get<0>(walk<Mode>(
+			        expr->head(), heads, callback, current + 1, &head_pos));
+	        } else {
+		        head = expr->head();
+	        }
 
             Position new_pos;
             new_pos.up = pos;
 
             const Levelspec *self = this;
 
-            std::tie(new_node, depth) = expr->with_slice<Mode == Select ? DoNotCompileToSliceType : CompileToSliceType>(
-                [self, current, &callback, &head, &new_pos, &depth]
+            std::tie(new_node, depth) = expr->with_slice<Optimize>(
+                [self, heads, current, &callback, &head, &new_pos, &depth]
                 (const auto &slice)  {
 
                     return transform(head, slice, 0, slice.size(),
-                        [self, current, &callback, &new_pos, &depth]
+                        [self, heads, current, &callback, &new_pos, &depth]
                         (size_t index0, const BaseExpressionRef &leaf, size_t depth)  {
 
                             BaseExpressionRef walk_leaf;
@@ -148,7 +163,7 @@ public:
                             new_pos.index = index0;
 
                             std::tie(walk_leaf, walk_leaf_depth) = self->walk<Mode>(
-                                leaf, callback, current + 1, &new_pos);
+                                leaf, heads, callback, current + 1, &new_pos);
 
                             if (walk_leaf_depth + 1 > depth) {
                                 depth = walk_leaf_depth + 1;
@@ -180,20 +195,28 @@ public:
 public:
     using Builtin::Builtin;
 
-    void build() {
+    void build(Runtime &runtime) {
+	    const auto &symbols = runtime.symbols();
+
 	    const OptionsInitializerList options = {
-		    {"Heads", offsetof(LevelOptions, Heads), BaseExpressionRef()}
+		    {"Heads", offsetof(LevelOptions, Heads), symbols.False}
 	    };
 
-        builtin(&Level::apply);
+	    builtin(options, &Level::apply);
     }
 
-    inline BaseExpressionRef apply(BaseExpressionPtr expr, BaseExpressionPtr ls, const Evaluation &evaluation) {
-        Levelspec levelspec(ls);
-        return expression_from_generator(evaluation.List, [&expr, &levelspec] (auto &storage) {
-            levelspec.walk<Levelspec::Select>(BaseExpressionRef(expr), [&storage] (const auto &node, const auto *pos) {
-                storage << node;
-                return BaseExpressionRef();
+    inline BaseExpressionRef apply(
+	    BaseExpressionPtr expr,
+	    BaseExpressionPtr ls,
+	    const LevelOptions &options,
+	    const Evaluation &evaluation) {
+
+	    Levelspec levelspec(ls);
+        return expression_from_generator(evaluation.List, [&options, &expr, &levelspec] (auto &storage) {
+            levelspec.walk<Levelspec::Select>(BaseExpressionRef(expr), options.Heads->is_true(),
+                [&storage] (const auto &node, const auto *pos) {
+	                storage << node;
+	                return BaseExpressionRef();
             });
         });
     }
@@ -206,7 +229,7 @@ public:
 public:
     using Builtin::Builtin;
 
-    void build() {
+    void build(Runtime &runtime) {
         message("nofirst", "There is no first element in `1`.");
 
         builtin(&First::apply);
@@ -234,7 +257,7 @@ public:
 public:
     using Builtin::Builtin;
 
-    void build() {
+    void build(Runtime &runtime) {
         message("nolast", "There is no last element in `1`.");
 
         builtin(&Last::apply);
@@ -263,7 +286,7 @@ public:
 public:
     using Builtin::Builtin;
 
-    void build() {
+    void build(Runtime &runtime) {
         message("nomost", "Most is not applicable to `1`.");
 
         builtin(&Most::apply);
@@ -291,7 +314,7 @@ public:
 public:
     using Builtin::Builtin;
 
-    void build() {
+    void build(Runtime &runtime) {
         message("norest", "Rest is not applicable to `1`.");
 
         builtin(&Rest::apply);
@@ -319,7 +342,7 @@ public:
 public:
     using Builtin::Builtin;
 
-    void build() {
+    void build(Runtime &runtime) {
         builtin(&Select::apply);
     }
 
@@ -461,7 +484,7 @@ public:
 public:
 	using Builtin::Builtin;
 
-	void build() {
+	void build(Runtime &runtime) {
 		rewrite("Range[imax_]", "Range[1, imax, 1]");
 		rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]");
 		builtin(&Range::apply);

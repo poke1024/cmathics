@@ -21,6 +21,10 @@ public:
 		return _parser;
 	}
 
+	inline const Symbols &symbols() const {
+		return _definitions.symbols();
+	}
+
 	BaseExpressionRef parse(const char *s) {
 		return _parser.parse(s);
 	}
@@ -37,7 +41,7 @@ public:
 		symbol->set_attributes(T::attributes);
 
 		auto command = std::make_shared<T>(*this, symbol, _definitions);
-		command->build();
+		command->build(*this);
     }
 };
 
@@ -64,7 +68,14 @@ protected:
 		BaseExpressionPtr,
         const Evaluation &);
 
-    template<typename T>
+	template<typename T, typename Options>
+	using OptionsF2 = BaseExpressionRef (T::*) (
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		const Options &options,
+		const Evaluation &);
+
+	template<typename T>
 	inline void builtin(F1<T> fptr) {
         auto self = std::static_pointer_cast<T>(shared_from_this());
 		const auto rule = make_builtin_rule<1>(
@@ -108,6 +119,22 @@ protected:
 			});
         m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
     }
+
+	template<typename T, typename Options>
+	inline void builtin(const OptionsInitializerList &options, OptionsF2<T, Options> fptr) {
+		auto self = std::static_pointer_cast<T>(shared_from_this());
+		const auto rule = make_options_builtin_rule<2, Options>(
+			[self, fptr] (
+				BaseExpressionPtr a,
+				BaseExpressionPtr b,
+				const Options &options,
+				const Evaluation &evaluation) {
+
+				auto p = self.get();
+				return (p->*fptr)(a, b, options, evaluation);
+			}, options);
+		m_symbol->add_rule(rule(m_symbol, m_runtime.definitions()));
+	}
 
 	inline void rewrite(const char *pattern, const char *into) {
 		const auto rule = make_rewrite_rule(m_runtime.parse(pattern), m_runtime.parse(into));

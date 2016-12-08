@@ -477,6 +477,9 @@ public:
 
 	inline const Expression *as_expression() const;
 
+	template<ExtendedType HeadType, int NLeaves>
+	inline bool has_form() const;
+
 	virtual SortKey sort_key() const;
 	virtual SortKey pattern_key() const;
 
@@ -744,6 +747,19 @@ inline auto with_slices(const Expression *a, const Expression *b, const F &f) {
 
 inline const Expression *BaseExpression::as_expression() const {
 	return static_cast<const Expression*>(this);
+}
+
+template<ExtendedType HeadType, int NLeaves>
+inline bool BaseExpression::has_form() const {
+	if (type() != ExpressionType) {
+		return false;
+	}
+	const Expression * const expr = as_expression();
+	if (expr->head()->extended_type() == HeadType && expr->size() == NLeaves) {
+		return true;
+	} else {
+		return false;
+	}
 }
 
 #endif

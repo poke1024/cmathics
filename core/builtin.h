@@ -61,29 +61,61 @@ public:
 
 typedef const std::initializer_list<std::tuple<const char*, size_t, BaseExpressionRef>> OptionsInitializerList;
 
-template<typename Options>
-class OptionsDefinitions {
-private:
-	std::map<SymbolRef, size_t> m_offsets;
+class OptionsDefinitionsBase {
+protected:
+	std::map<BaseExpressionRef, size_t> m_offsets;
 	std::vector<BaseExpressionRef> m_values;
-	Options m_defaults;
 
-public:
-	OptionsDefinitions(Definitions &definitions, OptionsInitializerList &options) {
-		std::memset(&m_defaults, 0, sizeof(m_defaults));
+	inline void set_ptr(uint8_t *data, size_t offset, const BaseExpressionRef &value) const {
+		*reinterpret_cast<BaseExpressionPtr*>(data + offset) = value.get();
+	}
+
+	void initialize(
+		Definitions &definitions,
+		const OptionsInitializerList &options,
+		uint8_t *data,
+		size_t size) {
+
+		std::memset(data, 0, size);
 		for (auto t : options) {
 			const char *name = std::get<0>(t);
 			const size_t offset = std::get<1>(t);
-			const BaseExpressionRef value = std::get<2>(t);
+			const BaseExpressionRef &value = std::get<2>(t);
 
-			m_offsets[definitions.lookup(name)] = offset;
+			const std::string fullname = std::string("System`") + name;
+			const SymbolRef symbol = definitions.lookup(fullname.c_str());
+
+			m_offsets[symbol] = offset;
 			m_values.push_back(value);
-			*reinterpret_cast<BaseExpressionPtr*>(reinterpret_cast<uint8_t*>(&m_defaults) + offset) = value.get();
+			assert(offset + sizeof(BaseExpressionPtr) <= size);
+			set_ptr(data, offset, value);
 		}
+	}
+};
+
+template<typename Options>
+class OptionsDefinitions : public OptionsDefinitionsBase {
+private:
+	Options m_defaults;
+
+public:
+	OptionsDefinitions(Definitions &definitions, const OptionsInitializerList &options) {
+		initialize(definitions, options, reinterpret_cast<uint8_t*>(&m_defaults), sizeof(m_defaults));
 	}
 
 	inline void initialize_defaults(Options &options) const {
 		std::memcpy(&options, &m_defaults, sizeof(Options));
+	}
+
+	inline bool set(Options &options, const BaseExpressionRef &key, const BaseExpressionRef &value) const {
+		const auto i = m_offsets.find(key);
+
+		if (i != m_offsets.end()) {
+			set_ptr(reinterpret_cast<uint8_t*>(&options), i->second, value);
+			return true;
+		}
+
+		return false;
 	}
 };
 
@@ -110,21 +142,18 @@ public:
 		return expr->with_leaves_array(
 			[&func, &options_definitions, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
 				Options options;
-
 				options_definitions.initialize_defaults(options);
 
 				size_t n = size;
 				while (n > N) {
 					const BaseExpressionRef &last = leaves[n - 1];
 					// FIXME: option expected
-					// item->has_form(SymbolRule, 2)
-					if (last->type() != ExpressionType) {
-						const Expression *expr = last->as_expression();
-						if (expr->head()->extended_type() == SymbolRule && expr->size() == 2) {
-							const BaseExpressionRef *data = expr->static_leaves<2>();
+					if (last->has_form<SymbolRule, 2>()) {
+						const BaseExpressionRef * const option =
+							last->as_expression()->static_leaves<2>();
+
+						if (!options_definitions.set(options, option[0], option[1])) {
 							// FIXME: check unknown option
-							// if (m_default_options.find(data[0]) != m_default_options.end())
-							// options.set(data[0], data[1]);
 						}
 					}
 					n -= 1;
@@ -139,12 +168,19 @@ public:
 	}
 };
 
-typedef std::function<RuleRef(const SymbolRef &head, const Definitions &definitions)> NewRuleRef;
+typedef std::function<RuleRef(const SymbolRef &head, Definitions &definitions)> NewRuleRef;
 
 template<int N, typename F>
 inline NewRuleRef make_builtin_rule(const F &func) {
-	return [func] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
+	return [&func] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
 		return std::make_shared<BuiltinRule<N, F>>(head, definitions, func);
+	};
+}
+
+template<int N, typename Options, typename F>
+inline NewRuleRef make_options_builtin_rule(const F &func, const OptionsInitializerList &options) {
+	return [&func, &options] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
+		return std::make_shared<OptionsBuiltinRule<N, Options, F>>(head, definitions, func, options);
 	};
 }
 
