@@ -2,27 +2,69 @@
 #include "symbol.h"
 #include "matcher.h"
 
-#define DECLARE_MATCH_METHODS                               \
-	virtual bool match(                                     \
-		MatchContext &context,                              \
-		const FastSlice &slice) const {                     \
-		return do_match<FastSlice>(context, slice);         \
-	}                                                       \
-															\
-	virtual bool match(                                     \
-		MatchContext &context,                              \
-		const SlowSlice &slice) const {                     \
-			return do_match<SlowSlice>(context, slice);     \
+class FastAccessor {
+public:
+	inline const BaseExpressionRef &leaf(
+		const BaseExpressionRef *p) const {
+		return *p;
+	}
+
+	inline bool match(
+		const PatternMatcherRef &matcher,
+		MatchContext &context,
+		const BaseExpressionRef *begin,
+		const BaseExpressionRef *end) const {
+		return matcher->match(context, begin, end);
+	}
+};
+
+class SlowAccessor {
+private:
+	const Expression * const m_expr;
+
+public:
+	SlowAccessor(const Expression *expr) : m_expr(expr) {
+	}
+
+	inline const BaseExpressionRef leaf(
+		size_t i) const {
+		return m_expr->materialize_leaf(i);
+	}
+
+	inline bool match(
+		const PatternMatcherRef &matcher,
+		MatchContext &context,
+		size_t begin,
+		size_t end) const {
+		return matcher->match(context, m_expr, begin);
+	}
+};
+
+#define DECLARE_MATCH_METHODS                                                                                 \
+	virtual bool match(                                                                                       \
+		MatchContext &context,                                                                                \
+		const BaseExpressionRef *begin,                                                                       \
+		const BaseExpressionRef *end) const {                                                                 \
+		return do_match<FastAccessor, const BaseExpressionRef*>(context, FastAccessor(), begin, end);         \
+	}                                                                                                         \
+																											  \
+	virtual bool match(                                                                                       \
+		MatchContext &context,                                                                                \
+		const Expression *expr,                                                                               \
+		size_t offset) const {                                                                                \
+		return do_match<SlowAccessor, size_t>(context, SlowAccessor(expr), offset, expr->size());             \
 	}
 
 class TerminateMatcher : public PatternMatcher {
 private:
-	template<typename Slice>
+	template<typename Accessor, typename T>
 	inline bool do_match(
 		MatchContext &context,
-		const Slice &slice) const {
+		const Accessor &accessor,
+		T begin,
+		T end) const {
 
-		return slice.size() == 0;
+		return begin == end;
 	}
 
 public:
@@ -117,16 +159,18 @@ private:
 	const BaseExpressionRef m_patt;
 	const Variable m_variable;
 
-	template<typename Slice>
+	template<typename Accessor, typename T>
 	inline bool do_match(
 		MatchContext &context,
-		const Slice &slice) const {
+		const Accessor &accessor,
+		T begin,
+		T end) const {
 
-		const auto item = slice[0];
-		if (slice.size() > 0 && same(m_patt.get(), item.get())) {
+		const auto item = accessor.leaf(begin);
+		if (begin < end && same(m_patt.get(), item.get())) {
 			const PatternMatcherRef &next = m_next;
-			return m_variable(context, item, [&context, &slice, &next] () {
-				return next->match(context, slice.slice(1));
+			return m_variable(context, item, [begin, end, &accessor, &next, &context] () {
+				return accessor.match(next, context, begin + 1, end);
 			});
 		} else {
 			return false;
@@ -147,16 +191,18 @@ private:
 	const Condition m_condition;
 	const Variable m_variable;
 
-	template<typename Slice>
+	template<typename Accessor, typename T>
 	inline bool do_match(
 		MatchContext &context,
-		const Slice &slice) const {
+		const Accessor &accessor,
+		T begin,
+		T end) const {
 
-		const auto item = slice[0];
-		if (slice.size() > 0 && m_condition(item)) {
+		const auto item = accessor.leaf(begin);
+		if (begin < end && m_condition(item)) {
 			const PatternMatcherRef &next = m_next;
-			return m_variable(context, item, [&context, &slice, &next] () {
-				return next->match(context, slice.slice(1));
+			return m_variable(context, item, [begin, end, &accessor, &next, &context] () {
+				return accessor.match(next, context, begin + 1, end);
 			});
 		} else {
 			return false;
@@ -178,16 +224,18 @@ private:
 	const PatternMatcherRef m_match_leaves;
 	const Variable m_variable;
 
-	template<typename Slice>
+	template<typename Accessor, typename T>
 	inline bool do_match(
 		MatchContext &context,
-		const Slice &slice) const {
+		const Accessor &accessor,
+		T begin,
+		T end) const {
 
-		if (slice.size() == 0) {
+		if (begin == end) {
 			return false;
 		}
 
-		const auto item = slice[0];
+		const auto item = accessor.leaf(begin);
 
 		if (item->type() != ExpressionType) {
 			return false;
@@ -197,7 +245,7 @@ private:
 
 		const BaseExpressionRef head = expr->head();
 
-		if (!m_match_head->match(context, FastSlice(&head, &head + 1))) {
+		if (!m_match_head->match(context, &head, &head + 1)) {
 			return false;
 		}
 
@@ -205,20 +253,20 @@ private:
 
 		if (slice_needs_no_materialize(expr->slice_code())) {
 			if (!expr->with_leaves_array([&context, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
-				return match_leaves->match(context, FastSlice(leaves, leaves + size));
+				return match_leaves->match(context, leaves, leaves + size);
 			})) {
 				return false;
 			}
 		} else {
-			if (!match_leaves->match(context, SlowSlice(expr, 0))) {
+			if (!match_leaves->match(context, expr, 0)) {
 				return false;
 			}
 		}
 
 		const PatternMatcherRef &next = m_next;
 
-		return m_variable(context, item, [&context, &slice, &next] () {
-			return next->match(context, slice.slice(1));
+		return m_variable(context, item, [begin, end, &accessor, &next, &context] () {
+			return accessor.match(next, context, begin + 1, end);
 		});
 	}
 

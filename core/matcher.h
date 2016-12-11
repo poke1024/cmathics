@@ -8,50 +8,6 @@
 #include "symbol.h"
 #include "expression.h"
 
-class FastSlice {
-private:
-	const BaseExpressionRef *const m_begin;
-	const BaseExpressionRef *const m_end;
-
-public:
-	inline FastSlice(const BaseExpressionRef *begin, const BaseExpressionRef *end) : m_begin(begin), m_end(end) {
-	}
-
-	inline size_t size() const {
-		return m_end - m_begin;
-	}
-
-	inline const BaseExpressionRef &operator[](size_t i) const {
-		return m_begin[i];
-	}
-
-	inline FastSlice slice(size_t i) const {
-		return FastSlice(m_begin + i, m_end);
-	}
-};
-
-class SlowSlice {
-private:
-	const Expression * const m_expr;
-	size_t m_offset;
-
-public:
-	inline SlowSlice(const Expression *expr, size_t offset) : m_expr(expr), m_offset(offset) {
-	}
-
-	inline size_t size() const {
-		return m_expr->size() - m_offset;
-	}
-
-	inline BaseExpressionRef operator[](size_t i) const {
-		return m_expr->materialize_leaf(m_offset + i);
-	}
-
-	inline SlowSlice slice(size_t i) const {
-		return SlowSlice(m_expr, m_offset + i);
-	}
-};
-
 class PatternMatcher;
 
 typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
@@ -71,11 +27,13 @@ public:
 
 	virtual bool match(
 		MatchContext &context,
-		const FastSlice &slice) const = 0;
+		const BaseExpressionRef *begin,
+		const BaseExpressionRef *end) const = 0;
 
 	virtual bool match(
 		MatchContext &context,
-		const SlowSlice &slice) const = 0;
+		const Expression *expr,
+		size_t offset) const = 0;
 
 	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
 	friend void intrusive_ptr_release(PatternMatcher *matcher);
@@ -404,7 +362,7 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
 	PatternMatcherRef compiled = compile_pattern(patt);
 
 	MatchContext context(patt, item, definitions);
-	if (compiled->match(context, FastSlice(&item, &item + 1))) {
+	if (compiled->match(context, &item, &item + 1)) {
 		return Match(true, context);
 	} else {
 		return Match(); // no match
