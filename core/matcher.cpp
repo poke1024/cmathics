@@ -2,15 +2,31 @@
 #include "symbol.h"
 #include "matcher.h"
 
-class TerminateMatcher : public PatternMatcher {
-public:
-	virtual bool match(
-		MatchContext &context,
-		const BaseExpressionRef *begin,
-		const BaseExpressionRef *end) const {
-
-		return begin == end;
+#define DECLARE_MATCH_METHODS                               \
+	virtual bool match(                                     \
+		MatchContext &context,                              \
+		const FastSlice &slice) const {                     \
+		return do_match<FastSlice>(context, slice);         \
+	}                                                       \
+															\
+	virtual bool match(                                     \
+		MatchContext &context,                              \
+		const SlowSlice &slice) const {                     \
+			return do_match<SlowSlice>(context, slice);     \
 	}
+
+class TerminateMatcher : public PatternMatcher {
+private:
+	template<typename Slice>
+	inline bool do_match(
+		MatchContext &context,
+		const Slice &slice) const {
+
+		return slice.size() == 0;
+	}
+
+public:
+	DECLARE_MATCH_METHODS
 };
 
 inline bool same(BaseExpressionPtr a, BaseExpressionPtr b) {
@@ -101,25 +117,28 @@ private:
 	const BaseExpressionRef m_patt;
 	const Variable m_variable;
 
-public:
-	inline SameMatcher(const BaseExpressionRef &patt, const Variable &variable) :
-		m_patt(patt), m_variable(variable) {
-	}
-
-	virtual bool match(
+	template<typename Slice>
+	inline bool do_match(
 		MatchContext &context,
-		const BaseExpressionRef *begin,
-		const BaseExpressionRef *end) const {
+		const Slice &slice) const {
 
-		if (begin < end && same(m_patt.get(), begin->get())) {
+		const auto item = slice[0];
+		if (slice.size() > 0 && same(m_patt.get(), item.get())) {
 			const PatternMatcherRef &next = m_next;
-			return m_variable(context, *begin, [&context, begin, end, &next] () {
-				return next->match(context, begin + 1, end);
+			return m_variable(context, item, [&context, &slice, &next] () {
+				return next->match(context, slice.slice(1));
 			});
 		} else {
 			return false;
 		}
 	}
+
+public:
+	inline SameMatcher(const BaseExpressionRef &patt, const Variable &variable) :
+		m_patt(patt), m_variable(variable) {
+	}
+
+	DECLARE_MATCH_METHODS
 };
 
 template<typename Condition, typename Variable>
@@ -128,25 +147,28 @@ private:
 	const Condition m_condition;
 	const Variable m_variable;
 
-public:
-	inline BlankMatcher(const Condition &condition, const Variable &variable) :
-		m_condition(condition), m_variable(variable) {
-	}
-
-	virtual bool match(
+	template<typename Slice>
+	inline bool do_match(
 		MatchContext &context,
-		const BaseExpressionRef *begin,
-		const BaseExpressionRef *end) const {
+		const Slice &slice) const {
 
-		if (end - begin >= 1 && m_condition(*begin)) {
+		const auto item = slice[0];
+		if (slice.size() > 0 && m_condition(item)) {
 			const PatternMatcherRef &next = m_next;
-			return m_variable(context, *begin, [&context, begin, end, &next] () {
-				return next->match(context, begin + 1, end);
+			return m_variable(context, item, [&context, &slice, &next] () {
+				return next->match(context, slice.slice(1));
 			});
 		} else {
 			return false;
 		}
 	}
+
+public:
+	inline BlankMatcher(const Condition &condition, const Variable &variable) :
+		m_condition(condition), m_variable(variable) {
+	}
+
+	DECLARE_MATCH_METHODS
 };
 
 template<typename Variable>
@@ -156,17 +178,16 @@ private:
 	const PatternMatcherRef m_match_leaves;
 	const Variable m_variable;
 
-public:
-	inline ExpressionMatcher(PatternMatcherRef head, PatternMatcherRef leaves, const Variable &variable) :
-		m_match_head(head), m_match_leaves(leaves), m_variable(variable) {
-	}
-
-	virtual bool match(
+	template<typename Slice>
+	inline bool do_match(
 		MatchContext &context,
-		const BaseExpressionRef *begin,
-		const BaseExpressionRef *end) const {
+		const Slice &slice) const {
 
-		const BaseExpressionRef &item = *begin;
+		if (slice.size() == 0) {
+			return false;
+		}
+
+		const auto item = slice[0];
 
 		if (item->type() != ExpressionType) {
 			return false;
@@ -176,24 +197,37 @@ public:
 
 		const BaseExpressionRef head = expr->head();
 
-		if (!m_match_head->match(context, &head, &head + 1)) {
+		if (!m_match_head->match(context, FastSlice(&head, &head + 1))) {
 			return false;
 		}
 
 		const PatternMatcherRef &match_leaves = m_match_leaves;
 
-		if (!expr->with_leaves_array([&context, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
-			return match_leaves->match(context, leaves, leaves + size);
-		})) {
-			return false;
+		if (slice_needs_no_materialize(expr->slice_code())) {
+			if (!expr->with_leaves_array([&context, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
+				return match_leaves->match(context, FastSlice(leaves, leaves + size));
+			})) {
+				return false;
+			}
+		} else {
+			if (!match_leaves->match(context, SlowSlice(expr, 0))) {
+				return false;
+			}
 		}
 
 		const PatternMatcherRef &next = m_next;
 
-		return m_variable(context, *begin, [&context, begin, end, &next] () {
-			return next->match(context, begin + 1, end);
+		return m_variable(context, item, [&context, &slice, &next] () {
+			return next->match(context, slice.slice(1));
 		});
 	}
+
+public:
+	inline ExpressionMatcher(PatternMatcherRef head, PatternMatcherRef leaves, const Variable &variable) :
+		m_match_head(head), m_match_leaves(leaves), m_variable(variable) {
+	}
+
+	DECLARE_MATCH_METHODS
 };
 
 class PatternCompiler {

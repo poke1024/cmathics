@@ -573,6 +573,8 @@ protected:
 	friend class ArraySlice;
 	friend class VCallSlice;
 
+	friend class SlowSlice;
+
 	const Slice * const _slice_ptr;
 
 	virtual BaseExpressionRef materialize_leaf(size_t i) const = 0;
