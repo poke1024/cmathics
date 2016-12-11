@@ -573,7 +573,7 @@ protected:
 	friend class ArraySlice;
 	friend class VCallSlice;
 
-	friend class SlowAccessor;
+	friend class GenericLeafPtr;
 
 	const Slice * const _slice_ptr;
 

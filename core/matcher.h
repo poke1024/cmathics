@@ -8,6 +8,8 @@
 #include "symbol.h"
 #include "expression.h"
 
+class GenericLeafPtr;
+
 class PatternMatcher;
 
 typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
@@ -32,8 +34,8 @@ public:
 
 	virtual bool match(
 		MatchContext &context,
-		const Expression *expr,
-		size_t offset) const = 0;
+		const GenericLeafPtr begin,
+		const GenericLeafPtr end) const = 0;
 
 	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
 	friend void intrusive_ptr_release(PatternMatcher *matcher);

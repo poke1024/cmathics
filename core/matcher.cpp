@@ -2,67 +2,68 @@
 #include "symbol.h"
 #include "matcher.h"
 
-class FastAccessor {
-public:
-	inline const BaseExpressionRef &leaf(
-		const BaseExpressionRef *p) const {
-		return *p;
-	}
-
-	inline bool match(
-		const PatternMatcherRef &matcher,
-		MatchContext &context,
-		const BaseExpressionRef *begin,
-		const BaseExpressionRef *end) const {
-		return matcher->match(context, begin, end);
-	}
-};
-
-class SlowAccessor {
+class GenericLeafPtr {
 private:
 	const Expression * const m_expr;
+	const size_t m_offset;
 
 public:
-	SlowAccessor(const Expression *expr) : m_expr(expr) {
+	inline GenericLeafPtr(const Expression *expr, size_t offset) : m_expr(expr), m_offset(offset) {
 	}
 
-	inline const BaseExpressionRef leaf(
-		size_t i) const {
-		return m_expr->materialize_leaf(i);
+	inline BaseExpressionRef operator*() const {
+		return m_expr->materialize_leaf(m_offset);
 	}
 
-	inline bool match(
-		const PatternMatcherRef &matcher,
-		MatchContext &context,
-		size_t begin,
-		size_t end) const {
-		return matcher->match(context, m_expr, begin);
+	inline BaseExpressionRef operator[](size_t i) const {
+		return m_expr->materialize_leaf(m_offset + i);
+	}
+
+	inline bool operator==(const GenericLeafPtr &ptr) const {
+		assert(m_expr == ptr.m_expr);
+		return m_offset == ptr.m_offset;
+	}
+
+	inline bool operator<(const GenericLeafPtr &ptr) const {
+		assert(m_expr == ptr.m_expr);
+		return m_offset < ptr.m_offset;
+	}
+
+	inline GenericLeafPtr operator+(size_t i) const {
+		return GenericLeafPtr(m_expr, m_offset + i);
 	}
 };
+
+BaseExpressionRef sequence(const BaseExpressionRef *p, size_t n) {
+	return BaseExpressionRef(); // FIXME
+}
+
+BaseExpressionRef sequence(const GenericLeafPtr &p, size_t n) {
+	return BaseExpressionRef(); // FIXME
+}
 
 #define DECLARE_MATCH_METHODS                                                                                 \
 	virtual bool match(                                                                                       \
 		MatchContext &context,                                                                                \
 		const BaseExpressionRef *begin,                                                                       \
 		const BaseExpressionRef *end) const {                                                                 \
-		return do_match<FastAccessor, const BaseExpressionRef*>(context, FastAccessor(), begin, end);         \
+		return do_match<const BaseExpressionRef*>(context, begin, end);                                       \
 	}                                                                                                         \
 																											  \
 	virtual bool match(                                                                                       \
 		MatchContext &context,                                                                                \
-		const Expression *expr,                                                                               \
-		size_t offset) const {                                                                                \
-		return do_match<SlowAccessor, size_t>(context, SlowAccessor(expr), offset, expr->size());             \
+		GenericLeafPtr begin,                                                                                 \
+		GenericLeafPtr end) const {                                                                           \
+		return do_match<GenericLeafPtr>(context, begin, end);                                                 \
 	}
 
 class TerminateMatcher : public PatternMatcher {
 private:
-	template<typename Accessor, typename T>
+	template<typename LeafPtr>
 	inline bool do_match(
 		MatchContext &context,
-		const Accessor &accessor,
-		T begin,
-		T end) const {
+		LeafPtr begin,
+		LeafPtr end) const {
 
 		return begin == end;
 	}
@@ -159,18 +160,17 @@ private:
 	const BaseExpressionRef m_patt;
 	const Variable m_variable;
 
-	template<typename Accessor, typename T>
+	template<typename LeafPtr>
 	inline bool do_match(
 		MatchContext &context,
-		const Accessor &accessor,
-		T begin,
-		T end) const {
+		LeafPtr begin,
+		LeafPtr end) const {
 
-		const auto item = accessor.leaf(begin);
+		const auto item = *begin;
 		if (begin < end && same(m_patt.get(), item.get())) {
 			const PatternMatcherRef &next = m_next;
-			return m_variable(context, item, [begin, end, &accessor, &next, &context] () {
-				return accessor.match(next, context, begin + 1, end);
+			return m_variable(context, item, [begin, end, &next, &context] () {
+				return next->match(context, begin + 1, end);
 			});
 		} else {
 			return false;
@@ -191,18 +191,17 @@ private:
 	const Condition m_condition;
 	const Variable m_variable;
 
-	template<typename Accessor, typename T>
+	template<typename LeafPtr>
 	inline bool do_match(
 		MatchContext &context,
-		const Accessor &accessor,
-		T begin,
-		T end) const {
+		LeafPtr begin,
+		LeafPtr end) const {
 
-		const auto item = accessor.leaf(begin);
+		const auto item = *begin;
 		if (begin < end && m_condition(item)) {
 			const PatternMatcherRef &next = m_next;
-			return m_variable(context, item, [begin, end, &accessor, &next, &context] () {
-				return accessor.match(next, context, begin + 1, end);
+			return m_variable(context, item, [begin, end, &next, &context] () {
+				return next->match(context, begin + 1, end);
 			});
 		} else {
 			return false;
@@ -224,18 +223,17 @@ private:
 	const PatternMatcherRef m_match_leaves;
 	const Variable m_variable;
 
-	template<typename Accessor, typename T>
+	template<typename LeafPtr>
 	inline bool do_match(
 		MatchContext &context,
-		const Accessor &accessor,
-		T begin,
-		T end) const {
+		LeafPtr begin,
+		LeafPtr end) const {
 
 		if (begin == end) {
 			return false;
 		}
 
-		const auto item = accessor.leaf(begin);
+		const auto item = *begin;
 
 		if (item->type() != ExpressionType) {
 			return false;
@@ -258,15 +256,15 @@ private:
 				return false;
 			}
 		} else {
-			if (!match_leaves->match(context, expr, 0)) {
+			if (!match_leaves->match(context, GenericLeafPtr(expr, 0), GenericLeafPtr(expr, expr->size()))) {
 				return false;
 			}
 		}
 
 		const PatternMatcherRef &next = m_next;
 
-		return m_variable(context, item, [begin, end, &accessor, &next, &context] () {
-			return accessor.match(next, context, begin + 1, end);
+		return m_variable(context, item, [begin, end, &next, &context] () {
+			return next->match(context, begin + 1, end);
 		});
 	}
 
