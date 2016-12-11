@@ -195,7 +195,7 @@ typedef std::function<RuleRef(const SymbolRef &head, Definitions &definitions)> 
 
 template<int N, typename F>
 inline NewRuleRef make_builtin_rule(const F &func) {
-	return [&func] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
+	return [func] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
 		return std::make_shared<BuiltinRule<N, F>>(head, definitions, func);
 	};
 }

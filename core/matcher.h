@@ -8,6 +8,44 @@
 #include "symbol.h"
 #include "expression.h"
 
+class PatternMatcher;
+
+typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
+
+class PatternMatcher {
+protected:
+	size_t m_ref_count;
+	PatternMatcherRef m_next;
+
+public:
+	inline void set_next(PatternMatcherRef next) {
+		m_next = next;
+	}
+
+	virtual ~PatternMatcher() {
+	}
+
+	virtual bool match(
+		MatchContext &context,
+		const BaseExpressionRef *begin,
+		const BaseExpressionRef *end) const = 0;
+
+	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
+	friend void intrusive_ptr_release(PatternMatcher *matcher);
+};
+
+inline void intrusive_ptr_add_ref(PatternMatcher *matcher) {
+	matcher->m_ref_count++;
+}
+
+inline void intrusive_ptr_release(PatternMatcher *matcher) {
+	if (--matcher->m_ref_count == 0) {
+		delete matcher;
+	}
+}
+
+PatternMatcherRef compile_pattern(const BaseExpressionRef &patt);
+
 class VariableList {
 private:
     Symbol *_first;
@@ -316,8 +354,16 @@ public:
 #include "leaves.h"
 
 inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &definitions) {
+	PatternMatcherRef compiled = compile_pattern(patt);
+
 	MatchContext context(patt, item, definitions);
-	{
+	if (compiled->match(context, &item, &item + 1)) {
+		return Match(true, context);
+	} else {
+		return Match(); // no match
+	}
+
+	/*{
 		Matcher<StaticSlice<1>> matcher(
 			context, &patt, nullptr, nullptr, StaticSlice<1>(&item, item->base_type_mask()), 0);
 
@@ -326,7 +372,7 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
 		} else {
 			return Match(); // no match
 		}
-	}
+	}*/
 }
 
 

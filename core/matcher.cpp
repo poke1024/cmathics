@@ -2,42 +2,6 @@
 #include "symbol.h"
 #include "matcher.h"
 
-class PatternMatcher;
-
-typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
-
-class PatternMatcher {
-protected:
-	size_t m_ref_count;
-	PatternMatcherRef m_next;
-
-public:
-	inline void set_next(PatternMatcherRef next) {
-		m_next = next;
-	}
-
-	virtual ~PatternMatcher() {
-	}
-
-	virtual bool match(
-		MatchContext &context,
-		const BaseExpressionRef *begin,
-		const BaseExpressionRef *end) const = 0;
-
-	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
-	friend void intrusive_ptr_release(PatternMatcher *matcher);
-};
-
-inline void intrusive_ptr_add_ref(PatternMatcher *matcher) {
-	matcher->m_ref_count++;
-}
-
-inline void intrusive_ptr_release(PatternMatcher *matcher) {
-	if (--matcher->m_ref_count == 0) {
-		delete matcher;
-	}
-}
-
 class TerminateMatcher : public PatternMatcher {
 public:
 	virtual bool match(
@@ -188,13 +152,13 @@ public:
 template<typename Variable>
 class ExpressionMatcher : public PatternMatcher {
 private:
-	const PatternMatcherRef m_head;
-	const PatternMatcherRef m_leaves;
+	const PatternMatcherRef m_match_head;
+	const PatternMatcherRef m_match_leaves;
 	const Variable m_variable;
 
 public:
 	inline ExpressionMatcher(PatternMatcherRef head, PatternMatcherRef leaves, const Variable &variable) :
-		m_head(head), m_leaves(leaves), m_variable(variable) {
+		m_match_head(head), m_match_leaves(leaves), m_variable(variable) {
 	}
 
 	virtual bool match(
@@ -202,7 +166,33 @@ public:
 		const BaseExpressionRef *begin,
 		const BaseExpressionRef *end) const {
 
-		return false; // FIXME
+		const BaseExpressionRef &item = *begin;
+
+		if (item->type() != ExpressionType) {
+			return false;
+		}
+
+		const Expression *expr = item->as_expression();
+
+		const BaseExpressionRef head = expr->head();
+
+		if (!m_match_head->match(context, &head, &head + 1)) {
+			return false;
+		}
+
+		const PatternMatcherRef &match_leaves = m_match_leaves;
+
+		if (!expr->with_leaves_array([&context, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
+			return match_leaves->match(context, leaves, leaves + size);
+		})) {
+			return false;
+		}
+
+		const PatternMatcherRef &next = m_next;
+
+		return m_variable(context, *begin, [&context, begin, end, &next] () {
+			return next->match(context, begin + 1, end);
+		});
 	}
 };
 
@@ -262,7 +252,7 @@ PatternMatcherRef PatternCompiler::compile(
 	PatternMatcherRef initial_matcher;
 	PatternMatcherRef previous_matcher;
 
-	for (const BaseExpressionRef *i = begin; i < end; i--) {
+	for (const BaseExpressionRef *i = begin; i < end; i++) {
 		const BaseExpressionRef &curr = *i;
 		PatternMatcherRef matcher;
 
@@ -341,4 +331,9 @@ std::tuple<PatternMatcherRef, bool> PatternCompiler::compile_part(
 			return std::make_tuple(new ExpressionMatcher<decltype(do_variable)>(match_head, match_leaves, do_variable), true);
 		}
 	}
+}
+
+PatternMatcherRef compile_pattern(const BaseExpressionRef &patt) {
+	PatternCompiler compiler;
+	return compiler.compile(&patt, &patt + 1, nullptr);
 }
