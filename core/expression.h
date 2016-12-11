@@ -253,14 +253,17 @@ public:
 						return MatchSize::exactly(1);
 				}
 
-			default: {
-				MatchSize size = MatchSize::exactly(0);
-				for (const auto &leaf : _leaves.leaves()) {
-					size += leaf->match_size();
-				}
-				return size;
-			}
+			default:
+				return MatchSize::exactly(1);
 		}
+	}
+
+	virtual MatchSize leaf_match_size() const {
+		MatchSize size = MatchSize::exactly(0);
+		for (const auto &leaf : _leaves.leaves()) {
+			size += leaf->match_size();
+		}
+		return size;
 	}
 
 	virtual DynamicExpressionRef to_dynamic_expression(const BaseExpressionRef &self) const;

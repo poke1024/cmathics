@@ -224,8 +224,9 @@ public:
 		}
 	}
 
-	virtual MatchSize match_size() const {
-		return _patt->match_size();
+	virtual MatchSize leaf_match_size() const {
+		assert(_patt->type() == ExpressionType);
+		return _patt->as_expression()->leaf_match_size();
 	}
 
 	virtual SortKey pattern_key() const {

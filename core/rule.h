@@ -26,7 +26,7 @@ public:
 		throw std::runtime_error("no fixed right hand side is available for this Rule type");
 	}
 
-	virtual MatchSize match_size() const;
+	virtual MatchSize leaf_match_size() const;
 
 	inline optional<hash_t> match_hash() const {
 		return pattern->match_hash();

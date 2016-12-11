@@ -62,14 +62,71 @@ inline void NameSet::add(Name name) {
 	}
 }
 
+class PatternMatcher;
+
+typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
+
+class GenericLeafPtr;
+
+class PatternMatcher {
+protected:
+	size_t m_ref_count;
+	PatternMatcherRef m_next;
+	MatchSize m_size_from_here;
+	MatchSize m_size_from_next;
+
+public:
+	inline void set_next(
+		const PatternMatcherRef &next) {
+		m_next = next;
+	}
+
+	inline void set_size(
+		const MatchSize &size_from_here,
+		const MatchSize &size_from_next) {
+		m_size_from_here = size_from_here;
+		m_size_from_next = size_from_next;
+	}
+
+	virtual ~PatternMatcher() {
+	}
+
+	inline bool might_match(size_t size) const {
+		return m_size_from_here.contains(size);
+	}
+
+	virtual bool match(
+		MatchContext &context,
+		const BaseExpressionRef *begin,
+		const BaseExpressionRef *end) const = 0;
+
+	virtual bool match(
+		MatchContext &context,
+		const GenericLeafPtr begin,
+		const GenericLeafPtr end) const = 0;
+
+	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
+	friend void intrusive_ptr_release(PatternMatcher *matcher);
+};
+
+inline void intrusive_ptr_add_ref(PatternMatcher *matcher) {
+	matcher->m_ref_count++;
+}
+
+inline void intrusive_ptr_release(PatternMatcher *matcher) {
+	if (--matcher->m_ref_count == 0) {
+		delete matcher;
+	}
+}
+
 class Cache {
 private:
 	NameNode _name;
 
 public:
 	NameSet skip_replace_vars;
-
 	bool skip_slots;
+	PatternMatcherRef matcher;
 
 	inline Cache() : skip_slots(false) {
 	}

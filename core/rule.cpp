@@ -20,7 +20,7 @@ inline void insert_rule(std::vector<Rules::Entry> &entries, const Rules::Entry &
 
 void Rules::add(const RuleRef &rule) {
 	const optional<hash_t> match_hash = rule->match_hash();
-	const MatchSize match_size = rule->match_size();
+	const MatchSize match_size = rule->leaf_match_size();
 	const Entry entry{rule, match_size, match_hash};
 	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
 		if (match_size.matches(SliceCode(code))) {

@@ -183,6 +183,9 @@ private:
 	}
 
 public:
+	inline MatchSize() {
+	}
+
 	static inline MatchSize exactly(match_size_t n) {
 		return MatchSize(n, n);
 	}
@@ -685,6 +688,8 @@ public:
 			return false;
 		}
 	}
+
+	virtual MatchSize leaf_match_size() const = 0;
 };
 
 inline bool instantiate_symbolic_form(const Expression *expr) {

@@ -164,7 +164,7 @@ public:
 		});
 	}
 
-	virtual MatchSize match_size() const {
+	virtual MatchSize leaf_match_size() const {
 		return MatchSize::at_least(0);
 	}
 };

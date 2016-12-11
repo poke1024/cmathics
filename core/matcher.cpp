@@ -32,13 +32,22 @@ public:
 	inline GenericLeafPtr operator+(size_t i) const {
 		return GenericLeafPtr(m_expr, m_offset + i);
 	}
+
+	inline index_t operator-(const GenericLeafPtr& ptr) const {
+		assert(m_expr == ptr.m_expr);
+		return m_offset - ptr.m_offset;
+	}
 };
 
-BaseExpressionRef sequence(const BaseExpressionRef *p, size_t n) {
-	return BaseExpressionRef(); // FIXME
+BaseExpressionRef sequence(const BaseExpressionRef *p, size_t n, const Definitions &definitions) {
+	return expression(definitions.symbols().Sequence, [p, n] (auto &storage) {
+		for (size_t i = 0; i < n; i++) {
+			storage << p[i];
+		}
+	}, n);
 }
 
-BaseExpressionRef sequence(const GenericLeafPtr &p, size_t n) {
+BaseExpressionRef sequence(const GenericLeafPtr &p, size_t n, const Definitions &definitions) {
 	return BaseExpressionRef(); // FIXME
 }
 
@@ -216,6 +225,55 @@ public:
 	DECLARE_MATCH_METHODS
 };
 
+template<index_t Minimum, typename Condition, typename Variable>
+class BlankSequenceMatcher : public PatternMatcher {
+private:
+	const Condition m_condition;
+	const Variable m_variable;
+
+	template<typename LeafPtr>
+	inline bool do_match(
+		MatchContext &context,
+		LeafPtr begin,
+		LeafPtr end) const {
+
+		const index_t n = end - begin;
+
+		const index_t max_size = n - m_size_from_next.min();
+
+		if (max_size < Minimum) {
+			return false;
+		}
+
+		const index_t min_size = std::max(n - index_t(m_size_from_next.max()), Minimum);
+
+		index_t condition_max_size = max_size;
+		for (size_t i = 0; i < max_size; i++) {
+			if (!m_condition(begin[i])) {
+				condition_max_size = i;
+				break;
+			}
+		}
+
+		const PatternMatcherRef &next = m_next;
+		for (index_t i = condition_max_size; condition_max_size >= min_size; i--) {
+			return m_variable(context, sequence(begin, i, context.definitions), [begin, end, i, &next, &context] () {
+				return next->match(context, begin + i, end);
+			});
+
+		}
+
+		return false;
+	}
+
+public:
+	inline BlankSequenceMatcher(const Condition &condition, const Variable &variable) :
+		m_condition(condition), m_variable(variable) {
+	}
+
+	DECLARE_MATCH_METHODS
+};
+
 template<typename Variable>
 class ExpressionMatcher : public PatternMatcher {
 private:
@@ -241,13 +299,17 @@ private:
 
 		const Expression *expr = item->as_expression();
 
+		const PatternMatcherRef &match_leaves = m_match_leaves;
+
+		if (!match_leaves->might_match(expr->size())) {
+			return false;
+		}
+
 		const BaseExpressionRef head = expr->head();
 
 		if (!m_match_head->match(context, &head, &head + 1)) {
 			return false;
 		}
-
-		const PatternMatcherRef &match_leaves = m_match_leaves;
 
 		if (slice_needs_no_materialize(expr->slice_code())) {
 			if (!expr->with_leaves_array([&context, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
@@ -329,11 +391,24 @@ PatternMatcherRef PatternCompiler::compile(
 	const BaseExpressionRef *end,
 	const SymbolRef *variable) {
 
+	const size_t n = end - begin;
+
+	std::vector<MatchSize> matchable;
+	matchable.reserve(n + 1);
+	MatchSize size = MatchSize::exactly(0);
+	matchable.push_back(size);
+	for (const BaseExpressionRef *i = end - 1; i >= begin; i--) {
+		size += (*i)->match_size();
+		matchable.push_back(size);
+	}
+	std::reverse(matchable.begin(), matchable.end());
+
 	PatternMatcherRef initial_matcher;
 	PatternMatcherRef previous_matcher;
 
-	for (const BaseExpressionRef *i = begin; i < end; i++) {
-		const BaseExpressionRef &curr = *i;
+	for (size_t i = 0; i < n; i++) {
+		const BaseExpressionRef &curr = begin[i];
+
 		PatternMatcherRef matcher;
 
 		switch (curr->type()) {
@@ -359,6 +434,8 @@ PatternMatcherRef PatternCompiler::compile(
 				break;
 		}
 
+		matcher->set_size(matchable[i], matchable[i + 1]);
+
 		if (previous_matcher) {
 			previous_matcher->set_next(matcher);
 		} else {
@@ -369,7 +446,7 @@ PatternMatcherRef PatternCompiler::compile(
 	}
 
 	assert(previous_matcher);
-	previous_matcher->set_next(PatternMatcherRef(new TerminateMatcher()));
+	previous_matcher->set_next(PatternMatcherRef(new TerminateMatcher));
 
 	return initial_matcher;
 }
@@ -387,6 +464,14 @@ std::tuple<PatternMatcherRef, bool> PatternCompiler::compile_part(
 				return std::make_tuple(new BlankMatcher<HeadCondition, Variable>(HeadCondition(*patt_begin), do_variable), true);
 			} else {
 				return std::make_tuple(new BlankMatcher<NoCondition, Variable>(NoCondition(), do_variable), true);
+			}
+		}
+
+		case SymbolBlankSequence: {
+			if (patt_end - patt_begin == 1 && (*patt_begin)->type() == SymbolType) {
+				return std::make_tuple(new BlankSequenceMatcher<1, HeadCondition, Variable>(HeadCondition(*patt_begin), do_variable), true);
+			} else {
+				return std::make_tuple(new BlankSequenceMatcher<1, NoCondition, Variable>(NoCondition(), do_variable), true);
 			}
 		}
 

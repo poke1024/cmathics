@@ -42,8 +42,12 @@ BaseExpressionRef function_pattern(
 	return expression(expression(head, expression(BlankSequence)), expression(BlankNullSequence));
 }
 
-MatchSize Rule::match_size() const {
-	return pattern->match_size();
+MatchSize Rule::leaf_match_size() const {
+	if (pattern->type() != ExpressionType) {
+		return MatchSize::exactly(0); // undefined
+	} else {
+		return pattern->as_expression()->leaf_match_size();
+	}
 }
 
 SortKey BaseExpression::sort_key() const {
