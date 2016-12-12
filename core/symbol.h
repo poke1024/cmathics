@@ -192,9 +192,14 @@ public:
 
 	virtual BaseExpressionRef replace_all(const Match &match) const;
 
-	inline void set_matched_value(const MatchId &id, const BaseExpressionRef &value) const {
-		_match_id = id;
-		_match_value = value;
+	inline bool set_matched_value(const MatchId &id, const BaseExpressionRef &value) const {
+		if (_match_id == id) {
+			return _match_value->same(value.get());
+		} else {
+			_match_id = id;
+			_match_value = value;
+			return true;
+		}
 	}
 
 	inline void clear_matched_value() const {
@@ -210,13 +215,13 @@ public:
 		return _match_value;
 	}
 
-	inline BaseExpressionRef matched_value(const MatchId &id) const {
+	/*inline BaseExpressionRef matched_value(const MatchId &id) const {
 		if (_match_id == id) {
 			return _match_value;
 		} else {
 			return BaseExpressionRef();
 		}
-	}
+	}*/
 
 	inline void set_next_variable(Symbol *symbol) const {
 		_linked_variable = symbol;

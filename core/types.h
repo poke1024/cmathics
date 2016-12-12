@@ -172,7 +172,7 @@ constexpr inline size_t static_slice_size(SliceCode code) {
 }
 
 typedef int64_t match_size_t; // needs to be signed
-constexpr match_size_t MATCH_MAX = INT64_MAX;
+constexpr match_size_t MATCH_MAX = INT64_MAX >> 2; // safe for subtractions
 
 class MatchSize {
 private:

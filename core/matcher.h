@@ -414,7 +414,7 @@ bool Matcher<Slice>::blank_sequence(match_size_t k, const Symbol *head) const {
 
 template<typename Slice>
 bool Matcher<Slice>::match_variable(size_t match_size, const BaseExpressionRef &item) const {
-	const auto match_id = _context.id;
+	/*const auto match_id = _context.id;
 	BaseExpressionRef existing = _variable->matched_value(match_id);
 	if (existing) {
 		if (existing->same(item)) {
@@ -440,7 +440,9 @@ bool Matcher<Slice>::match_variable(size_t match_size, const BaseExpressionRef &
 		}
 
 		return match;
-	}
+	}*/
+
+    return false;
 }
 
 template<typename Slice>

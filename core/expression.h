@@ -184,6 +184,7 @@ public:
 			case SymbolPattern:
 			case SymbolAlternatives:
 			case SymbolRepeated:
+            case SymbolExcept:
 				return optional<hash_t>();
 
 			default: {
@@ -212,10 +213,13 @@ public:
 		switch (_head->extended_type()) {
 			case SymbolBlank:
 				return MatchSize::exactly(1);
+
 			case SymbolBlankSequence:
 				return MatchSize::at_least(1);
+
 			case SymbolBlankNullSequence:
 				return MatchSize::at_least(0);
+
 			case SymbolPattern:
 				if (size() == 2) {
 					// Pattern is only valid with two arguments
@@ -223,11 +227,12 @@ public:
 				} else {
 					return MatchSize::exactly(1);
 				}
+
 			case SymbolAlternatives: {
 				const size_t n = size();
 
 				if (n == 0) {
-					return MatchSize::exactly(1);
+					return MatchSize::exactly(1); // FIXME
 				}
 
 				const MatchSize size = _leaves[0]->match_size();
@@ -242,6 +247,7 @@ public:
 
 				return MatchSize::between(min_p, max_p);
 			}
+
 			case SymbolRepeated:
 				switch(size()) {
 					case 1:
@@ -252,6 +258,9 @@ public:
 					default:
 						return MatchSize::exactly(1);
 				}
+
+            case SymbolExcept:
+                return MatchSize::at_least(0);
 
 			default:
 				return MatchSize::exactly(1);

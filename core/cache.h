@@ -76,14 +76,16 @@ protected:
 	MatchSize m_size_from_next;
 
 public:
-	inline void set_next(
+	virtual void set_next(
 		const PatternMatcherRef &next) {
+
 		m_next = next;
 	}
 
-	inline void set_size(
+	virtual void set_size(
 		const MatchSize &size_from_here,
 		const MatchSize &size_from_next) {
+
 		m_size_from_here = size_from_here;
 		m_size_from_next = size_from_next;
 	}
