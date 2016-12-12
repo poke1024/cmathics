@@ -97,15 +97,20 @@ public:
 		return m_size_from_here.contains(size);
 	}
 
-	virtual bool match(
+	virtual const BaseExpressionRef *match(
 		MatchContext &context,
 		const BaseExpressionRef *begin,
 		const BaseExpressionRef *end) const = 0;
 
-	virtual bool match(
+	virtual GenericLeafPtr match(
 		MatchContext &context,
-		const GenericLeafPtr begin,
-		const GenericLeafPtr end) const = 0;
+		GenericLeafPtr begin,
+		GenericLeafPtr end) const = 0;
+
+	virtual const char *match(
+		MatchContext &context,
+		const char *begin,
+		const char *end) const = 0;
 
 	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
 	friend void intrusive_ptr_release(PatternMatcher *matcher);
@@ -128,7 +133,8 @@ private:
 public:
 	NameSet skip_replace_vars;
 	bool skip_slots;
-	PatternMatcherRef matcher;
+	PatternMatcherRef expression_matcher;
+	PatternMatcherRef string_matcher;
 
 	inline Cache() : skip_slots(false) {
 	}

@@ -15,7 +15,7 @@ inline DefinitionsPos get_definitions_pos(
 		return DefinitionsPos::Own;
 	} else if (pattern->type() != ExpressionType) {
 		return DefinitionsPos::None;
-	} else if (pattern->head() == symbol) {
+	} else if (pattern->as_expression()->head() == symbol) {
 		return DefinitionsPos::Down;
 	} else if (pattern->lookup_name() == symbol) {
 		return DefinitionsPos::Sub;

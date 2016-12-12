@@ -11,6 +11,9 @@ public:
 	inline GenericLeafPtr(const Expression *expr, size_t offset) : m_expr(expr), m_offset(offset) {
 	}
 
+	inline GenericLeafPtr(std::nullptr_t) : m_expr(nullptr), m_offset(0) {
+	}
+
 	inline BaseExpressionRef operator*() const {
 		return m_expr->materialize_leaf(m_offset);
 	}
@@ -29,6 +32,14 @@ public:
 		return m_offset < ptr.m_offset;
 	}
 
+	inline GenericLeafPtr operator+(int i) const {
+		return GenericLeafPtr(m_expr, m_offset + i);
+	}
+
+	inline GenericLeafPtr operator+(index_t i) const {
+		return GenericLeafPtr(m_expr, m_offset + i);
+	}
+
 	inline GenericLeafPtr operator+(size_t i) const {
 		return GenericLeafPtr(m_expr, m_offset + i);
 	}
@@ -37,7 +48,24 @@ public:
 		assert(m_expr == ptr.m_expr);
 		return m_offset - ptr.m_offset;
 	}
+
+	inline operator bool() const {
+		return m_expr;
+	}
+
+	inline BaseExpressionRef slice(const BaseExpressionRef &head, size_t n) const {
+		return m_expr->slice(head, m_offset, m_offset + n);
+	}
 };
+
+inline static const BaseExpressionRef &single(const BaseExpressionRef &x) {
+	return x;
+}
+
+inline static BaseExpressionRef single(const char x) {
+	std::string s(&x, 1);
+	return Heap::String(s.c_str());
+}
 
 BaseExpressionRef sequence(const BaseExpressionRef *p, size_t n, const Definitions &definitions) {
 	return expression(definitions.symbols().Sequence, [p, n] (auto &storage) {
@@ -48,50 +76,65 @@ BaseExpressionRef sequence(const BaseExpressionRef *p, size_t n, const Definitio
 }
 
 BaseExpressionRef sequence(const GenericLeafPtr &p, size_t n, const Definitions &definitions) {
-	return BaseExpressionRef(); // FIXME
+	return p.slice(definitions.symbols().Sequence, n);
 }
 
-#define DECLARE_MATCH_METHODS                                                                                 \
-	virtual bool match(                                                                                       \
+BaseExpressionRef sequence(const char *p, size_t n, const Definitions &definitions) {
+	const std::string s(p, n);
+	return Heap::String(s.c_str());
+}
+
+#define DECLARE_MATCH_EXPRESSION_METHODS                                                                      \
+	virtual const BaseExpressionRef *match(                                                                   \
 		MatchContext &context,                                                                                \
 		const BaseExpressionRef *begin,                                                                       \
 		const BaseExpressionRef *end) const {                                                                 \
 		return do_match<const BaseExpressionRef*>(context, begin, end);                                       \
 	}                                                                                                         \
 																											  \
-	virtual bool match(                                                                                       \
+	virtual GenericLeafPtr match(                                                                             \
 		MatchContext &context,                                                                                \
 		GenericLeafPtr begin,                                                                                 \
 		GenericLeafPtr end) const {                                                                           \
 		return do_match<GenericLeafPtr>(context, begin, end);                                                 \
-	}
+	}                                                                                                         \
+																											  \
+
+#define DECLARE_MATCH_METHODS                                                                                 \
+	DECLARE_MATCH_EXPRESSION_METHODS                                                                          \
+	virtual const char *match(                                                                                \
+		MatchContext &context,                                                                                \
+		const char *begin,                                                                                    \
+		const char *end) const {                                                                              \
+        return do_match<const char*>(context, begin, end);                                                    \
+    }
 
 class TerminateMatcher : public PatternMatcher {
 private:
 	template<typename LeafPtr>
-	inline bool do_match(
+	inline LeafPtr do_match(
 		MatchContext &context,
 		LeafPtr begin,
 		LeafPtr end) const {
 
-		return begin == end;
+		if (begin == end || context.anchor != MatchContext::AnchoredEnd) {
+			return begin;
+		} else {
+			return nullptr;
+		}
 	}
 
 public:
 	DECLARE_MATCH_METHODS
 };
 
-inline bool same(BaseExpressionPtr a, BaseExpressionPtr b) {
-	if (a == b) {
-		return true;
-	} else {
-		return a->same(b);
-	}
-}
-
 class NoCondition {
 public:
 	inline bool operator()(const BaseExpressionRef &item) const {
+		return true;
+	}
+
+	inline bool operator()(const char item) const {
 		return true;
 	}
 };
@@ -105,14 +148,24 @@ public:
 	}
 
 	inline bool operator()(const BaseExpressionRef &item) const {
-		return same(item->head_ptr(), m_head.get());
+		if (item->type() != ExpressionType) {
+			return false;
+		} else {
+			const BaseExpressionPtr a = item->as_expression()->head_ptr();
+			const BaseExpressionPtr b = m_head.get();
+			return a == b || a->same(b);
+		}
+	}
+
+	inline bool operator()(const char item) const {
+		return true;
 	}
 };
 
 class NoVariable {
 public:
-	template<typename F>
-	inline bool operator()(MatchContext &context, const BaseExpressionRef &item, const F &f) const {
+	template<typename R, typename F>
+	inline R assign(MatchContext &context, const BaseExpressionRef &item, const F &f) const {
 		return f();
 	}
 };
@@ -125,27 +178,26 @@ public:
 	inline AssignVariable(const SymbolRef &variable) : m_variable(variable) {
 	}
 
-	template<typename F>
-	inline bool operator()(MatchContext &context, const BaseExpressionRef &item, const F &f) const {
-		bool match;
-
+	template<typename R, typename F>
+	inline R assign(MatchContext &context, const BaseExpressionRef &item, const F &f) const {
 		if (!m_variable->set_matched_value(context.id, item)) {
-            return false;
+            return nullptr;
         }
+
 		try {
-			match = f();
+			const R match = f();
+
+			if (match) {
+				context.matched_variables.prepend(m_variable.get());
+			} else {
+				m_variable->clear_matched_value();
+			}
+
+			return match;
 		} catch (...) {
 			m_variable->clear_matched_value();
 			throw;
 		}
-
-		if (match) {
-			context.matched_variables.prepend(m_variable.get());
-		} else {
-			m_variable->clear_matched_value();
-		}
-
-		return match;
 	}
 };
 
@@ -155,20 +207,67 @@ private:
 	const BaseExpressionRef m_patt;
 	const Variable m_variable;
 
+	inline static const BaseExpressionRef *same(BaseExpressionPtr a, const BaseExpressionRef *begin, const BaseExpressionRef *end) {
+		const BaseExpressionPtr begin_ptr = begin->get();
+		if (a == begin_ptr || a->same(begin_ptr)) {
+			return begin + 1;
+		} else {
+			return nullptr;
+		}
+	}
+
+	inline static const BaseExpressionRef &extract(const BaseExpressionRef *a, const BaseExpressionRef *b) {
+		return *a;
+	}
+
+	inline static GenericLeafPtr same(BaseExpressionPtr a, GenericLeafPtr begin, GenericLeafPtr end) {
+		if (a->same(*begin)) {
+			return begin + 1;
+		} else {
+			return nullptr;
+		}
+	}
+
+	inline static BaseExpressionRef extract(GenericLeafPtr a, GenericLeafPtr b) {
+		return *a;
+	}
+
+	inline static const char *same(BaseExpressionPtr a, const char *begin, const char *end) {
+		const char *s = static_cast<const String*>(a)->c_str();
+		const char *t = begin;
+		while (*s) {
+			if (t >= end || *s != *t) {
+				return nullptr;
+			}
+			s++;
+			t++;
+		}
+		return t;
+	}
+
+	inline static BaseExpressionRef extract(const char *a, const char *b) {
+		const std::string s(a, b - a);
+		return Heap::String(s.c_str());
+	}
+
 	template<typename LeafPtr>
-	inline bool do_match(
+	inline LeafPtr do_match(
 		MatchContext &context,
 		LeafPtr begin,
 		LeafPtr end) const {
 
-		const auto item = *begin;
-		if (begin < end && same(m_patt.get(), item.get())) {
-			const PatternMatcherRef &next = m_next;
-			return m_variable(context, item, [begin, end, &next, &context] () {
-				return next->match(context, begin + 1, end);
-			});
+		if (begin < end) {
+			const LeafPtr up_to = same(m_patt.get(), begin, end);
+			if (up_to) {
+				const PatternMatcherRef &next = m_next;
+				return m_variable.template assign<LeafPtr>(context, extract(begin, up_to), [up_to, end, &next, &context] () {
+					return next->match(context, up_to, end);
+				});
+			} else {
+				return nullptr;
+			}
 		} else {
-			return false;
+			return nullptr;
 		}
 	}
 
@@ -187,22 +286,20 @@ private:
     const Variable m_variable;
 
     template<typename LeafPtr>
-    inline bool do_match(
+    inline LeafPtr do_match(
         MatchContext &context,
         LeafPtr begin,
         LeafPtr end) const {
 
         if (begin == end) {
-            return m_variable(context, sequence(begin, 0, context.definitions), [] () {
-                return true;
-            });
+			return nullptr;
         }
 
         if (m_matcher->match(context, begin, begin + 1)) {
-            return false;
+            return nullptr;
         } else {
             const PatternMatcherRef &next = m_next;
-            return m_variable(context, *begin, [begin, end, &next, &context] () {
+            return m_variable.template assign<LeafPtr>(context, single(*begin), [begin, end, &next, &context] () {
                 return next->match(context, begin + 1, end);
             });
         }
@@ -223,18 +320,19 @@ private:
     const Variable m_variable;
 
     template<typename LeafPtr>
-    inline bool do_match(
+    inline LeafPtr do_match(
         MatchContext &context,
         LeafPtr begin,
         LeafPtr end) const {
 
         for (const PatternMatcherRef &matcher : m_matchers) {
-            if (matcher->match(context, begin, end)) {
-                return true;
+	        const LeafPtr match = matcher->match(context, begin, end);
+            if (match) {
+                return match;
             }
         }
 
-        return false;
+        return nullptr;
     }
 
 public:
@@ -271,7 +369,7 @@ private:
 	const Variable m_variable;
 
 	template<typename LeafPtr>
-	inline bool do_match(
+	inline LeafPtr do_match(
 		MatchContext &context,
 		LeafPtr begin,
 		LeafPtr end) const {
@@ -279,11 +377,11 @@ private:
 		const auto item = *begin;
 		if (begin < end && m_condition(item)) {
 			const PatternMatcherRef &next = m_next;
-			return m_variable(context, item, [begin, end, &next, &context] () {
+			return m_variable.template assign<LeafPtr>(context, single(item), [begin, end, &next, &context] () {
 				return next->match(context, begin + 1, end);
 			});
 		} else {
-			return false;
+			return nullptr;
 		}
 	}
 
@@ -302,7 +400,7 @@ private:
 	const Variable m_variable;
 
 	template<typename LeafPtr>
-	inline bool do_match(
+	inline LeafPtr do_match(
 		MatchContext &context,
 		LeafPtr begin,
 		LeafPtr end) const {
@@ -312,11 +410,11 @@ private:
 		const index_t max_size = n - m_size_from_next.min();
 
 		if (max_size < Minimum) {
-			return false;
+			return nullptr;
 		}
 
-		const index_t min_size = std::max(
-            n - index_t(m_size_from_next.max()), Minimum);
+		const index_t min_size = context.anchor == MatchContext::AnchoredEnd ? std::max(
+            n - index_t(m_size_from_next.max()), Minimum) : Minimum;
 
 		index_t condition_max_size = max_size;
 		for (size_t i = 0; i < max_size; i++) {
@@ -327,15 +425,18 @@ private:
 		}
 
 		const PatternMatcherRef &next = m_next;
-		for (index_t i = condition_max_size; condition_max_size >= min_size; i--) {
-			return m_variable(context, sequence(begin, i, context.definitions),
+		for (index_t i = condition_max_size; i >= min_size; i--) {
+			const LeafPtr match = m_variable.template assign<LeafPtr>(context, sequence(begin, i, context.definitions),
                 [begin, end, i, &next, &context] () {
 				    return next->match(context, begin + i, end);
 			});
+			if (match) {
+				return match;
+			}
 
 		}
 
-		return false;
+		return nullptr;
 	}
 
 public:
@@ -360,19 +461,19 @@ private:
 	const Variable m_variable;
 
 	template<typename LeafPtr>
-	inline bool do_match(
+	inline LeafPtr do_match(
 		MatchContext &context,
 		LeafPtr begin,
 		LeafPtr end) const {
 
 		if (begin == end) {
-			return false;
+			return nullptr;
 		}
 
 		const auto item = *begin;
 
 		if (item->type() != ExpressionType) {
-			return false;
+			return nullptr;
 		}
 
 		const Expression *expr = item->as_expression();
@@ -380,30 +481,30 @@ private:
 		const PatternMatcherRef &match_leaves = m_match_leaves;
 
 		if (!match_leaves->might_match(expr->size())) {
-			return false;
+			return nullptr;
 		}
 
-		const BaseExpressionRef head = expr->head();
+		const BaseExpressionRef &head = expr->head();
 
 		if (!m_match_head->match(context, &head, &head + 1)) {
-			return false;
+			return nullptr;
 		}
 
 		if (slice_needs_no_materialize(expr->slice_code())) {
 			if (!expr->with_leaves_array([&context, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
 				return match_leaves->match(context, leaves, leaves + size);
 			})) {
-				return false;
+				return nullptr;
 			}
 		} else {
 			if (!match_leaves->match(context, GenericLeafPtr(expr, 0), GenericLeafPtr(expr, expr->size()))) {
-				return false;
+				return nullptr;
 			}
 		}
 
 		const PatternMatcherRef &next = m_next;
 
-		return m_variable(context, item, [begin, end, &next, &context] () {
+		return m_variable.template assign<LeafPtr>(context, item, [begin, end, &next, &context] () {
 			return next->match(context, begin + 1, end);
 		});
 	}
@@ -413,7 +514,14 @@ public:
 		m_match_head(std::get<0>(match)), m_match_leaves(std::get<1>(match)), m_variable(variable) {
 	}
 
-	DECLARE_MATCH_METHODS
+	DECLARE_MATCH_EXPRESSION_METHODS
+
+	virtual const char *match(
+		MatchContext &context,
+		const char *begin,
+		const char *end) const {
+		return nullptr;
+    }
 };
 
 class PatternCompiler {
@@ -533,7 +641,7 @@ inline PatternMatcherRef PatternCompiler::create_blank_matcher(
     if (patt_end - patt_begin == 1 && (*patt_begin)->type() == SymbolType) {
         return instantiate_matcher<Matcher>(HeadCondition(*patt_begin), variable);
     } else {
-        return instantiate_matcher<Matcher>(HeadCondition(*patt_begin), variable);
+        return instantiate_matcher<Matcher>(NoCondition(), variable);
     }
 }
 
@@ -596,7 +704,19 @@ PatternMatcherRef PatternCompiler::compile_part(
 	}
 }
 
-PatternMatcherRef compile_pattern(const BaseExpressionRef &patt) {
+PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt) {
 	PatternCompiler compiler;
 	return compiler.compile(&patt, &patt + 1, nullptr);
+}
+
+PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt) {
+	if (patt->type() == ExpressionType && patt->as_expression()->head()->extended_type() == SymbolStringExpression) {
+		return patt->as_expression()->with_leaves_array([] (const BaseExpressionRef *leaves, size_t n) {
+			PatternCompiler compiler;
+			return compiler.compile(leaves, leaves + n, nullptr);
+		});
+	} else {
+		PatternCompiler compiler;
+		return compiler.compile(&patt, &patt + 1, nullptr);
+	}
 }

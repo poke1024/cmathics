@@ -41,7 +41,7 @@ protected:
 	}
 
 public:
-	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const;
+	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const;
 
 public:
 	const Slice _leaves;  // other options: ropes, skip lists, ...
@@ -277,8 +277,6 @@ public:
 
 	virtual DynamicExpressionRef to_dynamic_expression(const BaseExpressionRef &self) const;
 
-	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const;
-
 	virtual const Symbol *lookup_name() const {
 		return _head->lookup_name();
 	}
@@ -506,7 +504,9 @@ inline StaticExpressionRef<N> expression(const BaseExpressionRef &head, StaticSl
 }
 
 template<typename Slice>
-ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end) const {
+ExpressionRef ExpressionImplementation<Slice>::slice(
+	const BaseExpressionRef &head, index_t begin, index_t end) const {
+
 	const index_t size = index_t(_leaves.size());
 
 	if (begin < 0) {
@@ -521,7 +521,6 @@ ExpressionRef ExpressionImplementation<Slice>::slice(index_t begin, index_t end)
 
 	const size_t new_size = end - begin;
 	constexpr SliceCode slice_code = Slice::code();
-	const BaseExpressionRef &head = _head;
 
     if (is_packed_slice(slice_code) && new_size >= MinPackedSliceSize) {
         return expression(head, _leaves.slice(begin, end));

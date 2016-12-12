@@ -350,7 +350,7 @@ public:
             if (expr->size() < 1) {
                 evaluation.message(m_symbol, "norest", expr);
             } else {
-                return expr->slice(1);
+                return expr->slice(expr->head(), 1);
             }
         }
         return BaseExpressionRef();

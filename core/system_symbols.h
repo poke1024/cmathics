@@ -22,6 +22,7 @@ SYMBOL(Repeated)
 SYMBOL(Except)
 SYMBOL(Shortest)
 SYMBOL(Longest)
+SYMBOL(StringExpression)
 
 SYMBOL(Verbatim)
 SYMBOL(OptionsPattern)

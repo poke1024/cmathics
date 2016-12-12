@@ -418,8 +418,8 @@ public:
 
     // various getters
 
-    virtual BaseExpressionRef head() const {
-        return BaseExpressionRef(); // no head available
+    virtual const BaseExpressionRef &head() const {
+        throw std::runtime_error("head not implemented");
     }
 
     virtual BaseExpressionPtr head_ptr() const {
@@ -435,10 +435,6 @@ public:
     }
 
     // pattern matching; if not noted otherwise, "this" is the pattern that is matched against here.
-
-	virtual bool match_leaves(MatchContext &_context, const BaseExpressionRef &patt) const {
-		throw std::runtime_error("need an Expression to match leaves");
-	}
 
 	virtual MatchSize match_size() const {
         return MatchSize::exactly(1); // default
@@ -638,7 +634,7 @@ public:
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 
-	virtual BaseExpressionRef head() const {
+	virtual const BaseExpressionRef &head() const {
 		return _head;
 	}
 
@@ -656,7 +652,7 @@ public:
 	virtual BaseExpressionRef evaluate_expression_with_non_symbol_head(
 		const Evaluation &evaluation) const = 0;
 
-	virtual ExpressionRef slice(index_t begin, index_t end = INDEX_MAX) const = 0;
+	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const = 0;
 
 	inline bool has_cache() const {
 		return _cache;
@@ -690,6 +686,10 @@ public:
 	}
 
 	virtual MatchSize leaf_match_size() const = 0;
+
+	inline PatternMatcherRef expression_matcher() const;
+
+	inline PatternMatcherRef string_matcher() const;
 };
 
 inline bool instantiate_symbolic_form(const Expression *expr) {
