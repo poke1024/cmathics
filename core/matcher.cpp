@@ -181,6 +181,42 @@ public:
 };
 
 template<typename Dummy, typename Variable>
+class ExceptMatcher : public PatternMatcher {
+private:
+    const PatternMatcherRef m_matcher;
+    const Variable m_variable;
+
+    template<typename LeafPtr>
+    inline bool do_match(
+        MatchContext &context,
+        LeafPtr begin,
+        LeafPtr end) const {
+
+        if (begin == end) {
+            return m_variable(context, sequence(begin, 0, context.definitions), [] () {
+                return true;
+            });
+        }
+
+        if (m_matcher->match(context, begin, begin + 1)) {
+            return false;
+        } else {
+            const PatternMatcherRef &next = m_next;
+            return m_variable(context, *begin, [begin, end, &next, &context] () {
+                return next->match(context, begin + 1, end);
+            });
+        }
+    }
+
+public:
+    inline ExceptMatcher(const PatternMatcherRef &matcher, const Variable &variable) :
+        m_matcher(matcher), m_variable(variable) {
+    }
+
+    DECLARE_MATCH_METHODS
+};
+
+template<typename Dummy, typename Variable>
 class AlternativesMatcher : public PatternMatcher {
 private:
 	std::vector<PatternMatcherRef> m_matchers;
