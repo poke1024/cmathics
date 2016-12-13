@@ -598,14 +598,16 @@ template<typename... Args>
 void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) const {
 	const auto &symbols = definitions.symbols();
 
+    const unicode_t* unicode_tag = reinterpret_cast<const unicode_t*>(tag);
+
 	const ExpressionRef message = expression(
-		symbols.MessageName, name, Heap::String(tag));
+		symbols.MessageName, name, Heap::String(unicode_tag));
 	StringRef text_template = static_cast<const Symbol*>(
 		name.get())->lookup_message(message.get(), *this);
 
 	if (!text_template) {
 		const ExpressionRef general_message = expression(
-			symbols.MessageName, symbols.General, Heap::String(tag));
+			symbols.MessageName, symbols.General, Heap::String(unicode_tag));
 
 		text_template = symbols.General->lookup_message(general_message.get(), *this);
 	}

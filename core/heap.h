@@ -235,7 +235,9 @@ public:
         return PackedExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
     }
 
-	static inline StringRef String(const char *text);
+	static inline StringRef String(const unicode_t *text);
+
+	static inline StringRef String(const class String *s, size_t cp_offset, size_t cp_size);
 
 	static inline Cache *new_cache() {
 		return _s_instance->_caches.construct();

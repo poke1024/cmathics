@@ -68,6 +68,12 @@ protected:
 		BaseExpressionPtr,
         const Evaluation &);
 
+	template<typename T>
+	using FN = BaseExpressionRef (T::*) (
+		const BaseExpressionRef *,
+		size_t,
+		const Evaluation &);
+
 	template<typename T, typename Options>
 	using OptionsF2 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
@@ -98,8 +104,8 @@ protected:
         const auto self = std::static_pointer_cast<T>(shared_from_this());
 
 	    auto func = [self, fptr] (
-		    BaseExpressionPtr a,
-		    BaseExpressionPtr b,
+			BaseExpressionPtr a,
+			BaseExpressionPtr b,
 		    const Evaluation &evaluation) {
 
 		    auto p = self.get();
@@ -131,6 +137,25 @@ protected:
 		    m_runtime.definitions(),
             func));
     }
+
+	template<typename T>
+	inline void builtin(FN<T> fptr) {
+		const auto self = std::static_pointer_cast<T>(shared_from_this());
+
+		auto func = [self, fptr] (
+			const BaseExpressionRef *leaves,
+			size_t n,
+			const Evaluation &evaluation) {
+
+			auto p = self.get();
+			return (p->*fptr)(leaves, n, evaluation);
+		};
+
+		m_symbol->add_rule(std::make_shared<VariadicBuiltinRule<0, decltype(func)>>(
+			m_symbol,
+			m_runtime.definitions(),
+			func));
+	}
 
 	template<typename T, typename Options>
 	inline void builtin(const OptionsInitializerList &options, OptionsF2<T, Options> fptr) {

@@ -58,30 +58,32 @@ public:
 	}
 };
 
-inline static const BaseExpressionRef &single(const BaseExpressionRef &x) {
-	return x;
+inline const BaseExpressionRef &element(const BaseExpressionRef *begin) {
+	return *begin;
 }
 
-inline static BaseExpressionRef single(const char x) {
-	std::string s(&x, 1);
-	return Heap::String(s.c_str());
+inline BaseExpressionRef element(const GenericLeafPtr &begin) {
+    return *begin;
 }
 
-BaseExpressionRef sequence(const BaseExpressionRef *p, size_t n, const Definitions &definitions) {
-	return expression(definitions.symbols().Sequence, [p, n] (auto &storage) {
+inline BaseExpressionRef element(const CodePointPtr &begin) {
+	return begin.slice(1);
+}
+
+BaseExpressionRef sequence(const BaseExpressionRef *begin, size_t n, const Definitions &definitions) {
+	return expression(definitions.symbols().Sequence, [begin, n] (auto &storage) {
 		for (size_t i = 0; i < n; i++) {
-			storage << p[i];
+			storage << begin[i];
 		}
 	}, n);
 }
 
-BaseExpressionRef sequence(const GenericLeafPtr &p, size_t n, const Definitions &definitions) {
-	return p.slice(definitions.symbols().Sequence, n);
+BaseExpressionRef sequence(const GenericLeafPtr &begin, size_t n, const Definitions &definitions) {
+	return begin.slice(definitions.symbols().Sequence, n);
 }
 
-BaseExpressionRef sequence(const char *p, size_t n, const Definitions &definitions) {
-	const std::string s(p, n);
-	return Heap::String(s.c_str());
+BaseExpressionRef sequence(const CodePointPtr &begin, size_t n, const Definitions &definitions) {
+	return begin.slice(n);
 }
 
 #define DECLARE_MATCH_EXPRESSION_METHODS                                                                      \
@@ -102,11 +104,11 @@ BaseExpressionRef sequence(const char *p, size_t n, const Definitions &definitio
 
 #define DECLARE_MATCH_METHODS                                                                                 \
 	DECLARE_MATCH_EXPRESSION_METHODS                                                                          \
-	virtual const char *match(                                                                                \
+	virtual CodePointPtr match(                                                                               \
 		MatchContext &context,                                                                                \
-		const char *begin,                                                                                    \
-		const char *end) const {                                                                              \
-        return do_match<const char*>(context, begin, end);                                                    \
+		const CodePointPtr &begin,                             	                                              \
+		const CodePointPtr &end) const {                         	                                          \
+        return do_match<CodePointPtr>(context, begin, end);                                                   \
     }
 
 class TerminateMatcher : public PatternMatcher {
@@ -207,8 +209,9 @@ private:
 	const BaseExpressionRef m_patt;
 	const Variable m_variable;
 
-	inline static const BaseExpressionRef *same(BaseExpressionPtr a, const BaseExpressionRef *begin, const BaseExpressionRef *end) {
-		const BaseExpressionPtr begin_ptr = begin->get();
+	inline const BaseExpressionRef *same(const BaseExpressionRef *begin, const BaseExpressionRef *end) const {
+        const BaseExpressionPtr a = m_patt.get();
+        const BaseExpressionPtr begin_ptr = begin->get();
 		if (a == begin_ptr || a->same(begin_ptr)) {
 			return begin + 1;
 		} else {
@@ -216,11 +219,8 @@ private:
 		}
 	}
 
-	inline static const BaseExpressionRef &extract(const BaseExpressionRef *a, const BaseExpressionRef *b) {
-		return *a;
-	}
-
-	inline static GenericLeafPtr same(BaseExpressionPtr a, GenericLeafPtr begin, GenericLeafPtr end) {
+	inline GenericLeafPtr same(GenericLeafPtr begin, GenericLeafPtr end) const {
+        const BaseExpressionPtr a = m_patt.get();
 		if (a->same(*begin)) {
 			return begin + 1;
 		} else {
@@ -228,26 +228,24 @@ private:
 		}
 	}
 
-	inline static BaseExpressionRef extract(GenericLeafPtr a, GenericLeafPtr b) {
-		return *a;
-	}
+	inline CodePointPtr same(const CodePointPtr &begin, const CodePointPtr &end) const {
+        const String * const str = static_cast<const String*>(m_patt.get());
 
-	inline static const char *same(BaseExpressionPtr a, const char *begin, const char *end) {
-		const char *s = static_cast<const String*>(a)->c_str();
-		const char *t = begin;
-		while (*s) {
-			if (t >= end || *s != *t) {
+        const unicode_t *s = str->data();
+        const unicode_t * const s_end = s + str->size();
+
+		const unicode_t *t = begin.data();
+        const unicode_t * const t_end = end.data();
+
+		while (s < s_end) {
+			if (t >= t_end || *s != *t) {
 				return nullptr;
 			}
 			s++;
 			t++;
 		}
-		return t;
-	}
 
-	inline static BaseExpressionRef extract(const char *a, const char *b) {
-		const std::string s(a, b - a);
-		return Heap::String(s.c_str());
+		return begin + str->length();
 	}
 
 	template<typename LeafPtr>
@@ -257,10 +255,10 @@ private:
 		LeafPtr end) const {
 
 		if (begin < end) {
-			const LeafPtr up_to = same(m_patt.get(), begin, end);
+			const LeafPtr up_to = same(begin, end);
 			if (up_to) {
 				const PatternMatcherRef &next = m_next;
-				return m_variable.template assign<LeafPtr>(context, extract(begin, up_to), [up_to, end, &next, &context] () {
+				return m_variable.template assign<LeafPtr>(context, m_patt, [up_to, end, &next, &context] () {
 					return next->match(context, up_to, end);
 				});
 			} else {
@@ -299,7 +297,7 @@ private:
             return nullptr;
         } else {
             const PatternMatcherRef &next = m_next;
-            return m_variable.template assign<LeafPtr>(context, single(*begin), [begin, end, &next, &context] () {
+            return m_variable.template assign<LeafPtr>(context, element(begin), [begin, end, &next, &context] () {
                 return next->match(context, begin + 1, end);
             });
         }
@@ -374,10 +372,9 @@ private:
 		LeafPtr begin,
 		LeafPtr end) const {
 
-		const auto item = *begin;
-		if (begin < end && m_condition(item)) {
+		if (begin < end && m_condition(*begin)) {
 			const PatternMatcherRef &next = m_next;
-			return m_variable.template assign<LeafPtr>(context, single(item), [begin, end, &next, &context] () {
+			return m_variable.template assign<LeafPtr>(context, element(begin), [begin, end, &next, &context] () {
 				return next->match(context, begin + 1, end);
 			});
 		} else {
@@ -426,7 +423,7 @@ private:
 
 		const PatternMatcherRef &next = m_next;
 		for (index_t i = condition_max_size; i >= min_size; i--) {
-			const LeafPtr match = m_variable.template assign<LeafPtr>(context, sequence(begin, i, context.definitions),
+            const LeafPtr match = m_variable.template assign<LeafPtr>(context, sequence(begin, i, context.definitions),
                 [begin, end, i, &next, &context] () {
 				    return next->match(context, begin + i, end);
 			});
@@ -516,10 +513,10 @@ public:
 
 	DECLARE_MATCH_EXPRESSION_METHODS
 
-	virtual const char *match(
+	virtual CodePointPtr match(
 		MatchContext &context,
-		const char *begin,
-		const char *end) const {
+        const CodePointPtr &begin,
+        const CodePointPtr &end) const {
 		return nullptr;
     }
 };

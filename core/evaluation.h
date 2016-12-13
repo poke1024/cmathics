@@ -75,6 +75,7 @@ public:
     bool catch_interrupts;
     EvaluationInterrupt interrupt;
     Out* out;
+    mutable BaseExpressionRef predetermined_out;
 
     const BaseExpressionRef zero;
     const BaseExpressionRef one;
@@ -89,7 +90,7 @@ public:
 
 inline SymbolRef String::option_symbol(const Evaluation &evaluation) const {
 	if (!m_option_symbol) {
-		const std::string fullname = std::string("System`") + value;
+		const std::string fullname = std::string("System`") + str();
 		m_option_symbol = evaluation.definitions.lookup_no_create(fullname.c_str());
 	}
 	return *m_option_symbol;

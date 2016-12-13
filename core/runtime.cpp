@@ -8,6 +8,7 @@ Runtime::Runtime() : _parser(_definitions) {
     General->add_message("iterb", "Iterator does not have appropriate bounds.", _definitions);
 	General->add_message("level", "Level specification `1` is not of the form n, {n}, or {m, n}.", _definitions);
     General->add_message("optx", "Unknown option `1` in `2`.", _definitions);
+    General->add_message("string", "String expected.", _definitions);
 }
 
 void Runtime::add(

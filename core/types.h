@@ -10,6 +10,10 @@
 #include <experimental/optional>
 #include <symengine/basic.h>
 
+#include "utf8proc.h"
+typedef utf8proc_uint8_t unicode_t;
+typedef utf8proc_int32_t codepoint_t;
+
 using std::experimental::optional;
 
 struct nothing {

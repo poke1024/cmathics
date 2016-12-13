@@ -9,10 +9,13 @@ void Messages::add(
     const char *text,
     const Definitions &definitions) {
 
+    const unicode_t* unicode_tag = reinterpret_cast<const unicode_t*>(tag);
+    const unicode_t* unicode_text = reinterpret_cast<const unicode_t*>(text);
+
     m_rules.add(
 		std::make_shared<RewriteRule>(
-			expression(definitions.symbols().MessageName, name, Heap::String(tag)),
-			Heap::String(text)));
+			expression(definitions.symbols().MessageName, name, Heap::String(unicode_tag)),
+			Heap::String(unicode_text)));
 }
 
 StringRef Messages::lookup(

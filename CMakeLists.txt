@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.6)
 project(cmathics)
 
-# specifying -O2 here gives another factor 10 currently
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14") #  -O2
+if("$ENV{OPTIMIZE}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -O2")
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+endif()
 
 include_directories(${cmathics_SOURCE_DIR})
 
@@ -24,7 +27,7 @@ if(CUSTOM_PREFIX)
     # on OS X, the easiest way to get the dependent libraries is to use homebrew. we might want to use a custom
     # path that can be specified using CUSTOM_PREFIX. your homebrew needs to be set up using:
 
-    # brew install gmp mpfr boost boost-python
+    # brew install gmp mpfr utf8proc boost boost-python
 
     # you also need symengine installed; the instructions given at the official page at
     # https://github.com/symengine/symengine/wiki/Building-SymEngine don't seem to work that
@@ -120,12 +123,17 @@ set(SOURCE_FILES
     builtin/functional.cpp
     builtin/functional.h
     builtin/exptrig.cpp
-    builtin/exptrig.h core/runtime.cpp core/rule.cpp core/matcher.cpp builtin/strings.cpp builtin/strings.h)
+    builtin/exptrig.h
+    core/runtime.cpp
+    core/rule.cpp
+    core/matcher.cpp
+    builtin/strings.cpp
+    builtin/strings.h)
 
 add_custom_target(standalone)
 
 add_executable(cmathics ${SOURCE_FILES} mathics.cpp)
-target_link_libraries(cmathics mpfr gmp arb flint symengine ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(cmathics mpfr gmp arb flint symengine utf8proc ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
 
 add_custom_target(tests)
 
@@ -144,5 +152,5 @@ include_directories("$ENV{HOME}/googletest/googletest/include")
 link_directories("$ENV{HOME}/googletest/googletest/lib")
 
 add_executable(cmathicstest ${TESTS_SOURCE_FILES})
-target_link_libraries(cmathicstest mpfr gmp gtest)
+target_link_libraries(cmathicstest mpfr gmp utf8proc gtest)
 

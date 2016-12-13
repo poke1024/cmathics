@@ -59,6 +59,25 @@ public:
 	}
 };
 
+template<int N, typename F>
+class VariadicBuiltinRule : public AtLeastNRule<N> {
+private:
+	const F _func;
+
+public:
+	VariadicBuiltinRule(const SymbolRef &head, const Definitions &definitions, const F &func) :
+		AtLeastNRule<N>(head, definitions), _func(func) {
+	}
+
+	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
+		const F &func = _func;
+		return expr->with_leaves_array(
+			[&func, &evaluation](const BaseExpressionRef *leaves, size_t size) {
+				return func(leaves, size, evaluation);
+			});
+	}
+};
+
 inline std::string ensure_context(const char *name) {
 	return std::string("System`") + name;
 }
