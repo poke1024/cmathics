@@ -230,22 +230,13 @@ private:
 
 	inline CodePointPtr same(const CodePointPtr &begin, const CodePointPtr &end) const {
         const String * const str = static_cast<const String*>(m_patt.get());
+        const size_t n = str->length();
 
-        const unicode_t *s = str->data();
-        const unicode_t * const s_end = s + str->size();
-
-		const unicode_t *t = begin.data();
-        const unicode_t * const t_end = end.data();
-
-		while (s < s_end) {
-			if (t >= t_end || *s != *t) {
-				return nullptr;
-			}
-			s++;
-			t++;
-		}
-
-		return begin + str->length();
+        if (str->same_n(begin.string(), begin.offset(), n)) {
+            return begin + n;
+        } else {
+            return nullptr;
+        }
 	}
 
 	template<typename LeafPtr>

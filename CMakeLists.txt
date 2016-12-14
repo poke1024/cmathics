@@ -27,7 +27,7 @@ if(CUSTOM_PREFIX)
     # on OS X, the easiest way to get the dependent libraries is to use homebrew. we might want to use a custom
     # path that can be specified using CUSTOM_PREFIX. your homebrew needs to be set up using:
 
-    # brew install gmp mpfr utf8proc boost boost-python
+    # brew install gmp mpfr icu4c boost boost-python
 
     # you also need symengine installed; the instructions given at the official page at
     # https://github.com/symengine/symengine/wiki/Building-SymEngine don't seem to work that
@@ -42,8 +42,8 @@ if(CUSTOM_PREFIX)
     # make CXX_DEFINES=-std=c++11
     # make install
 
-    include_directories("${CUSTOM_PREFIX}/include" "${CUSTOM_PREFIX}/include/flint")
-    link_directories("${CUSTOM_PREFIX}/lib")
+    include_directories("${CUSTOM_PREFIX}/include" "${CUSTOM_PREFIX}/include/flint" "${CUSTOM_PREFIX}/opt/icu4c/include")
+    link_directories("${CUSTOM_PREFIX}/lib" "${CUSTOM_PREFIX}/opt/icu4c/lib")
 elseif(APPLE)
     message(WARNING "please set CUSTOM_PREFIX to a homebrew installaton with gmp, arb and symengine.")
 endif()
@@ -133,7 +133,7 @@ set(SOURCE_FILES
 add_custom_target(standalone)
 
 add_executable(cmathics ${SOURCE_FILES} mathics.cpp)
-target_link_libraries(cmathics mpfr gmp arb flint symengine utf8proc ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(cmathics mpfr gmp arb flint symengine icucore icuuc ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
 
 add_custom_target(tests)
 
@@ -152,5 +152,5 @@ include_directories("$ENV{HOME}/googletest/googletest/include")
 link_directories("$ENV{HOME}/googletest/googletest/lib")
 
 add_executable(cmathicstest ${TESTS_SOURCE_FILES})
-target_link_libraries(cmathicstest mpfr gmp utf8proc gtest)
+target_link_libraries(cmathicstest mpfr gmp icucore icuuc gtest)
 

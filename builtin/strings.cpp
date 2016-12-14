@@ -92,7 +92,7 @@ public:
         }
 
         std::string t(s.str());
-        return Heap::String(reinterpret_cast<const unicode_t*>(t.c_str()));
+        return Heap::String(reinterpret_cast<const uint8_t*>(t.c_str()), t.size());
     }
 };
 
@@ -126,7 +126,7 @@ public:
         }
 
         std::string t(s.str());
-        return Heap::String(reinterpret_cast<const unicode_t*>(t.c_str()));
+        return Heap::String(reinterpret_cast<const uint8_t*>(t.c_str()), t.size());
     }
 };
 
@@ -150,12 +150,8 @@ public:
             return BaseExpressionRef();
         }
 
-        const std::string &s = static_cast<const String*>(str)->str();
-
-        const size_t size = utf8proc_decompose(
-            reinterpret_cast<const utf8proc_uint8_t*>(s.data()), s.length(), nullptr, 0, utf8proc_option_t(0));
-
-        return Heap::MachineInteger(size);
+        return Heap::MachineInteger(
+            static_cast<const String*>(str)->length());
     }
 };
 
@@ -185,21 +181,7 @@ public:
         }
 
         const size_t n_value = static_cast<const MachineInteger*>(n)->value;
-
-        const std::string &s = static_cast<const String*>(str)->str();
-
-        utf8proc_int32_t codepoint_ref;
-        utf8proc_ssize_t size;
-        size_t total_size = 0;
-
-        for (size_t i = 0; i < n_value; i++) {
-            size = utf8proc_iterate(
-                reinterpret_cast<const utf8proc_uint8_t*>(s.data()), s.length(), &codepoint_ref);
-            if (codepoint_ref == -1) {
-                break;
-            }
-            total_size += size;
-        }
+        const String *s = static_cast<const String*>(str);
 
         return BaseExpressionRef();
     }

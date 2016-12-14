@@ -57,14 +57,14 @@ inline DynamicExpressionRef Heap::Expression(const BaseExpressionRef &head, cons
 	return DynamicExpressionRef(_s_instance->_dynamic_expressions.construct(head, slice));
 }
 
-inline StringRef Heap::String(const unicode_t *text) {
+inline StringRef Heap::String(const uint8_t *utf8, size_t size) {
 	assert(_s_instance);
-	return StringRef(_s_instance->_strings.construct(text));
+	return StringRef(_s_instance->_strings.construct(utf8, size));
 }
 
-inline StringRef Heap::String(const class String *s, size_t cp_offset, size_t cp_size) {
+inline StringRef Heap::String(const StringExtentRef &extent, size_t offset, size_t length) {
 	assert(_s_instance);
-	return StringRef(_s_instance->_strings.construct(s, cp_offset, cp_size));
+	return StringRef(_s_instance->_strings.construct(extent, offset, length));
 }
 
 inline void Heap::release(BaseExpression *expr) {

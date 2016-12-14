@@ -21,6 +21,9 @@ class BigReal;
 class RefsExtent;
 typedef boost::intrusive_ptr<RefsExtent> RefsExtentRef;
 
+class StringExtent;
+typedef std::shared_ptr<StringExtent> StringExtentRef;
+
 template<int N>
 class StaticSlice;
 
@@ -235,9 +238,9 @@ public:
         return PackedExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
     }
 
-	static inline StringRef String(const unicode_t *text);
+	static inline StringRef String(const uint8_t *utf8, size_t size);
 
-	static inline StringRef String(const class String *s, size_t cp_offset, size_t cp_size);
+	static inline StringRef String(const StringExtentRef &extent, size_t offset, size_t length);
 
 	static inline Cache *new_cache() {
 		return _s_instance->_caches.construct();
