@@ -246,37 +246,15 @@ struct BaseExpressionTuple<0, refs...> {
     typedef std::tuple<refs...> type;
 };
 
-class MatchId { // uniquely identifies a specific match
-private:
-    BaseExpressionRef _patt; // could be a weak pointer
-    BaseExpressionRef _item; // could be a weak pointer
+class MatchIdData { // uniquely identifies a specific match
+protected:
+	size_t m_ref_count;
 
-public:
-	inline MatchId() {
-	}
-
-	inline MatchId(const MatchId& id) : _patt(id._patt), _item(id._item) {
-	}
-
-	inline MatchId(const BaseExpressionRef &patt, const BaseExpressionRef &item) :
-        _patt(patt), _item(item) {
-	}
-
-	inline MatchId &operator=(const MatchId &other) {
-		_patt = other._patt;
-		_item = other._item;
-		return *this;
-	}
-
-	inline bool operator==(const MatchId &other) const {
-        return _patt == other._patt && _item == other._item;
-	}
-
-	inline void reset() {
-		_patt.reset();
-		_item.reset();
-	}
+	friend void intrusive_ptr_add_ref(MatchIdData *data);
+	friend void intrusive_ptr_release(MatchIdData *data);
 };
+
+typedef boost::intrusive_ptr<MatchIdData> MatchId;
 
 class MatchContext;
 

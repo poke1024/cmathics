@@ -67,7 +67,7 @@ class PatternMatcher;
 typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
 
 class GenericLeafPtr;
-class CodePointPtr;
+class CharacterPtr;
 
 class PatternMatcher {
 protected:
@@ -105,13 +105,13 @@ public:
 
 	virtual GenericLeafPtr match(
 		MatchContext &context,
-		GenericLeafPtr begin,
-		GenericLeafPtr end) const = 0;
+		const GenericLeafPtr &begin,
+		const GenericLeafPtr &end) const = 0;
 
-	virtual CodePointPtr match(
+	virtual CharacterPtr match(
 		MatchContext &context,
-        const CodePointPtr &begin,
-        const CodePointPtr &end) const = 0;
+        const CharacterPtr &begin,
+        const CharacterPtr &end) const = 0;
 
 	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
 	friend void intrusive_ptr_release(PatternMatcher *matcher);

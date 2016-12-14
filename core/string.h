@@ -84,62 +84,31 @@ public:
 
 class ComplexStringExtent : public StringExtent { // UTF16, varying size
 private:
+	// why are we using offset tables instead of UTF32 here? because we want to count and
+	// return characters, not code points. see myth 2 at http://utf8everywhere.org/.
+
     const UnicodeString m_string;
-    std::vector<size_t> m_code_points; // optional
+	std::vector<int32_t> m_offsets;
 
 public:
-    inline ComplexStringExtent(const uint16_t *codes) : StringExtent(StringExtent::complex) {
+    inline ComplexStringExtent(const UnicodeString &string, std::vector<int32_t> &offsets) :
+	    StringExtent(StringExtent::complex), m_string(string) {
+	    std::swap(offsets, m_offsets);
     }
 
-    /*inline const utf8proc_uint8_t *data() const { // utf8, NFC
-        return m_utf8_data;
-    }
+	inline const UnicodeString &string() const {
+		return m_string;
+	}
 
-    inline size_t length() const { // utf8, NFC
-        return m_utf8_size; // FIXME
-    }*/
+	inline const std::vector<int32_t> &offsets() const {
+		return m_offsets;
+	}
 
-    /*inline const std::vector<size_t> &code_points() {
-        if (m_n_code_points < 0) {
-            const utf8proc_uint8_t * const begin = m_utf8_data;
-            const utf8proc_uint8_t * const end = begin + m_utf8_size;
+	virtual std::string utf8(size_t offset, size_t length) const;
 
-            const utf8proc_uint8_t *p = begin;
+	virtual size_t length() const;
 
-            m_code_points.push_back(0);
-            while (p < end) {
-                utf8proc_int32_t codepoint;
-                const utf8proc_ssize_t n = utf8proc_iterate(p, end - p, &codepoint);
-                if (n < 1) {
-                    break;
-                }
-                p += n;
-                m_code_points.push_back(p - begin);
-            }
-
-            m_n_code_points = m_code_points.size() - 1;
-        }
-
-        return m_code_points;
-    }*/
-
-    virtual size_t length() const {
-        return 0; // FIXME
-    }
-
-    virtual hash_t hash(size_t offset, size_t n) {
-        return 0;
-
-        /*m_utf8_data* code_points()[offset];
-
-        hash_t result = 5381;
-
-        for (size_t i = 0; i < n; i++) {
-            result = ((result << 5) + result) + s[i];
-        }
-
-        return result;*/
-    }
+	virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n) const;
 };
 
 StringExtentRef make_string_extent(const uint8_t *utf8, size_t size);
@@ -153,7 +122,7 @@ private:
     size_t m_length;
 
 protected:
-    friend class CodePointPtr;
+    friend class CharacterPtr;
 
     const StringExtentRef &extent() const {
         return m_extent;
@@ -193,20 +162,6 @@ public:
             s->extent().get(), m_offset, s->to_extent_offset(offset), n);
     }
 
-    /*inline const utf8proc_uint8_t *data() const { // utf8, NFC
-        return m_extent->data() + m_offset;
-    }
-
-    inline size_t size() const { // utf8, NFC
-        return m_size;
-    }
-
-    inline size_t code_point(size_t index) const {
-        const auto &cp = m_extent->code_points();
-        assert(m_cp_offset + index < cp.size());
-        return cp[m_cp_offset + index] - m_offset;
-    }*/
-
 	inline SymbolRef option_symbol(const Evaluation &evaluation) const;
 
     virtual bool same(const BaseExpression &expr) const {
@@ -237,14 +192,6 @@ public:
         return str();
     }
 
-    /*inline const std::string &str() const {
-        return value;
-    }
-
-    inline const char *c_str() const {
-        return value.c_str();
-    }*/
-
     virtual bool match(const BaseExpression &expr) const {
         return same(expr);
     }
@@ -260,13 +207,13 @@ inline BaseExpressionRef from_primitive(const std::string &value) {
     return BaseExpressionRef(new String(value));
 }
 
-class CodePointPtr {
+class CharacterPtr {
 private:
     const String *m_string;
     size_t m_offset;
 
 public:
-    inline CodePointPtr(
+    inline CharacterPtr(
         const String *string,
         size_t offset = 0) :
 
@@ -274,7 +221,7 @@ public:
         m_offset(offset) {
     }
 
-    inline CodePointPtr(std::nullptr_t) :
+    inline CharacterPtr(std::nullptr_t) :
         m_string(nullptr),
         m_offset(0)  {
     }
@@ -295,35 +242,35 @@ public:
         return StringRef(); // not implemented
     }
 
-    inline bool operator==(const CodePointPtr &ptr) const {
+    inline bool operator==(const CharacterPtr &ptr) const {
         assert(m_string == ptr.m_string);
         return m_offset == ptr.m_offset;
     }
 
-    inline bool operator<(const CodePointPtr &ptr) const {
+    inline bool operator<(const CharacterPtr &ptr) const {
         assert(m_string == ptr.m_string);
         return m_offset < ptr.m_offset;
     }
 
-    inline CodePointPtr operator+(int i) const {
-        return CodePointPtr(m_string, m_offset + i);
+    inline CharacterPtr operator+(int i) const {
+        return CharacterPtr(m_string, m_offset + i);
     }
 
-    inline CodePointPtr operator+(index_t i) const {
-        return CodePointPtr(m_string, m_offset + i);
+    inline CharacterPtr operator+(index_t i) const {
+        return CharacterPtr(m_string, m_offset + i);
     }
 
-    inline CodePointPtr operator+(size_t i) const {
-        return CodePointPtr(m_string, m_offset + i);
+    inline CharacterPtr operator+(size_t i) const {
+        return CharacterPtr(m_string, m_offset + i);
     }
 
-    inline CodePointPtr operator++(int) {
-        const CodePointPtr old = CodePointPtr(m_string, m_offset);
+    inline CharacterPtr operator++(int) {
+        const CharacterPtr old = CharacterPtr(m_string, m_offset);
         m_offset += 1;
         return old;
     }
 
-    inline index_t operator-(const CodePointPtr& ptr) const {
+    inline index_t operator-(const CharacterPtr& ptr) const {
         assert(m_string == ptr.m_string);
         return m_offset - ptr.m_offset;
     }

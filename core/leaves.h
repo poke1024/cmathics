@@ -388,7 +388,7 @@ inline RefsExtentRef Heap::RefsExtent(const std::initializer_list<BaseExpression
 	return RefsExtentRef(_s_instance->_refs_extents.construct(data));
 }
 
-inline void Heap::release_refs_extent(class RefsExtent *extent) {
+inline void Heap::release(class RefsExtent *extent) {
 	_s_instance->_refs_extents.free(extent);
 }
 
@@ -398,7 +398,7 @@ inline void intrusive_ptr_add_ref(RefsExtent *extent) {
 
 inline void intrusive_ptr_release(RefsExtent *extent) {
 	if (--extent->_ref_count == 0) {
-		Heap::release_refs_extent(extent);
+		Heap::release(extent);
 	}
 }
 

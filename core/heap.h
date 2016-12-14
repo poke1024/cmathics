@@ -175,6 +175,8 @@ private:
 	boost::object_pool<Cache> _caches;
 	boost::object_pool<RefsExtent> _refs_extents;
 
+	boost::object_pool<MatchIdData> _match_ids;
+
 	Heap();
 
 public:
@@ -256,7 +258,11 @@ public:
 
 	static inline RefsExtentRef RefsExtent(const std::initializer_list<BaseExpressionRef> &data);
 
-	static inline void release_refs_extent(class RefsExtent *extent);
+	static inline void release(class RefsExtent *extent);
+
+	static inline MatchId MatchId();
+
+	static inline void release(MatchIdData *data);
 };
 
 #endif //CMATHICS_HEAP_H

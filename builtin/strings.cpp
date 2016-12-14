@@ -42,16 +42,14 @@ public:
 
 			case ExpressionType:
 				return expression_from_generator(evaluation.List, [str, &patt, &text, &evaluation] (auto &storage) {
-                    const CodePointPtr begin(str);
-                    const CodePointPtr end = begin + str->length();
-
-                    MatchContext context(patt, text, evaluation.definitions, MatchContext::Unanchored);
-                    // FIXME. context should be reset in each iteration step.
+                    const CharacterPtr begin(str);
+                    const CharacterPtr end = begin + str->length();
 
 					const auto &matcher = patt->as_expression()->string_matcher();
-                    CodePointPtr s = begin;
+					CharacterPtr s = begin;
 					while (s < end) {
-						const CodePointPtr match = matcher->match(context, s, end);
+						MatchContext context(evaluation.definitions, MatchContext::DoNotAnchor);
+						const CharacterPtr match = matcher->match(context, s, end);
 						if (match) {
                             storage << s.slice(match - s);
 						}

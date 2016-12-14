@@ -66,7 +66,7 @@ inline BaseExpressionRef element(const GenericLeafPtr &begin) {
     return *begin;
 }
 
-inline BaseExpressionRef element(const CodePointPtr &begin) {
+inline BaseExpressionRef element(const CharacterPtr &begin) {
 	return begin.slice(1);
 }
 
@@ -82,7 +82,7 @@ BaseExpressionRef sequence(const GenericLeafPtr &begin, size_t n, const Definiti
 	return begin.slice(definitions.symbols().Sequence, n);
 }
 
-BaseExpressionRef sequence(const CodePointPtr &begin, size_t n, const Definitions &definitions) {
+BaseExpressionRef sequence(const CharacterPtr &begin, size_t n, const Definitions &definitions) {
 	return begin.slice(n);
 }
 
@@ -96,19 +96,19 @@ BaseExpressionRef sequence(const CodePointPtr &begin, size_t n, const Definition
 																											  \
 	virtual GenericLeafPtr match(                                                                             \
 		MatchContext &context,                                                                                \
-		GenericLeafPtr begin,                                                                                 \
-		GenericLeafPtr end) const {                                                                           \
+		const GenericLeafPtr &begin,                                                                          \
+		const GenericLeafPtr &end) const {                                                                    \
 		return do_match<GenericLeafPtr>(context, begin, end);                                                 \
 	}                                                                                                         \
 																											  \
 
 #define DECLARE_MATCH_METHODS                                                                                 \
 	DECLARE_MATCH_EXPRESSION_METHODS                                                                          \
-	virtual CodePointPtr match(                                                                               \
+	virtual CharacterPtr match(                                                                               \
 		MatchContext &context,                                                                                \
-		const CodePointPtr &begin,                             	                                              \
-		const CodePointPtr &end) const {                         	                                          \
-        return do_match<CodePointPtr>(context, begin, end);                                                   \
+		const CharacterPtr &begin,                             	                                              \
+		const CharacterPtr &end) const {                         	                                          \
+        return do_match<CharacterPtr>(context, begin, end);                                                   \
     }
 
 class TerminateMatcher : public PatternMatcher {
@@ -119,7 +119,7 @@ private:
 		LeafPtr begin,
 		LeafPtr end) const {
 
-		if (begin == end || context.anchor != MatchContext::AnchoredEnd) {
+		if (begin == end || context.anchor != MatchContext::DoAnchor) {
 			return begin;
 		} else {
 			return nullptr;
@@ -228,7 +228,7 @@ private:
 		}
 	}
 
-	inline CodePointPtr same(const CodePointPtr &begin, const CodePointPtr &end) const {
+	inline CharacterPtr same(const CharacterPtr &begin, const CharacterPtr &end) const {
         const String * const str = static_cast<const String*>(m_patt.get());
         const size_t n = str->length();
 
@@ -401,7 +401,7 @@ private:
 			return nullptr;
 		}
 
-		const index_t min_size = context.anchor == MatchContext::AnchoredEnd ? std::max(
+		const index_t min_size = context.anchor == MatchContext::DoAnchor ? std::max(
             n - index_t(m_size_from_next.max()), Minimum) : Minimum;
 
 		index_t condition_max_size = max_size;
@@ -504,10 +504,10 @@ public:
 
 	DECLARE_MATCH_EXPRESSION_METHODS
 
-	virtual CodePointPtr match(
+	virtual CharacterPtr match(
 		MatchContext &context,
-        const CodePointPtr &begin,
-        const CodePointPtr &end) const {
+        const CharacterPtr &begin,
+        const CharacterPtr &end) const {
 		return nullptr;
     }
 };

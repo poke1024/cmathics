@@ -61,17 +61,17 @@ public:
 class MatchContext {
 public:
 	enum Anchor {
-		AnchoredEnd,
-		Unanchored
+		DoAnchor,
+		DoNotAnchor
 	};
 
 	const MatchId id;
 	Definitions &definitions;
     VariableList matched_variables;
-	Anchor anchor;
+	const Anchor anchor;
 
-	inline MatchContext(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &defs, Anchor anch) :
-        id(patt, item), definitions(defs), anchor(anch) {
+	inline MatchContext(Definitions &in_definitions, Anchor in_anchor = DoAnchor) :
+        id(Heap::MatchId()), definitions(in_definitions), anchor(in_anchor) {
 	}
 };
 
@@ -163,7 +163,7 @@ inline PatternMatcherRef Expression::string_matcher() const {
 }
 
 inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &definitions) {
-	MatchContext context(patt, item, definitions, MatchContext::AnchoredEnd);
+	MatchContext context(definitions, MatchContext::DoAnchor);
 	if (patt->type() != ExpressionType) {
 		if (patt->same(item)) {
 			return Match(true, context);
