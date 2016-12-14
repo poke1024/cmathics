@@ -90,7 +90,7 @@ public:
 
 inline SymbolRef String::option_symbol(const Evaluation &evaluation) const {
 	if (!m_option_symbol) {
-		const std::string fullname = std::string("System`") + str();
+		const std::string fullname = std::string("System`") + utf8();
 		m_option_symbol = evaluation.definitions.lookup_no_create(fullname.c_str());
 	}
 	return *m_option_symbol;

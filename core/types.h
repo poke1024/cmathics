@@ -454,6 +454,8 @@ public:
 
 	inline const Expression *as_expression() const;
 
+	inline const String *as_string() const;
+
 	template<ExtendedType HeadType, int NLeaves>
 	inline bool has_form() const;
 
@@ -612,11 +614,11 @@ public:
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 
-	virtual const BaseExpressionRef &head() const {
+	virtual inline const BaseExpressionRef &head() const final {
 		return _head;
 	}
 
-	virtual BaseExpressionPtr head_ptr() const {
+	virtual inline BaseExpressionPtr head_ptr() const final {
 		return _head.get();
 	}
 

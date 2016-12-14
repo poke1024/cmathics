@@ -27,12 +27,12 @@ public:
 		switch (patt->type()) {
 			case StringType:
 				return expression_from_generator(evaluation.List, [&str, patt] (auto &storage) {
-                    const std::string utf8 = str->str();
-					const std::string patt_str = static_cast<const String*>(patt)->str();
-					size_t pos = 0;
+                    const UnicodeString utext = str->unicode();
+					const UnicodeString upatt = static_cast<const String*>(patt)->unicode();
+					int32_t pos = 0;
 					while (true) {
-						size_t new_pos = utf8.find(patt_str, pos);
-						if (new_pos == std::string::npos) {
+						const int32_t new_pos = utext.indexOf(upatt, pos);
+						if (new_pos < 0) {
 							break;
 						}
 						storage << patt;
@@ -79,18 +79,39 @@ public:
         size_t n,
         const Evaluation &evaluation) {
 
-        std::ostringstream s;
+	    StringExtent::Type extent_type = StringExtent::ascii;
+	    size_t number_of_code_points = 0;
 
-        for (size_t i = 0; i < n; i++) {
-            const BaseExpressionRef &leaf = leaves[i];
-            if (leaf->type() != StringType) {
-                return BaseExpressionRef(); // FIXME
-            }
-            s << static_cast<const String*>(leaf.get())->str();
-        }
+	    for (size_t i = 0; i < n; i++) {
+		    const BaseExpressionRef &leaf = leaves[i];
+		    if (leaf->type() != StringType) {
+			    return BaseExpressionRef(); // FIXME
+		    }
+		    extent_type = std::max(extent_type,
+				leaf->as_string()->extent_type());
+		    number_of_code_points +=
+			    leaf->as_string()->number_of_code_points();
+	    }
 
-        std::string t(s.str());
-        return Heap::String(reinterpret_cast<const uint8_t*>(t.c_str()), t.size());
+	    if (extent_type == StringExtent::ascii) {
+			std::string text;
+		    text.reserve(number_of_code_points);
+		    for (size_t i = 0; i < n; i++) {
+			    const String *s = leaves[i]->as_string();
+			    text.append(s->ascii(), s->length());
+		    }
+	        return Heap::String(std::make_shared<AsciiStringExtent>(std::move(text)));
+	    } else {
+			UnicodeString text(number_of_code_points, 0, 0);
+		    for (size_t i = 0; i < n; i++) {
+			    text.append(leaves[i]->as_string()->unicode());
+		    }
+	        if (extent_type == StringExtent::simple) {
+		        return Heap::String(std::make_shared<SimpleStringExtent>(text));
+	        } else {
+		        throw std::runtime_error("not implemented");
+	        }
+	    }
     }
 };
 
@@ -115,16 +136,7 @@ public:
         }
 
         const size_t n_value = static_cast<const MachineInteger*>(n)->value;
-        const std::string &str_value = static_cast<const String*>(str)->str();
-
-        std::ostringstream s;
-
-        for (size_t i = 0; i < n_value; i++) {
-            s << str_value;
-        }
-
-        std::string t(s.str());
-        return Heap::String(reinterpret_cast<const uint8_t*>(t.c_str()), t.size());
+	    return static_cast<const String*>(str)->repeat(n_value);
     }
 };
 

@@ -240,7 +240,9 @@ public:
         return PackedExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
     }
 
-	static inline StringRef String(const uint8_t *utf8, size_t size);
+	static inline StringRef String(std::string &&utf8);
+
+	static inline StringRef String(const StringExtentRef &extent);
 
 	static inline StringRef String(const StringExtentRef &extent, size_t offset, size_t length);
 

@@ -598,8 +598,7 @@ template<typename... Args>
 void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) const {
 	const auto &symbols = definitions.symbols();
 
-	const BaseExpressionRef tag_str = Heap::String(
-		reinterpret_cast<const uint8_t*>(tag), strlen(tag));
+	const BaseExpressionRef tag_str = Heap::String(std::string(tag));
 
 	const ExpressionRef message = expression(
 		symbols.MessageName, name, tag_str);
@@ -614,8 +613,8 @@ void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) c
 	}
 
 	if (text_template) {
-		std::string text(text_template->str());
-		std::string full_text = message_text(std::move(text), 1, args...);
+		std::string text(text_template->utf8());
+		const std::string full_text = message_text(std::move(text), 1, args...);
 		std::cout <<
 			name->short_name() << "::" << tag << ": " <<
 		    full_text.c_str() << std::endl;

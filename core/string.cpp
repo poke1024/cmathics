@@ -40,8 +40,9 @@ void check_status(const UErrorCode &status, const char *err) {
 	}
 }
 
-StringExtentRef make_string_extent(const uint8_t *utf8, size_t size) {
+StringExtentRef make_string_extent(std::string &&utf8) {
     bool ascii = true;
+	const size_t size = utf8.size();
 
     for (size_t i = 0; i < size; i++) {
         if (utf8[i] >> 7) {
@@ -51,7 +52,7 @@ StringExtentRef make_string_extent(const uint8_t *utf8, size_t size) {
     }
 
     if (ascii) {
-        return std::make_shared<AsciiStringExtent>(utf8, size);
+        return std::make_shared<AsciiStringExtent>(std::move(utf8));
     }
 
     UErrorCode status = U_ZERO_ERROR;
@@ -59,9 +60,8 @@ StringExtentRef make_string_extent(const uint8_t *utf8, size_t size) {
     const Normalizer2 *norm = Normalizer2::getNFCInstance(status);
 	check_status(status, "Normalizer2::getNFCInstance failed");
 
-    const UnicodeString normalized = norm->normalize(
-        UnicodeString::fromUTF8(StringPiece(
-            reinterpret_cast<const char*>(utf8), size)), status);
+    UnicodeString normalized = norm->normalize(
+        UnicodeString::fromUTF8(StringPiece(utf8)), status);
 	check_status(status, "Normalizer2::normalize failed");
 
     std::unique_ptr<BreakIterator> bi(
@@ -84,8 +84,8 @@ hash_t StringExtent::hash(size_t offset, size_t length) const {
 }
 
 bool eq_ascii_simple(const AsciiStringExtent *y, size_t iy, const SimpleStringExtent *x, size_t ix, size_t n) {
-    const uint8_t * const ascii = y->data() + iy;
-    const UnicodeString &simple = x->string();
+    const char * const ascii = y->data() + iy;
+    const UnicodeString &simple = x->unicode();
     for (size_t i = 0; i < n; i++) {
         if (simple.charAt(ix + i) != ascii[i]) {
             return false;
@@ -95,8 +95,8 @@ bool eq_ascii_simple(const AsciiStringExtent *y, size_t iy, const SimpleStringEx
 }
 
 bool eq_ascii_complex(const AsciiStringExtent *y, size_t iy, const ComplexStringExtent *x, size_t ix, size_t n) {
-	const uint8_t * const ascii = y->data() + iy;
-	const UnicodeString &complex = x->string();
+	const char * const ascii = y->data() + iy;
+	const UnicodeString &complex = x->unicode();
 
 	const size_t cp_ix = x->offsets()[ix];
 	const size_t cp_n = x->offsets()[ix + n] - cp_ix;
@@ -115,22 +115,29 @@ bool eq_ascii_complex(const AsciiStringExtent *y, size_t iy, const ComplexString
 }
 
 AsciiStringExtent::~AsciiStringExtent() {
-    delete[] m_data;
 }
 
 size_t AsciiStringExtent::length() const {
-    return m_size;
+    return m_ascii.size();
+}
+
+size_t AsciiStringExtent::number_of_code_points(size_t offset, size_t length) const {
+	return length;
 }
 
 std::string AsciiStringExtent::utf8(size_t offset, size_t length) const {
-    return std::string(reinterpret_cast<const char*>(m_data + offset), length);
+    return std::string(m_ascii.data() + offset, length);
+}
+
+UnicodeString AsciiStringExtent::unicode(size_t offset, size_t length) const {
+	return unicode().tempSubString(offset, length);
 }
 
 bool AsciiStringExtent::same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n) const {
     switch (extent->type()) {
         case StringExtent::ascii: {
             const AsciiStringExtent *ascii_extent = static_cast<const AsciiStringExtent*>(extent);
-            return std::memcmp(m_data + offset, ascii_extent->m_data + extent_offset, n) == 0;
+            return std::memcmp(m_ascii.data() + offset, ascii_extent->m_ascii.data() + extent_offset, n) == 0;
         }
 
         case StringExtent::simple: {
@@ -148,14 +155,33 @@ bool AsciiStringExtent::same_n(const StringExtent *extent, size_t offset, size_t
     }
 }
 
+StringExtentRef AsciiStringExtent::repeat(size_t offset, size_t length, size_t n) const {
+	std::string s;
+	const std::string part = m_ascii.substr(offset, length);
+	s.reserve(part.size() * n);
+	for (size_t i = 0; i < n; i++) {
+		s += part;
+	}
+	return std::make_shared<AsciiStringExtent>(std::move(s));
+}
+
+
 std::string SimpleStringExtent::utf8(size_t offset, size_t length) const {
     std::string s;
     m_string.tempSubString(offset, length).toUTF8String(s);
     return s;
 }
 
+UnicodeString SimpleStringExtent::unicode(size_t offset, size_t length) const {
+	return unicode().tempSubString(offset, length);
+}
+
 size_t SimpleStringExtent::length() const {
     return m_string.length();
+}
+
+size_t SimpleStringExtent::number_of_code_points(size_t offset, size_t length) const {
+	return length;
 }
 
 bool SimpleStringExtent::same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n) const {
@@ -167,7 +193,7 @@ bool SimpleStringExtent::same_n(const StringExtent *extent, size_t offset, size_
 
         case StringExtent::simple: {
             const SimpleStringExtent *simple_extent = static_cast<const SimpleStringExtent*>(extent);
-            return m_string.compare(offset, n, simple_extent->string(), extent_offset, n) == 0;
+            return m_string.compare(offset, n, simple_extent->unicode(), extent_offset, n) == 0;
         }
 
 	    case StringExtent::complex: {
@@ -177,12 +203,23 @@ bool SimpleStringExtent::same_n(const StringExtent *extent, size_t offset, size_
 		    if (cp_size != n) {
 			    return false;
 		    }
-		    return m_string.compare(offset, n, complex_extent->string(), cp_offset, cp_size) == 0;
+		    return m_string.compare(offset, n, complex_extent->unicode(), cp_offset, cp_size) == 0;
 	    }
 
         default:
             throw std::runtime_error("unsupported string extent type");
     }
+}
+
+StringExtentRef SimpleStringExtent::repeat(size_t offset, size_t length, size_t n) const {
+	UnicodeString text(n * m_string.length(), 0, 0);
+	const UChar *begin = m_string.getBuffer() + offset;
+
+	for (size_t i = 0; i < n; i++) {
+		text.append(begin, length);
+	}
+
+	return std::make_shared<SimpleStringExtent>(text);
 }
 
 std::string ComplexStringExtent::utf8(size_t offset, size_t length) const {
@@ -193,8 +230,17 @@ std::string ComplexStringExtent::utf8(size_t offset, size_t length) const {
 	return s;
 }
 
+UnicodeString ComplexStringExtent::unicode(size_t offset, size_t length) const {
+	const size_t cp_offset = m_offsets[offset];
+	return unicode().tempSubString(cp_offset, m_offsets[offset + length] - cp_offset);
+}
+
 size_t ComplexStringExtent::length() const {
 	return m_offsets.size() - 1;
+}
+
+size_t ComplexStringExtent::number_of_code_points(size_t offset, size_t length) const {
+	return m_offsets[offset + length] - m_offsets[offset];
 }
 
 bool ComplexStringExtent::same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n) const {
@@ -213,7 +259,7 @@ bool ComplexStringExtent::same_n(const StringExtent *extent, size_t offset, size
 				return false;
 			}
 			const SimpleStringExtent *simple_extent = static_cast<const SimpleStringExtent*>(extent);
-			return m_string.compare(cp_offset, cp_size, simple_extent->string(), extent_offset, n) == 0;
+			return m_string.compare(cp_offset, cp_size, simple_extent->unicode(), extent_offset, n) == 0;
 		}
 
 		case StringExtent::complex: {
@@ -226,11 +272,24 @@ bool ComplexStringExtent::same_n(const StringExtent *extent, size_t offset, size
 				return false;
 			}
 			return m_string.compare(
-				cp_offset, cp_size, complex_extent->string(), extent_cp_offset, extent_cp_size) == 0;
+				cp_offset, cp_size, complex_extent->unicode(), extent_cp_offset, extent_cp_size) == 0;
 		}
 
 		default:
 			throw std::runtime_error("unsupported string extent type");
 	}
+}
 
+StringExtentRef ComplexStringExtent::repeat(size_t offset, size_t length, size_t n) const {
+	UnicodeString text(n * m_string.length(), 0, 0);
+
+	const UChar *begin = m_string.getBuffer() + m_offsets[offset];
+	const size_t size = m_offsets[offset + length] - m_offsets[offset];
+
+	for (size_t i = 0; i < n; i++) {
+		text.append(begin, size);
+	}
+
+	throw std::runtime_error("not implemented");
+	// return std::make_shared<ComplexStringExtent>(UnicodeString(text.data(), text.size()), offsets);
 }
