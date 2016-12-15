@@ -476,11 +476,9 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
 }
 
 #include "arithmetic.h"
-#include "structure_legacy.h"
 
 class OperationsInterface :
-	virtual public ArithmeticOperations,
-	virtual public StructureOperations {
+	virtual public ArithmeticOperations {
 };
 
 class Slice {

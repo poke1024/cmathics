@@ -75,6 +75,50 @@ inline BaseExpressionRef replace_slots(
 		});
 }
 
+inline BaseExpressionRef replace_vars(
+	Name name,
+	const Expression *body_ptr) {
+
+	if (body_ptr->has_cache() && body_ptr->cache()->skip_replace_vars.contains(name)) {
+		return BaseExpressionRef();
+	}
+
+	const BaseExpressionRef &head = body_ptr->head();
+
+	auto replace = [name] (const BaseExpressionRef &expr) {
+		const Type type = expr->type();
+
+		if (type == SymbolType) {
+			const BaseExpressionRef * const r =
+					static_cast<const Symbol*>(expr.get())->replacement();
+			if (r) {
+				return *r;
+			}
+		} else if (type == ExpressionType) {
+			return replace_vars(name, expr->as_expression());
+		}
+
+		return BaseExpressionRef();
+	};
+
+	const BaseExpressionRef new_head = replace(head);
+
+	const ExpressionRef result = body_ptr->with_slice([&head, &new_head, &replace] (const auto &slice) {
+		return transform<MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType)>(
+			new_head ? new_head : head,
+			slice,
+			0,
+			slice.size(),
+			replace,
+			(bool)new_head);
+	});
+
+	if (!result) {
+		body_ptr->cache()->skip_replace_vars.add(name);
+	}
+
+	return result;
+}
 
 class FunctionRule : public Rule {
 public:
@@ -140,7 +184,7 @@ public:
 									}
 
 									try {
-										return_expr = body_ptr->replace_vars(vars_ptr->cache()->name());
+										return_expr = replace_vars(vars_ptr->cache()->name(), body_ptr);
 									} catch(...) {
 										for (size_t i = 0; i < n_vars; i++) {
 											static_cast<const Symbol*>(vars_slice[i].get())->clear_replacement();

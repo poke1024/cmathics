@@ -7,7 +7,6 @@
 #include "operations.h"
 #include "string.h"
 #include "leaves.h"
-#include "structure_legacy.h"
 
 #include <sstream>
 #include <vector>
@@ -20,8 +19,7 @@ template<typename T>
 class AllOperationsImplementation :
     virtual public OperationsInterface,
     virtual public OperationsImplementation<T>,
-    public ArithmeticOperationsImplementation<T>,
-	public StructureOperationsImplementation<T> {
+    public ArithmeticOperationsImplementation<T> {
 public:
     inline AllOperationsImplementation() {
     }
@@ -558,7 +556,6 @@ DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(cons
 #include "evaluation.h"
 
 #include "arithmetic_implementation.h"
-#include "structure_implementation.h"
 
 #include "evaluate.h"
 
