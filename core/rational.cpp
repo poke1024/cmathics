@@ -1,6 +1,7 @@
-#include <stdlib.h>
-#include <assert.h>
-#include <stdbool.h>
-#include <gmp.h>
-
+#include "types.h"
+#include "expression.h"
 #include "rational.h"
+
+BaseExpressionPtr BigRational::head(const Evaluation &evaluation) const {
+    return evaluation.Rational;
+}

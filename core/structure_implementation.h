@@ -1,7 +1,7 @@
 #ifndef CMATHICS_STRUCTURE_IMPLEMENTATION_H
 #define CMATHICS_STRUCTURE_IMPLEMENTATION_H
 
-#include "structure.h"
+#include "structure_legacy.h"
 #include "expression.h"
 #include "evaluate.h"
 

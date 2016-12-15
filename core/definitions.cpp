@@ -116,6 +116,8 @@ Symbol *Definitions::system_symbol(const char *name, ExtendedType type) {
 	if (strncmp(name, "State", 5) == 0) {
 		fullname << "$";
 		fullname << name + 5;
+	} else if (name[0] == '_') {
+		fullname << name + 1;
 	} else {
 		fullname << name;
 	}

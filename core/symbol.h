@@ -126,6 +126,8 @@ public:
 
 	~Symbol();
 
+	virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+
 	inline const Evaluate &evaluate_with_head() const {
 		return *_evaluate_with_head;
 	}

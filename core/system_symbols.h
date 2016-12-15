@@ -24,12 +24,19 @@ SYMBOL(Shortest)
 SYMBOL(Longest)
 SYMBOL(StringExpression)
 
-SYMBOL(Verbatim)
-SYMBOL(OptionsPattern)
 SYMBOL(Slot)
 SYMBOL(SlotSequence)
 SYMBOL(Function)
 SYMBOL(Module)
+SYMBOL(OptionsPattern)
+SYMBOL(Verbatim)
+
+SYMBOL(_Symbol)
+SYMBOL(Integer)
+SYMBOL(Rational)
+SYMBOL(Real)
+SYMBOL(Complex)
+SYMBOL(String)
 
 SYMBOL(LessEqual)
 

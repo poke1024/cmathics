@@ -6,6 +6,10 @@
 #include "unicode/normalizer2.h"
 #include "unicode/errorcode.h"
 
+BaseExpressionPtr String::head(const Evaluation &evaluation) const {
+	return evaluation.String;
+}
+
 bool is_simple_encoding(BreakIterator *bi) {
     int32_t last_p = -1;
     int32_t p = bi->first();

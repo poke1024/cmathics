@@ -173,7 +173,7 @@ public:
 				while (n > N) {
 					const BaseExpressionRef &last = leaves[n - 1];
 
-					if (last->has_form<SymbolRule, 2>()) {
+					if (last->has_form<SymbolRule, 2>(evaluation)) {
 						const BaseExpressionRef * const option =
 							last->as_expression()->static_leaves<2>();
 
@@ -272,7 +272,7 @@ public:
 	}
 
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
-		const Match m = match(pattern, expr, evaluation.definitions);
+		const Match m = match(pattern, expr, evaluation);
 		if (m) {
 			const BaseExpressionRef replaced = _into->replace_all(m);
 			if (!replaced) {

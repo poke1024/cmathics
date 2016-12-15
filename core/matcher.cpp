@@ -4,7 +4,7 @@
 
 class SlowLeafSequence {
 private:
-	const Definitions &m_definitions;
+	const Evaluation &m_evaluation;
 	const Expression * const m_expr;
 
 public:
@@ -28,31 +28,27 @@ public:
 
 	class Sequence {
 	private:
-		const Symbols &m_symbols;
+		const Evaluation &m_evaluation;
 		const Expression * const m_expr;
 		const index_t m_begin;
 		const index_t m_end;
 		BaseExpressionRef m_sequence;
 
 	public:
-		inline Sequence(const Symbols &symbols, const Expression *expr, index_t begin, index_t end) :
-			m_symbols(symbols), m_expr(expr), m_begin(begin), m_end(end) {
+		inline Sequence(const Evaluation &evaluation, const Expression *expr, index_t begin, index_t end) :
+            m_evaluation(evaluation), m_expr(expr), m_begin(begin), m_end(end) {
 		}
 
 		inline const BaseExpressionRef &operator*() {
 			if (!m_sequence) {
-				m_sequence = m_expr->slice(m_symbols.Sequence, m_begin, m_end);
+				m_sequence = m_expr->slice(m_evaluation.Sequence, m_begin, m_end);
 			}
 			return m_sequence;
 		}
 	};
 
-	inline SlowLeafSequence(const Definitions &definitions, const Expression *expr) :
-		m_definitions(definitions), m_expr(expr) {
-	}
-
-	inline const Definitions &definitions() const {
-		return m_definitions;
+	inline SlowLeafSequence(const Evaluation &evaluation, const Expression *expr) :
+        m_evaluation(evaluation), m_expr(expr) {
 	}
 
 	inline Element element(index_t begin) const {
@@ -61,7 +57,7 @@ public:
 
 	inline Sequence sequence(index_t begin, index_t end) const {
         assert(begin <= end);
-		return Sequence(m_definitions.symbols(), m_expr, begin, end);
+		return Sequence(m_evaluation, m_expr, begin, end);
 	}
 
 	inline index_t same(index_t begin, BaseExpressionPtr other) const {
@@ -120,37 +116,49 @@ public:
 	DECLARE_MATCH_METHODS
 };
 
-class NoCondition {
+class NoTest {
 public:
 	template<typename Element>
-	inline bool operator()(Element &item) const {
+	inline bool operator()(Element &item, const Evaluation &evaluation) const {
 		return true;
 	}
 };
 
-class HeadCondition {
+class HeadTest {
 private:
 	const BaseExpressionRef m_head;
 
 public:
-	inline HeadCondition(const BaseExpressionRef &head) : m_head(head) {
+	inline HeadTest(const BaseExpressionRef &head) : m_head(head) {
 	}
 
 	template<typename Element>
-	inline bool operator()(Element &element) const {
+	inline bool operator()(Element &element, const Evaluation &evaluation) const {
 		const auto item = *element;
-		if (item->type() != ExpressionType) {
-			return false;
-		} else {
-			const BaseExpressionPtr a = item->as_expression()->head_ptr();
-			const BaseExpressionPtr b = m_head.get();
-			return a == b || a->same(b);
-		}
+        const BaseExpressionPtr a = item->head(evaluation);
+        const BaseExpressionPtr b = m_head.get();
+        return a == b || a->same(b);
 	}
+};
 
-	inline bool operator()(const char item) const {
-		return true;
-	}
+template<typename PrevTest>
+class PatternTest {
+private:
+    const PrevTest m_prev_test;
+    const BaseExpressionRef m_test;
+
+public:
+    inline PatternTest(const PrevTest &prev_test, const BaseExpressionRef &test) :
+        m_prev_test(prev_test), m_test(test) {
+    }
+
+    template<typename Element>
+    inline bool operator()(Element &element, const Evaluation &evaluation) const {
+        if (!m_prev_test(element, evaluation)) {
+            return false;
+        }
+        return expression(m_test, *element)->evaluate(evaluation)->is_true();
+    }
 };
 
 class Element {
@@ -328,10 +336,10 @@ public:
     DECLARE_MATCH_METHODS
 };
 
-template<typename Condition, typename Variable>
+template<typename Test, typename Variable>
 class BlankMatcher : public PatternMatcher {
 private:
-	const Condition m_condition;
+	const Test m_test;
 	const Variable m_variable;
 
 	template<typename Sequence>
@@ -342,7 +350,7 @@ private:
 		index_t end) const {
 
 		auto element = sequence.element(begin);
-		if (begin < end && m_condition(element)) {
+		if (begin < end && m_test(element, context.evaluation)) {
 			const PatternMatcherRef &next = m_next;
 			return m_variable(context, element, [begin, end, &next, &context, &sequence] () {
 				return next->match(context, sequence, begin + 1, end);
@@ -353,17 +361,17 @@ private:
 	}
 
 public:
-	inline BlankMatcher(const Condition &condition, const Variable &variable) :
-		m_condition(condition), m_variable(variable) {
+	inline BlankMatcher(const Test &test, const Variable &variable) :
+		m_test(test), m_variable(variable) {
 	}
 
 	DECLARE_MATCH_METHODS
 };
 
-template<index_t Minimum, typename Condition, typename Variable>
+template<index_t Minimum, typename Test, typename Variable>
 class GenericBlankSequenceMatcher : public PatternMatcher {
 private:
-	const Condition m_condition;
+	const Test m_test;
 	const Variable m_variable;
 
 	template<typename Sequence>
@@ -387,7 +395,7 @@ private:
 		index_t condition_max_size = max_size;
 		for (size_t i = 0; i < max_size; i++) {
 			auto element = sequence.element(begin + i);
-			if (!m_condition(element)) {
+			if (!m_test(element, context.evaluation)) {
 				condition_max_size = i;
 				break;
 			}
@@ -410,18 +418,18 @@ private:
 	}
 
 public:
-	inline GenericBlankSequenceMatcher(const Condition &condition, const Variable &variable) :
-		m_condition(condition), m_variable(variable) {
+	inline GenericBlankSequenceMatcher(const Test &test, const Variable &variable) :
+		m_test(test), m_variable(variable) {
 	}
 
 	DECLARE_MATCH_METHODS
 };
 
-template<typename Condition, typename Variable>
-using BlankNullSequenceMatcher = GenericBlankSequenceMatcher<0, Condition, Variable>;
+template<typename Test, typename Variable>
+using BlankNullSequenceMatcher = GenericBlankSequenceMatcher<0, Test, Variable>;
 
-template<typename Condition, typename Variable>
-using BlankSequenceMatcher = GenericBlankSequenceMatcher<1, Condition, Variable>;
+template<typename Test, typename Variable>
+using BlankSequenceMatcher = GenericBlankSequenceMatcher<1, Test, Variable>;
 
 template<typename Dummy, typename Variable>
 class ExpressionMatcher : public PatternMatcher {
@@ -457,18 +465,18 @@ private:
 
 		const BaseExpressionRef &head = expr->head();
 
-		if (m_match_head->match(context, FastLeafSequence(sequence.definitions(), &head), 0, 1) < 0) {
+		if (m_match_head->match(context, FastLeafSequence(context.evaluation, &head), 0, 1) < 0) {
 			return -1;
 		}
 
 		if (slice_needs_no_materialize(expr->slice_code())) {
 			if (expr->with_leaves_array([&context, &sequence, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
-				return match_leaves->match(context, FastLeafSequence(sequence.definitions(), leaves), 0, size);
+				return match_leaves->match(context, FastLeafSequence(context.evaluation, leaves), 0, size);
 			}) < 0) {
 				return -1;
 			}
 		} else {
-			if (match_leaves->match(context, SlowLeafSequence(sequence.definitions(), expr), 0, expr->size()) < 0) {
+			if (match_leaves->match(context, SlowLeafSequence(context.evaluation, expr), 0, expr->size()) < 0) {
 				return -1;
 			}
 		}
@@ -507,13 +515,15 @@ private:
 	inline PatternMatcherRef create_blank_matcher(
 		const BaseExpressionRef *patt_begin,
 		const BaseExpressionRef *patt_end,
-		const SymbolRef *variable);
+		const SymbolRef *variable,
+        const BaseExpressionRef *test);
 
-	PatternMatcherRef compile_part(
+	PatternMatcherRef compile_sequence(
 		const BaseExpressionRef &patt_head,
 		const BaseExpressionRef *patt_begin,
 		const BaseExpressionRef *patt_end,
-		const SymbolRef *variable);
+		const SymbolRef *variable,
+        const BaseExpressionRef *test);
 
 public:
     PatternCompiler();
@@ -521,7 +531,8 @@ public:
 	PatternMatcherRef compile(
 		const BaseExpressionRef *begin,
 		const BaseExpressionRef *end,
-		const SymbolRef *variable);
+		const SymbolRef *variable,
+        const BaseExpressionRef *test);
 };
 
 PatternCompiler::PatternCompiler() {
@@ -548,7 +559,8 @@ PatternMatcherRef PatternCompiler::instantiate_matcher(
 PatternMatcherRef PatternCompiler::compile(
 	const BaseExpressionRef *begin,
 	const BaseExpressionRef *end,
-	const SymbolRef *variable) {
+	const SymbolRef *variable,
+    const BaseExpressionRef *test) {
 
 	const size_t n = end - begin;
 
@@ -576,13 +588,14 @@ PatternMatcherRef PatternCompiler::compile(
 				const Expression * const patt_expr = curr->as_expression();
 
 				matcher = patt_expr->with_leaves_array(
-					[compiler, patt_expr, variable] (const BaseExpressionRef *leaves, size_t size) {
-						return compiler->compile_part(patt_expr->head(), leaves, leaves + size, variable);
+					[compiler, patt_expr, variable, test] (const BaseExpressionRef *leaves, size_t size) {
+						return compiler->compile_sequence(patt_expr->head(), leaves, leaves + size, variable, test);
 					});
 				break;
 			}
 
 			default:
+                assert(test == nullptr); // FIXME
 				matcher = instantiate_matcher<SameMatcher>(curr, variable);
 				break;
 		}
@@ -608,87 +621,109 @@ template<template<typename, typename> class Matcher>
 inline PatternMatcherRef PatternCompiler::create_blank_matcher(
     const BaseExpressionRef *patt_begin,
     const BaseExpressionRef *patt_end,
-	const SymbolRef *variable) {
+	const SymbolRef *variable,
+    const BaseExpressionRef *test) {
 
-    if (patt_end - patt_begin == 1 && (*patt_begin)->type() == SymbolType) {
-        return instantiate_matcher<Matcher>(HeadCondition(*patt_begin), variable);
+    const bool has_head = patt_end - patt_begin == 1 && (*patt_begin)->type() == SymbolType;
+
+    if (test) {
+        if (has_head) {
+            return instantiate_matcher<Matcher>(PatternTest<HeadTest>(HeadTest(*patt_begin), *test), variable);
+        } else {
+            return instantiate_matcher<Matcher>(PatternTest<NoTest>(NoTest(), *test), variable);
+        }
     } else {
-        return instantiate_matcher<Matcher>(NoCondition(), variable);
+        if (has_head) {
+            return instantiate_matcher<Matcher>(HeadTest(*patt_begin), variable);
+        } else {
+            return instantiate_matcher<Matcher>(NoTest(), variable);
+        }
     }
 }
 
-PatternMatcherRef PatternCompiler::compile_part(
+PatternMatcherRef PatternCompiler::compile_sequence(
 	const BaseExpressionRef &patt_head,
 	const BaseExpressionRef *patt_begin,
 	const BaseExpressionRef *patt_end,
-	const SymbolRef *variable) {
+	const SymbolRef *variable,
+    const BaseExpressionRef *test) {
 
 	switch (patt_head->extended_type()) {
 		case SymbolBlank:
             return create_blank_matcher<BlankMatcher>(
-                patt_begin, patt_end, variable);
+                patt_begin, patt_end, variable, test);
 
 	    case SymbolBlankSequence:
 			return create_blank_matcher<BlankSequenceMatcher>(
-				patt_begin, patt_end, variable);
+				patt_begin, patt_end, variable, test);
 
 		case SymbolBlankNullSequence:
 			return create_blank_matcher<BlankNullSequenceMatcher>(
-				patt_begin, patt_end, variable);
-
-		case SymbolPattern:
-			if (patt_end - patt_begin == 2) { // 2 leaves?
-				if ((*patt_begin)->type() == SymbolType) {
-					const SymbolRef variable = boost::const_pointer_cast<Symbol>(
-						boost::static_pointer_cast<const Symbol>(*patt_begin));
-					return compile(patt_begin + 1, patt_begin + 2, &variable);
-				}
-			}
+				patt_begin, patt_end, variable, test);
 
 		case SymbolAlternatives: {
 			std::vector<PatternMatcherRef> matchers;
 			matchers.reserve(patt_end - patt_begin);
 			for (const BaseExpressionRef *patt = patt_begin; patt < patt_end; patt++) {
-				matchers.push_back(compile(patt, patt + 1, variable));
+				matchers.push_back(compile(patt, patt + 1, variable, test));
 			}
-
 			return instantiate_matcher<AlternativesMatcher>(matchers, variable);
 		}
 
         case SymbolExcept:
             if (patt_end - patt_begin == 1) { // 1 leaf ?
                 return instantiate_matcher<ExceptMatcher>(
-                    compile(patt_begin, patt_begin + 1, nullptr), variable);
+                    compile(patt_begin, patt_begin + 1, nullptr, test), variable);
             }
+			break;
 
-            // fallthrough
+		case SymbolPattern:
+			if (patt_end - patt_begin == 2) { // 2 leaves?
+				if ((*patt_begin)->type() == SymbolType) {
+					const SymbolRef variable = boost::const_pointer_cast<Symbol>(
+						boost::static_pointer_cast<const Symbol>(patt_begin[0]));
+					return compile(patt_begin + 1, patt_begin + 2, &variable, test);
+				}
+			}
+			break;
 
-		default: {
-			const PatternMatcherRef match_head = compile(
-				&patt_head, &patt_head + 1, nullptr);
 
-			const PatternMatcherRef match_leaves = compile(
-				patt_begin, patt_end, nullptr);
+		case SymbolPatternTest:
+			if (patt_end - patt_begin == 2) { // 2 leaves?
+                const BaseExpressionRef test = patt_begin[1];
+                return compile(patt_begin, patt_begin + 1, variable, &test);
+			}
+			break;
 
-			return instantiate_matcher<ExpressionMatcher>(
-				std::make_tuple(match_head, match_leaves), variable);
-		}
+		default:
+			break;
 	}
+
+	const PatternMatcherRef match_head = compile(
+		&patt_head, &patt_head + 1, nullptr, nullptr);
+
+	const PatternMatcherRef match_leaves = compile(
+		patt_begin, patt_end, nullptr, nullptr);
+
+    assert(test == nullptr); // FIXME
+
+	return instantiate_matcher<ExpressionMatcher>(
+		std::make_tuple(match_head, match_leaves), variable);
 }
 
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt) {
 	PatternCompiler compiler;
-	return compiler.compile(&patt, &patt + 1, nullptr);
+	return compiler.compile(&patt, &patt + 1, nullptr, nullptr);
 }
 
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt) {
 	if (patt->type() == ExpressionType && patt->as_expression()->head()->extended_type() == SymbolStringExpression) {
 		return patt->as_expression()->with_leaves_array([] (const BaseExpressionRef *leaves, size_t n) {
 			PatternCompiler compiler;
-			return compiler.compile(leaves, leaves + n, nullptr);
+			return compiler.compile(leaves, leaves + n, nullptr, nullptr);
 		});
 	} else {
 		PatternCompiler compiler;
-		return compiler.compile(&patt, &patt + 1, nullptr);
+		return compiler.compile(&patt, &patt + 1, nullptr, nullptr);
 	}
 }

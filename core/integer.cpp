@@ -1,7 +1,12 @@
-#include <stdlib.h>
-#include <assert.h>
-#include <stdio.h>
-
 #include "types.h"
+#include "expression.h"
 #include "integer.h"
-#include "hash.h"
+#include "evaluation.h"
+
+BaseExpressionPtr MachineInteger::head(const Evaluation &evaluation) const {
+    return evaluation.Integer;
+}
+
+BaseExpressionPtr BigInteger::head(const Evaluation &evaluation) const {
+    return evaluation.Integer;
+}

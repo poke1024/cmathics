@@ -55,7 +55,12 @@ protected:
 		BaseExpressionPtr,
         const Evaluation &);
 
-    template<typename T>
+	template<typename T>
+	using B1 = bool (T::*) (
+		BaseExpressionPtr,
+		const Evaluation &);
+
+	template<typename T>
     using F2 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
 		BaseExpressionPtr,
@@ -81,6 +86,14 @@ protected:
 		const Options &options,
 		const Evaluation &);
 
+    template<typename T, typename Options>
+    using OptionsF3 = BaseExpressionRef (T::*) (
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        const Options &options,
+        const Evaluation &);
+
 	template<typename T>
 	inline void builtin(F1<T> fptr) {
         const auto self = std::static_pointer_cast<T>(shared_from_this());
@@ -91,6 +104,28 @@ protected:
 
 			auto p = self.get();
 			return (p->*fptr)(a, evaluation);
+		};
+
+		m_symbol->add_rule(std::make_shared<BuiltinRule<1, decltype(func)>>(
+			m_symbol,
+			m_runtime.definitions(),
+			func));
+	}
+
+	template<typename T>
+	inline void builtin(B1<T> fptr) {
+		const auto self = std::static_pointer_cast<T>(shared_from_this());
+
+		auto func = [self, fptr] (
+			BaseExpressionPtr a,
+			const Evaluation &evaluation) {
+
+			auto p = self.get();
+			if ((p->*fptr)(a, evaluation)) {
+				return evaluation.True;
+			} else {
+				return evaluation.False;
+			}
 		};
 
 		m_symbol->add_rule(std::make_shared<BuiltinRule<1, decltype(func)>>(
@@ -177,6 +212,28 @@ protected:
 			options,
 			func));
 	}
+
+    template<typename T, typename Options>
+    inline void builtin(const OptionsInitializerList &options, OptionsF3<T, Options> fptr) {
+        const auto self = std::static_pointer_cast<T>(shared_from_this());
+
+        auto func = [self, fptr] (
+            BaseExpressionPtr a,
+            BaseExpressionPtr b,
+            BaseExpressionPtr c,
+            const Options &options,
+            const Evaluation &evaluation) {
+
+            auto p = self.get();
+            return (p->*fptr)(a, b, c, options, evaluation);
+        };
+
+        m_symbol->add_rule(std::make_shared<OptionsBuiltinRule<3, Options, decltype(func)>>(
+            m_symbol,
+            m_runtime.definitions(),
+            options,
+            func));
+    }
 
 	inline void rewrite(const char *pattern, const char *into) {
 		m_symbol->add_rule(std::make_shared<RewriteRule>(

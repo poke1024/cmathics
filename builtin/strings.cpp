@@ -49,7 +49,7 @@ public:
 					const auto &matcher = patt->as_expression()->string_matcher();
 					index_t s = 0;
 					while (s < end) {
-						MatchContext context(evaluation.definitions, MatchContext::DoNotAnchor);
+						MatchContext context(evaluation, MatchContext::DoNotAnchor);
 						const index_t match = matcher->match(context, sequence, s, end);
 						if (match >= 0) {
                             storage << *sequence.sequence(s, match);

@@ -24,6 +24,8 @@ public:
 	    Integer(MachineIntegerExtendedType), value(new_value) {
     }
 
+    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+
     virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == type()) {
             return value == static_cast<const MachineInteger*>(&expr)->value;
@@ -68,6 +70,8 @@ public:
 	inline BigInteger(mpz_class &&new_value) :
 	    Integer(BigIntegerExtendedType), value(new_value) {
     }
+
+    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
     virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == BigIntegerType) {

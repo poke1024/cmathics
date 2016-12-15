@@ -23,6 +23,8 @@ public:
         BaseExpression(BigRationalExtendedType), value(new_value) {
     }
 
+    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+
     virtual hash_t hash() const {
         /*uint64_t seed = 0;
 

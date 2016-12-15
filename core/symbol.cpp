@@ -29,6 +29,10 @@ StringRef Messages::lookup(
     return StringRef();
 }
 
+BaseExpressionPtr Symbol::head(const Evaluation &evaluation) const {
+    return evaluation._Symbol;
+}
+
 void Symbol::add_message(
     const char *tag,
     const char *text,

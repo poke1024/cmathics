@@ -399,6 +399,81 @@ public:
     }
 };
 
+struct CasesOptions {
+    BaseExpressionPtr Heads;
+};
+
+class Cases : public Builtin {
+private:
+    BaseExpressionRef m_default_ls;
+
+public:
+    static constexpr const char *name = "Cases";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        m_default_ls = expression(
+            runtime.definitions().symbols().List, Heap::MachineInteger(1));
+
+        const OptionsInitializerList options = {
+            {"Heads", offsetof(CasesOptions, Heads), "False"}
+        };
+
+        builtin(options, &Cases::apply2);
+        builtin(options, &Cases::apply3);
+    }
+
+    inline BaseExpressionRef apply2(
+        BaseExpressionPtr list,
+        BaseExpressionPtr patt,
+        const CasesOptions &options,
+        const Evaluation &evaluation) {
+
+        return apply3(list, patt, m_default_ls.get(), options, evaluation);
+    }
+
+    inline BaseExpressionRef apply3(
+        BaseExpressionPtr list,
+        BaseExpressionPtr patt,
+        BaseExpressionPtr ls,
+        const CasesOptions &options,
+        const Evaluation &evaluation) {
+
+        if (list->type() != ExpressionType) {
+            return expression(evaluation.List);
+        }
+
+        try {
+            Levelspec levelspec(ls);
+
+            if (patt->type() == ExpressionType) {
+                const auto &matcher = patt->as_expression()->expression_matcher();
+
+                return expression_from_generator(evaluation.List, [&list, &options, &matcher, &levelspec, &evaluation] (auto &storage) {
+                    levelspec.walk<Levelspec::ImmutableCallback, Levelspec::NoPosition>(
+                        BaseExpressionRef(list), options.Heads->is_true(),
+                        [&storage, &matcher, &evaluation] (const BaseExpressionRef &node, Levelspec::NoPosition) {
+                            MatchContext context(evaluation, MatchContext::DoAnchor);
+                            if (matcher->match(context, FastLeafSequence(evaluation, &node), 0, 1) >= 0) {
+                                storage << node;
+                            }
+                            return BaseExpressionRef();
+                        });
+                });
+            } else {
+                return BaseExpressionRef(); // FIXME
+            }
+
+
+        } catch (const Levelspec::InvalidError&) {
+            evaluation.message(m_symbol, "level", ls);
+            return BaseExpressionRef();
+        }
+    }
+};
+
 template<typename F>
 inline bool iterate_integer_range(
     const SymbolRef &command,
@@ -910,6 +985,7 @@ void Builtins::Lists::initialize() {
     add<Rest>();
 
     add<Select>();
+    add<Cases>();
 
 	add("Map",
 	    Attributes::None, {

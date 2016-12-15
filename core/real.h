@@ -23,6 +23,8 @@ public:
 	    BaseExpression(MachineRealExtendedType), value(new_value) {
     }
 
+    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+
     virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == MachineRealType) {
             return value == static_cast<const MachineReal*>(&expr)->value;
@@ -114,6 +116,8 @@ public:
     virtual ~BigReal() {
         arb_clear(value);
     }
+
+    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
 	virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == BigRealType) {

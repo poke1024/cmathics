@@ -97,7 +97,7 @@ set(SOURCE_FILES
     core/arithmetic_implementation.h
     core/heap.cpp
     core/heap.h
-    core/structure.h
+    core/structure_legacy.h
     core/structure_implementation.h
     core/evaluate.h
     core/evaluate.cpp
@@ -111,7 +111,6 @@ set(SOURCE_FILES
     core/python.h
     core/parser.h
     core/symbol.cpp
-
     builtin/arithmetic.cpp
     builtin/arithmetic.h
     builtin/lists.cpp
@@ -128,7 +127,11 @@ set(SOURCE_FILES
     core/rule.cpp
     core/matcher.cpp
     builtin/strings.cpp
-    builtin/strings.h)
+    builtin/strings.h
+    builtin/numbertheory.cpp
+    builtin/numbertheory.h
+    builtin/structure.cpp
+    builtin/structure.h)
 
 add_custom_target(standalone)
 

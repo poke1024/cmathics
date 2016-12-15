@@ -31,6 +31,8 @@
 #include "builtin/functional.h"
 #include "builtin/lists.h"
 #include "builtin/strings.h"
+#include "builtin/structure.h"
+#include "builtin/numbertheory.h"
 
 class Experimental : public Unit {
 public:
@@ -136,6 +138,8 @@ void mini_console() {
 	Builtins::Functional(runtime).initialize();
 	Builtins::Lists(runtime).initialize();
 	Builtins::Strings(runtime).initialize();
+	Builtins::Structure(runtime).initialize();
+	Builtins::NumberTheory(runtime).initialize();
 
 	const SymbolRef Line = runtime.definitions().symbols().StateLine;
 

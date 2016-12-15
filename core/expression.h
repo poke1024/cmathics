@@ -7,7 +7,7 @@
 #include "operations.h"
 #include "string.h"
 #include "leaves.h"
-#include "structure.h"
+#include "structure_legacy.h"
 
 #include <sstream>
 #include <vector>
@@ -88,7 +88,7 @@ public:
 		if (item.type() != ExpressionType) {
 			return false;
 		}
-		const Expression *expr = static_cast<const Expression *>(&item);
+		const Expression *expr = item.as_expression();
 
 		if (!_head->same(expr->head())) {
 			return false;

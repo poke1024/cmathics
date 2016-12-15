@@ -396,13 +396,7 @@ public:
 
     // various getters
 
-    virtual const BaseExpressionRef &head() const {
-        throw std::runtime_error("head not implemented");
-    }
-
-    virtual BaseExpressionPtr head_ptr() const {
-        return nullptr; // no head available
-    }
+    virtual BaseExpressionPtr head(const Evaluation &evaluation) const = 0;
 
     virtual bool is_sequence() const {
         return false;
@@ -457,7 +451,7 @@ public:
 	inline const String *as_string() const;
 
 	template<ExtendedType HeadType, int NLeaves>
-	inline bool has_form() const;
+	inline bool has_form(const Evaluation &evaluation) const;
 
 	virtual SortKey sort_key() const;
 	virtual SortKey pattern_key() const;
@@ -482,7 +476,7 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
 }
 
 #include "arithmetic.h"
-#include "structure.h"
+#include "structure_legacy.h"
 
 class OperationsInterface :
 	virtual public ArithmeticOperations,
@@ -614,13 +608,13 @@ public:
 
 	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
 
-	virtual inline const BaseExpressionRef &head() const final {
-		return _head;
-	}
-
-	virtual inline BaseExpressionPtr head_ptr() const final {
+	virtual inline BaseExpressionPtr head(const Evaluation &evaluation) const final {
 		return _head.get();
 	}
+
+    inline BaseExpressionPtr head() const {
+        return _head.get();
+    }
 
     virtual bool is_sequence() const {
 		return _head->extended_type() == SymbolSequence;
@@ -737,12 +731,12 @@ inline const Expression *BaseExpression::as_expression() const {
 }
 
 template<ExtendedType HeadType, int NLeaves>
-inline bool BaseExpression::has_form() const {
+inline bool BaseExpression::has_form(const Evaluation &evaluation) const {
 	if (type() != ExpressionType) {
 		return false;
 	}
 	const Expression * const expr = as_expression();
-	if (expr->head()->extended_type() == HeadType && expr->size() == NLeaves) {
+	if (expr->head(evaluation)->extended_type() == HeadType && expr->size() == NLeaves) {
 		return true;
 	} else {
 		return false;

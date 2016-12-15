@@ -7,6 +7,14 @@
 #include "real.h"
 #include "expression.h"
 
+BaseExpressionPtr MachineReal::head(const Evaluation &evaluation) const {
+    return evaluation.Real;
+}
+
+BaseExpressionPtr BigReal::head(const Evaluation &evaluation) const {
+    return evaluation.Real;
+}
+
 // determine precision of an expression
 // returns 0 if the precision is infinite
 // returns 1 if the precision is machine-valued

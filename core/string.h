@@ -215,7 +215,9 @@ public:
         m_length(length) {
     }
 
-	inline StringExtent::Type extent_type() const {
+    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+
+    inline StringExtent::Type extent_type() const {
 		return m_extent->type();
 	}
 
