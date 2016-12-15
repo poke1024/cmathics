@@ -61,8 +61,6 @@ else()
 endif()
 
 set(SOURCE_FILES
-    core/arithmetic.cpp
-    core/arithmetic.h
     core/definitions.cpp
     core/definitions.h
     core/evaluation.cpp
@@ -93,8 +91,6 @@ set(SOURCE_FILES
     core/builtin.h
     core/symbol.h
     core/matcher.h
-    core/operations.h
-    core/arithmetic_implementation.h
     core/heap.cpp
     core/heap.h
     core/evaluate.h

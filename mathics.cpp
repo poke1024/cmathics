@@ -17,7 +17,6 @@
 #include "core/integer.h"
 #include "core/real.h"
 #include "core/rational.h"
-#include "core/arithmetic.h"
 #include "core/string.h"
 #include "core/builtin.h"
 #include "core/evaluate.h"

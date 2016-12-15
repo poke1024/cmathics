@@ -4,7 +4,6 @@
 #include "types.h"
 #include "hash.h"
 #include "symbol.h"
-#include "operations.h"
 #include "string.h"
 #include "leaves.h"
 
@@ -15,19 +14,8 @@
 #include <symengine/mul.h>
 #include <symengine/pow.h>
 
-template<typename T>
-class AllOperationsImplementation :
-    virtual public OperationsInterface,
-    virtual public OperationsImplementation<T>,
-    public ArithmeticOperationsImplementation<T> {
-public:
-    inline AllOperationsImplementation() {
-    }
-};
-
 template<typename Slice>
-class ExpressionImplementation :
-	public Expression, public AllOperationsImplementation<ExpressionImplementation<Slice>> {
+class ExpressionImplementation : public Expression {
 
 protected:
 	virtual BaseExpressionRef materialize_leaf(size_t i) const {
@@ -554,8 +542,6 @@ DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(cons
 
 #include "definitions.h"
 #include "evaluation.h"
-
-#include "arithmetic_implementation.h"
 
 #include "evaluate.h"
 

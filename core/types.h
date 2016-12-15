@@ -475,12 +475,6 @@ inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) 
     return s;
 }
 
-#include "arithmetic.h"
-
-class OperationsInterface :
-	virtual public ArithmeticOperations {
-};
-
 class Slice {
 public:
 	const size_t _size;
@@ -533,7 +527,7 @@ template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
 class SliceMethod {
 };
 
-class Expression : public BaseExpression, virtual public OperationsInterface {
+class Expression : public BaseExpression {
 private:
 	mutable Cache *_cache;
 
@@ -678,6 +672,8 @@ inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
 	s << boost::static_pointer_cast<const BaseExpression>(expr);
 	return s;
 }
+
+#include "rule.h"
 
 template<bool CheckMatchSize>
 inline BaseExpressionRef Rules::do_try_and_apply(

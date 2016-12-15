@@ -24,6 +24,11 @@ decltype(auto) apply_from_tuple(F&& fn, Tuple&& t)
                             std::make_index_sequence<tSize>());
 }
 
+template<typename T>
+RuleRef NewRule(const SymbolRef &head, const Definitions &definitions) {
+	return std::make_shared<T>(head, definitions);
+}
+
 template<int N, typename... refs>
 struct BuiltinFunctionArguments {
     typedef typename BuiltinFunctionArguments<N - 1, BaseExpressionRef, refs...>::type type;
