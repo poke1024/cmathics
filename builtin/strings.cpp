@@ -1,4 +1,5 @@
 #include "strings.h"
+#include "unicode/uchar.h"
 
 class StringCases : public Builtin {
 public:
@@ -109,7 +110,7 @@ public:
 	        if (extent_type == StringExtent::simple) {
 		        return Heap::String(std::make_shared<SimpleStringExtent>(text));
 	        } else {
-		        throw std::runtime_error("not implemented");
+		        return Heap::String(std::make_shared<ComplexStringExtent>(text));
 	        }
 	    }
     }
@@ -135,8 +136,7 @@ public:
             return BaseExpressionRef();
         }
 
-        const size_t n_value = static_cast<const MachineInteger*>(n)->value;
-	    return static_cast<const String*>(str)->repeat(n_value);
+	    return str->as_string()->repeat(static_cast<const MachineInteger*>(n)->value);
     }
 };
 
@@ -173,7 +173,7 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        builtin(&StringLength::apply);
+        builtin(&StringTake::apply);
     }
 
     inline BaseExpressionRef apply(
@@ -191,9 +191,82 @@ public:
         }
 
         const size_t n_value = static_cast<const MachineInteger*>(n)->value;
-        const String *s = static_cast<const String*>(str);
 
-        return BaseExpressionRef();
+        return str->as_string()->take(n_value);
+    }
+};
+
+class StringDrop : public Builtin {
+public:
+    static constexpr const char *name = "StringDrop";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        builtin(&StringDrop::apply);
+    }
+
+    inline BaseExpressionRef apply(
+        BaseExpressionPtr str,
+        BaseExpressionPtr n,
+        const Evaluation &evaluation) {
+
+        if (str->type() != StringType) {
+            evaluation.message(m_symbol, "string");
+            return BaseExpressionRef();
+        }
+
+        if (n->type() != MachineIntegerType) {
+            return BaseExpressionRef();
+        }
+
+        const size_t n_value = static_cast<const MachineInteger*>(n)->value;
+
+        return str->as_string()->drop(n_value);
+    }
+};
+
+class StringTrim : public Builtin {
+public:
+    static constexpr const char *name = "StringTrim";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        builtin(&StringTrim::apply);
+    }
+
+    inline BaseExpressionRef apply(
+        BaseExpressionPtr str,
+        const Evaluation &evaluation) {
+
+        if (str->type() != StringType) {
+            evaluation.message(m_symbol, "string");
+            return BaseExpressionRef();
+        }
+
+        UnicodeString s(str->as_string()->unicode());
+
+        index_t end = s.length();
+        index_t begin = 0;
+        while (begin < end) {
+            if (!u_isUWhiteSpace(s.charAt(begin))) {
+                break;
+            }
+            begin++;
+        }
+
+        while (end > begin) {
+            if (!u_isUWhiteSpace(s.charAt(end - 1))) {
+                break;
+            }
+            end--;
+        }
+
+        return str->as_string()->strip_code_points(
+            begin, s.length() - end);
     }
 };
 
@@ -203,4 +276,6 @@ void Builtins::Strings::initialize() {
     add<StringRepeat>();
     add<StringLength>();
     add<StringTake>();
+    add<StringDrop>();
+    add<StringTrim>();
 }

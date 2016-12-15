@@ -44,6 +44,8 @@ public:
     virtual bool same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n) const = 0;
 
 	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const = 0;
+
+    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const = 0;
 };
 
 class AsciiStringExtent : public StringExtent {
@@ -83,6 +85,8 @@ public:
     virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n) const;
 
 	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const;
+
+    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const;
 };
 
 class SimpleStringExtent : public StringExtent { // UTF16, fixed size
@@ -109,7 +113,11 @@ public:
 	virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n) const;
 
 	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const;
+
+    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const;
 };
+
+std::vector<int32_t> make_character_offsets(const UnicodeString &normalized);
 
 class ComplexStringExtent : public StringExtent { // UTF16, varying size
 private:
@@ -120,9 +128,15 @@ private:
 	std::vector<int32_t> m_offsets;
 
 public:
-    inline ComplexStringExtent(UnicodeString &string, std::vector<int32_t> &offsets) :
+    inline ComplexStringExtent(UnicodeString &normalized_string) :
+        StringExtent(StringExtent::complex) {
+        m_string.moveFrom(normalized_string);
+        m_offsets = make_character_offsets(normalized_string);
+    }
+
+    inline ComplexStringExtent(UnicodeString &normalized_string, std::vector<int32_t> &offsets) :
 	    StringExtent(StringExtent::complex) {
-	    m_string.moveFrom(string);
+	    m_string.moveFrom(normalized_string);
 	    std::swap(offsets, m_offsets);
     }
 
@@ -145,9 +159,13 @@ public:
 	virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n) const;
 
 	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const;
+
+    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const;
 };
 
 StringExtentRef make_string_extent(std::string &&utf8);
+
+StringExtentRef string_extent_from_normalized(UnicodeString &&normalized, uint8_t possible_types = 0xff);
 
 class String : public BaseExpression {
 private:
@@ -262,15 +280,40 @@ public:
         return m_length;
     }
 
-	inline size_t number_of_code_points() const {
-		return m_extent->number_of_code_points(m_offset, m_length);
-	}
+    inline StringRef take(index_t n) const {
+        if (n >= 0) {
+            return Heap::String(m_extent, m_offset, std::min(n, index_t(m_length)));
+        } else {
+            n = std::min(-n, index_t(m_length));
+            return Heap::String(m_extent, m_offset + m_length - n, n);
+        }
+    }
 
-    String take(index_t n) const;
+    inline StringRef drop(index_t n) const {
+        if (n >= 0) {
+            n = std::min(n, index_t(m_length));
+            return Heap::String(m_extent, m_offset + n, m_length - n);
+        } else {
+            n = std::min(-n, index_t(m_length));
+            return Heap::String(m_extent, m_offset, m_length - n);
+        }
+    }
 
 	inline StringRef repeat(size_t n) const {
 		return Heap::String(m_extent->repeat(m_offset, m_length, n));
 	}
+
+    inline size_t number_of_code_points() const {
+        return m_extent->number_of_code_points(m_offset, m_length);
+    }
+
+    inline StringRef strip_code_points(index_t cp_left, index_t cp_right) const {
+        const size_t shift = m_extent->walk_code_points(m_offset, cp_left);
+        return Heap::String(
+            m_extent,
+            m_offset + shift,
+            m_length - shift - m_extent->walk_code_points(m_offset + m_length, -cp_right));
+    }
 };
 
 inline const String *BaseExpression::as_string() const {

@@ -19,9 +19,9 @@ bool is_simple_encoding(BreakIterator *bi) {
     return true;
 }
 
-std::vector<int32_t> character_offsets(BreakIterator *bi, size_t size) {
+std::vector<int32_t> character_offsets(BreakIterator *bi, size_t capacity) {
     std::vector<int32_t> offsets;
-    offsets.reserve(size);
+    offsets.reserve(capacity);
     int32_t p = bi->first();
     while (p != BreakIterator::DONE) {
         offsets.push_back(p);
@@ -40,18 +40,66 @@ void check_status(const UErrorCode &status, const char *err) {
 	}
 }
 
+StringExtentRef string_extent_from_normalized(UnicodeString &&normalized, uint8_t possible_types) {
+	if (possible_types & (1 << StringExtent::ascii)) {
+		const size_t size = normalized.length();
+		const UChar *buffer = normalized.getBuffer();
+
+		bool is_ascii = true;
+
+		if (possible_types != (1 << StringExtent::ascii)) {
+			for (size_t i = 0; i < size; i++) {
+				if (buffer[i] >> 7) {
+					is_ascii = false;
+					break;
+				}
+			}
+		}
+
+		if (is_ascii) {
+			std::string ascii;
+			ascii.reserve(size);
+
+			for (size_t i = 0; i < size; i++) {
+				ascii.append(1, char(buffer[i]));
+			}
+
+			return std::make_shared<AsciiStringExtent>(std::move(ascii));
+		}
+	}
+
+	if ((possible_types & (1 << StringExtent::complex)) == 0) {
+		return std::make_shared<SimpleStringExtent>(normalized);
+	}
+
+    UErrorCode status = U_ZERO_ERROR;
+
+	std::unique_ptr<BreakIterator> bi(
+		BreakIterator::createCharacterInstance(Locale::getUS(), status));
+	check_status(status, "BreakIterator::createCharacterInstance failed");
+
+	bi->setText(normalized);
+
+	if (is_simple_encoding(bi.get())) {
+		return std::make_shared<SimpleStringExtent>(normalized);
+	} else {
+		std::vector<int32_t> offsets = character_offsets(bi.get(), normalized.length());
+		return std::make_shared<ComplexStringExtent>(normalized, offsets);
+	}
+}
+
 StringExtentRef make_string_extent(std::string &&utf8) {
-    bool ascii = true;
+    bool is_ascii = true;
 	const size_t size = utf8.size();
 
     for (size_t i = 0; i < size; i++) {
         if (utf8[i] >> 7) {
-            ascii = false;
+			is_ascii = false;
             break;
         }
     }
 
-    if (ascii) {
+    if (is_ascii) {
         return std::make_shared<AsciiStringExtent>(std::move(utf8));
     }
 
@@ -64,18 +112,20 @@ StringExtentRef make_string_extent(std::string &&utf8) {
         UnicodeString::fromUTF8(StringPiece(utf8)), status);
 	check_status(status, "Normalizer2::normalize failed");
 
-    std::unique_ptr<BreakIterator> bi(
-        BreakIterator::createCharacterInstance(Locale::getUS(), status));
+	return string_extent_from_normalized(std::move(normalized),
+		 (1 << StringExtent::simple) | (1 << StringExtent::complex));
+}
+
+std::vector<int32_t> make_character_offsets(const UnicodeString &normalized) {
+	UErrorCode status = U_ZERO_ERROR;
+
+	std::unique_ptr<BreakIterator> bi(
+		BreakIterator::createCharacterInstance(Locale::getUS(), status));
 	check_status(status, "BreakIterator::createCharacterInstance failed");
 
-    bi->setText(normalized);
+	bi->setText(normalized);
 
-    if (is_simple_encoding(bi.get())) {
-        return std::make_shared<SimpleStringExtent>(normalized);
-    } else {
-        std::vector<int32_t> offsets = character_offsets(bi.get(), size);
-	    return std::make_shared<ComplexStringExtent>(normalized, offsets);
-    }
+	return character_offsets(bi.get(), normalized.length());
 }
 
 hash_t StringExtent::hash(size_t offset, size_t length) const {
@@ -165,6 +215,10 @@ StringExtentRef AsciiStringExtent::repeat(size_t offset, size_t length, size_t n
 	return std::make_shared<AsciiStringExtent>(std::move(s));
 }
 
+size_t AsciiStringExtent::walk_code_points(size_t offset, index_t cp_offset) const {
+    return std::abs(cp_offset);
+}
+
 
 std::string SimpleStringExtent::utf8(size_t offset, size_t length) const {
     std::string s;
@@ -220,6 +274,10 @@ StringExtentRef SimpleStringExtent::repeat(size_t offset, size_t length, size_t 
 	}
 
 	return std::make_shared<SimpleStringExtent>(text);
+}
+
+size_t SimpleStringExtent::walk_code_points(size_t offset, index_t cp_offset) const {
+    return std::abs(cp_offset);
 }
 
 std::string ComplexStringExtent::utf8(size_t offset, size_t length) const {
@@ -290,6 +348,9 @@ StringExtentRef ComplexStringExtent::repeat(size_t offset, size_t length, size_t
 		text.append(begin, size);
 	}
 
-	throw std::runtime_error("not implemented");
-	// return std::make_shared<ComplexStringExtent>(UnicodeString(text.data(), text.size()), offsets);
+	return std::make_shared<ComplexStringExtent>(text);
+}
+
+size_t ComplexStringExtent::walk_code_points(size_t offset, index_t cp_offset) const {
+    throw std::runtime_error("not implemented");
 }
