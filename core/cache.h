@@ -66,8 +66,9 @@ class PatternMatcher;
 
 typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
 
-class GenericLeafPtr;
-class CharacterPtr;
+class FastLeafSequence;
+class SlowLeafSequence;
+class CharacterSequence;
 
 class PatternMatcher {
 protected:
@@ -98,20 +99,23 @@ public:
 		return m_size_from_here.contains(size);
 	}
 
-	virtual const BaseExpressionRef *match(
+	virtual index_t match(
 		MatchContext &context,
-		const BaseExpressionRef *begin,
-		const BaseExpressionRef *end) const = 0;
+		const FastLeafSequence &sequence,
+		index_t begin,
+		index_t end) const = 0;
 
-	virtual GenericLeafPtr match(
+	virtual index_t match(
 		MatchContext &context,
-		const GenericLeafPtr &begin,
-		const GenericLeafPtr &end) const = 0;
+		const SlowLeafSequence &sequence,
+		index_t begin,
+		index_t end) const = 0;
 
-	virtual CharacterPtr match(
+	virtual index_t match(
 		MatchContext &context,
-        const CharacterPtr &begin,
-        const CharacterPtr &end) const = 0;
+		const CharacterSequence &sequence,
+		index_t begin,
+		index_t end) const = 0;
 
 	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
 	friend void intrusive_ptr_release(PatternMatcher *matcher);

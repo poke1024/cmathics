@@ -153,12 +153,12 @@ class String : public BaseExpression {
 private:
 	mutable optional<SymbolRef> m_option_symbol; // "System`" + value
 
-    StringExtentRef m_extent;
-    size_t m_offset;
-    size_t m_length;
+    const StringExtentRef m_extent;
+    const size_t m_offset;
+    const size_t m_length;
 
 protected:
-    friend class CharacterPtr;
+    friend class CharacterSequence;
 
     const StringExtentRef &extent() const {
         return m_extent;
@@ -169,28 +169,32 @@ protected:
     }
 
 public:
-	inline String(const std::string &utf8) : BaseExpression(StringExtendedType) {
-		m_extent = make_string_extent(std::string(utf8));
-		m_offset = 0;
-		m_length = m_extent->length();
+	inline String(const std::string &utf8) :
+        BaseExpression(StringExtendedType),
+        m_extent(make_string_extent(std::string(utf8))),
+        m_offset(0),
+        m_length(m_extent->length()) {
 	}
 
-	inline String(std::string &utf8) : BaseExpression(StringExtendedType) {
-        m_extent = make_string_extent(std::move(utf8));
-        m_offset = 0;
-        m_length = m_extent->length();
+	inline String(std::string &utf8) :
+        BaseExpression(StringExtendedType),
+        m_extent(make_string_extent(std::move(utf8))),
+        m_offset(0),
+        m_length(m_extent->length()) {
     }
 
-	inline String(const StringExtentRef &extent) : BaseExpression(StringExtendedType) {
-		m_extent = extent;
-		m_offset = 0;
-		m_length = m_extent->length();
+	inline String(const StringExtentRef &extent) :
+        BaseExpression(StringExtendedType),
+        m_extent(extent),
+        m_offset(0),
+        m_length(extent->length()) {
 	}
 
-	inline String(const StringExtentRef &extent, size_t offset, size_t length) : BaseExpression(StringExtendedType) {
-        m_extent = extent;
-        m_offset = offset;
-        m_length = length;
+	inline String(const StringExtentRef &extent, size_t offset, size_t length) :
+        BaseExpression(StringExtendedType),
+        m_extent(extent),
+        m_offset(offset),
+        m_length(length) {
     }
 
 	inline StringExtent::Type extent_type() const {
@@ -277,80 +281,76 @@ inline BaseExpressionRef from_primitive(const std::string &value) {
     return BaseExpressionRef(new String(value));
 }
 
-class CharacterPtr {
+class CharacterSequence {
 private:
-    const String *m_string;
-    size_t m_offset;
+    const String * const m_string;
 
 public:
-    inline CharacterPtr(
-        const String *string,
-        size_t offset = 0) :
+    class Element {
+    private:
+        const String * const m_string;
+        const index_t m_begin;
+        BaseExpressionRef m_element;
 
-        m_string(string),
-        m_offset(offset) {
+    public:
+        inline Element(const String *string, index_t begin) : m_string(string), m_begin(begin) {
+        }
+
+        inline const BaseExpressionRef &operator*() {
+            if (!m_element) {
+                m_element = Heap::String(
+                    m_string->extent(),
+                    m_string->to_extent_offset(m_begin),
+                    m_string->to_extent_offset(m_begin + 1));
+            }
+            return m_element;
+        }
+    };
+
+    class Sequence {
+    private:
+        const String * const m_string;
+        const index_t m_begin;
+        const index_t m_end;
+        BaseExpressionRef m_sequence;
+
+    public:
+        inline Sequence(const String *string, index_t begin, index_t end) :
+            m_string(string), m_begin(begin), m_end(end) {
+        }
+
+        inline const BaseExpressionRef &operator*() {
+            if (!m_sequence) {
+                m_sequence = Heap::String(
+                    m_string->extent(),
+                    m_string->to_extent_offset(m_begin),
+                    m_end - m_begin);
+            }
+            return m_sequence;
+        }
+    };
+
+    inline CharacterSequence(const String *string) : m_string(string) {
     }
 
-    inline CharacterPtr(std::nullptr_t) :
-        m_string(nullptr),
-        m_offset(0)  {
+    inline Element element(index_t begin) const {
+        return Element(m_string, begin);
     }
 
-    inline const String *string() const {
-        return m_string;
+    inline Sequence sequence(index_t begin, index_t end) const {
+        assert(begin <= end);
+        return Sequence(m_string, begin, end);
     }
 
-    inline size_t offset() const {
-        return m_offset;
-    }
+    inline index_t same(index_t begin, BaseExpressionPtr other) const {
+        const String * const other_string = other->as_string();
+        const size_t n = other_string->length();
 
-    inline StringRef operator*() const {
-        return StringRef(); // not implemented
-    }
-
-    inline StringRef operator[](size_t i) const {
-        return StringRef(); // not implemented
-    }
-
-    inline bool operator==(const CharacterPtr &ptr) const {
-        assert(m_string == ptr.m_string);
-        return m_offset == ptr.m_offset;
-    }
-
-    inline bool operator<(const CharacterPtr &ptr) const {
-        assert(m_string == ptr.m_string);
-        return m_offset < ptr.m_offset;
-    }
-
-    inline CharacterPtr operator+(int i) const {
-        return CharacterPtr(m_string, m_offset + i);
-    }
-
-    inline CharacterPtr operator+(index_t i) const {
-        return CharacterPtr(m_string, m_offset + i);
-    }
-
-    inline CharacterPtr operator+(size_t i) const {
-        return CharacterPtr(m_string, m_offset + i);
-    }
-
-    inline CharacterPtr operator++(int) {
-        const CharacterPtr old = CharacterPtr(m_string, m_offset);
-        m_offset += 1;
-        return old;
-    }
-
-    inline index_t operator-(const CharacterPtr& ptr) const {
-        assert(m_string == ptr.m_string);
-        return m_offset - ptr.m_offset;
-    }
-
-    inline operator bool() const {
-        return m_string;
-    }
-
-    inline BaseExpressionRef slice(size_t n) const {
-        return Heap::String(m_string->extent(), m_string->to_extent_offset(m_offset), n);
+        if (other_string->same_n(m_string, begin, n)) {
+            return begin + n;
+        } else {
+            return -1;
+        }
     }
 };
 

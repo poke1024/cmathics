@@ -42,16 +42,16 @@ public:
 
 			case ExpressionType:
 				return expression_from_generator(evaluation.List, [str, &patt, &text, &evaluation] (auto &storage) {
-                    const CharacterPtr begin(str);
-                    const CharacterPtr end = begin + str->length();
+                    const CharacterSequence sequence(str);
+                    const index_t end = str->length();
 
 					const auto &matcher = patt->as_expression()->string_matcher();
-					CharacterPtr s = begin;
+					index_t s = 0;
 					while (s < end) {
 						MatchContext context(evaluation.definitions, MatchContext::DoNotAnchor);
-						const CharacterPtr match = matcher->match(context, s, end);
-						if (match) {
-                            storage << s.slice(match - s);
+						const index_t match = matcher->match(context, sequence, s, end);
+						if (match >= 0) {
+                            storage << *sequence.sequence(s, match);
 						}
 						s++;
 					}

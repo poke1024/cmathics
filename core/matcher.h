@@ -162,6 +162,78 @@ inline PatternMatcherRef Expression::string_matcher() const {
 	return cache_ptr->string_matcher;
 }
 
+class FastLeafSequence {
+private:
+	const Definitions &m_definitions;
+	const BaseExpressionRef * const m_array;
+
+public:
+	class Element {
+	private:
+		const BaseExpressionRef * const m_begin;
+
+	public:
+		inline Element(const BaseExpressionRef *array, index_t begin) : m_begin(array + begin) {
+		}
+
+		inline const BaseExpressionRef &operator*() const {
+			return *m_begin;
+		}
+	};
+
+	class Sequence {
+	private:
+		const Symbols &m_symbols;
+		const BaseExpressionRef * const m_begin;
+		const index_t m_n;
+		BaseExpressionRef m_sequence;
+
+	public:
+		inline Sequence(const Symbols &symbols, const BaseExpressionRef *array, index_t begin, index_t end) :
+			m_symbols(symbols), m_begin(array + begin), m_n(end - begin) {
+		}
+
+		inline const BaseExpressionRef &operator*() {
+			if (!m_sequence) {
+				const BaseExpressionRef * const begin = m_begin;
+				const index_t n = m_n;
+				m_sequence = expression(m_symbols.Sequence, [begin, n] (auto &storage) {
+					for (index_t i = 0; i < n; i++) {
+						storage << begin[i];
+					}
+				}, n);
+			}
+			return m_sequence;
+		}
+	};
+
+	inline FastLeafSequence(const Definitions &definitions, const BaseExpressionRef *array) :
+		m_definitions(definitions), m_array(array) {
+	}
+
+	inline const Definitions &definitions() const {
+		return m_definitions;
+	}
+
+	inline Element element(index_t begin) const {
+		return Element(m_array, begin);
+	}
+
+	inline Sequence sequence(index_t begin, index_t end) const {
+        assert(begin <= end);
+		return Sequence(m_definitions.symbols(), m_array, begin, end);
+	}
+
+	inline index_t same(index_t begin, BaseExpressionPtr other) const {
+		const BaseExpressionPtr expr = m_array[begin].get();
+		if (other == expr || other->same(expr)) {
+			return begin + 1;
+		} else {
+			return -1;
+		}
+	}
+};
+
 inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, Definitions &definitions) {
 	MatchContext context(definitions, MatchContext::DoAnchor);
 	if (patt->type() != ExpressionType) {
@@ -172,7 +244,7 @@ inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item,
 		}
 	} else {
 		const auto &matcher = patt->as_expression()->expression_matcher();
-		if (matcher->might_match(1) && matcher->match(context, &item, &item + 1)) {
+		if (matcher->might_match(1) && matcher->match(context, FastLeafSequence(definitions, &item), 0, 1) >= 0) {
 			return Match(true, context);
 		} else {
 			return Match(); // no match

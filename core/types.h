@@ -552,7 +552,7 @@ protected:
 	friend class ArraySlice;
 	friend class VCallSlice;
 
-	friend class GenericLeafPtr;
+	friend class SlowLeafSequence;
 
 	const Slice * const _slice_ptr;
 
