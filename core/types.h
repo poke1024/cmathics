@@ -420,6 +420,15 @@ public:
 		return BaseExpressionRef();
     }
 
+	inline BaseExpressionRef replace_all_or_copy(const Match &match) const {
+		const BaseExpressionRef result = replace_all(match);
+		if (result) {
+			return result;
+		} else {
+			return BaseExpressionRef(this);
+		}
+	}
+
     virtual BaseExpressionRef clone() const {
         throw std::runtime_error("not implemented yet");
     }

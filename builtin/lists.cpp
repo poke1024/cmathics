@@ -213,6 +213,22 @@ public:
             return std::make_tuple(modified_node, depth);
         }
     }
+
+	template<typename Callback>
+	std::tuple<Levelspec::Immutable, size_t>
+	inline walk_immutable(
+		const BaseExpressionRef &node,
+		const bool heads,
+		const Callback &callback) const {
+
+		return walk<Levelspec::Immutable, Levelspec::NoPosition>(
+			node,
+			heads,
+			[&callback] (const BaseExpressionRef &node, Levelspec::NoPosition) {
+				callback(node);
+				return Levelspec::Immutable();
+			});
+	};
 };
 
 struct LevelOptions {
@@ -241,14 +257,13 @@ public:
 	    const Evaluation &evaluation) {
 
 	    try {
-		    Levelspec levelspec(ls);
+		    const Levelspec levelspec(ls);
 
 		    return expression_from_generator(evaluation.List, [&options, &expr, &levelspec](auto &storage) {
-			    levelspec.walk<Levelspec::Immutable, Levelspec::NoPosition>(
+			    levelspec.walk_immutable(
 				    BaseExpressionRef(expr), options.Heads->is_true(),
-				    [&storage](const auto &node, Levelspec::NoPosition) {
+				    [&storage](const auto &node) {
 					    storage << node;
-					    return Levelspec::Immutable();
 				    });
 		    });
 	    } catch (const Levelspec::InvalidError&) {
@@ -460,29 +475,42 @@ public:
         }
 
         try {
-            Levelspec levelspec(ls);
+            const Levelspec levelspec(ls);
 
             if (patt->type() == ExpressionType) {
 	            const auto patt_expr = patt->as_expression();
 
 	            if (patt_expr->is_rule()) {
+		            const BaseExpressionRef *leaves = patt_expr->static_leaves<2>();
+		            const Matcher matcher(leaves[0], evaluation);
+		            const BaseExpressionRef &right_side = leaves[1];
 
+		            return expression_from_generator(
+			            evaluation.List, [&list, &options, &matcher, &levelspec, &right_side] (auto &storage) {
+				            levelspec.walk_immutable(
+					            BaseExpressionRef(list), options.Heads->is_true(),
+					            [&storage, &matcher, &right_side] (const BaseExpressionRef &node) {
+						            const Match m = matcher(node);
+						            if (m) {
+							            storage << right_side->replace_all_or_copy(m);
+						            }
+					            });
+			            });
 	            }
             }
 
-            Matcher matcher(patt, evaluation);
+            const Matcher matcher(patt, evaluation);
 
             return expression_from_generator(
-		        evaluation.List, [&list, &options, &matcher, &levelspec, &evaluation] (auto &storage) {
-	                levelspec.walk<Levelspec::Immutable, Levelspec::NoPosition>(
+		        evaluation.List, [&list, &options, &matcher, &levelspec] (auto &storage) {
+	                levelspec.walk_immutable(
 	                    BaseExpressionRef(list), options.Heads->is_true(),
-	                    [&storage, &matcher, &evaluation] (const BaseExpressionRef &node, Levelspec::NoPosition) {
+	                    [&storage, &matcher] (const BaseExpressionRef &node) {
 	                        if (matcher(node)) {
 	                            storage << node;
 	                        }
-	                        return Levelspec::Immutable();
 	                    });
-            });
+	            });
 
         } catch (const Levelspec::InvalidError&) {
             evaluation.message(m_symbol, "level", ls);

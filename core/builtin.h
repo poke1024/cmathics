@@ -279,12 +279,7 @@ public:
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		const Match m = match(pattern, expr, evaluation);
 		if (m) {
-			const BaseExpressionRef replaced = _into->replace_all(m);
-			if (!replaced) {
-				return _into;
-			} else {
-				return replaced;
-			}
+			return _into->replace_all_or_copy(m);
 		} else {
 			return BaseExpressionRef();
 		}
