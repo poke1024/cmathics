@@ -463,23 +463,26 @@ public:
             Levelspec levelspec(ls);
 
             if (patt->type() == ExpressionType) {
-                const auto &matcher = patt->as_expression()->expression_matcher();
+	            const auto patt_expr = patt->as_expression();
 
-                return expression_from_generator(evaluation.List, [&list, &options, &matcher, &levelspec, &evaluation] (auto &storage) {
-                    levelspec.walk<Levelspec::Immutable, Levelspec::NoPosition>(
-                        BaseExpressionRef(list), options.Heads->is_true(),
-                        [&storage, &matcher, &evaluation] (const BaseExpressionRef &node, Levelspec::NoPosition) {
-                            MatchContext context(evaluation, MatchContext::DoAnchor);
-                            if (matcher->match(context, FastLeafSequence(evaluation, &node), 0, 1) >= 0) {
-                                storage << node;
-                            }
-	                        return Levelspec::Immutable();
-                        });
-                });
-            } else {
-                return BaseExpressionRef(); // FIXME
+	            if (patt_expr->is_rule()) {
+
+	            }
             }
 
+            Matcher matcher(patt, evaluation);
+
+            return expression_from_generator(
+		        evaluation.List, [&list, &options, &matcher, &levelspec, &evaluation] (auto &storage) {
+	                levelspec.walk<Levelspec::Immutable, Levelspec::NoPosition>(
+	                    BaseExpressionRef(list), options.Heads->is_true(),
+	                    [&storage, &matcher, &evaluation] (const BaseExpressionRef &node, Levelspec::NoPosition) {
+	                        if (matcher(node)) {
+	                            storage << node;
+	                        }
+	                        return Levelspec::Immutable();
+	                    });
+            });
 
         } catch (const Levelspec::InvalidError&) {
             evaluation.message(m_symbol, "level", ls);

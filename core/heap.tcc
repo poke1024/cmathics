@@ -182,7 +182,7 @@ inline void intrusive_ptr_add_ref(MatchIdData *data) {
 }
 
 inline void intrusive_ptr_release(MatchIdData *data) {
-	if (--data->m_ref_count) {
+	if (--data->m_ref_count == 0) {
 		Heap::release(data);
 	}
 }

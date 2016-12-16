@@ -230,22 +230,44 @@ public:
 	}
 };
 
-inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, const Evaluation &evaluation) {
-	MatchContext context(evaluation, MatchContext::DoAnchor);
-	if (patt->type() != ExpressionType) {
-		if (patt->same(item)) {
-			return Match(true, context);
-		} else {
-			return Match(); // no match
-		}
-	} else {
-		const auto &matcher = patt->as_expression()->expression_matcher();
-		if (matcher->might_match(1) && matcher->match(context, FastLeafSequence(evaluation, &item), 0, 1) >= 0) {
-			return Match(true, context);
-		} else {
-			return Match(); // no match
+class Matcher {
+private:
+	PatternMatcherRef m_matcher;
+	const BaseExpressionRef m_patt;
+	const Evaluation &m_evaluation;
+
+public:
+	inline Matcher(const BaseExpressionRef &patt, const Evaluation &evaluation) :
+		m_patt(patt), m_evaluation(evaluation) {
+
+		if (patt->type() == ExpressionType) {
+			m_matcher = patt->as_expression()->expression_matcher();
 		}
 	}
+
+	inline Match operator()(const BaseExpressionRef &item) const {
+		MatchContext context(m_evaluation);
+		if (m_matcher) {
+			if (m_matcher->might_match(1) &&
+				m_matcher->match(context, FastLeafSequence(m_evaluation, &item), 0, 1) >= 0) {
+
+				return Match(true, context);
+			} else {
+				return Match(); // no match
+			}
+		} else {
+			if (m_patt->same(item)) {
+				return Match(true, context);
+			} else {
+				return Match(); // no match
+			}
+		}
+	}
+};
+
+inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, const Evaluation &evaluation) {
+	const Matcher matcher(patt, evaluation);
+	return matcher(item);
 }
 
 #endif //CMATHICS_MATCHER_H

@@ -252,6 +252,10 @@ protected:
 
 	friend void intrusive_ptr_add_ref(MatchIdData *data);
 	friend void intrusive_ptr_release(MatchIdData *data);
+
+public:
+	inline MatchIdData() : m_ref_count(0) {
+	}
 };
 
 typedef boost::intrusive_ptr<MatchIdData> MatchId;
@@ -608,8 +612,21 @@ public:
         return _head.get();
     }
 
-    virtual bool is_sequence() const {
+    virtual inline bool is_sequence() const final {
 		return _head->extended_type() == SymbolSequence;
+	}
+
+	inline bool is_rule() const {
+		if (size() != 2) {
+			return false;
+		}
+		switch (_head->extended_type()) {
+			case SymbolRule:
+			case SymbolRuleDelayed:
+				return true;
+			default:
+				return false;
+		}
 	}
 
 	BaseExpressionRef evaluate_expression(

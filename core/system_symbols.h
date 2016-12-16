@@ -5,6 +5,7 @@
 SYMBOL(List)
 SYMBOL(Sequence)
 SYMBOL(Rule)
+SYMBOL(RuleDelayed)
 
 SYMBOL(True)
 SYMBOL(False)

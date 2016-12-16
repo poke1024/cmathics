@@ -92,6 +92,9 @@ public:
 		m_size_from_next = size_from_next;
 	}
 
+	PatternMatcher() : m_ref_count(0) {
+	}
+
 	virtual ~PatternMatcher() {
 	}
 
