@@ -385,7 +385,7 @@ public:
 	}
 
 	inline bool same(const BaseExpressionRef &expr) const {
-        return same(*expr);
+        return same(*expr); // redirect to same(const BaseExpression &expr)
     }
 
     virtual bool same(const BaseExpression &expr) const = 0;

@@ -134,7 +134,7 @@ public:
 
 	BaseExpressionRef own_value;
 
-	virtual bool same(const BaseExpression &expr) const {
+	virtual inline bool same(const BaseExpression &expr) const final {
 		// compare as pointers: Symbol instances are unique
 		return &expr == this;
 	}

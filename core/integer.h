@@ -26,7 +26,7 @@ public:
 
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
-    virtual bool same(const BaseExpression &expr) const {
+    virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == type()) {
             return value == static_cast<const MachineInteger*>(&expr)->value;
         } else {
@@ -42,7 +42,7 @@ public:
         return std::to_string(value);
     }
 
-    virtual bool match(const BaseExpression &expr) const {
+    virtual inline bool match(const BaseExpression &expr) const final {
         return same(expr);
     }
 
@@ -73,7 +73,7 @@ public:
 
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
-    virtual bool same(const BaseExpression &expr) const {
+    virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == BigIntegerType) {
             return value == static_cast<const BigInteger*>(&expr)->value;
         } else {

@@ -58,6 +58,8 @@ SYMBOL(Tan)
 SYMBOL(DirectedInfinity)
 SYMBOL(All)
 
+SYMBOL(DigitCharacter)
+
 SYMBOL(General)
 SYMBOL(MessageName)
 

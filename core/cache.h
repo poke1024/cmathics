@@ -68,9 +68,20 @@ typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
 
 class FastLeafSequence;
 class SlowLeafSequence;
-class CharacterSequence;
+class AsciiCharacterSequence;
+class SimpleCharacterSequence;
+class ComplexCharacterSequence;
 
 class PatternMatcher {
+private:
+    template<typename R, typename F>
+    R match(
+        MatchContext &context,
+        const String *string,
+        index_t begin,
+        index_t end,
+        const F &make_result) const;
+
 protected:
 	size_t m_ref_count;
 	PatternMatcherRef m_next;
@@ -116,9 +127,33 @@ public:
 
 	virtual index_t match(
 		MatchContext &context,
-		const CharacterSequence &sequence,
+		const AsciiCharacterSequence &sequence,
 		index_t begin,
 		index_t end) const = 0;
+
+	virtual index_t match(
+		MatchContext &context,
+		const SimpleCharacterSequence &sequence,
+		index_t begin,
+		index_t end) const = 0;
+
+    virtual index_t match(
+        MatchContext &context,
+        const ComplexCharacterSequence &sequence,
+        index_t begin,
+        index_t end) const = 0;
+
+    bool matchq(
+        MatchContext &context,
+        const String *string,
+        index_t begin,
+        index_t end) const;
+
+    BaseExpressionRef match(
+		MatchContext &context,
+		const String *string,
+		index_t begin,
+		index_t end) const;
 
 	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
 	friend void intrusive_ptr_release(PatternMatcher *matcher);

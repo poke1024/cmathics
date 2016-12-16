@@ -86,15 +86,60 @@ public:
 		return do_match<SlowLeafSequence>(context, sequence, begin, end);   			                      \
 	}                                                                                                         \
 
-#define DECLARE_MATCH_METHODS                                                                                 \
-	DECLARE_MATCH_EXPRESSION_METHODS                                                                          \
+
+#define DECLARE_MATCH_CHARACTER_METHODS																		  \
 	virtual index_t match(                                                                               	  \
 		MatchContext &context,                                                                                \
-		const CharacterSequence &sequence,																	  \
+		const AsciiCharacterSequence &sequence,	    														  \
 		index_t begin,                             	                                              			  \
 		index_t end) const {                         	                                          			  \
-        return do_match<CharacterSequence>(context, sequence, begin, end);                                    \
+        return do_match<AsciiCharacterSequence>(context, sequence, begin, end);                               \
+    }                                                                                                         \
+                                                                                                              \
+	virtual index_t match(                                                                               	  \
+		MatchContext &context,                                                                                \
+		const SimpleCharacterSequence &sequence,												    		  \
+		index_t begin,                             	                                              			  \
+		index_t end) const {                         	                                          			  \
+        return do_match<SimpleCharacterSequence>(context, sequence, begin, end);                              \
+    }                                                                                                         \
+                                                                                                              \
+	virtual index_t match(                                                                               	  \
+		MatchContext &context,                                                                                \
+		const ComplexCharacterSequence &sequence,												    		  \
+		index_t begin,                             	                                              			  \
+		index_t end) const {                         	                                          			  \
+        return do_match<ComplexCharacterSequence>(context, sequence, begin, end);                             \
     }
+
+#define DECLARE_NO_MATCH_CHARACTER_METHODS                                                                    \
+	virtual index_t match(                                                                               	  \
+		MatchContext &context,                                                                                \
+		const AsciiCharacterSequence &sequence,	    														  \
+		index_t begin,                             	                                              			  \
+		index_t end) const {                         	                                          			  \
+        return -1;                                                                                            \
+    }                                                                                                         \
+                                                                                                              \
+	virtual index_t match(                                                                               	  \
+		MatchContext &context,                                                                                \
+		const SimpleCharacterSequence &sequence,												    		  \
+		index_t begin,                             	                                              			  \
+		index_t end) const {                         	                                          			  \
+        return -1;                                                                                            \
+    }                                                                                                         \
+                                                                                                              \
+	virtual index_t match(                                                                               	  \
+		MatchContext &context,                                                                                \
+		const ComplexCharacterSequence &sequence,												    		  \
+		index_t begin,                             	                                              			  \
+		index_t end) const {                         	                                          			  \
+        return -1;                                                                                            \
+    }
+
+#define DECLARE_MATCH_METHODS                                                                                 \
+	DECLARE_MATCH_EXPRESSION_METHODS                                                                          \
+	DECLARE_MATCH_CHARACTER_METHODS
 
 class TerminateMatcher : public PatternMatcher {
 private:
@@ -156,12 +201,6 @@ public:
     }
 };
 
-class NoFastTest {
-public:
-    inline NoFastTest() {
-    }
-};
-
 class Element {
 private:
 	const BaseExpressionRef &m_element;
@@ -214,10 +253,10 @@ public:
 	}
 };
 
-template<typename Dummy, typename Variable>
-class SameMatcher : public PatternMatcher {
+template<typename Match, typename Variable>
+class SimpleMatcher : public PatternMatcher {
 private:
-	const BaseExpressionRef m_patt;
+	const Match m_match;
 	const Variable m_variable;
 
 	template<typename Sequence>
@@ -228,11 +267,11 @@ private:
 		index_t end) const {
 
 		if (begin < end) {
-			const index_t up_to = sequence.same(begin, m_patt.get());
+			auto result = m_match(sequence, begin, end);
+            const index_t up_to = std::get<1>(result);
 			if (up_to > begin) {
 				const PatternMatcherRef &next = m_next;
-				auto element = Element(m_patt);
-				return m_variable(context, element, [up_to, end, &next, &context, &sequence] () {
+				return m_variable(context, std::get<0>(result), [up_to, end, &next, &context, &sequence] () {
 					return next->match(context, sequence, up_to, end);
 				});
 			} else {
@@ -244,11 +283,73 @@ private:
 	}
 
 public:
-	inline SameMatcher(const BaseExpressionRef &patt, const Variable &variable) :
-		m_patt(patt), m_variable(variable) {
-	}
+    DECLARE_MATCH_METHODS
 
-	DECLARE_MATCH_METHODS
+	inline SimpleMatcher(const Match &match, const Variable &variable) :
+		m_match(match), m_variable(variable) {
+	}
+};
+
+class MatchSame {
+private:
+    const BaseExpressionRef m_patt;
+
+public:
+    inline MatchSame(const BaseExpressionRef &patt) : m_patt(patt) {
+    }
+
+    template<typename Sequence>
+    inline auto operator()(const Sequence &sequence, index_t begin, index_t end) const {
+        return std::make_tuple(Element(m_patt), sequence.same(begin, m_patt.get()));
+    }
+};
+
+template<typename Test>
+class MatchCharacterClass {
+private:
+    const BaseExpressionRef m_patt;
+    const Test m_test;
+
+public:
+    inline MatchCharacterClass(const BaseExpressionRef &patt, const Test &test) : m_patt(patt), m_test(test) {
+    }
+
+    template<typename Sequence>
+    inline auto operator()(const Sequence &sequence, index_t begin, index_t end) const {
+        return std::make_tuple(Element(m_patt), sequence.same(begin, m_patt.get()));
+    }
+
+    inline auto operator()(const AsciiCharacterSequence &sequence, index_t begin, index_t end) const {
+        const auto &test = m_test;
+
+        const auto test_code_point = [&test] (auto p) {
+            return test(p);
+        };
+
+        if (sequence.all_code_points(begin, test_code_point)) {
+            return std::make_tuple(sequence.element(begin), begin + 1);
+        } else {
+            return std::make_tuple(sequence.element(begin), index_t(-1));
+        }
+    }
+};
+
+template<typename Dummy, typename Variable>
+class SameMatcher : public SimpleMatcher<MatchSame, Variable> {
+public:
+    inline SameMatcher(const BaseExpressionRef &patt, const Variable &variable) :
+        SimpleMatcher<MatchSame, Variable>(MatchSame(patt), variable) {
+    }
+
+    DECLARE_NO_MATCH_CHARACTER_METHODS
+};
+
+template<typename Dummy, typename Variable>
+class SameStringMatcher : public SimpleMatcher<MatchSame, Variable> {
+public:
+    inline SameStringMatcher(const BaseExpressionRef &patt, const Variable &variable) :
+        SimpleMatcher<MatchSame, Variable>(MatchSame(patt), variable) {
+    }
 };
 
 template<typename Dummy, typename Variable>
@@ -514,14 +615,7 @@ public:
 	}
 
 	DECLARE_MATCH_EXPRESSION_METHODS
-
-	virtual index_t match(
-		MatchContext &context,
-		const CharacterSequence &sequence,
-		index_t begin,
-		index_t end) const {
-		return -1;
-    }
+    DECLARE_NO_MATCH_CHARACTER_METHODS
 };
 
 class PatternCompiler {
@@ -614,6 +708,32 @@ PatternMatcherRef PatternCompiler::compile(
 				break;
 			}
 
+            case StringType:
+                assert(test == nullptr); // FIXME
+                matcher = instantiate_matcher<SameStringMatcher>(curr, variable);
+                break;
+
+			case SymbolType: {
+				switch (curr->extended_type()) {
+					case SymbolDigitCharacter: {
+                        const auto test_class = [] (auto p) {
+                            return isdigit(p);
+                        };
+                        const auto match_class = MatchCharacterClass<decltype(test_class)>(curr, test_class);
+                        matcher = instantiate_matcher<SimpleMatcher>(match_class, variable);
+						break;
+                    }
+
+                    default:
+                        break;
+				}
+                if (matcher) {
+                    break;
+                }
+
+				// fallthrough to generic SameMatcher
+			}
+
 			default:
                 assert(test == nullptr); // FIXME
 				matcher = instantiate_matcher<SameMatcher>(curr, variable);
@@ -649,21 +769,21 @@ inline PatternMatcherRef PatternCompiler::create_blank_matcher(
     if (test) {
         if (has_head) {
             return instantiate_matcher<Matcher>(
-                std::make_tuple(HeadTest(*patt_begin), PatternTest(*test), NoFastTest()),
+                std::make_tuple(HeadTest(*patt_begin), PatternTest(*test)),
                 variable);
         } else {
             return instantiate_matcher<Matcher>(
-                std::make_tuple(PatternTest(*test), NoTest(), NoFastTest()),
+                std::make_tuple(PatternTest(*test), NoTest()),
                 variable);
         }
     } else {
         if (has_head) {
             return instantiate_matcher<Matcher>(
-                std::make_tuple(HeadTest(*patt_begin), NoTest(), NoFastTest()),
+                std::make_tuple(HeadTest(*patt_begin), NoTest()),
                 variable);
         } else {
             return instantiate_matcher<Matcher>(
-				std::make_tuple(NoTest(), NoTest(), NoFastTest()),
+				std::make_tuple(NoTest(), NoTest()),
                 variable);
         }
     }
@@ -754,4 +874,61 @@ PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt) {
 		PatternCompiler compiler;
 		return compiler.compile(&patt, &patt + 1, nullptr, nullptr);
 	}
+}
+
+template<typename R, typename F>
+R PatternMatcher::match(
+    MatchContext &context,
+    const String *string,
+    index_t begin,
+    index_t end,
+    const F &make_result) const {
+
+    switch (string->extent_type()) {
+        case StringExtent::ascii: {
+            const AsciiCharacterSequence sequence(string);
+            return make_result(sequence, match(context, sequence, begin, end));
+        }
+        case StringExtent::simple: {
+            const SimpleCharacterSequence sequence(string);
+            return make_result(sequence, match(context, sequence, begin, end));
+        }
+        case StringExtent::complex: {
+            const ComplexCharacterSequence sequence(string);
+            return make_result(sequence, match(context, sequence, begin, end));
+        }
+        default: {
+            throw std::runtime_error("unsupported string extent type");
+        }
+    }
+}
+
+bool PatternMatcher::matchq(
+    MatchContext &context,
+    const String *string,
+    index_t begin,
+    index_t end) const {
+
+    const auto make_result = [] (const auto &sequence, index_t match) {
+        return match >= 0;
+    };
+
+    return match<bool>(context, string, begin, end, make_result);
+}
+
+BaseExpressionRef PatternMatcher::match(
+    MatchContext &context,
+    const String *string,
+    index_t begin,
+    index_t end) const {
+
+    const auto make_result = [begin] (const auto &sequence, index_t match) {
+        if (match >= 0) {
+            return *sequence.sequence(begin, match);
+        } else {
+            return BaseExpressionRef();
+        }
+    };
+
+    return match<BaseExpressionRef>(context, string, begin, end, make_result);
 }

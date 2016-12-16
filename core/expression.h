@@ -67,7 +67,7 @@ public:
 		_leaves.init_type_mask(type_mask);
 	}
 
-	virtual bool same(const BaseExpression &item) const {
+	virtual inline bool same(const BaseExpression &item) const final {
 		if (this == &item) {
 			return true;
 		}

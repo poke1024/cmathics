@@ -25,7 +25,7 @@ public:
 
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
-    virtual bool same(const BaseExpression &expr) const {
+    virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == MachineRealType) {
             return value == static_cast<const MachineReal*>(&expr)->value;
         } else {
@@ -119,7 +119,7 @@ public:
 
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
-	virtual bool same(const BaseExpression &expr) const {
+	virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == BigRealType) {
             return arb_equal(value, static_cast<const BigReal*>(&expr)->value); // FIXME
         } else {

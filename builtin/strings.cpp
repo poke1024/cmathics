@@ -1,6 +1,50 @@
 #include "strings.h"
 #include "unicode/uchar.h"
 
+class StringMatchQ : public Builtin {
+public:
+	static constexpr const char *name = "StringMatchQ";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&StringMatchQ::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		BaseExpressionPtr text,
+		BaseExpressionPtr patt,
+		const Evaluation &evaluation) {
+
+		if (text->type() != StringType) {
+			evaluation.message(m_symbol, "string");
+			return BaseExpressionRef();
+		}
+
+		const String * const str = text->as_string();
+		bool match;
+
+		switch (patt->type()) {
+			case StringType:
+				match = patt->as_string()->same(str);
+				break;
+
+			case ExpressionType: {
+                StringMatcher matcher(patt, evaluation);
+				match = matcher.matchq(str, 0, str->length());
+				break;
+			}
+
+			default:
+				match = false;
+				break;
+		}
+
+		return evaluation.Boolean(match);
+	}
+};
+
 class StringCases : public Builtin {
 public:
 	static constexpr const char *name = "StringCases";
@@ -18,12 +62,11 @@ public:
 		const Evaluation &evaluation) {
 
 		if (text->type() != StringType) {
+			evaluation.message(m_symbol, "string");
 			return BaseExpressionRef();
 		}
 
-        const String * const str = static_cast<const String*>(text);
-
-		const PatternMatcherRef matcher = compile_string_pattern(BaseExpressionRef(patt));
+		const String * const str = text->as_string();
 
 		switch (patt->type()) {
 			case StringType:
@@ -41,25 +84,20 @@ public:
 					}
 				});
 
-			case ExpressionType:
-				return expression_from_generator(evaluation.List, [str, &patt, &text, &evaluation] (auto &storage) {
-                    const CharacterSequence sequence(str);
-                    const index_t end = str->length();
-
-					const auto &matcher = patt->as_expression()->string_matcher();
+            default: {
+				return expression_from_generator(evaluation.List, [str, &patt, &text, &evaluation](auto &storage) {
+                    const StringMatcher matcher(patt, evaluation, MatchContext::DoNotAnchor);
 					index_t s = 0;
+                    const index_t end = str->length();
 					while (s < end) {
-						MatchContext context(evaluation, MatchContext::DoNotAnchor);
-						const index_t match = matcher->match(context, sequence, s, end);
-						if (match >= 0) {
-                            storage << *sequence.sequence(s, match);
+						const BaseExpressionRef match = matcher.match(str, s, end);
+						if (match) {
+							storage << match;
 						}
 						s++;
 					}
 				});
-
-			default:
-				return BaseExpressionRef();
+			}
 		}
 	}
 };
@@ -271,6 +309,7 @@ public:
 };
 
 void Builtins::Strings::initialize() {
+	add<StringMatchQ>();
 	add<StringCases>();
     add<StringJoin>();
     add<StringRepeat>();

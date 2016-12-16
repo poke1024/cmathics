@@ -230,6 +230,54 @@ public:
 	}
 };
 
+class StringMatcher {
+private:
+    PatternMatcherRef m_matcher;
+    const BaseExpressionRef m_patt;
+    const Evaluation &m_evaluation;
+    const MatchContext::Anchor m_anchor;
+
+public:
+    inline StringMatcher(
+        const BaseExpressionRef &patt,
+        const Evaluation &evaluation,
+        MatchContext::Anchor anchor = MatchContext::DoAnchor) :
+
+        m_patt(patt), m_evaluation(evaluation), m_anchor(anchor) {
+
+        switch (patt->type()) {
+            case ExpressionType:
+                m_matcher = patt->as_expression()->string_matcher();
+                break;
+
+            case SymbolType:
+                m_matcher = compile_string_pattern(patt); // FIXME
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    inline BaseExpressionRef match(const String *string, index_t begin, index_t end) const {
+        MatchContext context(m_evaluation, m_anchor);
+        if (m_matcher) {
+            return m_matcher->match(context, string, begin, end);
+        } else {
+            return BaseExpressionRef(); // FIXME
+        }
+    }
+
+    inline bool matchq(const String *string, index_t begin, index_t end) const {
+        MatchContext context(m_evaluation, m_anchor);
+        if (m_matcher) {
+            return m_matcher->matchq(context, string, begin, end);
+        } else {
+            return false; // FIXME
+        }
+    }
+};
+
 class Matcher {
 private:
 	PatternMatcherRef m_matcher;

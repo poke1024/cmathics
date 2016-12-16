@@ -59,6 +59,8 @@ public:
 
     virtual ~AsciiStringExtent();
 
+    static constexpr Type extent_type = ascii;
+
     inline const char *data() const {
         return m_ascii.data();
     }
@@ -87,6 +89,11 @@ public:
 	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const;
 
     virtual size_t walk_code_points(size_t offset, index_t cp_offset) const;
+
+    template<typename F>
+    inline bool all_code_points(size_t offset, const F &f) const {
+        return f(m_ascii[offset]);
+    }
 };
 
 class SimpleStringExtent : public StringExtent { // UTF16, fixed size
@@ -98,7 +105,9 @@ public:
 	    m_string.moveFrom(string);
     }
 
-	virtual inline const UnicodeString &unicode() const final {
+    static constexpr Type extent_type = simple;
+
+    virtual inline const UnicodeString &unicode() const final {
         return m_string;
     }
 
@@ -115,6 +124,11 @@ public:
 	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const;
 
     virtual size_t walk_code_points(size_t offset, index_t cp_offset) const;
+
+    template<typename F>
+    inline bool all_code_points(size_t offset, const F &f) const {
+        return f(m_string[offset]);
+    }
 };
 
 std::vector<int32_t> make_character_offsets(const UnicodeString &normalized);
@@ -140,7 +154,9 @@ public:
 	    std::swap(offsets, m_offsets);
     }
 
-	virtual inline const UnicodeString &unicode() const final {
+    static constexpr Type extent_type = complex;
+
+    virtual inline const UnicodeString &unicode() const final {
 		return m_string;
 	}
 
@@ -161,11 +177,26 @@ public:
 	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const;
 
     virtual size_t walk_code_points(size_t offset, index_t cp_offset) const;
+
+    template<typename F>
+    inline bool all_code_points(size_t offset, const F &f) const {
+        const size_t begin = m_offsets[offset];
+        const size_t end = m_offsets[offset + 1];
+        for (size_t i = begin; i < end; i++) {
+            if (!f(m_string[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
 StringExtentRef make_string_extent(std::string &&utf8);
 
 StringExtentRef string_extent_from_normalized(UnicodeString &&normalized, uint8_t possible_types = 0xff);
+
+template<typename Extent>
+class CharacterSequence;
 
 class String : public BaseExpression {
 private:
@@ -176,6 +207,7 @@ private:
     const size_t m_length;
 
 protected:
+    template<typename Extent>
     friend class CharacterSequence;
 
     const StringExtentRef &extent() const {
@@ -232,9 +264,11 @@ public:
             s->extent().get(), m_offset, s->to_extent_offset(offset), n);
     }
 
-	inline SymbolRef option_symbol(const Evaluation &evaluation) const;
+    inline bool same(const String *s) const {
+        return s->m_length == m_length && same_n(s, 0, s->m_length);
+    }
 
-    virtual bool same(const BaseExpression &expr) const {
+    virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == StringType) {
             const String * const other = static_cast<const String*>(&expr);
             const size_t n = m_length;
@@ -316,6 +350,8 @@ public:
             m_offset + shift,
             m_length - shift - m_extent->walk_code_points(m_offset + m_length, -cp_right));
     }
+
+    inline SymbolRef option_symbol(const Evaluation &evaluation) const;
 };
 
 inline const String *BaseExpression::as_string() const {
@@ -326,76 +362,114 @@ inline BaseExpressionRef from_primitive(const std::string &value) {
     return BaseExpressionRef(new String(value));
 }
 
+template<typename Extent>
 class CharacterSequence {
-private:
-    const String * const m_string;
+protected:
+    Extent * const m_extent;
+    const index_t m_offset;
+    const index_t m_length;
 
 public:
     class Element {
     private:
-        const String * const m_string;
+        const CharacterSequence<Extent> * const m_sequence;
         const index_t m_begin;
-        BaseExpressionRef m_element;
+        BaseExpressionRef m_cached;
 
     public:
-        inline Element(const String *string, index_t begin) : m_string(string), m_begin(begin) {
+        inline Element(const CharacterSequence<Extent> *sequence, index_t begin) :
+            m_sequence(sequence), m_begin(begin) {
         }
 
         inline const BaseExpressionRef &operator*() {
-            if (!m_element) {
-                m_element = Heap::String(
-                    m_string->extent(),
-                    m_string->to_extent_offset(m_begin),
-                    m_string->to_extent_offset(m_begin + 1));
+            if (!m_cached) {
+                m_cached = Heap::String(
+                    StringExtentRef(m_sequence->m_extent),
+                    m_sequence->m_offset + m_begin,
+                    1);
             }
-            return m_element;
+            return m_cached;
         }
     };
 
     class Sequence {
     private:
-        const String * const m_string;
+        const CharacterSequence<Extent> * const m_sequence;
         const index_t m_begin;
         const index_t m_end;
-        BaseExpressionRef m_sequence;
+        BaseExpressionRef m_cached;
 
     public:
-        inline Sequence(const String *string, index_t begin, index_t end) :
-            m_string(string), m_begin(begin), m_end(end) {
+        inline Sequence(const CharacterSequence<Extent> *sequence, index_t begin, index_t end) :
+            m_sequence(sequence), m_begin(begin), m_end(end) {
         }
 
         inline const BaseExpressionRef &operator*() {
-            if (!m_sequence) {
-                m_sequence = Heap::String(
-                    m_string->extent(),
-                    m_string->to_extent_offset(m_begin),
+            if (!m_cached) {
+                m_cached = Heap::String(
+                    StringExtentRef(m_sequence->m_extent),
+                    m_sequence->m_offset + m_begin,
                     m_end - m_begin);
             }
-            return m_sequence;
+            return m_cached;
         }
     };
 
-    inline CharacterSequence(const String *string) : m_string(string) {
+    inline CharacterSequence(const String *string) :
+        m_extent(static_cast<Extent*>(string->extent().get())),
+        m_offset(string->to_extent_offset(0)),
+        m_length(string->length()) {
+
+        assert(string->extent_type() == Extent::extent_type);
     }
 
     inline Element element(index_t begin) const {
-        return Element(m_string, begin);
+        return Element(this, begin);
     }
 
     inline Sequence sequence(index_t begin, index_t end) const {
         assert(begin <= end);
-        return Sequence(m_string, begin, end);
+        return Sequence(this, begin, end);
     }
 
     inline index_t same(index_t begin, BaseExpressionPtr other) const {
+        assert(other->type() == StringType);
         const String * const other_string = other->as_string();
-        const size_t n = other_string->length();
-
-        if (other_string->same_n(m_string, begin, n)) {
+        const index_t n = other_string->length();
+        if (n > m_length - begin) {
+            return -1;
+        }
+        if (m_extent->same_n(other_string->extent().get(), m_offset + begin, other_string->to_extent_offset(0), n)) {
             return begin + n;
         } else {
             return -1;
         }
+    }
+
+    template<typename F>
+    inline bool all_code_points(size_t offset, const F &f) const {
+        return m_extent->all_code_points(offset, f);
+    }
+};
+
+class AsciiCharacterSequence : public CharacterSequence<AsciiStringExtent> {
+public:
+    inline AsciiCharacterSequence(const String *string) :
+        CharacterSequence<AsciiStringExtent>(string) {
+    }
+};
+
+class SimpleCharacterSequence : public CharacterSequence<SimpleStringExtent> {
+public:
+    inline SimpleCharacterSequence(const String *string) :
+        CharacterSequence<SimpleStringExtent>(string) {
+    }
+};
+
+class ComplexCharacterSequence : public CharacterSequence<ComplexStringExtent> {
+public:
+    inline ComplexCharacterSequence(const String *string) :
+        CharacterSequence<ComplexStringExtent>(string) {
     }
 };
 

@@ -38,7 +38,7 @@ public:
         return 0;
     }
 
-    virtual bool same(const BaseExpression &expr) const {
+    virtual inline bool same(const BaseExpression &expr) const final {
         return false; // FIXME
     }
 
