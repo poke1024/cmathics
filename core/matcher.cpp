@@ -141,23 +141,24 @@ public:
 	}
 };
 
-template<typename PrevTest>
 class PatternTest {
 private:
-    const PrevTest m_prev_test;
     const BaseExpressionRef m_test;
 
 public:
-    inline PatternTest(const PrevTest &prev_test, const BaseExpressionRef &test) :
-        m_prev_test(prev_test), m_test(test) {
+    inline PatternTest(const BaseExpressionRef &test) :
+        m_test(test) {
     }
 
     template<typename Element>
     inline bool operator()(Element &element, const Evaluation &evaluation) const {
-        if (!m_prev_test(element, evaluation)) {
-            return false;
-        }
         return expression(m_test, *element)->evaluate(evaluation)->is_true();
+    }
+};
+
+class NoFastTest {
+public:
+    inline NoFastTest() {
     }
 };
 
@@ -336,10 +337,10 @@ public:
     DECLARE_MATCH_METHODS
 };
 
-template<typename Test, typename Variable>
+template<typename Tests, typename Variable>
 class BlankMatcher : public PatternMatcher {
 private:
-	const Test m_test;
+	const Tests m_tests;
 	const Variable m_variable;
 
 	template<typename Sequence>
@@ -350,7 +351,11 @@ private:
 		index_t end) const {
 
 		auto element = sequence.element(begin);
-		if (begin < end && m_test(element, context.evaluation)) {
+
+		const auto &test_head = std::get<0>(m_tests);
+		const auto &test_patt = std::get<1>(m_tests);
+
+		if (begin < end && test_head(element, context.evaluation) && test_patt(element, context.evaluation)) {
 			const PatternMatcherRef &next = m_next;
 			return m_variable(context, element, [begin, end, &next, &context, &sequence] () {
 				return next->match(context, sequence, begin + 1, end);
@@ -361,17 +366,21 @@ private:
 	}
 
 public:
-	inline BlankMatcher(const Test &test, const Variable &variable) :
-		m_test(test), m_variable(variable) {
+	inline BlankMatcher(
+        const Tests &tests,
+        const Variable &variable) :
+
+		m_tests(tests),
+        m_variable(variable) {
 	}
 
 	DECLARE_MATCH_METHODS
 };
 
-template<index_t Minimum, typename Test, typename Variable>
+template<index_t Minimum, typename Tests, typename Variable>
 class GenericBlankSequenceMatcher : public PatternMatcher {
 private:
-	const Test m_test;
+	const Tests m_tests;
 	const Variable m_variable;
 
 	template<typename Sequence>
@@ -392,44 +401,55 @@ private:
 		const index_t min_size = context.anchor == MatchContext::DoAnchor ? std::max(
             n - index_t(m_size_from_next.max()), Minimum) : Minimum;
 
+		const auto &test_head = std::get<0>(m_tests);
+
 		index_t condition_max_size = max_size;
 		for (size_t i = 0; i < max_size; i++) {
 			auto element = sequence.element(begin + i);
-			if (!m_test(element, context.evaluation)) {
+			if (!test_head(element, context.evaluation)) {
 				condition_max_size = i;
 				break;
 			}
 		}
 
+		const auto &test_patt = std::get<1>(m_tests);
+
 		const PatternMatcherRef &next = m_next;
 		for (index_t i = condition_max_size; i >= min_size; i--) {
 			auto part = sequence.sequence(begin, begin + i);
-            const index_t match = m_variable(context, part,
-                [begin, end, i, &next, &context, &sequence] () {
-				    return next->match(context, sequence, begin + i, end);
-			});
-			if (match >= 0) {
-				return match;
-			}
-
+            if (test_patt(part, context.evaluation)) {
+                const index_t match = m_variable(
+                     context,
+                     part,
+                     [begin, end, i, &next, &context, &sequence] () {
+                         return next->match(context, sequence, begin + i, end);
+                     });
+                if (match >= 0) {
+                    return match;
+                }
+            }
 		}
 
 		return -1;
 	}
 
 public:
-	inline GenericBlankSequenceMatcher(const Test &test, const Variable &variable) :
-		m_test(test), m_variable(variable) {
+	inline GenericBlankSequenceMatcher(
+		const Tests &tests,
+        const Variable &variable) :
+
+		m_tests(tests),
+        m_variable(variable) {
 	}
 
 	DECLARE_MATCH_METHODS
 };
 
-template<typename Test, typename Variable>
-using BlankNullSequenceMatcher = GenericBlankSequenceMatcher<0, Test, Variable>;
+template<typename Tests, typename Variable>
+using BlankNullSequenceMatcher = GenericBlankSequenceMatcher<0, Tests, Variable>;
 
-template<typename Test, typename Variable>
-using BlankSequenceMatcher = GenericBlankSequenceMatcher<1, Test, Variable>;
+template<typename Tests, typename Variable>
+using BlankSequenceMatcher = GenericBlankSequenceMatcher<1, Tests, Variable>;
 
 template<typename Dummy, typename Variable>
 class ExpressionMatcher : public PatternMatcher {
@@ -628,15 +648,23 @@ inline PatternMatcherRef PatternCompiler::create_blank_matcher(
 
     if (test) {
         if (has_head) {
-            return instantiate_matcher<Matcher>(PatternTest<HeadTest>(HeadTest(*patt_begin), *test), variable);
+            return instantiate_matcher<Matcher>(
+                std::make_tuple(HeadTest(*patt_begin), PatternTest(*test), NoFastTest()),
+                variable);
         } else {
-            return instantiate_matcher<Matcher>(PatternTest<NoTest>(NoTest(), *test), variable);
+            return instantiate_matcher<Matcher>(
+                std::make_tuple(PatternTest(*test), NoTest(), NoFastTest()),
+                variable);
         }
     } else {
         if (has_head) {
-            return instantiate_matcher<Matcher>(HeadTest(*patt_begin), variable);
+            return instantiate_matcher<Matcher>(
+                std::make_tuple(HeadTest(*patt_begin), NoTest(), NoFastTest()),
+                variable);
         } else {
-            return instantiate_matcher<Matcher>(NoTest(), variable);
+            return instantiate_matcher<Matcher>(
+				std::make_tuple(NoTest(), NoTest(), NoFastTest()),
+                variable);
         }
     }
 }
