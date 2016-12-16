@@ -53,6 +53,24 @@ public:
 		}
 	};
 
+	struct Immutable : public nothing {
+		inline constexpr operator bool() const {
+			return false;
+		}
+
+		inline operator BaseExpressionRef() const {
+			return BaseExpressionRef();
+		}
+
+		inline Immutable &operator=(const Immutable&) {
+			return *this;
+		}
+
+		inline Immutable &operator=(const ExpressionRef&) {
+			return *this;
+		}
+	};
+
 private:
     optional<machine_integer_t> m_start;
     optional<machine_integer_t> m_stop;
@@ -124,30 +142,32 @@ public:
         return start <= current && current <= stop;
     }
 
-	enum WalkMode {
-		ImmutableCallback = 0,
-		MutableCallback = 1
-	};
-
-    template<WalkMode Mode, typename PositionType, typename Callback>
-    std::tuple<BaseExpressionRef, size_t> walk(
+    template<typename CallbackType, typename PositionType, typename Callback>
+    std::tuple<CallbackType, size_t> walk(
         const BaseExpressionRef &node,
         const bool heads,
         const Callback &callback,
         const index_t current = 0,
         const PositionType *pos = nullptr) const {
 
-        size_t depth = 0;
-        BaseExpressionRef new_node;
+	    constexpr bool immutable = std::is_same<CallbackType, Immutable>::value;
+
+	    // CompileToSliceType comes with a certain cost (one vcall) and it's usually only worth it if
+	    // we actually construct new expressions. if we don't change anayhting, DoNotCompileToSliceType
+	    // is the faster choice (no vcall except for packed slices).
 
 	    constexpr SliceMethodOptimizeTarget Optimize =
-		    (Mode & MutableCallback) ? DoNotCompileToSliceType : CompileToSliceType;
+		    immutable ? DoNotCompileToSliceType : CompileToSliceType;
+
+	    size_t depth = 0;
+	    CallbackType modified_node;
 
         if (node->type() == ExpressionType) {
             const Expression * const expr =
                 static_cast<const Expression*>(node.get());
 
-            BaseExpressionRef head;
+            const BaseExpressionRef &head = expr->head();
+	        CallbackType new_head;
 
 	        if (heads) {
 		        PositionType head_pos;
@@ -155,48 +175,42 @@ public:
 		        head_pos.set_up(pos);
 		        head_pos.set_index(0);
 
-		        head = std::get<0>(walk<Mode, PositionType>(
+		        new_head = std::get<0>(walk<CallbackType, PositionType>(
 			        expr->head(), heads, callback, current + 1, &head_pos));
-	        } else {
-		        head = expr->head();
 	        }
 
 	        PositionType new_pos;
 	        new_pos.set_up(pos);
 
-            const Levelspec *self = this;
-
-            std::tie(new_node, depth) = expr->with_slice<Optimize>(
-                [self, heads, current, &callback, &head, &new_pos, &depth]
+            const Levelspec * const self = this;
+            const std::tuple<ExpressionRef, size_t> result = expr->with_slice<Optimize>(
+                [self, heads, current, &callback, &head, &new_head, &new_pos, &depth]
                 (const auto &slice)  {
 
-                    return transform(head, slice, 0, slice.size(),
+                    return transform(new_head ? new_head : head, slice, 0, slice.size(),
                         [self, heads, current, &callback, &new_pos, &depth]
                         (size_t index0, const BaseExpressionRef &leaf, size_t depth)  {
 
-                            BaseExpressionRef walk_leaf;
-                            size_t walk_leaf_depth;
-
 	                        new_pos.set_index(index0);
 
-                            std::tie(walk_leaf, walk_leaf_depth) = self->walk<Mode, PositionType>(
+                            const auto result = self->walk<CallbackType, PositionType>(
                                 leaf, heads, callback, current + 1, &new_pos);
 
-                            if (walk_leaf_depth + 1 > depth) {
-                                depth = walk_leaf_depth + 1;
-                            }
+                            depth = std::max(std::get<1>(result) + 1, depth);
 
-                            return std::make_tuple(walk_leaf, depth);
+                            return std::make_tuple(std::get<0>(result), depth);
 
-                    }, depth, false);
-
+                    }, depth, new_head);
             });
+
+	        modified_node = std::get<0>(result);
+	        depth = std::get<1>(result);
         }
 
         if (is_in_level(current, depth)) {
-            return std::make_tuple(callback(new_node ? new_node : node, *pos), depth);
+            return std::make_tuple(callback(modified_node ? modified_node : node, *pos), depth);
         } else {
-            return std::make_tuple(new_node, depth);
+            return std::make_tuple(modified_node, depth);
         }
     }
 };
@@ -230,11 +244,11 @@ public:
 		    Levelspec levelspec(ls);
 
 		    return expression_from_generator(evaluation.List, [&options, &expr, &levelspec](auto &storage) {
-			    levelspec.walk<Levelspec::ImmutableCallback, Levelspec::NoPosition>(
+			    levelspec.walk<Levelspec::Immutable, Levelspec::NoPosition>(
 				    BaseExpressionRef(expr), options.Heads->is_true(),
 				    [&storage](const auto &node, Levelspec::NoPosition) {
 					    storage << node;
-					    return BaseExpressionRef();
+					    return Levelspec::Immutable();
 				    });
 		    });
 	    } catch (const Levelspec::InvalidError&) {
@@ -452,14 +466,14 @@ public:
                 const auto &matcher = patt->as_expression()->expression_matcher();
 
                 return expression_from_generator(evaluation.List, [&list, &options, &matcher, &levelspec, &evaluation] (auto &storage) {
-                    levelspec.walk<Levelspec::ImmutableCallback, Levelspec::NoPosition>(
+                    levelspec.walk<Levelspec::Immutable, Levelspec::NoPosition>(
                         BaseExpressionRef(list), options.Heads->is_true(),
                         [&storage, &matcher, &evaluation] (const BaseExpressionRef &node, Levelspec::NoPosition) {
                             MatchContext context(evaluation, MatchContext::DoAnchor);
                             if (matcher->match(context, FastLeafSequence(evaluation, &node), 0, 1) >= 0) {
                                 storage << node;
                             }
-                            return BaseExpressionRef();
+	                        return Levelspec::Immutable();
                         });
                 });
             } else {
