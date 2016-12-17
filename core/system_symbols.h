@@ -10,6 +10,7 @@ SYMBOL(RuleDelayed)
 SYMBOL(True)
 SYMBOL(False)
 SYMBOL(Null)
+SYMBOL(All)
 
 SYMBOL(Blank)
 SYMBOL(BlankSequence)
@@ -56,9 +57,19 @@ SYMBOL(Sin)
 SYMBOL(Tan)
 
 SYMBOL(DirectedInfinity)
-SYMBOL(All)
 
+SYMBOL(StartOfString)
+SYMBOL(EndOfString)
+SYMBOL(StartOfLine)
+SYMBOL(EndOfLine)
+
+SYMBOL(Whitespace)
+SYMBOL(WordBoundary)
+SYMBOL(WhitespaceCharacter)
 SYMBOL(DigitCharacter)
+SYMBOL(LetterCharacter)
+SYMBOL(WordCharacter)
+SYMBOL(HexidecimalCharacter)
 
 SYMBOL(General)
 SYMBOL(MessageName)

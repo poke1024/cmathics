@@ -73,15 +73,6 @@ class SimpleCharacterSequence;
 class ComplexCharacterSequence;
 
 class PatternMatcher {
-private:
-    template<typename R, typename F>
-    R match(
-        MatchContext &context,
-        const String *string,
-        index_t begin,
-        index_t end,
-        const F &make_result) const;
-
 protected:
 	size_t m_ref_count;
 	PatternMatcherRef m_next;
@@ -143,13 +134,7 @@ public:
         index_t begin,
         index_t end) const = 0;
 
-    bool matchq(
-        MatchContext &context,
-        const String *string,
-        index_t begin,
-        index_t end) const;
-
-    BaseExpressionRef match(
+	index_t match(
 		MatchContext &context,
 		const String *string,
 		index_t begin,

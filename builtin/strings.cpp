@@ -22,27 +22,13 @@ public:
 			return BaseExpressionRef();
 		}
 
-		const String * const str = text->as_string();
-		bool match;
-
-		switch (patt->type()) {
-			case StringType:
-				match = patt->as_string()->same(str);
-				break;
-
-			case ExpressionType: {
-                StringMatcher matcher(patt, evaluation);
-				match = matcher.matchq(str, 0, str->length());
-				break;
-			}
-
-			default:
-				match = false;
-				break;
-		}
-
-		return evaluation.Boolean(match);
+        StringMatcher matcher(patt, evaluation);
+		return evaluation.Boolean(bool(matcher(text->as_string())));
 	}
+};
+
+struct StringCasesOptions {
+	BaseExpressionPtr Overlap;
 };
 
 class StringCases : public Builtin {
@@ -53,12 +39,17 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		builtin(&StringCases::apply);
+		const OptionsInitializerList options = {
+			{"Overlap", offsetof(StringCasesOptions, Overlap), "False"}
+		};
+
+		builtin(options, &StringCases::apply);
 	}
 
 	inline BaseExpressionRef apply(
 		BaseExpressionPtr text,
 		BaseExpressionPtr patt,
+		const StringCasesOptions &options,
 		const Evaluation &evaluation) {
 
 		if (text->type() != StringType) {
@@ -66,38 +57,28 @@ public:
 			return BaseExpressionRef();
 		}
 
-		const String * const str = text->as_string();
+		const String * const string = text->as_string();
 
-		switch (patt->type()) {
-			case StringType:
-				return expression_from_generator(evaluation.List, [&str, patt] (auto &storage) {
-                    const UnicodeString utext = str->unicode();
-					const UnicodeString upatt = static_cast<const String*>(patt)->unicode();
-					int32_t pos = 0;
-					while (true) {
-						const int32_t new_pos = utext.indexOf(upatt, pos);
-						if (new_pos < 0) {
-							break;
-						}
-						storage << patt;
-						pos = new_pos + 1;
-					}
-				});
+		const auto generate = [string, &options, &evaluation] (BaseExpressionPtr patt, const auto &callback) {
+			return expression_from_generator(evaluation.List, [string, &patt, &options, &evaluation, &callback] (auto &storage) {
+				const StringMatcher matcher(patt, evaluation);
+				matcher.search(string, [string, &callback, &storage] (index_t begin, index_t end, const auto &match) {
+					callback(storage, begin, end, match);
+				}, options.Overlap->is_true());
+			});
+		};
 
-            default: {
-				return expression_from_generator(evaluation.List, [str, &patt, &text, &evaluation](auto &storage) {
-                    const StringMatcher matcher(patt, evaluation, MatchContext::DoNotAnchor);
-					index_t s = 0;
-                    const index_t end = str->length();
-					while (s < end) {
-						const BaseExpressionRef match = matcher.match(str, s, end);
-						if (match) {
-							storage << match;
-						}
-						s++;
-					}
+		const RuleForm rule_form(patt);
+		if (rule_form.is_rule()) {
+			return generate(rule_form.left_side().get(),
+			    [&rule_form] (auto &storage, index_t begin, index_t end, const auto &match) {
+				    storage << rule_form.right_side()->replace_all_or_copy(match);
 				});
-			}
+		} else {
+			return generate(patt,
+			    [string] (auto &storage, index_t begin, index_t end, const auto &match) {
+					storage << string->substr(begin, end);
+				});
 		}
 	}
 };

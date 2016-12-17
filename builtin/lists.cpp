@@ -477,41 +477,36 @@ public:
         try {
             const Levelspec levelspec(ls);
 
-            if (patt->type() == ExpressionType) {
-	            const auto patt_expr = patt->as_expression();
+	        const RuleForm rule_form(patt);
 
-	            if (patt_expr->is_rule()) {
-		            const BaseExpressionRef *leaves = patt_expr->static_leaves<2>();
-		            const Matcher matcher(leaves[0], evaluation);
-		            const BaseExpressionRef &right_side = leaves[1];
+	        const auto generate = [&list, &evaluation, &options, &levelspec] (const auto &callback) {
+		        return expression_from_generator(
+			        evaluation.List, [&list, &options, &levelspec, &callback] (auto &storage) {
+				        levelspec.walk_immutable(
+						    BaseExpressionRef(list),
+						    options.Heads->is_true(),
+				            [&storage, &callback] (const BaseExpressionRef &node) {
+					            return callback(storage, node);
+				            });
+			        });
+	        };
 
-		            return expression_from_generator(
-			            evaluation.List, [&list, &options, &matcher, &levelspec, &right_side] (auto &storage) {
-				            levelspec.walk_immutable(
-					            BaseExpressionRef(list), options.Heads->is_true(),
-					            [&storage, &matcher, &right_side] (const BaseExpressionRef &node) {
-						            const Match m = matcher(node);
-						            if (m) {
-							            storage << right_side->replace_all_or_copy(m);
-						            }
-					            });
-			            });
-	            }
-            }
-
-            const Matcher matcher(patt, evaluation);
-
-            return expression_from_generator(
-		        evaluation.List, [&list, &options, &matcher, &levelspec] (auto &storage) {
-	                levelspec.walk_immutable(
-	                    BaseExpressionRef(list), options.Heads->is_true(),
-	                    [&storage, &matcher] (const BaseExpressionRef &node) {
-	                        if (matcher(node)) {
-	                            storage << node;
-	                        }
-	                    });
+	        if (rule_form.is_rule()) {
+	            const Matcher matcher(rule_form.left_side(), evaluation);
+	            return generate([&matcher, &rule_form] (auto &storage, const BaseExpressionRef &node) {
+		            const Match match = matcher(node);
+		            if (match) {
+			            storage << rule_form.right_side()->replace_all_or_copy(match);
+		            }
 	            });
-
+            } else {
+		        const Matcher matcher(patt, evaluation);
+		        return generate([&matcher, &rule_form] (auto &storage, const BaseExpressionRef &node) {
+			        if (matcher(node)) {
+				        storage << node;
+			        }
+		        });
+	        }
         } catch (const Levelspec::InvalidError&) {
             evaluation.message(m_symbol, "level", ls);
             return BaseExpressionRef();

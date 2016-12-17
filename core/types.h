@@ -625,19 +625,6 @@ public:
 		return _head->extended_type() == SymbolSequence;
 	}
 
-	inline bool is_rule() const {
-		if (size() != 2) {
-			return false;
-		}
-		switch (_head->extended_type()) {
-			case SymbolRule:
-			case SymbolRuleDelayed:
-				return true;
-			default:
-				return false;
-		}
-	}
-
 	BaseExpressionRef evaluate_expression(
 		const Evaluation &evaluation) const;
 

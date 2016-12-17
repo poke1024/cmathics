@@ -58,47 +58,47 @@ public:
     }
 };
 
+typedef uint32_t MatchOptions;
+
 class MatchContext {
 public:
-	enum Anchor {
-		DoAnchor,
-		DoNotAnchor
+	enum {
+		NoEndAnchor = 1
 	};
 
 	const MatchId id;
 	const Evaluation &evaluation;
     VariableList matched_variables;
-	const Anchor anchor;
+	const MatchOptions options;
 
-	inline MatchContext(const Evaluation &in_evaluation, Anchor in_anchor = DoAnchor) :
-        id(Heap::MatchId()), evaluation(in_evaluation), anchor(in_anchor) {
+	inline MatchContext(const Evaluation &evaluation_, MatchOptions options_ = 0) :
+        id(Heap::MatchId()), evaluation(evaluation_), options(options_) {
 	}
 };
 
 class Match {
 private:
-	const bool _matched;
-	const MatchId _id;
-	const Symbol *_variables;
+	const MatchId m_id;
+	const Symbol *m_variables;
 
 public:
-	explicit inline Match() : _matched(false) {
+	explicit inline Match() {
 	}
 
-	explicit inline Match(bool matched, const MatchContext &context) :
-		_matched(matched), _id(context.id), _variables(context.matched_variables.get()) {
+	explicit inline Match(const MatchContext &context) :
+		m_id(context.id), m_variables(context.matched_variables.get()) {
 	}
 
 	inline operator bool() const {
-		return _matched;
+		return m_id.get() != nullptr;
 	}
 
 	inline const MatchId &id() const {
-		return _id;
+		return m_id;
 	}
 
 	inline const Symbol *variables() const {
-		return _variables;
+		return m_variables;
 	}
 
 	template<int N>
@@ -140,7 +140,7 @@ struct unpack_symbols<M, M> {
 template<int N>
 inline typename BaseExpressionTuple<N>::type Match::get() const {
 	typename BaseExpressionTuple<N>::type t;
-	unpack_symbols<N, 0>()(_variables, t);
+	unpack_symbols<N, 0>()(m_variables, t);
 	return t;
 };
 
@@ -235,15 +235,13 @@ private:
     PatternMatcherRef m_matcher;
     const BaseExpressionRef m_patt;
     const Evaluation &m_evaluation;
-    const MatchContext::Anchor m_anchor;
 
 public:
     inline StringMatcher(
         const BaseExpressionRef &patt,
-        const Evaluation &evaluation,
-        MatchContext::Anchor anchor = MatchContext::DoAnchor) :
+        const Evaluation &evaluation) :
 
-        m_patt(patt), m_evaluation(evaluation), m_anchor(anchor) {
+        m_patt(patt), m_evaluation(evaluation) {
 
         switch (patt->type()) {
             case ExpressionType:
@@ -259,21 +257,62 @@ public:
         }
     }
 
-    inline BaseExpressionRef match(const String *string, index_t begin, index_t end) const {
-        MatchContext context(m_evaluation, m_anchor);
-        if (m_matcher) {
-            return m_matcher->match(context, string, begin, end);
-        } else {
-            return BaseExpressionRef(); // FIXME
-        }
-    }
+	template<typename Callback>
+	inline void search(const String *string, const Callback &callback, bool overlap) const {
+		if (m_matcher) {
+			index_t begin = 0;
+			const index_t end = string->length();
+			while (begin < end) {
+				MatchContext context(m_evaluation, MatchContext::NoEndAnchor);
+				const index_t match_end = m_matcher->match(
+					context, string, begin, end);
+				if (match_end >= 0) {
+					callback(begin, match_end, Match(context));
+					if (overlap) {
+						begin++;
+					} else {
+						begin = match_end;
+					}
+				} else {
+					begin++;
+				}
+			}
+		} else if (m_patt->type() == StringType) {
+			MatchContext context(m_evaluation, 0);
+			index_t curr = 0;
+			const String *patt_string = m_patt->as_string();
+			const auto string_unicode = string->unicode();
+			const auto patt_unicode = patt_string->unicode();
+			while (true) {
+				const index_t next = string_unicode.indexOf(patt_unicode, curr);
+				if (next < 0) {
+					break;
+				}
+				callback(next, next + patt_string->length(), Match(context));
+				curr = next + 1;
+			}
+		}
+	}
 
-    inline bool matchq(const String *string, index_t begin, index_t end) const {
-        MatchContext context(m_evaluation, m_anchor);
+    inline Match operator()(const String *string) const {
         if (m_matcher) {
-            return m_matcher->matchq(context, string, begin, end);
+	        MatchContext context(m_evaluation, 0);
+	        const index_t match_end = m_matcher->match(
+			    context, string, 0, string->length());
+	        if (match_end >= 0) {
+		        return Match(context);
+	        } else {
+		        return Match();
+	        }
+        } else if (m_patt->type() == StringType) {
+	        if (m_patt->as_string()->same(string)) {
+		        MatchContext context(m_evaluation, 0);
+		        return Match(context);
+	        } else {
+		        return Match();
+	        }
         } else {
-            return false; // FIXME
+            return Match();
         }
     }
 };
@@ -296,16 +335,17 @@ public:
 	inline Match operator()(const BaseExpressionRef &item) const {
 		MatchContext context(m_evaluation);
 		if (m_matcher) {
-			if (m_matcher->might_match(1) &&
-				m_matcher->match(context, FastLeafSequence(m_evaluation, &item), 0, 1) >= 0) {
-
-				return Match(true, context);
-			} else {
-				return Match(); // no match
+			if (m_matcher->might_match(1)) {
+				const index_t match = m_matcher->match(
+					context, FastLeafSequence(m_evaluation, &item), 0, 1);
+				if (match >= 0) {
+					return Match(context);
+				}
 			}
+			return Match(); // no match
 		} else {
 			if (m_patt->same(item)) {
-				return Match(true, context);
+				return Match(context);
 			} else {
 				return Match(); // no match
 			}

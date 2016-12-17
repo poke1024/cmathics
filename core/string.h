@@ -94,11 +94,24 @@ public:
     inline bool all_code_points(size_t offset, const F &f) const {
         return f(m_ascii[offset]);
     }
+
+	inline bool is_word_boundary(size_t begin, size_t end, size_t offset) const {
+		if (offset == begin) { // before the first character
+			return isalnum(m_ascii[begin]);
+		} else if (offset == end) { // after the last character
+			return end > begin && isalnum(m_ascii[end - 1]);
+		} else if (offset > begin && offset < end) {
+			return isalnum(m_ascii[offset]) != isalnum(m_ascii[offset - 1]);
+		} else {
+			return false;
+		}
+	}
 };
 
 class SimpleStringExtent : public StringExtent { // UTF16, fixed size
 private:
     UnicodeString m_string;
+	std::vector<bool> m_word_boundaries;
 
 public:
     inline SimpleStringExtent(UnicodeString &string) : StringExtent(StringExtent::simple) {
@@ -129,6 +142,10 @@ public:
     inline bool all_code_points(size_t offset, const F &f) const {
         return f(m_string[offset]);
     }
+
+	inline bool is_word_boundary(size_t begin, size_t end, size_t offset) const {
+		return false; // FIXME
+	}
 };
 
 std::vector<int32_t> make_character_offsets(const UnicodeString &normalized);
@@ -140,6 +157,7 @@ private:
 
     UnicodeString m_string;
 	std::vector<int32_t> m_offsets;
+	std::vector<bool> m_word_boundaries;
 
 public:
     inline ComplexStringExtent(UnicodeString &normalized_string) :
@@ -189,6 +207,10 @@ public:
         }
         return true;
     }
+
+	inline bool is_word_boundary(size_t begin, size_t end, size_t offset) const {
+		return false; // FIXME
+	}
 };
 
 StringExtentRef make_string_extent(std::string &&utf8);
@@ -203,8 +225,8 @@ private:
 	mutable optional<SymbolRef> m_option_symbol; // "System`" + value
 
     const StringExtentRef m_extent;
-    const size_t m_offset;
-    const size_t m_length;
+    const index_t m_offset;
+    const index_t m_length;
 
 protected:
     template<typename Extent>
@@ -315,6 +337,14 @@ public:
     inline size_t length() const {
         return m_length;
     }
+
+	inline StringRef substr(index_t begin, index_t end) const {
+		assert(begin >= 0);
+		return Heap::String(
+			m_extent,
+			m_offset + begin,
+			std::max(index_t(0), std::min(end - begin, m_length - begin)));
+	}
 
     inline StringRef take(index_t n) const {
         if (n >= 0) {
@@ -448,8 +478,12 @@ public:
 
     template<typename F>
     inline bool all_code_points(size_t offset, const F &f) const {
-        return m_extent->all_code_points(offset, f);
+        return m_extent->all_code_points(m_offset + offset, f);
     }
+
+	inline bool is_word_boundary(size_t offset) const {
+		return m_extent->is_word_boundary(m_offset, m_offset + m_length, m_offset + offset);
+	}
 };
 
 class AsciiCharacterSequence : public CharacterSequence<AsciiStringExtent> {
