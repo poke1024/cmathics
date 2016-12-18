@@ -395,6 +395,7 @@ inline BaseExpressionRef from_primitive(const std::string &value) {
 template<typename Extent>
 class CharacterSequence {
 protected:
+	MatchContext &m_context;
     Extent * const m_extent;
     const index_t m_offset;
     const index_t m_length;
@@ -445,13 +446,18 @@ public:
         }
     };
 
-    inline CharacterSequence(const String *string) :
+    inline CharacterSequence(MatchContext &context, const String *string) :
+	    m_context(context),
         m_extent(static_cast<Extent*>(string->extent().get())),
         m_offset(string->to_extent_offset(0)),
         m_length(string->length()) {
 
         assert(string->extent_type() == Extent::extent_type);
     }
+
+	inline MatchContext &context() const {
+		return m_context;
+	}
 
     inline Element element(index_t begin) const {
         return Element(this, begin);
@@ -488,22 +494,22 @@ public:
 
 class AsciiCharacterSequence : public CharacterSequence<AsciiStringExtent> {
 public:
-    inline AsciiCharacterSequence(const String *string) :
-        CharacterSequence<AsciiStringExtent>(string) {
+    inline AsciiCharacterSequence(MatchContext &context, const String *string) :
+        CharacterSequence<AsciiStringExtent>(context, string) {
     }
 };
 
 class SimpleCharacterSequence : public CharacterSequence<SimpleStringExtent> {
 public:
-    inline SimpleCharacterSequence(const String *string) :
-        CharacterSequence<SimpleStringExtent>(string) {
+    inline SimpleCharacterSequence(MatchContext &context, const String *string) :
+        CharacterSequence<SimpleStringExtent>(context, string) {
     }
 };
 
 class ComplexCharacterSequence : public CharacterSequence<ComplexStringExtent> {
 public:
-    inline ComplexCharacterSequence(const String *string) :
-        CharacterSequence<ComplexStringExtent>(string) {
+    inline ComplexCharacterSequence(MatchContext &context, const String *string) :
+        CharacterSequence<ComplexStringExtent>(context, string) {
     }
 };
 

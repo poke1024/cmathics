@@ -105,31 +105,26 @@ public:
 	}
 
 	virtual index_t match(
-		MatchContext &context,
 		const FastLeafSequence &sequence,
 		index_t begin,
 		index_t end) const = 0;
 
 	virtual index_t match(
-		MatchContext &context,
 		const SlowLeafSequence &sequence,
 		index_t begin,
 		index_t end) const = 0;
 
 	virtual index_t match(
-		MatchContext &context,
 		const AsciiCharacterSequence &sequence,
 		index_t begin,
 		index_t end) const = 0;
 
 	virtual index_t match(
-		MatchContext &context,
 		const SimpleCharacterSequence &sequence,
 		index_t begin,
 		index_t end) const = 0;
 
     virtual index_t match(
-        MatchContext &context,
         const ComplexCharacterSequence &sequence,
         index_t begin,
         index_t end) const = 0;

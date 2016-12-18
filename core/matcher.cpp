@@ -5,7 +5,7 @@
 
 class SlowLeafSequence {
 private:
-	const Evaluation &m_evaluation;
+	MatchContext &m_context;
 	const Expression * const m_expr;
 
 public:
@@ -48,8 +48,12 @@ public:
 		}
 	};
 
-	inline SlowLeafSequence(const Evaluation &evaluation, const Expression *expr) :
-        m_evaluation(evaluation), m_expr(expr) {
+	inline SlowLeafSequence(MatchContext &context, const Expression *expr) :
+        m_context(context), m_expr(expr) {
+	}
+
+	inline MatchContext &context() const {
+		return m_context;
 	}
 
 	inline Element element(index_t begin) const {
@@ -58,7 +62,7 @@ public:
 
 	inline Sequence sequence(index_t begin, index_t end) const {
         assert(begin <= end);
-		return Sequence(m_evaluation, m_expr, begin, end);
+		return Sequence(m_context.evaluation, m_expr, begin, end);
 	}
 
 	inline index_t same(index_t begin, BaseExpressionPtr other) const {
@@ -72,50 +76,44 @@ public:
 
 #define DECLARE_MATCH_EXPRESSION_METHODS                                                                      \
 	virtual index_t match( 					                                                                  \
-		MatchContext &context,                                                                                \
 		const FastLeafSequence &sequence,																  	  \
 		index_t begin,                                                                       				  \
 		index_t end) const {                                                                 				  \
-		return do_match<FastLeafSequence>(context, sequence, begin, end);    							  	  \
+		return do_match<FastLeafSequence>(sequence, begin, end);    	        						  	  \
 	}                                                                                                         \
 																											  \
 	virtual index_t match(                                                                             		  \
-		MatchContext &context,                                                                                \
 		const SlowLeafSequence &sequence,															  		  \
 		index_t begin,                                                                                 		  \
 		index_t end) const {                                                                           	      \
-		return do_match<SlowLeafSequence>(context, sequence, begin, end);   			                      \
+		return do_match<SlowLeafSequence>(sequence, begin, end);   	            		                      \
 	}                                                                                                         \
 
 
 #define DECLARE_MATCH_CHARACTER_METHODS																		  \
 	virtual index_t match(                                                                               	  \
-		MatchContext &context,                                                                                \
 		const AsciiCharacterSequence &sequence,	    														  \
 		index_t begin,                             	                                              			  \
 		index_t end) const {                         	                                          			  \
-        return do_match<AsciiCharacterSequence>(context, sequence, begin, end);                               \
+        return do_match<AsciiCharacterSequence>(sequence, begin, end);                                        \
     }                                                                                                         \
                                                                                                               \
 	virtual index_t match(                                                                               	  \
-		MatchContext &context,                                                                                \
 		const SimpleCharacterSequence &sequence,												    		  \
 		index_t begin,                             	                                              			  \
 		index_t end) const {                         	                                          			  \
-        return do_match<SimpleCharacterSequence>(context, sequence, begin, end);                              \
+        return do_match<SimpleCharacterSequence>(sequence, begin, end);                                       \
     }                                                                                                         \
                                                                                                               \
 	virtual index_t match(                                                                               	  \
-		MatchContext &context,                                                                                \
 		const ComplexCharacterSequence &sequence,												    		  \
 		index_t begin,                             	                                              			  \
 		index_t end) const {                         	                                          			  \
-        return do_match<ComplexCharacterSequence>(context, sequence, begin, end);                             \
+        return do_match<ComplexCharacterSequence>(sequence, begin, end);                                      \
     }
 
 #define DECLARE_NO_MATCH_CHARACTER_METHODS                                                                    \
 	virtual index_t match(                                                                               	  \
-		MatchContext &context,                                                                                \
 		const AsciiCharacterSequence &sequence,	    														  \
 		index_t begin,                             	                                              			  \
 		index_t end) const {                         	                                          			  \
@@ -123,7 +121,6 @@ public:
     }                                                                                                         \
                                                                                                               \
 	virtual index_t match(                                                                               	  \
-		MatchContext &context,                                                                                \
 		const SimpleCharacterSequence &sequence,												    		  \
 		index_t begin,                             	                                              			  \
 		index_t end) const {                         	                                          			  \
@@ -131,7 +128,6 @@ public:
     }                                                                                                         \
                                                                                                               \
 	virtual index_t match(                                                                               	  \
-		MatchContext &context,                                                                                \
 		const ComplexCharacterSequence &sequence,												    		  \
 		index_t begin,                             	                                              			  \
 		index_t end) const {                         	                                          			  \
@@ -146,7 +142,6 @@ class StartMatcher : public PatternMatcher {
 private:
 	template<typename Sequence>
 	inline index_t do_match(
-		MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
@@ -156,7 +151,7 @@ private:
 		} else if (end == 0) {
 			return 0;
 		} else {
-			return m_next->match(context, sequence, begin, end);
+			return m_next->match(sequence, begin, end);
 		}
 	}
 
@@ -168,7 +163,6 @@ class EndMatcher : public PatternMatcher {
 private:
 	template<typename Sequence>
 	inline index_t do_match(
-		MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
@@ -188,12 +182,11 @@ class TerminateMatcher : public PatternMatcher {
 private:
 	template<typename Sequence>
 	inline index_t do_match(
-		MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
 
-		if (begin == end || (context.options & MatchContext::NoEndAnchor)) {
+		if (begin == end || (sequence.context().options & MatchContext::NoEndAnchor)) {
 			return begin;
 		} else {
 			return -1;
@@ -308,7 +301,6 @@ private:
 
 	template<typename Sequence>
 	inline index_t do_match(
-		MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
@@ -318,8 +310,8 @@ private:
             const index_t up_to = std::get<1>(result);
 			if (up_to > begin) {
 				const PatternMatcherRef &next = m_next;
-				return m_variable(context, std::get<0>(result), [up_to, end, &next, &context, &sequence] () {
-					return next->match(context, sequence, up_to, end);
+				return m_variable(sequence.context(), std::get<0>(result), [up_to, end, &next, &sequence] () {
+					return next->match(sequence, up_to, end);
 				});
 			} else {
 				return -1;
@@ -344,13 +336,12 @@ private:
 
 	template<typename Sequence>
 	inline index_t do_match(
-		MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
 
 		if (m_match(sequence, begin, end)) {
-			return m_next->match(context, sequence, begin, end);
+			return m_next->match(sequence, begin, end);
 		} else {
 			return -1;
 		}
@@ -569,7 +560,6 @@ private:
 
     template<typename Sequence>
     inline index_t do_match(
-        MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
@@ -578,13 +568,13 @@ private:
 			return -1;
         }
 
-        if (m_matcher->match(context, sequence, begin, begin + 1) >= 0) {
+        if (m_matcher->match(sequence, begin, begin + 1) >= 0) {
             return -1;
         } else {
             const PatternMatcherRef &next = m_next;
 			auto element = sequence.element(begin);
-            return m_variable(context, element, [begin, end, &next, &context, &sequence] () {
-                return next->match(context, sequence, begin + 1, end);
+            return m_variable(sequence.context(), element, [begin, end, &next, &sequence] () {
+                return next->match(sequence, begin + 1, end);
             });
         }
     }
@@ -605,13 +595,12 @@ private:
 
     template<typename Sequence>
     inline index_t do_match(
-        MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
 
         for (const PatternMatcherRef &matcher : m_matchers) {
-	        const index_t match = matcher->match(context, sequence, begin, end);
+	        const index_t match = matcher->match(sequence, begin, end);
             if (match >= 0) {
                 return match;
             }
@@ -655,7 +644,6 @@ private:
 
 	template<typename Sequence>
 	inline index_t do_match(
-		MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
@@ -665,10 +653,12 @@ private:
 		const auto &test_head = std::get<0>(m_tests);
 		const auto &test_patt = std::get<1>(m_tests);
 
-		if (begin < end && test_head(element, context.evaluation) && test_patt(element, context.evaluation)) {
+		if (begin < end &&
+			test_head(element, sequence.context().evaluation) &&
+			test_patt(element, sequence.context().evaluation)) {
 			const PatternMatcherRef &next = m_next;
-			return m_variable(context, element, [begin, end, &next, &context, &sequence] () {
-				return next->match(context, sequence, begin + 1, end);
+			return m_variable(sequence.context(), element, [begin, end, &next, &sequence] () {
+				return next->match(sequence, begin + 1, end);
 			});
 		} else {
 			return -1;
@@ -695,7 +685,6 @@ private:
 public:
 	template<typename Sequence, typename F>
 	inline index_t operator()(
-		MatchContext &context,
 		const Sequence &sequence,
 		const index_t begin,
 		const index_t min_size,
@@ -707,7 +696,7 @@ public:
 		if (!test_head.is_noop) {
 			for (size_t i = 0; i < max_size; i++) {
 				auto element = sequence.element(begin + i);
-				if (!test_head(element, context.evaluation)) {
+				if (!test_head(element, sequence.context().evaluation)) {
 					condition_max_size = i;
 					break;
 				}
@@ -737,7 +726,6 @@ private:
 public:
 	template<typename Sequence, typename F>
 	inline index_t operator()(
-		MatchContext &context,
 		const Sequence &sequence,
 		const index_t begin,
 		const index_t min_size,
@@ -748,7 +736,7 @@ public:
 		if (!test_head.is_noop) {
 			for (size_t i = 0; i < min_size; i++) {
 				auto element = sequence.element(begin + i);
-				if (!test_head(element, context.evaluation)) {
+				if (!test_head(element, sequence.context().evaluation)) {
 					return -1;
 				}
 			}
@@ -758,7 +746,7 @@ public:
 		for (index_t i = min_size; i <= max_size; i++) {
 			if (!test_head.is_noop) {
 				auto element = sequence.element(begin + i);
-				if (!test_head(element, context.evaluation)) {
+				if (!test_head(element, sequence.context().evaluation)) {
 					return -1;
 				}
 			}
@@ -783,7 +771,6 @@ private:
 
 	template<typename Sequence>
 	inline index_t do_match(
-		MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
@@ -796,26 +783,25 @@ private:
 			return -1;
 		}
 
-		const index_t min_size = (context.options & MatchContext::NoEndAnchor) ?
+		const index_t min_size = (sequence.context().options & MatchContext::NoEndAnchor) ?
 			Minimum : std::max(n - index_t(m_size_from_next.max()), Minimum);
 
 		const auto &next = m_next;
 		const auto &variable = m_variable;
 
 		return m_strategy(
-			context,
 			sequence,
 			begin,
 			min_size,
 			max_size,
-			[begin, end, &context, &sequence, &variable, &next] (const auto &test_patt, index_t i) {
+			[begin, end, &sequence, &variable, &next] (const auto &test_patt, index_t i) {
 				auto part = sequence.sequence(begin, begin + i);
-				if (test_patt(part, context.evaluation)) {
+				if (test_patt(part, sequence.context().evaluation)) {
 					return variable(
-						context,
+						sequence.context(),
 						part,
-						[begin, end, i, &next, &context, &sequence] () {
-							return next->match(context, sequence, begin + i, end);
+						[begin, end, i, &next, &sequence] () {
+							return next->match(sequence, begin + i, end);
 						});
 				} else {
 					return index_t(-1);
@@ -844,7 +830,6 @@ private:
 
 	template<typename Sequence>
 	inline index_t do_match(
-		MatchContext &context,
 		const Sequence &sequence,
 		index_t begin,
 		index_t end) const {
@@ -869,26 +854,26 @@ private:
 
 		const BaseExpressionRef &head = expr->head();
 
-		if (m_match_head->match(context, FastLeafSequence(context.evaluation, &head), 0, 1) < 0) {
+		if (m_match_head->match(FastLeafSequence(sequence.context(), &head), 0, 1) < 0) {
 			return -1;
 		}
 
 		if (slice_needs_no_materialize(expr->slice_code())) {
-			if (expr->with_leaves_array([&context, &sequence, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
-				return match_leaves->match(context, FastLeafSequence(context.evaluation, leaves), 0, size);
+			if (expr->with_leaves_array([&sequence, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
+				return match_leaves->match(FastLeafSequence(sequence.context(), leaves), 0, size);
 			}) < 0) {
 				return -1;
 			}
 		} else {
-			if (match_leaves->match(context, SlowLeafSequence(context.evaluation, expr), 0, expr->size()) < 0) {
+			if (match_leaves->match(SlowLeafSequence(sequence.context(), expr), 0, expr->size()) < 0) {
 				return -1;
 			}
 		}
 
 		const PatternMatcherRef &next = m_next;
 		auto element = Element(item);
-		return m_variable(context, element, [begin, end, &next, &sequence, &context] () {
-			return next->match(context, sequence, begin + 1, end);
+		return m_variable(sequence.context(), element, [begin, end, &next, &sequence] () {
+			return next->match(sequence, begin + 1, end);
 		});
 	}
 
@@ -1276,16 +1261,16 @@ index_t PatternMatcher::match(
 
     switch (string->extent_type()) {
         case StringExtent::ascii: {
-            const AsciiCharacterSequence sequence(string);
-            return match(context, sequence, begin, end);
+            const AsciiCharacterSequence sequence(context, string);
+            return match(sequence, begin, end);
         }
         case StringExtent::simple: {
-            const SimpleCharacterSequence sequence(string);
-            return match(context, sequence, begin, end);
+            const SimpleCharacterSequence sequence(context, string);
+            return match(sequence, begin, end);
         }
         case StringExtent::complex: {
-            const ComplexCharacterSequence sequence(string);
-            return match(context, sequence, begin, end);
+            const ComplexCharacterSequence sequence(context, string);
+            return match(sequence, begin, end);
         }
         default: {
             throw std::runtime_error("unsupported string extent type");

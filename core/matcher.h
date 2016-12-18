@@ -164,7 +164,7 @@ inline PatternMatcherRef Expression::string_matcher() const {
 
 class FastLeafSequence {
 private:
-	const Evaluation &m_evaluation;
+	MatchContext &m_context;
 	const BaseExpressionRef * const m_array;
 
 public:
@@ -207,8 +207,12 @@ public:
 		}
 	};
 
-	inline FastLeafSequence(const Evaluation& evaluation, const BaseExpressionRef *array) :
-		m_evaluation(evaluation), m_array(array) {
+	inline FastLeafSequence(MatchContext &context, const BaseExpressionRef *array) :
+		m_context(context), m_array(array) {
+	}
+
+	inline MatchContext &context() const {
+		return m_context;
 	}
 
 	inline Element element(index_t begin) const {
@@ -217,7 +221,7 @@ public:
 
 	inline Sequence sequence(index_t begin, index_t end) const {
         assert(begin <= end);
-		return Sequence(m_evaluation, m_array, begin, end);
+		return Sequence(m_context.evaluation, m_array, begin, end);
 	}
 
 	inline index_t same(index_t begin, BaseExpressionPtr other) const {
@@ -337,7 +341,7 @@ public:
 		if (m_matcher) {
 			if (m_matcher->might_match(1)) {
 				const index_t match = m_matcher->match(
-					context, FastLeafSequence(m_evaluation, &item), 0, 1);
+					FastLeafSequence(context, &item), 0, 1);
 				if (match >= 0) {
 					return Match(context);
 				}
