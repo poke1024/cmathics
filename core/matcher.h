@@ -56,6 +56,13 @@ public:
             _first = list_first;
         }
     }
+
+	inline void backtrace(Symbol *to_first) {
+		while (_first != to_first) {
+			_first->clear_matched_value();
+			_first = _first->next_variable();
+		}
+	}
 };
 
 typedef uint32_t MatchOptions;
@@ -170,14 +177,19 @@ private:
 public:
 	class Element {
 	private:
-		const BaseExpressionRef * const m_begin;
+		const BaseExpressionRef * const m_array;
+		const index_t m_begin;
 
 	public:
-		inline Element(const BaseExpressionRef *array, index_t begin) : m_begin(array + begin) {
+		inline Element(const BaseExpressionRef *array, index_t begin) : m_array(array), m_begin(begin) {
+		}
+
+		inline index_t begin() const {
+			return m_begin;
 		}
 
 		inline const BaseExpressionRef &operator*() const {
-			return *m_begin;
+			return m_array[m_begin];
 		}
 	};
 
@@ -219,7 +231,7 @@ public:
 		return Element(m_array, begin);
 	}
 
-	inline Sequence sequence(index_t begin, index_t end) const {
+	inline Sequence slice(index_t begin, index_t end) const {
         assert(begin <= end);
 		return Sequence(m_context.evaluation, m_array, begin, end);
 	}

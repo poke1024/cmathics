@@ -226,7 +226,7 @@ inline NewRuleRef make_builtin_rule(const F &func) {
 
 // note: PatternMatchedBuiltinRule should only be used for builtins that match non-down values (e.g. sub values).
 // if you write builtins that match down values, always use BuiltinRule, since it's faster (it doesn't involve the
-// pattern matcher).
+// pattern match).
 
 template<int N>
 class PatternMatchedBuiltinRule : public Rule {

@@ -412,6 +412,10 @@ public:
             m_sequence(sequence), m_begin(begin) {
         }
 
+	    inline index_t begin() const {
+		    return m_begin;
+	    }
+
         inline const BaseExpressionRef &operator*() {
             if (!m_cached) {
                 m_cached = Heap::String(
@@ -463,7 +467,7 @@ public:
         return Element(this, begin);
     }
 
-    inline Sequence sequence(index_t begin, index_t end) const {
+    inline Sequence slice(index_t begin, index_t end) const {
         assert(begin <= end);
         return Sequence(this, begin, end);
     }
