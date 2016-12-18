@@ -210,6 +210,14 @@ public:
 		return s >= _min && s <= _max;
 	}
 
+	inline optional<size_t> fixed_size() const {
+		if (_min == _max) { // i.e. a finite, fixed integer
+			return _min;
+		} else {
+			return optional<size_t>();
+		}
+	}
+
 	inline bool matches(SliceCode code) const {
 		if (is_static_slice(code)) {
 			return contains(static_slice_size(code));

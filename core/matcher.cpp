@@ -203,73 +203,115 @@ public:
 
 class TestNone {
 public:
-	static constexpr bool noop = true;
-	static constexpr bool trivial = false;
-
 	template<typename Sequence, typename Element>
 	inline index_t operator()(const Sequence &sequence, Element &element) const {
 		return element.begin() + 1;
 	};
 
-	template<typename Sequence>
-	inline bool operator()(const Sequence &sequence, index_t begin, index_t end) const {
-		return begin + 1;
+	template<typename Strategy, typename... Args>
+	inline index_t greedy(const Strategy &strategy, Args... args) const {
+		return strategy.no_test(args...);
 	}
 };
 
+class SameSymbolHead {
+public:
+	inline bool operator()(BaseExpressionPtr a, BaseExpressionPtr b) const {
+		return a == b;
+	}
+};
+
+class SameGenericHead {
+public:
+	inline bool operator()(BaseExpressionPtr a, BaseExpressionPtr b) const {
+		return a == b || a->same(b);
+	}
+};
+
+template<typename Same>
 class TestHead {
 private:
 	const BaseExpressionRef m_head;
+	const Same m_same;
 
 public:
-	static constexpr bool noop = false;
-	static constexpr bool trivial = true;
-
-	inline TestHead(const BaseExpressionRef &head) : m_head(head) {
+	inline TestHead(const BaseExpressionRef &head) : m_head(head), m_same() {
 	}
 
 	template<typename Sequence, typename Element>
 	inline index_t operator()(const Sequence &sequence, Element &element) const {
 		const auto item = *element;
-		const BaseExpressionPtr a = m_head.get();
-		const BaseExpressionPtr b = item->head(sequence.context().evaluation);
-		if (a == b || (a->type() != SymbolType && a->same(b))) {
+		if (m_same(m_head.get(), item->head(sequence.context().evaluation))) {
 			return element.begin() + 1;
 		} else {
 			return -1;
 		}
 	}
 
-	template<typename Sequence>
-	inline index_t operator()(const Sequence &sequence, index_t begin, index_t end) const {
-		auto element = sequence.element(begin);
-		return (*this)(sequence, element);
+	template<typename Strategy, typename... Args>
+	inline index_t greedy(const Strategy &strategy, Args... args) const {
+		const TestHead &self = *this;
+		return strategy.simple_test(
+			[&self] (const auto &sequence, index_t begin, index_t end) {
+				auto element = sequence.element(begin);
+				return self(sequence, element);
+			},
+			1,
+			args...);
 	}
 };
 
+class SimpleGreedy {
+private:
+	const index_t m_fixed_size;
+
+public:
+	inline SimpleGreedy(const index_t fixed_size) : m_fixed_size(fixed_size) {
+	}
+
+	template<typename Strategy, typename ElementTest, typename... Args>
+	inline index_t operator()(const Strategy &strategy, const ElementTest &element_test, Args... args) const {
+		return strategy.simple_test(element_test, m_fixed_size, args...);
+	}
+};
+
+class ComplexGreedy {
+public:
+	template<typename Strategy, typename... Args>
+	inline index_t operator()(const Strategy &strategy, Args... args) const {
+		return strategy.complex_test(args...);
+	}
+};
+
+template<typename Callback>
 class TestRepeated {
 private:
 	const PatternMatcherRef m_patt;
+	const Callback m_callback;
 
 public:
-	static constexpr bool noop = false;
-	static constexpr bool trivial = false;
-
-	inline TestRepeated(const PatternMatcherRef &patt) : m_patt(patt) {
+	inline TestRepeated(const PatternMatcherRef &patt, const Callback& callback) :
+		m_patt(patt), m_callback(callback) {
 	}
 
-	template<typename Sequence>
-	inline index_t operator()(const Sequence &sequence, index_t begin, index_t end) const {
-		return m_patt->match(sequence, begin, end);
+	template<typename Strategy, typename... Args>
+	inline index_t greedy(const Strategy &strategy, Args... args) const {
+		const PatternMatcherRef &patt = m_patt;
+		return m_callback(
+			strategy,
+			[&patt] (const auto &sequence, index_t begin, index_t end) {
+				return patt->match(sequence, begin, end);
+			},
+			args...);
 	}
 };
 
-class TestPattern {
+class PatternTest {
 private:
     const BaseExpressionRef m_test;
 
 public:
-    inline TestPattern(const BaseExpressionRef &test) :
+    inline PatternTest(const BaseExpressionRef &test) :
         m_test(test) {
     }
 
@@ -279,7 +321,7 @@ public:
 	}
 };
 
-class TestNoPattern {
+class NoPatternTest {
 public:
 	template<typename Sequence, typename Slice>
 	inline bool operator()(const Sequence &sequence, Slice &slice) const {
@@ -730,76 +772,107 @@ private:
 	const Tests m_tests;
 
 public:
-	template<typename Sequence, typename Take>
-	inline index_t operator()(
-		const Sequence &sequence,
-		const index_t begin,
-		const index_t min_size,
-		const index_t max_size,
-		const Take &take) const {
+	inline Longest(const Tests &tests) : m_tests(tests) {
+	}
 
+	template<typename... Args>
+	inline index_t operator()(Args... args) const {
 		const auto &test_element = std::get<0>(m_tests);
 		const auto &test_pattern = std::get<1>(m_tests);
+		return test_element.greedy(*this, test_pattern, args...);
+	}
 
-		if (test_element.noop) {
-			for (index_t i = max_size; i >= min_size; i--) {
-				const index_t match = take(test_pattern, i);
-				if (match >= 0) {
-					return match;
-				}
-			}
-		} else if (test_element.trivial) {
-			index_t n = 0;
-			while (n < max_size) {
-				const index_t up_to = test_element(
-					sequence, begin + n, begin + max_size);
-				if (up_to < 0) {
-					break;
-				}
-				assert(up_to == begin + 1);
-				n += 1;
-			}
+public:
+	template<typename PatternTest, typename Sequence, typename Take>
+	inline index_t no_test(
+		const PatternTest &test_pattern,
+		const Sequence &sequence,
+	    const index_t begin,
+		const index_t min_size,
+		const index_t max_size,
+	    const Take &take) const {
 
-			while (n >= min_size) {
-				const index_t match = take(test_pattern, n);
-				if (match >= 0) {
-					return match;
-				}
-				n -= 1;
-			}
-		} else {
-			std::vector<std::tuple<index_t, Symbol*>> states;
-			auto &variables = sequence.context().matched_variables;
-
-			index_t n = 0;
-			while (n < max_size) {
-				Symbol * const vars0 = variables.get();
-				const index_t up_to = test_element(
-					sequence, begin + n, begin + max_size);
-				if (up_to < 0) {
-					break;
-				}
-				n = up_to - begin;
-				assert(n <= max_size);
-				states.push_back(std::make_tuple(n, vars0));
-			}
-
-			for (auto i = states.rbegin(); i != states.rend(); i++) {
-				const index_t n = std::get<0>(*i);
-				if (n >= min_size) {
-					const index_t match = take(test_pattern, n);
-					if (match >= 0) {
-						return match;
-					}
-				}
-				variables.backtrace(std::get<1>(*i));
+		for (index_t i = max_size; i >= min_size; i--) {
+			const index_t match = take(test_pattern, i);
+			if (match >= 0) {
+				return match;
 			}
 		}
 
 		return -1;
 	}
 
-	inline Longest(const Tests &tests) : m_tests(tests) {
+	template<typename ElementTest, typename PatternTest, typename Sequence, typename Take>
+	inline index_t simple_test(
+		const ElementTest &test_element,
+		const size_t match_size,
+		const PatternTest &test_pattern,
+		const Sequence &sequence,
+		const index_t begin,
+		const index_t min_size,
+		const index_t max_size,
+		const Take &take) const {
+
+		index_t n = 0;
+		while (n < max_size) {
+			const index_t up_to = test_element(
+				sequence, begin + n, begin + max_size);
+			if (up_to < 0) {
+				break;
+			}
+			assert(up_to == begin + n + match_size);
+			n += match_size;
+		}
+
+		while (n >= min_size) {
+			const index_t match = take(test_pattern, n);
+			if (match >= 0) {
+				return match;
+			}
+			n -= match_size;
+		}
+
+		return -1;
+	}
+
+	template<typename ElementTest, typename PatternTest, typename Sequence, typename Take>
+	inline index_t complex_test(
+		const ElementTest &test_element,
+		const PatternTest &test_pattern,
+		const Sequence &sequence,
+		const index_t begin,
+		const index_t min_size,
+		const index_t max_size,
+		const Take &take) const {
+
+		std::vector<std::tuple<index_t, Symbol*>> states;
+		auto &variables = sequence.context().matched_variables;
+
+		index_t n = 0;
+		while (n < max_size) {
+			Symbol * const vars0 = variables.get();
+			const index_t up_to = test_element(
+				sequence, begin + n, begin + max_size);
+			if (up_to < 0) {
+				break;
+			}
+			n = up_to - begin;
+			assert(n <= max_size);
+			states.push_back(std::make_tuple(n, vars0));
+		}
+
+		for (auto i = states.rbegin(); i != states.rend(); i++) {
+			const index_t n = std::get<0>(*i);
+			if (n >= min_size) {
+				const index_t match = take(test_pattern, n);
+				if (match >= 0) {
+					return match;
+				}
+			}
+			variables.backtrace(std::get<1>(*i));
+		}
+
+		return -1;
 	}
 };
 
@@ -809,57 +882,89 @@ private:
 	const Tests m_tests;
 
 public:
-	template<typename Sequence, typename Take>
-	inline index_t operator()(
+	inline Shortest(const Tests &tests) : m_tests(tests) {
+	}
+
+	template<typename... Args>
+	inline index_t operator()(Args... args) const {
+		const auto &test_element = std::get<0>(m_tests);
+		const auto &test_pattern = std::get<1>(m_tests);
+		return test_element.greedy(*this, test_pattern, args...);
+	}
+
+public:
+	template<typename PatternTest, typename Sequence, typename Take>
+	inline index_t no_test(
+		const PatternTest &test_pattern,
 		const Sequence &sequence,
 		const index_t begin,
 		const index_t min_size,
 		const index_t max_size,
 		const Take &take) const {
 
-		const auto &test_element = std::get<0>(m_tests);
-		const auto &test_pattern = std::get<1>(m_tests);
-
-		if (test_element.noop) {
-			for (index_t i = min_size; i <= max_size; i++) {
-				const index_t match = take(test_pattern, i);
-				if (match >= 0) {
-					return match;
-				}
+		for (index_t i = min_size; i <= max_size; i++) {
+			const index_t match = take(test_pattern, i);
+			if (match >= 0) {
+				return match;
 			}
-		} else {
-			auto &variables = sequence.context().matched_variables;
-			Symbol * const vars0 = variables.get();
-
-			index_t n = 0;
-			while (n < min_size) {
-				const index_t up_to = test_element(
-					sequence, begin + n, begin + max_size);
-				if (up_to < 0) {
-					break;
-				}
-				n = up_to - begin;
-			}
-
-			while (n <= max_size) {
-				const index_t up_to = test_element(
-					sequence, begin + n, begin + max_size);
-				if (up_to < 0) {
-					break;
-				}
-				const index_t match = take(test_pattern, n);
-				if (match >= 0) {
-					return match;
-				}
-			}
-
-			variables.backtrace(vars0);
 		}
 
 		return -1;
 	}
 
-	inline Shortest(const Tests &tests) : m_tests(tests) {
+	template<typename ElementTest, typename PatternTest, typename Sequence, typename Take>
+	inline index_t simple_test(
+		const ElementTest &test_element,
+		const size_t /*match_size*/,
+		const PatternTest &test_pattern,
+		const Sequence &sequence,
+		const index_t begin,
+		const index_t min_size,
+		const index_t max_size,
+		const Take &take) const {
+
+		index_t n = 0;
+		while (n < min_size) {
+			const index_t up_to = test_element(
+				sequence, begin + n, begin + max_size);
+			if (up_to < 0) {
+				break;
+			}
+			n = up_to - begin;
+		}
+
+		while (n <= max_size) {
+			const index_t up_to = test_element(
+				sequence, begin + n, begin + max_size);
+			if (up_to < 0) {
+				break;
+			}
+			const index_t match = take(test_pattern, n);
+			if (match >= 0) {
+				return match;
+			}
+		}
+
+		return -1;
+	}
+
+	template<typename ElementTest, typename PatternTest, typename Sequence, typename... Args>
+	inline index_t complex_test(
+		const ElementTest &test_element,
+		const PatternTest &test_pattern,
+		const Sequence &sequence,
+		Args... args) const {
+
+		auto &variables = sequence.context().matched_variables;
+		Symbol * const vars0 = variables.get();
+
+		const index_t match = simple_test(test_element, 0, test_pattern, sequence, args...);
+
+		if (match < 0) {
+			variables.backtrace(vars0);
+		}
+
+		return match;
 	}
 };
 
@@ -1017,8 +1122,10 @@ public:
         const BaseExpressionRef *test,
 		const bool shortest);
 
-	PatternMatcherRef compile_string_pattern(
+	PatternMatcherRef compile(
 		const BaseExpressionRef &patt,
+		const SymbolRef *variable,
+		const BaseExpressionRef *test,
 		const bool shortest);
 };
 
@@ -1181,10 +1288,15 @@ PatternMatcherRef PatternCompiler::compile(
 
 	PatternMatcherRef initial_matcher;
 	PatternMatcherRef previous_matcher;
+	bool might_assign_variables = false;
 
 	for (size_t i = 0; i < n; i++) {
 		const PatternMatcherRef matcher = compile_element(
 			begin[i], variable, test, shortest);
+
+		if (matcher->might_assign_variables()) {
+			might_assign_variables = true;
+		}
 
 		matcher->set_size(matchable[i], matchable[i + 1]);
 
@@ -1200,21 +1312,27 @@ PatternMatcherRef PatternCompiler::compile(
 	assert(previous_matcher);
 	previous_matcher->set_next(PatternMatcherRef(new TerminateMatcher));
 
+	initial_matcher->set_might_assign_variables(might_assign_variables);
+
 	return initial_matcher;
 }
 
-PatternMatcherRef PatternCompiler::compile_string_pattern(
+PatternMatcherRef PatternCompiler::compile(
 	const BaseExpressionRef &patt,
+	const SymbolRef *variable,
+	const BaseExpressionRef *test,
 	const bool shortest) {
+
 	if (patt->type() == ExpressionType &&
 		patt->as_expression()->head()->extended_type() == SymbolStringExpression) {
+
 		PatternCompiler * const compiler = this;
 		return patt->as_expression()->with_leaves_array(
-			[&compiler, shortest] (const BaseExpressionRef *leaves, size_t n) {
-				return compiler->compile(leaves, leaves + n, nullptr, nullptr, shortest);
+			[&compiler, variable, test, shortest] (const BaseExpressionRef *leaves, size_t n) {
+				return compiler->compile(leaves, leaves + n, variable, test, shortest);
 			});
 	} else {
-		return compile(&patt, &patt + 1, nullptr, nullptr, shortest);
+		return compile(&patt, &patt + 1, variable, test, shortest);
 	}
 }
 
@@ -1231,12 +1349,18 @@ public:
 		m_patt_end(patt_end) {
 	}
 
-	inline bool has_element_test() const {
-		return m_patt_end - m_patt_begin == 1;
-	}
-
-	inline TestHead element_test() const {
-		return TestHead(*m_patt_begin);
+	template<typename Make>
+	inline PatternMatcherRef matcher(const Make &make) const {
+		if (m_patt_end - m_patt_begin == 1) {
+			const BaseExpressionRef &head = *m_patt_begin;
+			if (head->type() == SymbolType) {
+				return make(TestHead<SameSymbolHead>(head));
+			} else {
+				return make(TestHead<SameGenericHead>(head));
+			}
+		} else {
+			return make(TestNone());
+		}
 	}
 };
 
@@ -1258,15 +1382,21 @@ public:
 		m_patt_end(patt_end) {
 	}
 
-	inline bool has_element_test() const {
-		return m_patt_end - m_patt_begin == 1;
-	}
+	template<typename Make>
+	inline PatternMatcherRef matcher(const Make &make) const {
+		if (m_patt_end - m_patt_begin == 1) {
+			const PatternMatcherRef matcher = m_compiler->compile(
+				*m_patt_begin, nullptr, nullptr, m_shortest);
 
-	inline TestRepeated element_test() const {
-		const PatternMatcherRef matcher = m_compiler->compile_string_pattern(
-			*m_patt_begin, m_shortest);
-
-		return TestRepeated(matcher);
+			const auto fixed_size = matcher->fixed_size();
+			if (fixed_size && !matcher->might_assign_variables()) {
+				return make(TestRepeated<SimpleGreedy>(matcher, SimpleGreedy(*fixed_size)));
+			} else {
+				return make(TestRepeated<ComplexGreedy>(matcher, ComplexGreedy()));
+			}
+		} else {
+			return make(TestNone());
+		}
 	}
 };
 
@@ -1274,29 +1404,19 @@ template<template<typename, typename> class Match, typename Form>
 inline PatternMatcherRef create_blank_matcher(
 	const Form &form,
 	const SymbolRef *variable,
-    const BaseExpressionRef *test) {
+    const BaseExpressionRef *pattern_test) {
 
-    if (test) {
-        if (form.has_element_test()) {
-            return for_variable<Match>(
-                std::make_tuple(form.element_test(), TestPattern(*test)),
-                variable);
-        } else {
-            return for_variable<Match>(
-                std::make_tuple(TestNone(), TestPattern(*test)),
-                variable);
-        }
-    } else {
-        if (form.has_element_test()) {
-            return for_variable<Match>(
-                std::make_tuple(form.element_test(), TestNoPattern()),
-                variable);
-        } else {
-            return for_variable<Match>(
-				std::make_tuple(TestNone(), TestNoPattern()),
-                variable);
-        }
-    }
+	return form.matcher([&variable, &pattern_test] (const auto &element_test) {
+		if (pattern_test) {
+			return for_variable<Match>(
+				std::make_tuple(element_test, PatternTest(*pattern_test)),
+				variable);
+		} else {
+			return for_variable<Match>(
+				std::make_tuple(element_test, NoPatternTest()),
+				variable);
+		}
+	});
 }
 
 template<template<template<typename> class, index_t, typename, typename> class Match, index_t Minimum>
@@ -1352,7 +1472,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			std::vector<PatternMatcherRef> matchers;
 			matchers.reserve(patt_end - patt_begin);
 			for (const BaseExpressionRef *patt = patt_begin; patt < patt_end; patt++) {
-				matchers.push_back(compile(patt, patt + 1, variable, test, shortest));
+				matchers.push_back(compile(*patt, variable, test, shortest));
 			}
 			return for_variable<AlternativesMatcher>(matchers, variable);
 		}
@@ -1360,19 +1480,19 @@ PatternMatcherRef PatternCompiler::compile_sequence(
         case SymbolExcept:
             if (patt_end - patt_begin == 1) { // 1 leaf ?
                 return for_variable<ExceptMatcher>(
-                    compile(patt_begin, patt_begin + 1, nullptr, test, shortest), variable);
+                    compile(*patt_begin, nullptr, test, shortest), variable);
             }
 			break;
 
 		case SymbolShortest:
 			if (patt_end - patt_begin == 1) { // 1 leaf ?
-				return compile_element(*patt_begin, variable, test, true);
+				return compile(*patt_begin, variable, test, true);
 			}
 			break;
 
 		case SymbolLongest:
 			if (patt_end - patt_begin == 1) { // 1 leaf ?
-				return compile_element(*patt_begin, variable, test, false);
+				return compile(*patt_begin, variable, test, false);
 			}
 			break;
 
@@ -1381,7 +1501,10 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 				if ((*patt_begin)->type() == SymbolType) {
 					const SymbolRef variable = boost::const_pointer_cast<Symbol>(
 						boost::static_pointer_cast<const Symbol>(patt_begin[0]));
-					return compile(patt_begin + 1, patt_begin + 2, &variable, test, shortest);
+					const PatternMatcherRef matcher = compile(
+						patt_begin[1], &variable, test, shortest);
+					matcher->set_might_assign_variables(true);
+					return matcher;
 				}
 			}
 			break;
@@ -1389,7 +1512,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 		case SymbolPatternTest:
 			if (patt_end - patt_begin == 2) { // 2 leaves?
                 const BaseExpressionRef test = patt_begin[1];
-                return compile(patt_begin, patt_begin + 1, variable, &test, shortest);
+                return compile(*patt_begin, variable, &test, shortest);
 			}
 			break;
 
@@ -1412,13 +1535,13 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt) {
 	constexpr bool shortest = true;
 	PatternCompiler compiler;
-	return compiler.compile(&patt, &patt + 1, nullptr, nullptr, shortest);
+	return compiler.compile(patt, nullptr, nullptr, shortest);
 }
 
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt) {
 	constexpr bool shortest = false;
 	PatternCompiler compiler;
-	return compiler.compile_string_pattern(patt, shortest);
+	return compiler.compile(patt, nullptr, nullptr, shortest);
 }
 
 index_t PatternMatcher::match(

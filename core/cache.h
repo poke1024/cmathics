@@ -78,6 +78,7 @@ protected:
 	PatternMatcherRef m_next;
 	MatchSize m_size_from_here;
 	MatchSize m_size_from_next;
+	bool m_any_variables;
 
 public:
 	virtual void set_next(
@@ -94,7 +95,15 @@ public:
 		m_size_from_next = size_from_next;
 	}
 
-	PatternMatcher() : m_ref_count(0) {
+	inline void set_might_assign_variables(bool any) {
+		m_any_variables = any;
+	}
+
+	inline bool might_assign_variables() const {
+		return m_any_variables;
+	}
+
+	PatternMatcher() : m_ref_count(0), m_any_variables(false) {
 	}
 
 	virtual ~PatternMatcher() {
@@ -102,6 +111,10 @@ public:
 
 	inline bool might_match(size_t size) const {
 		return m_size_from_here.contains(size);
+	}
+
+	inline optional<size_t> fixed_size() const {
+		return m_size_from_here.fixed_size();
 	}
 
 	virtual index_t match(
