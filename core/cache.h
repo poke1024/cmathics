@@ -72,27 +72,40 @@ class AsciiCharacterSequence;
 class SimpleCharacterSequence;
 class ComplexCharacterSequence;
 
+class PatternMatcherSize {
+private:
+    MatchSize m_from_here;
+    MatchSize m_from_next;
+
+public:
+    inline PatternMatcherSize() {
+    }
+
+    inline PatternMatcherSize(
+        const MatchSize &from_here,
+        const MatchSize &from_next) :
+        m_from_here(from_here),
+        m_from_next(from_next) {
+    }
+
+    inline const MatchSize &from_here() const {
+        return m_from_here;
+    }
+
+    inline const MatchSize &from_next() const {
+        return m_from_next;
+    }
+};
+
 class PatternMatcher {
 protected:
 	size_t m_ref_count;
-	// PatternMatcherRef m_next;
-	MatchSize m_size_from_here;
-	MatchSize m_size_from_next;
+    PatternMatcherSize m_size;
 	bool m_any_variables;
 
 public:
-	/*virtual void set_next(
-		const PatternMatcherRef &next) {
-
-		m_next = next;
-	}*/
-
-	virtual void set_size(
-		const MatchSize &size_from_here,
-		const MatchSize &size_from_next) {
-
-		m_size_from_here = size_from_here;
-		m_size_from_next = size_from_next;
+	inline void set_size(const PatternMatcherSize &size) {
+		m_size = size;
 	}
 
 	inline void set_might_assign_variables(bool any) {
@@ -110,11 +123,11 @@ public:
 	}
 
 	inline bool might_match(size_t size) const {
-		return m_size_from_here.contains(size);
+		return m_size.from_here().contains(size);
 	}
 
 	inline optional<size_t> fixed_size() const {
-		return m_size_from_here.fixed_size();
+		return m_size.from_here().fixed_size();
 	}
 
 	virtual index_t match(
