@@ -264,6 +264,11 @@ protected:
 public:
 	inline MatchIdData() : m_ref_count(0) {
 	}
+
+	inline bool is_obsolete() const {
+		// caller is the last one holding a ref to this?
+		return m_ref_count == 1;
+	}
 };
 
 typedef boost::intrusive_ptr<MatchIdData> MatchId;

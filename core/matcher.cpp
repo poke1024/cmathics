@@ -347,30 +347,23 @@ public:
 
 	template<typename Element, typename F>
 	inline index_t operator()(MatchContext &context, Element &element, const F &f) const {
-		if (!m_variable->set_matched_value(context.id, *element)) {
-            return -1;
-        }
-
-		try {
-			const index_t match = f();
-
-			if (match >= 0) {
-				context.matched_variables.prepend(m_variable.get());
-			} else {
-				m_variable->clear_matched_value();
-			}
-
-			return match;
-		} catch (...) {
-			m_variable->clear_matched_value();
-			throw;
+		if (!context.matched_variables.assign(m_variable.get(), *element)) {
+			return -1;
 		}
+
+		const index_t match = f();
+
+		if (match < 0) {
+			context.matched_variables.unassign(m_variable.get());
+		}
+
+		return match;
 	}
 };
 
 class Continue {
 private:
-    const PatternMatcherRef &m_next;
+    const PatternMatcherRef m_next;
 
 public:
     inline Continue(const PatternMatcherRef &next) : m_next(next) {
@@ -409,8 +402,6 @@ public:
 
     template<typename Sequence, typename Matched>
     inline index_t operator()(const Sequence &sequence, index_t begin, index_t end, Matched &matched) const {
-        // FIXME: guard m_test: var backtrace, var copy if complex
-
         if (m_pattern_test(sequence, matched)) {
             const Continue &cont = m_continue;
             return m_variable(sequence.context(), matched, [&cont, &sequence, begin, end] () {
@@ -852,12 +843,12 @@ public:
 		const index_t max_size,
 		const Take &take) const {
 
-		std::vector<std::tuple<index_t, Symbol*>> states;
+		std::vector<std::tuple<index_t, MatchNode*>> states;
 		auto &variables = sequence.context().matched_variables;
 
 		index_t n = 0;
 		while (n < max_size) {
-			Symbol * const vars0 = variables.get();
+			auto * const vars0 = variables.get();
 			const index_t up_to = test_element(
 				sequence, begin + n, begin + max_size);
 			if (up_to < 0) {
@@ -958,7 +949,7 @@ public:
 		Args... args) const {
 
 		auto &variables = sequence.context().matched_variables;
-		Symbol * const vars0 = variables.get();
+		auto * const vars0 = variables.get();
 
 		const index_t match = simple_test(test_element, 0, sequence, args...);
 
@@ -1153,6 +1144,10 @@ public:
 
 	PatternFactory stripped() const {
 		return PatternFactory(BaseExpressionRef(), SymbolRef(), m_next, m_shortest);
+	}
+
+	PatternMatcherRef next() const {
+		return m_next;
 	}
 
 	template<template<typename, typename> class Matcher, typename Parameter>
@@ -1365,7 +1360,7 @@ PatternMatcherRef PatternCompiler::compile(
 	}
 	std::reverse(matchable.begin(), matchable.end());
 
-	PatternMatcherRef next_matcher;
+	PatternMatcherRef next_matcher = factory.next();
 	bool might_assign_variables = false;
 
 	for (index_t i = n - 1; i >= 0; i--) {

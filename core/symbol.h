@@ -93,6 +93,25 @@ struct SymbolRules {
 
 typedef std::unique_ptr<SymbolRules> SymbolRulesRef;
 
+class MatchNode {
+protected:
+	friend class Symbol;
+
+	MatchNode *next_in_symbol;
+
+public:
+	MatchId id;
+	const Symbol *variable;
+	BaseExpressionRef value;
+	MatchNode *next_in_list; // next item in related VariableList
+
+	inline MatchNode(const MatchId &id_, const Symbol *variable_, const BaseExpressionRef &value_) :
+		id(id_), variable(variable_), value(value_) {
+	}
+};
+
+extern boost::object_pool<MatchNode> s_match_nodes;
+
 class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
@@ -100,10 +119,7 @@ protected:
 	char _short_name[32];
 	char *_name;
 
-	mutable MatchId _match_id;
-	mutable BaseExpressionRef _match_value;
-	mutable Symbol *_linked_variable;
-
+	mutable MatchNode *_matches;
 	mutable const BaseExpressionRef *_replacement;
 
 	Attributes _attributes;
@@ -118,6 +134,15 @@ protected:
 		return _rules.get();
 	}
 
+	inline void move_to_front(MatchNode **link, MatchNode *node) const {
+		if (link != &_matches) {
+			// move to front
+			*link = node->next_in_symbol;
+			_matches = node;
+		}
+
+	}
+
 protected:
     virtual bool instantiate_symbolic_form() const;
 
@@ -125,6 +150,77 @@ public:
 	Symbol(const char *name, ExtendedType symbol = SymbolExtendedType);
 
 	~Symbol();
+
+	inline const BaseExpressionRef *get_matched_value(const MatchId &id) const {
+		MatchNode **link = &_matches;
+		MatchNode *node = *link;
+
+		while (node) {
+			if (node->id == id) {
+				move_to_front(link, node);
+				return &node->value;
+			}
+		}
+
+		return nullptr;
+	}
+
+	template<typename Insert>
+	inline bool set_matched_value(
+		const MatchId &id,
+		const BaseExpressionRef &value,
+		const Insert &insert) const {
+
+		MatchNode **link = &_matches;
+		MatchNode *node = *link;
+
+		while (node) {
+			if (node->id == id) {
+				move_to_front(link, node);
+
+				return node->value->same(value);
+			} else if (!node->id || node->id->is_obsolete()) {
+				move_to_front(link, node);
+
+				node->id = id;
+				node->value = value;
+
+				insert(node);
+				return true;
+			}
+
+			link = &node->next_in_symbol;
+			node = *link;
+		}
+
+		node = s_match_nodes.construct(id, this, value);
+		node->next_in_symbol = _matches;
+		_matches = node;
+
+		insert(node);
+		return true;
+	}
+
+	template<typename Remove>
+	inline void clear_matched_value(const MatchId &id, const Remove &remove) const {
+		MatchNode **link = &_matches;
+		MatchNode *node = *link;
+		while (node) {
+			if (node->id == id) {
+				remove(node);
+				if (node->next_in_symbol) {
+					*link = node->next_in_symbol;
+					s_match_nodes.free(node);
+				} else {
+					node->id = MatchId(); // clear, but keep for efficiency
+				}
+				return;
+			}
+			link = &node->next_in_symbol;
+			node = *link;
+		}
+		assert(false); // id not found
+	}
 
 	virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
@@ -194,7 +290,7 @@ public:
 
 	virtual BaseExpressionRef replace_all(const Match &match) const;
 
-	inline bool set_matched_value(const MatchId &id, const BaseExpressionRef &value) const {
+	/*inline bool set_matched_value(const MatchId &id, const BaseExpressionRef &value) const {
 		if (_match_id == id) {
 			return _match_value->same(value.get());
 		} else {
@@ -215,7 +311,7 @@ public:
 		// needs to be checked to filter out old, stale matches using the getter function
 		// just below this one.
 		return _match_value;
-	}
+	}*/
 
 	/*inline BaseExpressionRef matched_value(const MatchId &id) const {
 		if (_match_id == id) {
@@ -225,13 +321,13 @@ public:
 		}
 	}*/
 
-	inline void set_next_variable(Symbol *symbol) const {
+	/*inline void set_next_variable(Symbol *symbol) const {
 		_linked_variable = symbol;
 	}
 
 	inline Symbol *next_variable() const {
 		return _linked_variable;
-	}
+	}*/
 
 	inline void set_replacement(const BaseExpressionRef *r) const {
 		_replacement = r;

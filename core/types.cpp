@@ -85,18 +85,18 @@ const char *type_name(Type type) {
 
 std::ostream &operator<<(std::ostream &s, const Match &m) {
     s << "Match<" << (m ? "true" : "false"); // << ", ";
-    auto var = m.variables();
+    auto node = m.variables();
     s << "{";
-    if (var) {
+    if (node) {
         bool first = true;
-        while (var) {
-            BaseExpressionRef value = var->matched_value();
+        while (node) {
+            const BaseExpressionRef &value = node->value;
             if (!first) {
                 s << ", ";
             }
-            s << var->fullform() << ":" << value->fullform();
+            s << node->variable->fullform() << ":" << value->fullform();
             first = false;
-            var = var->next_variable();
+	        node = node->next_in_list;
         }
     }
     s << "}";

@@ -14,53 +14,79 @@ PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt);
 
 class VariableList {
 private:
-    Symbol *_first;
-    Symbol *_last;
+	MatchId m_id;
+	MatchNode *m_first;
+	MatchNode *m_last;
 
 public:
-    inline VariableList() : _first(nullptr), _last(nullptr) {
+    inline VariableList(const MatchId &id) :
+	    m_id(id), m_first(nullptr), m_last(nullptr) {
     }
 
-    inline VariableList(const VariableList &list) : _first(list._first), _last(list._last) {
+    inline VariableList(const VariableList &list) :
+	    m_id(list.m_id), m_first(list.m_first), m_last(list.m_last) {
     }
+
+	inline const MatchId &id() const {
+		return m_id;
+	}
 
     inline bool is_empty() const {
-        return _first == nullptr;
+        return m_first == nullptr;
     }
 
     inline void reset() {
-        _first = nullptr;
-        _last = nullptr;
+	    m_first = nullptr;
+	    m_last = nullptr;
     }
 
-    inline Symbol *get() const {
-        return _first;
+    inline MatchNode *get() const {
+        return m_first;
     }
 
-    inline void prepend(Symbol *symbol) {
-        Symbol *old_first = _first;
-        if (old_first) {
-            symbol->set_next_variable(old_first);
-            _first = symbol;
-        } else {
-            symbol->set_next_variable(nullptr);
-            _first = symbol;
-            _last = symbol;
-        }
+    inline bool assign(Symbol *variable, const BaseExpressionRef &value) {
+	    VariableList * const self = this;
+
+	    return variable->set_matched_value(m_id, value, [self] (MatchNode *node) {
+		    MatchNode * const next = self->m_first;
+		    node->next_in_list = self->m_first;
+		    self->m_first = node;
+		    if (next == nullptr) {
+			    self->m_last = next;
+		    }
+	    });
     }
 
-    inline void prepend(const VariableList &list) {
-        Symbol *list_first = list._first;
+	inline void unassign(Symbol *variable) {
+		VariableList * const self = this;
+
+		variable->clear_matched_value(m_id, [self] (MatchNode *node) {
+			assert(node == self->m_first);
+			self->m_first = node->next_in_list;
+			if (self->m_first == nullptr) {
+				self->m_last = nullptr;
+			}
+		});
+	}
+
+    inline void prepend(VariableList &list) {
+        MatchNode *list_first = list.m_first;
         if (list_first) {
-            list._last->set_next_variable(_first);
-            _first = list_first;
+            list.m_last->next_in_list = m_first;
+
+            m_first = list_first;
+	        if (!m_last) {
+		        m_last = list.m_last;
+	        }
+
+	        list.m_first = nullptr;
+	        list.m_last = nullptr;
         }
     }
 
-	inline void backtrace(Symbol *to_first) {
-		while (_first != to_first) {
-			_first->clear_matched_value();
-			_first = _first->next_variable();
+	inline void backtrace(MatchNode *to_first) {
+		while (m_first != to_first) {
+			m_first = m_first->next_in_list;
 		}
 	}
 };
@@ -73,39 +99,41 @@ public:
 		NoEndAnchor = 1
 	};
 
-	const MatchId id;
 	const Evaluation &evaluation;
     VariableList matched_variables;
 	const MatchOptions options;
 
 	inline MatchContext(const Evaluation &evaluation_, MatchOptions options_ = 0) :
-        id(Heap::MatchId()), evaluation(evaluation_), options(options_) {
+        matched_variables(Heap::MatchId()), evaluation(evaluation_), options(options_) {
 	}
 };
 
 class Match {
 private:
-	const MatchId m_id;
-	const Symbol *m_variables;
+	optional<VariableList> m_variables;
 
 public:
-	explicit inline Match() {
+	inline Match() {
 	}
 
-	explicit inline Match(const MatchContext &context) :
-		m_id(context.id), m_variables(context.matched_variables.get()) {
+	inline Match(const Match &match) :
+		m_variables(match.m_variables) {
+	}
+
+	inline Match(const MatchContext &context) :
+		m_variables(context.matched_variables) {
 	}
 
 	inline operator bool() const {
-		return m_id.get() != nullptr;
+		return bool(m_variables);
 	}
 
 	inline const MatchId &id() const {
-		return m_id;
+		return m_variables->id();
 	}
 
-	inline const Symbol *variables() const {
-		return m_variables;
+	inline MatchNode *variables() const {
+		return m_variables->get();
 	}
 
 	template<int N>
@@ -129,25 +157,25 @@ struct unpack_leaves<M, M> {
 
 template<int M, int N>
 struct unpack_symbols {
-	void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
+	void operator()(const MatchNode *node, typename BaseExpressionTuple<M>::type &t) {
 		// symbols are already ordered in the order of their (first) appearance in the original pattern.
-		assert(symbol != nullptr);
-		std::get<N>(t) = symbol->matched_value();
-		unpack_symbols<M, N + 1>()(symbol->next_variable(), t);
+		assert(node != nullptr);
+		std::get<N>(t) = node->value;
+		unpack_symbols<M, N + 1>()(node->next_in_list, t);
 	}
 };
 
 template<int M>
 struct unpack_symbols<M, M> {
-	void operator()(const Symbol *symbol, typename BaseExpressionTuple<M>::type &t) {
-		assert(symbol == nullptr);
+	void operator()(const MatchNode *node, typename BaseExpressionTuple<M>::type &t) {
+		assert(node == nullptr);
 	}
 };
 
 template<int N>
 inline typename BaseExpressionTuple<N>::type Match::get() const {
 	typename BaseExpressionTuple<N>::type t;
-	unpack_symbols<N, 0>()(m_variables, t);
+	unpack_symbols<N, 0>()(m_variables->get(), t);
 	return t;
 };
 
@@ -283,7 +311,7 @@ public:
 				const index_t match_end = m_matcher->match(
 					context, string, begin, end);
 				if (match_end >= 0) {
-					callback(begin, match_end, Match(context));
+					callback(begin, match_end, Match(std::move(context)));
 					if (overlap) {
 						begin++;
 					} else {
@@ -294,7 +322,6 @@ public:
 				}
 			}
 		} else if (m_patt->type() == StringType) {
-			MatchContext context(m_evaluation, 0);
 			index_t curr = 0;
 			const String *patt_string = m_patt->as_string();
 			const auto string_unicode = string->unicode();
@@ -304,7 +331,8 @@ public:
 				if (next < 0) {
 					break;
 				}
-				callback(next, next + patt_string->length(), Match(context));
+				MatchContext context(m_evaluation, 0);
+				callback(next, next + patt_string->length(), Match(std::move(context)));
 				curr = next + 1;
 			}
 		}
@@ -316,14 +344,14 @@ public:
 	        const index_t match_end = m_matcher->match(
 			    context, string, 0, string->length());
 	        if (match_end >= 0) {
-		        return Match(context);
+		        return Match(std::move(context));
 	        } else {
 		        return Match();
 	        }
         } else if (m_patt->type() == StringType) {
 	        if (m_patt->as_string()->same(string)) {
 		        MatchContext context(m_evaluation, 0);
-		        return Match(context);
+		        return Match(std::move(context));
 	        } else {
 		        return Match();
 	        }
@@ -355,13 +383,13 @@ public:
 				const index_t match = m_matcher->match(
 					FastLeafSequence(context, &item), 0, 1);
 				if (match >= 0) {
-					return Match(context);
+					return Match(std::move(context));
 				}
 			}
 			return Match(); // no match
 		} else {
 			if (m_patt->same(item)) {
-				return Match(context);
+				return Match(std::move(context));
 			} else {
 				return Match(); // no match
 			}
