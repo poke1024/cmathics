@@ -142,8 +142,11 @@ public:
 	DECLARE_MATCH_EXPRESSION_METHODS                                                                          \
 	DECLARE_MATCH_CHARACTER_METHODS
 
+template<typename Dummy, typename MatchRest>
 class StartMatcher : public PatternMatcher {
 private:
+	const MatchRest &m_rest;
+
 	template<typename Sequence>
 	inline index_t do_match(
 		const Sequence &sequence,
@@ -155,11 +158,14 @@ private:
 		} else if (end == 0) {
 			return 0;
 		} else {
-			return m_next->match(sequence, begin, end);
+			return m_rest(sequence, begin, end);
 		}
 	}
 
 public:
+	inline StartMatcher(const Dummy &dummy, const MatchRest &rest) : m_rest(rest) {
+	}
+
 	DECLARE_MATCH_METHODS
 };
 
@@ -172,25 +178,6 @@ private:
 		index_t end) const {
 
 		if (begin == end) {
-			return begin;
-		} else {
-			return -1;
-		}
-	}
-
-public:
-	DECLARE_MATCH_METHODS
-};
-
-class TerminateMatcher : public PatternMatcher {
-private:
-	template<typename Sequence>
-	inline index_t do_match(
-		const Sequence &sequence,
-		index_t begin,
-		index_t end) const {
-
-		if (begin == end || (sequence.context().options & MatchContext::NoEndAnchor)) {
 			return begin;
 		} else {
 			return -1;
@@ -381,11 +368,69 @@ public:
 	}
 };
 
-template<typename Match, typename Variable>
+class Continue {
+private:
+    const PatternMatcherRef &m_next;
+
+public:
+    inline Continue(const PatternMatcherRef &next) : m_next(next) {
+    }
+
+    template<typename Sequence>
+    inline index_t operator()(const Sequence &sequence, index_t begin, index_t end) const {
+        return m_next->match(sequence, begin, end);
+    }
+};
+
+class Terminate {
+public:
+    template<typename Sequence>
+    inline index_t operator()(const Sequence &sequence, index_t begin, index_t end) const {
+        if (begin == end || (sequence.context().options & MatchContext::NoEndAnchor)) {
+            return begin;
+        } else {
+            return -1;
+        }
+    }
+};
+
+template<typename PatternTest, typename Variable, typename Continue>
+class RestMatcher {
+private:
+    const PatternTest m_test;
+    const Variable m_variable;
+    const Continue m_continue;
+
+public:
+    template<typename Sequence>
+    inline index_t operator()(const Sequence &sequence, index_t begin, index_t end) const {
+        return m_continue(sequence, begin, end);
+    }
+
+    template<typename Sequence, typename Matched>
+    inline index_t operator()(const Sequence &sequence, index_t begin, index_t end, Matched &matched) const {
+        // FIXME: guard m_test: var backtrace, var copy if complex
+
+        if (m_test(sequence, matched)) {
+            const Continue &cont = m_continue;
+            return m_variable(sequence.context(), matched, [&cont, &sequence, begin, end] () {
+                return cont(sequence, begin, end);
+            });
+        } else {
+            return -1;
+        }
+    }
+
+    inline RestMatcher(const PatternTest &test, const Variable &variable, const Continue &cont) :
+        m_test(test), m_variable(variable), m_continue(cont) {
+    }
+};
+
+template<typename Match, typename MatchRest>
 class ElementMatcher : public PatternMatcher {
 private:
 	const Match m_match;
-	const Variable m_variable;
+    const MatchRest m_rest;
 
 	template<typename Sequence>
 	inline index_t do_match(
@@ -397,10 +442,7 @@ private:
 			auto result = m_match(sequence, begin, end);
             const index_t up_to = std::get<1>(result);
 			if (up_to > begin) {
-				const PatternMatcherRef &next = m_next;
-				return m_variable(sequence.context(), std::get<0>(result), [up_to, end, &next, &sequence] () {
-					return next->match(sequence, up_to, end);
-				});
+                return m_rest(sequence, up_to, end, std::get<0>(result));
 			} else {
 				return -1;
 			}
@@ -412,15 +454,16 @@ private:
 public:
     DECLARE_MATCH_METHODS
 
-	inline ElementMatcher(const Match &match, const Variable &variable) :
-		m_match(match), m_variable(variable) {
+	inline ElementMatcher(const Match &match, const MatchRest &next) :
+		m_match(match), m_rest(next) {
 	}
 };
 
-template<typename Match>
+template<typename Match, typename MatchRest>
 class PositionMatcher : public PatternMatcher {
 private:
 	const Match m_match;
+    const MatchRest m_rest;
 
 	template<typename Sequence>
 	inline index_t do_match(
@@ -429,7 +472,7 @@ private:
 		index_t end) const {
 
 		if (m_match(sequence, begin, end)) {
-			return m_next->match(sequence, begin, end);
+			return m_rest(sequence, begin, end);
 		} else {
 			return -1;
 		}
@@ -438,8 +481,8 @@ private:
 public:
 	DECLARE_MATCH_METHODS
 
-	inline PositionMatcher(const Match &match) :
-		m_match(match) {
+	inline PositionMatcher(const Match &match, const MatchRest &next) :
+		m_match(match), m_rest(next) {
 	}
 };
 
@@ -622,29 +665,29 @@ public:
 template<typename Match>
 using MatchCharacter = MatchCharacterOrExpression<Match, MatchToPattern>;
 
-template<typename Dummy, typename Variable>
-class SameMatcher : public ElementMatcher<MatchSame, Variable> {
+template<typename Dummy, typename MatchRest>
+class SameMatcher : public ElementMatcher<MatchSame, MatchRest> {
 public:
-    inline SameMatcher(const BaseExpressionRef &patt, const Variable &variable) :
-	    ElementMatcher<MatchSame, Variable>(MatchSame(patt), variable) {
+    inline SameMatcher(const BaseExpressionRef &patt, const MatchRest &next) :
+	    ElementMatcher<MatchSame, MatchRest>(MatchSame(patt), next) {
     }
 
     DECLARE_NO_MATCH_CHARACTER_METHODS
 };
 
-template<typename Dummy, typename Variable>
-class SameStringMatcher : public ElementMatcher<MatchSame, Variable> {
+template<typename Dummy, typename MatchRest>
+class SameStringMatcher : public ElementMatcher<MatchSame, MatchRest> {
 public:
-    inline SameStringMatcher(const BaseExpressionRef &patt, const Variable &variable) :
-	    ElementMatcher<MatchSame, Variable>(MatchSame(patt), variable) {
+    inline SameStringMatcher(const BaseExpressionRef &patt, const MatchRest &next) :
+	    ElementMatcher<MatchSame, MatchRest>(MatchSame(patt), next) {
     }
 };
 
-template<typename Dummy, typename Variable>
+template<typename Dummy, typename MatchRest>
 class ExceptMatcher : public PatternMatcher {
 private:
-    const PatternMatcherRef m_matcher;
-    const Variable m_variable;
+    const PatternMatcherRef m_match;
+    const MatchRest m_rest;
 
     template<typename Sequence>
     inline index_t do_match(
@@ -656,30 +699,27 @@ private:
 			return -1;
         }
 
-        if (m_matcher->match(sequence, begin, begin + 1) >= 0) {
+        if (m_match->match(sequence, begin, begin + 1) >= 0) {
             return -1;
         } else {
-            const PatternMatcherRef &next = m_next;
 			auto element = sequence.element(begin);
-            return m_variable(sequence.context(), element, [begin, end, &next, &sequence] () {
-                return next->match(sequence, begin + 1, end);
-            });
+            return m_rest(sequence, begin + 1, end, element);
         }
     }
 
 public:
-    inline ExceptMatcher(const PatternMatcherRef &matcher, const Variable &variable) :
-        m_matcher(matcher), m_variable(variable) {
+    inline ExceptMatcher(const PatternMatcherRef &match, const MatchRest &next) :
+        m_match(match), m_rest(next) {
     }
 
     DECLARE_MATCH_METHODS
 };
 
-template<typename Dummy, typename Variable>
+template<typename Dummy, typename MatchRest>
 class AlternativesMatcher : public PatternMatcher {
 private:
 	std::vector<PatternMatcherRef> m_matchers;
-    const Variable m_variable;
+    const MatchRest m_rest;
 
     template<typename Sequence>
     inline index_t do_match(
@@ -690,7 +730,8 @@ private:
         for (const PatternMatcherRef &matcher : m_matchers) {
 	        const index_t match = matcher->match(sequence, begin, end);
             if (match >= 0) {
-                return match;
+                auto slice = sequence.slice(begin, match);
+                return m_rest(sequence, match, end, slice);
             }
         }
 
@@ -698,17 +739,9 @@ private:
     }
 
 public:
-	inline AlternativesMatcher(const std::vector<PatternMatcherRef> &matchers, const Variable &variable) :
-        m_matchers(matchers), m_variable(variable) {
+	inline AlternativesMatcher(const std::vector<PatternMatcherRef> &matchers, const MatchRest &next) :
+        m_matchers(matchers), m_rest(next) {
 	}
-
-    virtual void set_next(
-        const PatternMatcherRef &next) {
-
-        for (const PatternMatcherRef &matcher : m_matchers) {
-            matcher->set_next(next);
-        }
-    }
 
     virtual void set_size(
         const MatchSize &size_from_here,
@@ -724,11 +757,11 @@ public:
     DECLARE_MATCH_METHODS
 };
 
-template<typename Tests, typename Variable>
+template<typename ElementTest, typename MatchRest>
 class BlankMatcher : public PatternMatcher {
 private:
-	const Tests m_tests;
-	const Variable m_variable;
+	const ElementTest m_test;
+    const MatchRest m_rest;
 
 	template<typename Sequence>
 	inline index_t do_match(
@@ -736,19 +769,9 @@ private:
 		index_t begin,
 		index_t end) const {
 
-		const auto &test_element = std::get<0>(m_tests);
-		const auto &test_pattern = std::get<1>(m_tests);
-
 		auto element = sequence.element(begin);
-		auto slice = sequence.slice(begin, begin + 1);
-
-		if (begin < end &&
-			test_element(sequence, element) > begin &&
-			test_pattern(sequence, slice)) {
-			const PatternMatcherRef &next = m_next;
-			return m_variable(sequence.context(), element, [begin, end, &next, &sequence] () {
-				return next->match(sequence, begin + 1, end);
-			});
+		if (begin < end && m_test(sequence, element) > begin) {
+            return m_rest(sequence, begin + 1, end, element);
 		} else {
 			return -1;
 		}
@@ -756,36 +779,33 @@ private:
 
 public:
 	inline BlankMatcher(
-        const Tests &tests,
-        const Variable &variable) :
+        const ElementTest &test,
+        const MatchRest &next) :
 
-		m_tests(tests),
-        m_variable(variable) {
+		m_test(test),
+        m_rest(next) {
 	}
 
 	DECLARE_MATCH_METHODS
 };
 
-template<typename Tests>
+template<typename ElementTest>
 class Longest {
 private:
-	const Tests m_tests;
+	const ElementTest m_test;
 
 public:
-	inline Longest(const Tests &tests) : m_tests(tests) {
+	inline Longest(const ElementTest &test) : m_test(test) {
 	}
 
 	template<typename... Args>
 	inline index_t operator()(Args... args) const {
-		const auto &test_element = std::get<0>(m_tests);
-		const auto &test_pattern = std::get<1>(m_tests);
-		return test_element.greedy(*this, test_pattern, args...);
+		return m_test.greedy(*this, args...);
 	}
 
 public:
-	template<typename PatternTest, typename Sequence, typename Take>
+	template<typename Sequence, typename Take>
 	inline index_t no_test(
-		const PatternTest &test_pattern,
 		const Sequence &sequence,
 	    const index_t begin,
 		const index_t min_size,
@@ -793,7 +813,7 @@ public:
 	    const Take &take) const {
 
 		for (index_t i = max_size; i >= min_size; i--) {
-			const index_t match = take(test_pattern, i);
+			const index_t match = take(i);
 			if (match >= 0) {
 				return match;
 			}
@@ -802,11 +822,10 @@ public:
 		return -1;
 	}
 
-	template<typename ElementTest, typename PatternTest, typename Sequence, typename Take>
+	template<typename Test, typename Sequence, typename Take>
 	inline index_t simple_test(
-		const ElementTest &test_element,
+		const Test &test_element,
 		const size_t match_size,
-		const PatternTest &test_pattern,
 		const Sequence &sequence,
 		const index_t begin,
 		const index_t min_size,
@@ -825,7 +844,7 @@ public:
 		}
 
 		while (n >= min_size) {
-			const index_t match = take(test_pattern, n);
+			const index_t match = take(n);
 			if (match >= 0) {
 				return match;
 			}
@@ -835,10 +854,9 @@ public:
 		return -1;
 	}
 
-	template<typename ElementTest, typename PatternTest, typename Sequence, typename Take>
+	template<typename Test, typename Sequence, typename Take>
 	inline index_t complex_test(
-		const ElementTest &test_element,
-		const PatternTest &test_pattern,
+		const Test &test_element,
 		const Sequence &sequence,
 		const index_t begin,
 		const index_t min_size,
@@ -864,7 +882,7 @@ public:
 		for (auto i = states.rbegin(); i != states.rend(); i++) {
 			const index_t n = std::get<0>(*i);
 			if (n >= min_size) {
-				const index_t match = take(test_pattern, n);
+				const index_t match = take(n);
 				if (match >= 0) {
 					return match;
 				}
@@ -876,26 +894,23 @@ public:
 	}
 };
 
-template<typename Tests>
+template<typename ElementTest>
 class Shortest {
 private:
-	const Tests m_tests;
+	const ElementTest m_test;
 
 public:
-	inline Shortest(const Tests &tests) : m_tests(tests) {
+	inline Shortest(const ElementTest &test) : m_test(test) {
 	}
 
 	template<typename... Args>
 	inline index_t operator()(Args... args) const {
-		const auto &test_element = std::get<0>(m_tests);
-		const auto &test_pattern = std::get<1>(m_tests);
-		return test_element.greedy(*this, test_pattern, args...);
+		return m_test.greedy(*this, args...);
 	}
 
 public:
-	template<typename PatternTest, typename Sequence, typename Take>
+	template<typename Sequence, typename Take>
 	inline index_t no_test(
-		const PatternTest &test_pattern,
 		const Sequence &sequence,
 		const index_t begin,
 		const index_t min_size,
@@ -903,7 +918,7 @@ public:
 		const Take &take) const {
 
 		for (index_t i = min_size; i <= max_size; i++) {
-			const index_t match = take(test_pattern, i);
+			const index_t match = take(i);
 			if (match >= 0) {
 				return match;
 			}
@@ -912,11 +927,10 @@ public:
 		return -1;
 	}
 
-	template<typename ElementTest, typename PatternTest, typename Sequence, typename Take>
+	template<typename Test, typename Sequence, typename Take>
 	inline index_t simple_test(
-		const ElementTest &test_element,
+		const Test &test_element,
 		const size_t /*match_size*/,
-		const PatternTest &test_pattern,
 		const Sequence &sequence,
 		const index_t begin,
 		const index_t min_size,
@@ -939,7 +953,7 @@ public:
 			if (up_to < 0) {
 				break;
 			}
-			const index_t match = take(test_pattern, n);
+			const index_t match = take(n);
 			if (match >= 0) {
 				return match;
 			}
@@ -948,17 +962,16 @@ public:
 		return -1;
 	}
 
-	template<typename ElementTest, typename PatternTest, typename Sequence, typename... Args>
+	template<typename Test, typename Sequence, typename... Args>
 	inline index_t complex_test(
-		const ElementTest &test_element,
-		const PatternTest &test_pattern,
+		const Test &test_element,
 		const Sequence &sequence,
 		Args... args) const {
 
 		auto &variables = sequence.context().matched_variables;
 		Symbol * const vars0 = variables.get();
 
-		const index_t match = simple_test(test_element, 0, test_pattern, sequence, args...);
+		const index_t match = simple_test(test_element, 0, sequence, args...);
 
 		if (match < 0) {
 			variables.backtrace(vars0);
@@ -968,11 +981,11 @@ public:
 	}
 };
 
-template<template<typename> class Strategy, index_t Minimum, typename Tests, typename Variable>
+template<template<typename> class Strategy, index_t Minimum, typename Tests, typename MatchRest>
 class BlankSequenceMatcher : public PatternMatcher {
 private:
 	const Strategy<Tests> m_strategy;
-	const Variable m_variable;
+    const MatchRest m_rest;
 
 	template<typename Sequence>
 	inline index_t do_match(
@@ -990,47 +1003,37 @@ private:
 		const index_t min_size = (sequence.context().options & MatchContext::NoEndAnchor) ?
 			Minimum : std::max(n - index_t(m_size_from_next.max()), Minimum);
 
-		const auto &next = m_next;
-		const auto &variable = m_variable;
+		const MatchRest &rest = m_rest;
 
 		return m_strategy(
 			sequence,
 			begin,
 			min_size,
 			max_size,
-			[begin, end, &sequence, &variable, &next] (const auto &test_pattern, index_t i) {
+			[begin, end, &sequence, &rest] (index_t i) {
 				auto slice = sequence.slice(begin, begin + i);
-				if (test_pattern(sequence, slice)) {
-					return variable(
-						sequence.context(),
-						slice,
-						[begin, end, i, &next, &sequence] () {
-							return next->match(sequence, begin + i, end);
-						});
-				} else {
-					return index_t(-1);
-				}
+                return rest(sequence, begin + i, end, slice);
 			});
 	}
 
 public:
 	inline BlankSequenceMatcher(
 		const Tests &tests,
-        const Variable &variable) :
+        const MatchRest &next) :
 
 		m_strategy(tests),
-        m_variable(variable) {
+        m_rest(next) {
 	}
 
 	DECLARE_MATCH_METHODS
 };
 
-template<typename Dummy, typename Variable>
+template<typename Dummy, typename MatchRest>
 class ExpressionMatcher : public PatternMatcher {
 private:
 	const PatternMatcherRef m_match_head;
 	const PatternMatcherRef m_match_leaves;
-	const Variable m_variable;
+    const MatchRest m_rest;
 
 	template<typename Sequence>
 	inline index_t do_match(
@@ -1074,20 +1077,103 @@ private:
 			}
 		}
 
-		const PatternMatcherRef &next = m_next;
-		auto element = Element(item);
-		return m_variable(sequence.context(), element, [begin, end, &next, &sequence] () {
-			return next->match(sequence, begin + 1, end);
-		});
+        auto element = Element(item);
+        return m_rest(sequence, begin + 1, end, element);
 	}
 
 public:
-	inline ExpressionMatcher(const std::tuple<PatternMatcherRef, PatternMatcherRef> &match, const Variable &variable) :
-		m_match_head(std::get<0>(match)), m_match_leaves(std::get<1>(match)), m_variable(variable) {
+	inline ExpressionMatcher(
+        const std::tuple<PatternMatcherRef, PatternMatcherRef> &match,
+        const MatchRest &next) :
+
+		m_match_head(std::get<0>(match)),
+		m_match_leaves(std::get<1>(match)),
+        m_rest(next) {
 	}
 
 	DECLARE_MATCH_EXPRESSION_METHODS
     DECLARE_NO_MATCH_CHARACTER_METHODS
+};
+
+class PatternFactory {
+private:
+	const BaseExpressionRef m_test;
+	const SymbolRef m_variable;
+	const PatternMatcherRef m_next;
+	const bool m_shortest;
+
+	PatternFactory(
+		const BaseExpressionRef test,
+		const SymbolRef variable,
+		const PatternMatcherRef next,
+		const bool shortest) :
+
+		m_test(test),
+		m_variable(variable),
+		m_next(next),
+		m_shortest(shortest) {
+	}
+
+    template<template<typename, typename> class Matcher, typename Parameter, typename Test, typename Variable>
+    PatternMatcherRef create(const Parameter &parameter, const Test &test, const Variable &variable) const {
+        if (m_next) {
+            const auto rest = RestMatcher<Test, Variable, Continue>(test, variable, Continue(m_next));
+            return new Matcher<Parameter, decltype(rest)>(parameter, rest);
+        } else {
+            const auto rest = RestMatcher<Test, Variable, Terminate>(test, variable, Terminate());
+            return new Matcher<Parameter, decltype(rest)>(parameter, rest);
+        }
+    }
+
+    template<template<typename, typename> class Matcher, typename Parameter, typename Test>
+    PatternMatcherRef create(const Parameter &parameter, const Test &test) const {
+        if (m_variable) {
+            return create<Matcher>(parameter, test, AssignVariable(m_variable));
+        } else {
+            return create<Matcher>(parameter, test, NoVariable());
+        }
+    }
+
+public:
+	PatternFactory() : m_shortest(false) {
+	}
+
+	inline bool is_shortest() const {
+		return m_shortest;
+	}
+
+	PatternFactory for_variable(const SymbolRef &v) const {
+		return PatternFactory(m_test, v, m_next, m_shortest);
+	}
+
+	PatternFactory for_test(const BaseExpressionRef &t) const {
+		return PatternFactory(t, m_variable, m_next, m_shortest);
+	}
+
+	PatternFactory for_next(const PatternMatcherRef &n) const {
+		return PatternFactory(m_test, m_variable, n, m_shortest);
+	}
+
+	PatternFactory for_shortest() const {
+		return PatternFactory(m_test, m_variable, m_next, true);
+	}
+
+	PatternFactory for_longest() const {
+		return PatternFactory(m_test, m_variable, m_next, false);
+	}
+
+	PatternFactory stripped() const {
+		return PatternFactory(BaseExpressionRef(), SymbolRef(), m_next, m_shortest);
+	}
+
+	template<template<typename, typename> class Matcher, typename Parameter>
+    PatternMatcherRef create(const Parameter &parameter) const {
+        if (m_test) {
+            return create<Matcher>(parameter, PatternTest(m_test));
+        } else {
+            return create<Matcher>(parameter, NoPatternTest());
+        }
+    }
 };
 
 class PatternCompiler {
@@ -1095,22 +1181,18 @@ protected:
 	friend class RepeatedForm;
 
 	PatternMatcherRef character_intrinsic_matcher(
-		const BaseExpressionRef &curr,
-		const SymbolRef *variable) const;
+        const BaseExpressionRef &curr,
+		const PatternFactory &factory) const;
 
 	PatternMatcherRef compile_element(
 		const BaseExpressionRef &curr,
-		const SymbolRef *variable,
-		const BaseExpressionRef *test,
-		const bool shortest);
+		const PatternFactory &factory);
 
 	PatternMatcherRef compile_sequence(
 		const BaseExpressionRef &patt_head,
 		const BaseExpressionRef *patt_begin,
 		const BaseExpressionRef *patt_end,
-		const SymbolRef *variable,
-        const BaseExpressionRef *test,
-		const bool shortest);
+		const PatternFactory &factory);
 
 public:
     PatternCompiler();
@@ -1118,73 +1200,51 @@ public:
 	PatternMatcherRef compile(
 		const BaseExpressionRef *begin,
 		const BaseExpressionRef *end,
-		const SymbolRef *variable,
-        const BaseExpressionRef *test,
-		const bool shortest);
+		const PatternFactory &factory);
 
 	PatternMatcherRef compile(
 		const BaseExpressionRef &patt,
-		const SymbolRef *variable,
-		const BaseExpressionRef *test,
-		const bool shortest);
+		const PatternFactory &factory);
 };
 
 PatternCompiler::PatternCompiler() {
 }
 
-template<template<typename, typename> class Matcher, typename Parameter>
-PatternMatcherRef for_variable(
-	const Parameter &parameter,
-	const SymbolRef *variable) {
-
-	PatternMatcherRef matcher;
-
-	if (variable) {
-        matcher = new Matcher<Parameter, AssignVariable>(
-            parameter, AssignVariable(*variable));
-	} else {
-		matcher = new Matcher<Parameter, NoVariable>(
-			parameter, NoVariable());
-	}
-
-	return matcher;
-}
-
 PatternMatcherRef PatternCompiler::character_intrinsic_matcher(
 	const BaseExpressionRef &curr,
-	const SymbolRef *variable) const {
+	const PatternFactory &factory) const {
 
 	const PatternCompiler * const self = this;
 
-	auto create_blank = [self, &curr, &variable] (const auto &test) {
+	auto create_blank = [self, &curr, &factory] (const auto &test) {
 		const auto match_class = MatchCharacter<MatchCharacterBlank<decltype(test)>>(
 			MatchCharacterBlank<decltype(test)>(test), MatchToPattern(curr));
-		return for_variable<ElementMatcher>(match_class, variable);
+		return factory.create<ElementMatcher>(match_class);
 	};
 
-	auto create_blank_sequence = [self, &curr, &variable] (const auto &test) {
+	auto create_blank_sequence = [self, &curr, &factory] (const auto &test) {
 		const auto match_class = MatchCharacter<MatchCharacterBlankSequence<decltype(test)>>(
 			MatchCharacterBlankSequence<decltype(test)>(test), MatchToPattern(curr));
-		return for_variable<ElementMatcher>(match_class, variable);
+		return factory.create<ElementMatcher>(match_class);
 	};
 
 	switch (curr->extended_type()) {
 		case SymbolStartOfString:
-			return new StartMatcher();
+			return factory.create<StartMatcher>(nothing());
 
 		case SymbolEndOfString:
 			return new EndMatcher();
 
 		case SymbolStartOfLine:
-			return new PositionMatcher<MatchCharacterPosition<StartOfLine>>(
+			return factory.create<PositionMatcher>(
 				MatchCharacterPosition<StartOfLine>(StartOfLine(), MatchToFalse()));
 
 		case SymbolEndOfLine:
-			return new PositionMatcher<MatchCharacterPosition<EndOfLine>>(
+			return factory.create<PositionMatcher>(
 				MatchCharacterPosition<EndOfLine>(EndOfLine(), MatchToFalse()));
 
 		case SymbolWordBoundary:
-			return new PositionMatcher<MatchCharacterPosition<WordBoundary>>(
+			return factory.create<PositionMatcher>(
 				MatchCharacterPosition<WordBoundary>(WordBoundary(), MatchToFalse()));
 
 		case SymbolDigitCharacter:
@@ -1224,9 +1284,7 @@ PatternMatcherRef PatternCompiler::character_intrinsic_matcher(
 
 PatternMatcherRef PatternCompiler::compile_element(
 	const BaseExpressionRef &curr,
-	const SymbolRef *variable,
-	const BaseExpressionRef *test,
-	const bool shortest) {
+	const PatternFactory &factory) {
 
 	PatternMatcherRef matcher;
 
@@ -1236,21 +1294,20 @@ PatternMatcherRef PatternCompiler::compile_element(
 			const Expression * const patt_expr = curr->as_expression();
 
 			matcher = patt_expr->with_leaves_array(
-				[compiler, patt_expr, variable, test, shortest]
+				[compiler, patt_expr, &factory]
 				(const BaseExpressionRef *leaves, size_t size) {
 					return compiler->compile_sequence(
-						patt_expr->head(), leaves, leaves + size, variable, test, shortest);
+						patt_expr->head(), leaves, leaves + size, factory);
 				});
 			break;
 		}
 
 		case StringType:
-			assert(test == nullptr); // FIXME
-			matcher = for_variable<SameStringMatcher>(curr, variable);
+			matcher = factory.create<SameStringMatcher>(curr);
 			break;
 
 		case SymbolType: {
-			matcher = character_intrinsic_matcher(curr, variable);
+			matcher = character_intrinsic_matcher(curr, factory);
 			if (matcher) {
 				break;
 			}
@@ -1259,8 +1316,7 @@ PatternMatcherRef PatternCompiler::compile_element(
 		}
 
 		default:
-			assert(test == nullptr); // FIXME
-			matcher = for_variable<SameMatcher>(curr, variable);
+			matcher = factory.create<SameMatcher>(curr);
 			break;
 	}
 
@@ -1270,11 +1326,9 @@ PatternMatcherRef PatternCompiler::compile_element(
 PatternMatcherRef PatternCompiler::compile(
 	const BaseExpressionRef *begin,
 	const BaseExpressionRef *end,
-	const SymbolRef *variable,
-    const BaseExpressionRef *test,
-	const bool shortest) {
+	const PatternFactory &factory) {
 
-	const size_t n = end - begin;
+	const index_t n = end - begin;
 
 	std::vector<MatchSize> matchable;
 	matchable.reserve(n + 1);
@@ -1286,53 +1340,41 @@ PatternMatcherRef PatternCompiler::compile(
 	}
 	std::reverse(matchable.begin(), matchable.end());
 
-	PatternMatcherRef initial_matcher;
-	PatternMatcherRef previous_matcher;
+	PatternMatcherRef next_matcher;
 	bool might_assign_variables = false;
 
-	for (size_t i = 0; i < n; i++) {
-		const PatternMatcherRef matcher = compile_element(
-			begin[i], variable, test, shortest);
+	for (index_t i = n - 1; i >= 0; i--) {
+        const PatternMatcherRef matcher = compile_element(
+            begin[i], factory.for_next(next_matcher));
+
+		next_matcher = matcher;
 
 		if (matcher->might_assign_variables()) {
 			might_assign_variables = true;
 		}
 
 		matcher->set_size(matchable[i], matchable[i + 1]);
+    }
 
-		if (previous_matcher) {
-			previous_matcher->set_next(matcher);
-		} else {
-			initial_matcher = matcher;
-		}
+	next_matcher->set_might_assign_variables(might_assign_variables);
 
-		previous_matcher = matcher;
-	}
-
-	assert(previous_matcher);
-	previous_matcher->set_next(PatternMatcherRef(new TerminateMatcher));
-
-	initial_matcher->set_might_assign_variables(might_assign_variables);
-
-	return initial_matcher;
+	return next_matcher;
 }
 
 PatternMatcherRef PatternCompiler::compile(
 	const BaseExpressionRef &patt,
-	const SymbolRef *variable,
-	const BaseExpressionRef *test,
-	const bool shortest) {
+	const PatternFactory &factory) {
 
 	if (patt->type() == ExpressionType &&
 		patt->as_expression()->head()->extended_type() == SymbolStringExpression) {
 
 		PatternCompiler * const compiler = this;
 		return patt->as_expression()->with_leaves_array(
-			[&compiler, variable, test, shortest] (const BaseExpressionRef *leaves, size_t n) {
-				return compiler->compile(leaves, leaves + n, variable, test, shortest);
+			[&compiler, &factory] (const BaseExpressionRef *leaves, size_t n) {
+				return compiler->compile(leaves, leaves + n, factory);
 			});
 	} else {
-		return compile(&patt, &patt + 1, variable, test, shortest);
+		return compile(&patt, &patt + 1, factory);
 	}
 }
 
@@ -1367,17 +1409,18 @@ public:
 class RepeatedForm {
 private:
 	PatternCompiler * const m_compiler;
-	const bool m_shortest;
+	const PatternFactory &m_factory;
 	const BaseExpressionRef * const m_patt_begin;
 	const BaseExpressionRef * const m_patt_end;
 
 public:
 	inline RepeatedForm(
 		PatternCompiler *compiler,
+		const PatternFactory &factory,
 		const BaseExpressionRef *patt_begin,
 		const BaseExpressionRef *patt_end) :
 		m_compiler(compiler),
-		m_shortest(false), // FIXME
+		m_factory(factory),
 		m_patt_begin(patt_begin),
 		m_patt_end(patt_end) {
 	}
@@ -1386,7 +1429,7 @@ public:
 	inline PatternMatcherRef matcher(const Make &make) const {
 		if (m_patt_end - m_patt_begin == 1) {
 			const PatternMatcherRef matcher = m_compiler->compile(
-				*m_patt_begin, nullptr, nullptr, m_shortest);
+				*m_patt_begin, m_factory.stripped());
 
 			const auto fixed_size = matcher->fixed_size();
 			if (fixed_size && !matcher->might_assign_variables()) {
@@ -1403,19 +1446,10 @@ public:
 template<template<typename, typename> class Match, typename Form>
 inline PatternMatcherRef create_blank_matcher(
 	const Form &form,
-	const SymbolRef *variable,
-    const BaseExpressionRef *pattern_test) {
+	const PatternFactory &factory) {
 
-	return form.matcher([&variable, &pattern_test] (const auto &element_test) {
-		if (pattern_test) {
-			return for_variable<Match>(
-				std::make_tuple(element_test, PatternTest(*pattern_test)),
-				variable);
-		} else {
-			return for_variable<Match>(
-				std::make_tuple(element_test, NoPatternTest()),
-				variable);
-		}
+	return form.matcher([&factory] (const auto &element_test) {
+		return factory.create<Match>(element_test);
 	});
 }
 
@@ -1432,13 +1466,11 @@ public:
 	template<typename Form>
 	inline PatternMatcherRef operator()(
 		const Form &form,
-		const SymbolRef *variable,
-		const BaseExpressionRef *test,
-		const bool shortest) const {
-		if (shortest) {
-			return create_blank_matcher<MatchShortest, Form>(form, variable, test);
+		const PatternFactory &factory) const {
+		if (factory.is_shortest()) {
+			return create_blank_matcher<MatchShortest, Form>(form, factory);
 		} else {
-			return create_blank_matcher<MatchLongest, Form>(form, variable, test);
+			return create_blank_matcher<MatchLongest, Form>(form, factory);
 		}
 	}
 };
@@ -1447,52 +1479,50 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 	const BaseExpressionRef &patt_head,
 	const BaseExpressionRef *patt_begin,
 	const BaseExpressionRef *patt_end,
-	const SymbolRef *variable,
-    const BaseExpressionRef *test,
-	const bool shortest) {
+	const PatternFactory &factory) {
 
 	switch (patt_head->extended_type()) {
 		case SymbolBlank:
             return create_blank_matcher<BlankMatcher>(
-		        BlankForm(patt_begin, patt_end), variable, test);
+		        BlankForm(patt_begin, patt_end), factory);
 
 	    case SymbolBlankSequence:
 			return create_blank_sequence_matcher<BlankSequenceMatcher, 1>()(
-				BlankForm(patt_begin, patt_end), variable, test, shortest);
+				BlankForm(patt_begin, patt_end), factory);
 
 		case SymbolBlankNullSequence:
 			return create_blank_sequence_matcher<BlankSequenceMatcher, 0>()(
-				BlankForm(patt_begin, patt_end), variable, test, shortest);
+				BlankForm(patt_begin, patt_end), factory);
 
 		case SymbolRepeated:
 			return create_blank_sequence_matcher<BlankSequenceMatcher, 1>()(
-				RepeatedForm(this, patt_begin, patt_end), variable, test, shortest);
+				RepeatedForm(this, factory, patt_begin, patt_end), factory);
 
 		case SymbolAlternatives: {
 			std::vector<PatternMatcherRef> matchers;
 			matchers.reserve(patt_end - patt_begin);
 			for (const BaseExpressionRef *patt = patt_begin; patt < patt_end; patt++) {
-				matchers.push_back(compile(*patt, variable, test, shortest));
+				matchers.push_back(compile(*patt, factory));
 			}
-			return for_variable<AlternativesMatcher>(matchers, variable);
+			return factory.create<AlternativesMatcher>(matchers);
 		}
 
         case SymbolExcept:
             if (patt_end - patt_begin == 1) { // 1 leaf ?
-                return for_variable<ExceptMatcher>(
-                    compile(*patt_begin, nullptr, test, shortest), variable);
+                return factory.create<ExceptMatcher>(
+                    compile(*patt_begin, factory));
             }
 			break;
 
 		case SymbolShortest:
 			if (patt_end - patt_begin == 1) { // 1 leaf ?
-				return compile(*patt_begin, variable, test, true);
+				return compile(*patt_begin, factory.for_shortest());
 			}
 			break;
 
 		case SymbolLongest:
 			if (patt_end - patt_begin == 1) { // 1 leaf ?
-				return compile(*patt_begin, variable, test, false);
+				return compile(*patt_begin, factory.for_longest());
 			}
 			break;
 
@@ -1502,7 +1532,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 					const SymbolRef variable = boost::const_pointer_cast<Symbol>(
 						boost::static_pointer_cast<const Symbol>(patt_begin[0]));
 					const PatternMatcherRef matcher = compile(
-						patt_begin[1], &variable, test, shortest);
+						patt_begin[1], factory.for_variable(variable));
 					matcher->set_might_assign_variables(true);
 					return matcher;
 				}
@@ -1511,8 +1541,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 
 		case SymbolPatternTest:
 			if (patt_end - patt_begin == 2) { // 2 leaves?
-                const BaseExpressionRef test = patt_begin[1];
-                return compile(*patt_begin, variable, &test, shortest);
+                return compile(*patt_begin, factory.for_test(patt_begin[1]));
 			}
 			break;
 
@@ -1521,27 +1550,23 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 	}
 
 	const PatternMatcherRef match_head = compile(
-		&patt_head, &patt_head + 1, nullptr, nullptr, shortest);
+		&patt_head, &patt_head + 1, factory.stripped());
 
 	const PatternMatcherRef match_leaves = compile(
-		patt_begin, patt_end, nullptr, nullptr, shortest);
+		patt_begin, patt_end, factory.stripped());
 
-    assert(test == nullptr); // FIXME
-
-	return for_variable<ExpressionMatcher>(
-		std::make_tuple(match_head, match_leaves), variable);
+	return factory.create<ExpressionMatcher>(
+		std::make_tuple(match_head, match_leaves));
 }
 
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt) {
-	constexpr bool shortest = true;
 	PatternCompiler compiler;
-	return compiler.compile(patt, nullptr, nullptr, shortest);
+	return compiler.compile(patt, PatternFactory().for_shortest());
 }
 
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt) {
-	constexpr bool shortest = false;
 	PatternCompiler compiler;
-	return compiler.compile(patt, nullptr, nullptr, shortest);
+	return compiler.compile(patt, PatternFactory().for_longest());
 }
 
 index_t PatternMatcher::match(

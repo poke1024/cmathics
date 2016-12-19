@@ -75,17 +75,17 @@ class ComplexCharacterSequence;
 class PatternMatcher {
 protected:
 	size_t m_ref_count;
-	PatternMatcherRef m_next;
+	// PatternMatcherRef m_next;
 	MatchSize m_size_from_here;
 	MatchSize m_size_from_next;
 	bool m_any_variables;
 
 public:
-	virtual void set_next(
+	/*virtual void set_next(
 		const PatternMatcherRef &next) {
 
 		m_next = next;
-	}
+	}*/
 
 	virtual void set_size(
 		const MatchSize &size_from_here,
