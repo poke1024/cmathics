@@ -4,6 +4,10 @@
 #include <boost/pool/object_pool.hpp>
 #include <static_if/static_if.hpp>
 
+#include <boost/pool/pool_alloc.hpp>
+#include <boost/unordered/unordered_map.hpp>
+#include <forward_list>
+
 #include "gmpxx.h"
 #include <arb.h>
 
@@ -155,7 +159,7 @@ public:
 
 class Heap {
 private:
-	static Heap *_s_instance;
+	static thread_local Heap *_s_instance;
 
 	boost::object_pool<Symbol> _symbols;
 
@@ -176,6 +180,18 @@ private:
 	boost::object_pool<RefsExtent> _refs_extents;
 
 	Heap();
+
+public:
+	boost::fast_pool_allocator<const Symbol*> _variable_list_allocator;
+	boost::fast_pool_allocator<std::pair<const Symbol*, BaseExpressionRef>> _variable_map_allocator;
+
+	static inline auto variable_list() {
+		return _s_instance->_variable_list_allocator;
+	}
+
+	static inline auto variable_map() {
+		return _s_instance->_variable_map_allocator;
+	}
 
 public:
     static void init();

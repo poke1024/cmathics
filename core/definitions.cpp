@@ -33,8 +33,7 @@ Symbols::Symbols(Definitions &definitions) :
 }
 
 Symbol::Symbol(const char *name, ExtendedType symbol) :
-    BaseExpression(symbol),
-    _replacement(nullptr) {
+    BaseExpression(symbol) {
 
 	const size_t n = snprintf(
 		_short_name, sizeof(_short_name), "%s", name);

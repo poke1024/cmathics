@@ -77,6 +77,7 @@ inline BaseExpressionRef replace_slots(
 
 inline BaseExpressionRef replace_vars(
 	Name name,
+	const VariableMap &variables,
 	const Expression *body_ptr) {
 
 	if (body_ptr->has_cache() && body_ptr->cache()->skip_replace_vars.contains(name)) {
@@ -85,17 +86,16 @@ inline BaseExpressionRef replace_vars(
 
 	const BaseExpressionRef &head = body_ptr->head();
 
-	auto replace = [name] (const BaseExpressionRef &expr) {
+	auto replace = [name, &variables] (const BaseExpressionRef &expr) {
 		const Type type = expr->type();
 
 		if (type == SymbolType) {
-			const BaseExpressionRef * const r =
-					static_cast<const Symbol*>(expr.get())->replacement();
-			if (r) {
-				return *r;
+			const auto i = variables.find(static_cast<const Symbol*>(expr.get()));
+			if (i != variables.end()) {
+				return i->second;
 			}
 		} else if (type == ExpressionType) {
-			return replace_vars(name, expr->as_expression());
+			return replace_vars(name, variables, expr->as_expression());
 		}
 
 		return BaseExpressionRef();
@@ -177,26 +177,13 @@ public:
 										}
 									}
 
-									BaseExpressionRef return_expr;
+									VariableMap vars(Heap::variable_map());
 
 									for (size_t i = 0; i < n_vars; i++) {
-										static_cast<const Symbol*>(vars_slice[i].get())->set_replacement(&args[i]);
+										vars[static_cast<const Symbol*>(vars_slice[i].get())] = args[i];
 									}
 
-									try {
-										return_expr = replace_vars(vars_ptr->cache()->name(), body_ptr);
-									} catch(...) {
-										for (size_t i = 0; i < n_vars; i++) {
-											static_cast<const Symbol*>(vars_slice[i].get())->clear_replacement();
-										}
-										throw;
-									}
-
-									for (size_t i = 0; i < n_vars; i++) {
-										static_cast<const Symbol*>(vars_slice[i].get())->clear_replacement();
-									}
-
-									return return_expr;
+									return replace_vars(vars_ptr->cache()->name(), vars, body_ptr);
 								});
 						}
 					);

@@ -843,7 +843,7 @@ public:
 		const index_t max_size,
 		const Take &take) const {
 
-		std::vector<std::tuple<index_t, MatchList::const_iterator>> states;
+		std::vector<std::tuple<index_t, VariableList::const_iterator>> states;
 		auto &match = sequence.context().match;
 
 		index_t n = 0;

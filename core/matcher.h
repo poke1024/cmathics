@@ -3,10 +3,6 @@
 
 #include <assert.h>
 
-#include <boost/pool/pool_alloc.hpp>
-#include <boost/unordered/unordered_map.hpp>
-#include <forward_list>
-
 #include "types.h"
 #include "evaluation.h"
 #include "symbol.h"
@@ -16,21 +12,14 @@ PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt);
 
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt);
 
-using MatchList = std::forward_list<const Symbol*,
-	boost::fast_pool_allocator<const Symbol*>>;
-
-using MatchMap = boost::unordered_map<const Symbol*, BaseExpressionRef,
-	boost::hash<const Symbol*>, std::equal_to<const Symbol*>,
-	boost::fast_pool_allocator<std::pair<const Symbol*, BaseExpressionRef>>>;
-
 class Match {
 private:
 	bool m_success;
-	MatchList m_list;
-	MatchMap m_values;
+	VariableList m_list;
+	VariableMap m_values;
 
 public:
-    inline Match() : m_success(false) {
+    inline Match() : m_success(false), m_list(Heap::variable_list()), m_values(Heap::variable_map()) {
     }
 
     inline Match(Match &&match) :
@@ -90,7 +79,7 @@ public:
 		return m_list.begin();
 	}
 
-	inline void backtrace(const MatchList::const_iterator to_first) {
+	inline void backtrace(const VariableList::const_iterator to_first) {
 		while (m_list.begin() != to_first) {
 			m_values.erase(m_list.front());
 			m_list.pop_front();
@@ -140,9 +129,9 @@ struct unpack_leaves<M, M> {
 template<int M, int N>
 struct unpack_symbols {
 	void operator()(
-		const MatchMap &values,
-		MatchList::const_iterator begin,
-		MatchList::const_iterator end,
+		const VariableMap &values,
+		VariableList::const_iterator begin,
+		VariableList::const_iterator end,
 		typename BaseExpressionTuple<M>::type &t) {
 
 		// symbols are already ordered in the order of their (first) appearance in the original pattern.
@@ -155,9 +144,9 @@ struct unpack_symbols {
 template<int M>
 struct unpack_symbols<M, M> {
 	void operator()(
-		const MatchMap &values,
-		MatchList::const_iterator begin,
-		MatchList::const_iterator end,
+		const VariableMap &values,
+		VariableList::const_iterator begin,
+		VariableList::const_iterator end,
 		typename BaseExpressionTuple<M>::type &t) {
 
 		assert(begin == end);

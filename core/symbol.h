@@ -91,6 +91,13 @@ struct SymbolRules {
 	*/
 };
 
+using VariableList = std::forward_list<const Symbol*,
+	boost::fast_pool_allocator<const Symbol*>>;
+
+using VariableMap = boost::unordered_map<const Symbol*, BaseExpressionRef,
+	boost::hash<const Symbol*>, std::equal_to<const Symbol*>,
+	boost::fast_pool_allocator<std::pair<const Symbol*, BaseExpressionRef>>>;
+
 typedef std::unique_ptr<SymbolRules> SymbolRulesRef;
 
 class Symbol : public BaseExpression {
@@ -99,8 +106,6 @@ protected:
 
 	char _short_name[32];
 	char *_name;
-
-	mutable const BaseExpressionRef *_replacement;
 
 	Attributes _attributes;
 	const Evaluate *_evaluate_with_head;
@@ -189,18 +194,6 @@ public:
 	}
 
 	virtual BaseExpressionRef replace_all(const Match &match) const;
-
-	inline void set_replacement(const BaseExpressionRef *r) const {
-		_replacement = r;
-	}
-
-	inline void clear_replacement() const {
-		_replacement = nullptr;
-	}
-
-	inline const BaseExpressionRef *replacement() const {
-		return _replacement;
-	}
 
 	void set_attributes(Attributes a);
 
