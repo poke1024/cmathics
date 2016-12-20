@@ -494,7 +494,7 @@ public:
 	        if (rule_form.is_rule()) {
 	            const Matcher matcher(rule_form.left_side(), evaluation);
 	            return generate([&matcher, &rule_form] (auto &storage, const BaseExpressionRef &node) {
-		            const Match match = matcher(node);
+		            const MatchRef match = matcher(node);
 		            if (match) {
 			            storage << rule_form.right_side()->replace_all_or_copy(match);
 		            }

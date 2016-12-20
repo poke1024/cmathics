@@ -148,7 +148,7 @@ public:
 		return BaseExpressionRef();
 	}
 
-	virtual BaseExpressionRef replace_all(const Match &match) const;
+	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
 
 	virtual BaseExpressionRef clone() const;
 
@@ -546,7 +546,7 @@ DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(cons
 #include "evaluate.h"
 
 template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const Match &match) const {
+BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const MatchRef &match) const {
 	const BaseExpressionRef &old_head = _head;
 	const BaseExpressionRef new_head = old_head->replace_all(match);
 	return transform<MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType)>(

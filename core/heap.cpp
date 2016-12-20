@@ -24,4 +24,6 @@ Heap::Heap() :
 void Heap::init() {
     assert(_s_instance == nullptr);
     _s_instance = new Heap();
+
+	_s_instance->_default_match = _s_instance->_matches.construct();
 }

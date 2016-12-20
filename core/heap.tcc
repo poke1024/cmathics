@@ -1,3 +1,110 @@
+class Match {
+private:
+	PatternMatcherRef m_matcher;
+	std::vector<Slot, SlotAllocator> m_slots;
+	index_t m_slots_fixed;
+
+protected:
+	std::atomic<size_t> m_ref_count;
+
+	friend void intrusive_ptr_add_ref(Match *match);
+	friend void intrusive_ptr_release(Match *match);
+
+
+public:
+	inline Match() :
+		m_ref_count(0),
+		m_slots_fixed(0) {
+	}
+
+	inline Match(const PatternMatcherRef &matcher) :
+		m_ref_count(0),
+		m_matcher(matcher),
+		m_slots(matcher->variables().size(), Heap::slots_allocator()),
+		m_slots_fixed(0) {
+	}
+
+	inline const BaseExpressionRef *get_matched_value(const Symbol *variable) const {
+		const index_t index = m_matcher->variables().find(variable);
+		if (index >= 0) {
+			return &m_slots[index].value;
+		} else {
+			return nullptr;
+		}
+	}
+
+	inline void reset() {
+		const size_t n = m_slots_fixed;
+		for (size_t i = 0; i < n; i++) {
+			m_slots[m_slots[i].index_to_ith].value.reset();
+		}
+		m_slots_fixed = 0;
+	}
+
+	inline bool assign(const index_t slot_index, const BaseExpressionRef &value) {
+		Slot &slot = m_slots[slot_index];
+		if (slot.value) {
+			return slot.value->same(value);
+		} else {
+			slot.value = value;
+			m_slots[m_slots_fixed++].index_to_ith = slot_index;
+			return true;
+		}
+	}
+
+	inline void unassign(const index_t slot_index) {
+		m_slots_fixed--;
+		assert(m_slots[m_slots_fixed].index_to_ith == slot_index);
+		m_slots[slot_index].value.reset();
+	}
+
+	inline void prepend(Match &match) {
+		const index_t k = m_slots_fixed;
+		const index_t n = match.m_slots_fixed;
+
+		for (index_t i = 0; i < k; i++) {
+			m_slots[i + n].index_to_ith = m_slots[i].index_to_ith;
+		}
+
+		for (index_t i = 0; i < n; i++) {
+			const index_t index = match.m_slots[i].index_to_ith;
+			m_slots[i].index_to_ith = index;
+			m_slots[index].value = match.m_slots[index].value;
+		}
+
+		m_slots_fixed = n + k;
+	}
+
+	inline void backtrack(index_t n) {
+		while (m_slots_fixed > n) {
+			m_slots_fixed--;
+			const index_t index = m_slots[m_slots_fixed].index_to_ith;
+			m_slots[index].value.reset();
+		}
+	}
+
+	inline size_t n_slots_fixed() const {
+		return m_slots_fixed;
+	}
+
+	inline BaseExpressionRef slot(index_t i) const {
+		return m_slots[m_slots[i].index_to_ith].value;
+	}
+
+	template<int N>
+	typename BaseExpressionTuple<N>::type unpack() const;
+};
+
+inline void intrusive_ptr_add_ref(Match *match) {
+	match->m_ref_count++;
+}
+
+inline void intrusive_ptr_release(Match *match) {
+	if (--match->m_ref_count == 0) {
+		Heap::release(match);
+	}
+}
+
 inline SymbolRef Heap::Symbol(const char *name, ExtendedType type) {
 	assert(_s_instance);
 	return SymbolRef(_s_instance->_symbols.construct(name, type));
@@ -122,6 +229,14 @@ inline void Heap::release(BaseExpression *expr) {
 			delete expr;
 			break;
 	}
+}
+
+inline MatchRef Heap::Match(const PatternMatcherRef &matcher) {
+	return _s_instance->_matches.construct(matcher);
+}
+
+inline MatchRef Heap::DefaultMatch() {
+	return _s_instance->_default_match;
 }
 
 inline BaseExpressionRef from_primitive(machine_integer_t value) {

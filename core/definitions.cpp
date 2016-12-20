@@ -53,8 +53,8 @@ Symbol::~Symbol() {
 	}
 }
 
-BaseExpressionRef Symbol::replace_all(const Match &match) const {
-	const BaseExpressionRef *value = match.get_matched_value(this);
+BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
+	const BaseExpressionRef *value = match->get_matched_value(this);
 	if (value) {
 		return *value;
 	} else {

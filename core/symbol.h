@@ -186,7 +186,7 @@ public:
 		return same(expr);
 	}
 
-	virtual BaseExpressionRef replace_all(const Match &match) const;
+	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
 
 	void set_attributes(Attributes a);
 

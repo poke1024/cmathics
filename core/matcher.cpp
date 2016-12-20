@@ -347,14 +347,14 @@ public:
 
 	template<typename Element, typename F>
 	inline index_t operator()(MatchContext &context, Element &element, const F &f) const {
-		if (!context.match.assign(m_slot_index, *element)) {
+		if (!context.match->assign(m_slot_index, *element)) {
 			return -1;
 		}
 
 		const index_t match = f();
 
 		if (match < 0) {
-			context.match.unassign(m_slot_index);
+			context.match->unassign(m_slot_index);
 		}
 
 		return match;
@@ -848,7 +848,7 @@ public:
 
 		index_t n = 0;
 		while (n < max_size) {
-			const auto vars0 = match.n_slots_fixed();
+			const auto vars0 = match->n_slots_fixed();
 			const index_t up_to = test_element(
 				sequence, begin + n, begin + max_size);
 			if (up_to < 0) {
@@ -867,7 +867,7 @@ public:
 					return up_to;
 				}
 			}
-			match.backtrack(std::get<1>(*i));
+			match->backtrack(std::get<1>(*i));
 		}
 
 		return -1;
@@ -949,12 +949,12 @@ public:
 		Args... args) const {
 
 		auto &match = sequence.context().match;
-		const auto vars0 = match.n_slots_fixed();
+		const auto vars0 = match->n_slots_fixed();
 
 		const index_t up_to = simple_test(test_element, 0, sequence, args...);
 
 		if (up_to < 0) {
-			match.backtrack(vars0);
+			match->backtrack(vars0);
 		}
 
 		return up_to;

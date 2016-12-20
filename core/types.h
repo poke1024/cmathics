@@ -258,7 +258,9 @@ class MatchContext;
 
 class Match;
 
-std::ostream &operator<<(std::ostream &s, const Match &m);
+typedef boost::intrusive_ptr<Match> MatchRef;
+
+std::ostream &operator<<(std::ostream &s, const MatchRef &m);
 
 class Expression;
 typedef boost::intrusive_ptr<const Expression> ExpressionRef;
@@ -410,11 +412,11 @@ public:
         return MatchSize::exactly(1); // default
     }
 
-    virtual BaseExpressionRef replace_all(const Match &match) const {
+    virtual BaseExpressionRef replace_all(const MatchRef &match) const {
 		return BaseExpressionRef();
     }
 
-	inline BaseExpressionRef replace_all_or_copy(const Match &match) const {
+	inline BaseExpressionRef replace_all_or_copy(const MatchRef &match) const {
 		const BaseExpressionRef result = replace_all(match);
 		if (result) {
 			return result;

@@ -12,100 +12,6 @@ PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt);
 
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt);
 
-class Match {
-private:
-	bool m_success;
-	PatternMatcherRef m_matcher;
-	std::vector<Slot, SlotAllocator> m_slots;
-	index_t m_slots_fixed;
-
-public:
-    inline Match(bool success = false) : m_success(success) {
-	    m_slots_fixed = 0;
-    }
-
-	inline Match(const PatternMatcherRef &matcher) :
-		m_success(true),
-		m_matcher(matcher),
-		m_slots(matcher->variables().size(), Heap::slots_allocator()),
-		m_slots_fixed(0) {
-	}
-
-    inline Match(Match &&match) :
-	    m_success(match.m_success),
-	    m_matcher(std::move(match.m_matcher)),
-
-	    m_slots(std::move(match.m_slots)),
-	    m_slots_fixed(match.m_slots_fixed) {
-    }
-
-	inline operator bool() const {
-		return m_success;
-	}
-
-	inline const BaseExpressionRef *get_matched_value(const Symbol *variable) const {
-		const index_t index = m_matcher->variables().find(variable);
-		if (index >= 0) {
-			return &m_slots[index].value;
-		} else {
-			return nullptr;
-		}
-	}
-
-    inline bool assign(const index_t slot_index, const BaseExpressionRef &value) {
-	    Slot &slot = m_slots[slot_index];
-	    if (slot.value) {
-		    return slot.value->same(value);
-	    } else {
-		    slot.value = value;
-		    m_slots[m_slots_fixed++].index_to_ith = slot_index;
-		    return true;
-	    }
-    }
-
-	inline void unassign(const index_t slot_index) {
-		m_slots_fixed--;
-		assert(m_slots[m_slots_fixed].index_to_ith == slot_index);
-		m_slots[slot_index].value.reset();
-	}
-
-    inline void prepend(Match &match) {
-	    const index_t k = m_slots_fixed;
-	    const index_t n = match.m_slots_fixed;
-
-	    for (index_t i = 0; i < k; i++) {
-		    m_slots[i + n].index_to_ith = m_slots[i].index_to_ith;
-	    }
-
-	    for (index_t i = 0; i < n; i++) {
-		    const index_t index = match.m_slots[i].index_to_ith;
-		    m_slots[i].index_to_ith = index;
-		    m_slots[index].value = match.m_slots[index].value;
-	    }
-
-	    m_slots_fixed = n + k;
-    }
-
-	inline void backtrack(index_t n) {
-		while (m_slots_fixed > n) {
-			m_slots_fixed--;
-			const index_t index = m_slots[m_slots_fixed].index_to_ith;
-			m_slots[index].value.reset();
-		}
-	}
-
-	inline size_t n_slots_fixed() const {
-		return m_slots_fixed;
-	}
-
-	inline BaseExpressionRef slot(index_t i) const {
-		return m_slots[m_slots[i].index_to_ith].value;
-	}
-
-	template<int N>
-	typename BaseExpressionTuple<N>::type unpack() const;
-};
-
 typedef uint32_t MatchOptions;
 
 class MatchContext {
@@ -115,7 +21,7 @@ public:
 	};
 
 	const Evaluation &evaluation;
-    Match match;
+	MatchRef match;
 	const MatchOptions options;
 
 	inline MatchContext(
@@ -123,7 +29,11 @@ public:
 		const Evaluation &evaluation_,
 		MatchOptions options_ = 0) :
 
-        evaluation(evaluation_), match(matcher), options(options_) {
+        evaluation(evaluation_), match(Heap::Match(matcher)), options(options_) {
+	}
+
+	inline void reset() {
+		match.reset();
 	}
 };
 
@@ -301,8 +211,8 @@ public:
 		if (m_matcher) {
 			index_t begin = 0;
 			const index_t end = string->length();
+			MatchContext context(m_matcher, m_evaluation, MatchContext::NoEndAnchor);
 			while (begin < end) {
-				MatchContext context(m_matcher, m_evaluation, MatchContext::NoEndAnchor);
 				const index_t match_end = m_matcher->match(
 					context, string, begin, end);
 				if (match_end >= 0) {
@@ -311,6 +221,9 @@ public:
 						begin++;
 					} else {
 						begin = match_end;
+					}
+					if (begin < end) {
+						context.reset();
 					}
 				} else {
 					begin++;
@@ -322,36 +235,37 @@ public:
 			const String *patt_string = m_patt->as_string();
 			const auto string_unicode = string->unicode();
 			const auto patt_unicode = patt_string->unicode();
+			const auto match = Heap::DefaultMatch();
 
 			while (true) {
 				const index_t next = string_unicode.indexOf(patt_unicode, curr);
 				if (next < 0) {
 					break;
 				}
-				callback(next, next + patt_string->length(), Match(true));
+				callback(next, next + patt_string->length(), match);
 				curr = next + 1;
 			}
 		}
 	}
 
-    inline Match operator()(const String *string) const {
+    inline MatchRef operator()(const String *string) const {
         if (m_matcher) {
 	        MatchContext context(m_matcher, m_evaluation, 0);
 	        const index_t match_end = m_matcher->match(
 			    context, string, 0, string->length());
 	        if (match_end >= 0) {
-		        return std::move(context.match);
+		        return context.match;
 	        } else {
-		        return Match();
+		        return MatchRef();
 	        }
         } else if (m_patt->type() == StringType) {
 	        if (m_patt->as_string()->same(string)) {
-		        return Match(true);
+		        return Heap::DefaultMatch();
 	        } else {
-		        return Match();
+		        return MatchRef();
 	        }
         } else {
-            return Match();
+            return MatchRef();
         }
     }
 };
@@ -371,28 +285,28 @@ public:
 		}
 	}
 
-	inline Match operator()(const BaseExpressionRef &item) const {
+	inline MatchRef operator()(const BaseExpressionRef &item) const {
 		if (m_matcher) {
 			if (m_matcher->might_match(1)) {
 				MatchContext context(m_matcher, m_evaluation);
 				const index_t match = m_matcher->match(
 					FastLeafSequence(context, &item), 0, 1);
 				if (match >= 0) {
-					return std::move(context.match);
+					return context.match;
 				}
 			}
-			return Match(); // no match
+			return MatchRef(); // no match
 		} else {
 			if (m_patt->same(item)) {
-				return Match(true);
+				return Heap::DefaultMatch();
 			} else {
-				return Match(); // no match
+				return MatchRef(); // no match
 			}
 		}
 	}
 };
 
-inline Match match(const BaseExpressionRef &patt, const BaseExpressionRef &item, const Evaluation &evaluation) {
+inline MatchRef match(const BaseExpressionRef &patt, const BaseExpressionRef &item, const Evaluation &evaluation) {
 	const Matcher matcher(patt, evaluation);
 	return matcher(item);
 }

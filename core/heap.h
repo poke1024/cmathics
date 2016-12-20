@@ -197,6 +197,9 @@ private:
 	boost::object_pool<Cache> _caches;
 	boost::object_pool<RefsExtent> _refs_extents;
 
+	boost::object_pool<Match> _matches;
+	MatchRef _default_match;
+
 	boost::fast_pool_allocator<VariablePtrMap::value_type> _variable_ptr_map;
 	SlotAllocator _slots;
 
@@ -293,6 +296,14 @@ public:
 	static inline RefsExtentRef RefsExtent(const std::initializer_list<BaseExpressionRef> &data);
 
 	static inline void release(class RefsExtent *extent);
+
+	static inline MatchRef Match(const PatternMatcherRef &matcher);
+
+	static inline MatchRef DefaultMatch();
+
+	static inline void release(class Match *match) {
+		_s_instance->_matches.free(match);
+	}
 };
 
 #endif //CMATHICS_HEAP_H
