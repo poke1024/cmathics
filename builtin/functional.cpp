@@ -77,7 +77,7 @@ inline BaseExpressionRef replace_slots(
 
 inline BaseExpressionRef replace_vars(
 	Name name,
-	const VariableMap &variables,
+	const VariableMap<const BaseExpressionRef*> &variables,
 	const Expression *body_ptr) {
 
 	if (body_ptr->has_cache() && body_ptr->cache()->skip_replace_vars.contains(name)) {
@@ -92,7 +92,7 @@ inline BaseExpressionRef replace_vars(
 		if (type == SymbolType) {
 			const auto i = variables.find(static_cast<const Symbol*>(expr.get()));
 			if (i != variables.end()) {
-				return i->second;
+				return *(i->second);
 			}
 		} else if (type == ExpressionType) {
 			return replace_vars(name, variables, expr->as_expression());
@@ -177,10 +177,10 @@ public:
 										}
 									}
 
-									VariableMap vars(Heap::variable_map());
+									VariablePtrMap vars(Heap::variable_ptr_map_allocator());
 
 									for (size_t i = 0; i < n_vars; i++) {
-										vars[static_cast<const Symbol*>(vars_slice[i].get())] = args[i];
+										vars[static_cast<const Symbol*>(vars_slice[i].get())] = &args[i];
 									}
 
 									return replace_vars(vars_ptr->cache()->name(), vars, body_ptr);

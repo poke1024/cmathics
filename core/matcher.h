@@ -15,79 +15,91 @@ PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt);
 class Match {
 private:
 	bool m_success;
-	VariableList m_list;
-	VariableMap m_values;
+	PatternMatcherRef m_matcher;
+	std::vector<Slot, SlotAllocator> m_slots;
+	index_t m_slots_fixed;
 
 public:
-    inline Match() : m_success(false), m_list(Heap::variable_list()), m_values(Heap::variable_map()) {
+    inline Match(bool success = false) : m_success(success) {
+	    m_slots_fixed = 0;
     }
+
+	inline Match(const PatternMatcherRef &matcher) :
+		m_success(true),
+		m_matcher(matcher),
+		m_slots(matcher->variables().size(), Heap::slots_allocator()),
+		m_slots_fixed(0) {
+	}
 
     inline Match(Match &&match) :
 	    m_success(match.m_success),
-	    m_list(std::move(match.m_list)),
-	    m_values(std::move(match.m_values)) {
+	    m_matcher(std::move(match.m_matcher)),
+
+	    m_slots(std::move(match.m_slots)),
+	    m_slots_fixed(match.m_slots_fixed) {
     }
 
 	inline operator bool() const {
 		return m_success;
 	}
 
-    inline bool empty() const {
-        return m_list.empty();
-    }
-
-    inline void clear() {
-		m_list.clear();
-	    m_values.clear();
-    }
-
-	const BaseExpressionRef *get_matched_value(const Symbol *variable) const {
-		const auto i = m_values.find(variable);
-		if (i != m_values.end()) {
-			return &i->second;
+	inline const BaseExpressionRef *get_matched_value(const Symbol *variable) const {
+		const index_t index = m_matcher->variables().find(variable);
+		if (index >= 0) {
+			return &m_slots[index].value;
 		} else {
 			return nullptr;
 		}
 	}
 
-    inline bool assign(const Symbol *variable, const BaseExpressionRef &value) {
-	    const auto i = m_values.find(variable);
-	    if (i != m_values.end()) {
-		    return i->second->same(value);
+    inline bool assign(const index_t slot_index, const BaseExpressionRef &value) {
+	    Slot &slot = m_slots[slot_index];
+	    if (slot.value) {
+		    return slot.value->same(value);
 	    } else {
-		    m_values[variable] = value;
-		    m_list.push_front(variable);
+		    slot.value = value;
+		    m_slots[m_slots_fixed++].index_to_ith = slot_index;
 		    return true;
 	    }
     }
 
-	inline void unassign(const Symbol *variable) {
-		assert(m_list.front() == variable);
-		m_values.erase(variable);
-		m_list.pop_front();
+	inline void unassign(const index_t slot_index) {
+		m_slots_fixed--;
+		assert(m_slots[m_slots_fixed].index_to_ith == slot_index);
+		m_slots[slot_index].value.reset();
 	}
 
     inline void prepend(Match &match) {
-	    for (auto i : match.m_values) {
-		    m_values[i.first] = i.second;
-	    }
-	    m_list.splice_after(m_list.before_begin(), match.m_list);
+	    const index_t k = m_slots_fixed;
+	    const index_t n = match.m_slots_fixed;
 
+	    for (index_t i = 0; i < k; i++) {
+		    m_slots[i + n].index_to_ith = m_slots[i].index_to_ith;
+	    }
+
+	    for (index_t i = 0; i < n; i++) {
+		    const index_t index = match.m_slots[i].index_to_ith;
+		    m_slots[i].index_to_ith = index;
+		    m_slots[index].value = match.m_slots[index].value;
+	    }
+
+	    m_slots_fixed = n + k;
     }
 
-	inline auto begin() const {
-		return m_list.begin();
-	}
-
-	inline void backtrace(const VariableList::const_iterator to_first) {
-		while (m_list.begin() != to_first) {
-			m_values.erase(m_list.front());
-			m_list.pop_front();
+	inline void backtrack(index_t n) {
+		while (m_slots_fixed > n) {
+			m_slots_fixed--;
+			const index_t index = m_slots[m_slots_fixed].index_to_ith;
+			m_slots[index].value.reset();
 		}
 	}
 
-	inline void set_success() {
-		m_success = true;
+	inline size_t n_slots_fixed() const {
+		return m_slots_fixed;
+	}
+
+	inline BaseExpressionRef slot(index_t i) const {
+		return m_slots[m_slots[i].index_to_ith].value;
 	}
 
 	template<int N>
@@ -106,8 +118,12 @@ public:
     Match match;
 	const MatchOptions options;
 
-	inline MatchContext(const Evaluation &evaluation_, MatchOptions options_ = 0) :
-        evaluation(evaluation_), options(options_) {
+	inline MatchContext(
+		const PatternMatcherRef &matcher,
+		const Evaluation &evaluation_,
+		MatchOptions options_ = 0) :
+
+        evaluation(evaluation_), match(matcher), options(options_) {
 	}
 };
 
@@ -129,34 +145,32 @@ struct unpack_leaves<M, M> {
 template<int M, int N>
 struct unpack_symbols {
 	void operator()(
-		const VariableMap &values,
-		VariableList::const_iterator begin,
-		VariableList::const_iterator end,
+		const Match &match,
+		const index_t index,
 		typename BaseExpressionTuple<M>::type &t) {
 
 		// symbols are already ordered in the order of their (first) appearance in the original pattern.
-		assert(begin != end);
-		std::get<N>(t) = values.find(*begin)->second;
-		unpack_symbols<M, N + 1>()(values, begin++, end, t);
+		assert(index != match.n_slots_fixed());
+		std::get<N>(t) = match.slot(index);
+		unpack_symbols<M, N + 1>()(match, index + 1, t);
 	}
 };
 
 template<int M>
 struct unpack_symbols<M, M> {
 	void operator()(
-		const VariableMap &values,
-		VariableList::const_iterator begin,
-		VariableList::const_iterator end,
+		const Match &match,
+		const index_t index,
 		typename BaseExpressionTuple<M>::type &t) {
 
-		assert(begin == end);
+		assert(index == match.n_slots_fixed());
 	}
 };
 
 template<int N>
 inline typename BaseExpressionTuple<N>::type Match::unpack() const {
 	typename BaseExpressionTuple<N>::type t;
-	unpack_symbols<N, 0>()(m_values, m_values, m_list.begin(), m_list.end(), t);
+	unpack_symbols<N, 0>()(*this, 0, t);
 	return t;
 };
 
@@ -288,11 +302,10 @@ public:
 			index_t begin = 0;
 			const index_t end = string->length();
 			while (begin < end) {
-				MatchContext context(m_evaluation, MatchContext::NoEndAnchor);
+				MatchContext context(m_matcher, m_evaluation, MatchContext::NoEndAnchor);
 				const index_t match_end = m_matcher->match(
 					context, string, begin, end);
 				if (match_end >= 0) {
-					context.match.set_success();
 					callback(begin, match_end, context.match);
 					if (overlap) {
 						begin++;
@@ -310,15 +323,12 @@ public:
 			const auto string_unicode = string->unicode();
 			const auto patt_unicode = patt_string->unicode();
 
-			MatchContext context(m_evaluation, 0);
-			context.match.set_success();
-
 			while (true) {
 				const index_t next = string_unicode.indexOf(patt_unicode, curr);
 				if (next < 0) {
 					break;
 				}
-				callback(next, next + patt_string->length(), context.match);
+				callback(next, next + patt_string->length(), Match(true));
 				curr = next + 1;
 			}
 		}
@@ -326,20 +336,17 @@ public:
 
     inline Match operator()(const String *string) const {
         if (m_matcher) {
-	        MatchContext context(m_evaluation, 0);
+	        MatchContext context(m_matcher, m_evaluation, 0);
 	        const index_t match_end = m_matcher->match(
 			    context, string, 0, string->length());
 	        if (match_end >= 0) {
-		        context.match.set_success();
 		        return std::move(context.match);
 	        } else {
 		        return Match();
 	        }
         } else if (m_patt->type() == StringType) {
 	        if (m_patt->as_string()->same(string)) {
-		        MatchContext context(m_evaluation, 0);
-		        context.match.set_success();
-		        return std::move(context.match);
+		        return Match(true);
 	        } else {
 		        return Match();
 	        }
@@ -365,21 +372,19 @@ public:
 	}
 
 	inline Match operator()(const BaseExpressionRef &item) const {
-		MatchContext context(m_evaluation);
 		if (m_matcher) {
 			if (m_matcher->might_match(1)) {
+				MatchContext context(m_matcher, m_evaluation);
 				const index_t match = m_matcher->match(
 					FastLeafSequence(context, &item), 0, 1);
 				if (match >= 0) {
-					context.match.set_success();
 					return std::move(context.match);
 				}
 			}
 			return Match(); // no match
 		} else {
 			if (m_patt->same(item)) {
-				context.match.set_success();
-				return std::move(context.match);
+				return Match(true);
 			} else {
 				return Match(); // no match
 			}

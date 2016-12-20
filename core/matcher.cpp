@@ -339,22 +339,22 @@ public:
 
 class AssignVariable {
 private:
-	const SymbolRef m_variable;
+	const index_t m_slot_index; // refers to related CompiledVariables
 
 public:
-	inline AssignVariable(const SymbolRef &variable) : m_variable(variable) {
+	inline AssignVariable(const index_t slot_index) : m_slot_index(slot_index) {
 	}
 
 	template<typename Element, typename F>
 	inline index_t operator()(MatchContext &context, Element &element, const F &f) const {
-		if (!context.match.assign(m_variable.get(), *element)) {
+		if (!context.match.assign(m_slot_index, *element)) {
 			return -1;
 		}
 
 		const index_t match = f();
 
 		if (match < 0) {
-			context.match.unassign(m_variable.get());
+			context.match.unassign(m_slot_index);
 		}
 
 		return match;
@@ -843,12 +843,12 @@ public:
 		const index_t max_size,
 		const Take &take) const {
 
-		std::vector<std::tuple<index_t, VariableList::const_iterator>> states;
+		std::vector<std::tuple<index_t, index_t>> states;
 		auto &match = sequence.context().match;
 
 		index_t n = 0;
 		while (n < max_size) {
-			const auto vars0 = match.begin();
+			const auto vars0 = match.n_slots_fixed();
 			const index_t up_to = test_element(
 				sequence, begin + n, begin + max_size);
 			if (up_to < 0) {
@@ -867,7 +867,7 @@ public:
 					return up_to;
 				}
 			}
-			match.backtrace(std::get<1>(*i));
+			match.backtrack(std::get<1>(*i));
 		}
 
 		return -1;
@@ -949,12 +949,12 @@ public:
 		Args... args) const {
 
 		auto &match = sequence.context().match;
-		const auto vars0 = match.begin();
+		const auto vars0 = match.n_slots_fixed();
 
 		const index_t up_to = simple_test(test_element, 0, sequence, args...);
 
 		if (up_to < 0) {
-			match.backtrace(vars0);
+			match.backtrack(vars0);
 		}
 
 		return up_to;
@@ -1077,17 +1077,20 @@ public:
 
 class PatternFactory {
 private:
+	CompiledVariables &m_variables;
 	const BaseExpressionRef m_test;
 	const SymbolRef m_variable;
 	const PatternMatcherRef m_next;
 	const bool m_shortest;
 
 	PatternFactory(
+		CompiledVariables &variables,
 		const BaseExpressionRef test,
 		const SymbolRef variable,
 		const PatternMatcherRef next,
 		const bool shortest) :
 
+		m_variables(variables),
 		m_test(test),
 		m_variable(variable),
 		m_next(next),
@@ -1108,14 +1111,25 @@ private:
     template<template<typename, typename> class Matcher, typename Parameter, typename Test>
     PatternMatcherRef create(const Parameter &parameter, const Test &test) const {
         if (m_variable) {
-            return create<Matcher>(parameter, test, AssignVariable(m_variable));
+	        const index_t slot_index = m_variables.lookup_slot(m_variable);
+            return create<Matcher>(parameter, test, AssignVariable(slot_index));
         } else {
             return create<Matcher>(parameter, test, NoVariable());
         }
     }
 
 public:
-	PatternFactory() : m_shortest(false) {
+	PatternFactory(CompiledVariables &variables) :
+		m_variables(variables),
+		m_shortest(false) {
+	}
+
+	inline const CompiledVariables &variables() const {
+		return m_variables;
+	}
+
+	inline PatternMatcherRef next() const {
+		return m_next;
 	}
 
 	inline bool is_shortest() const {
@@ -1123,31 +1137,27 @@ public:
 	}
 
 	PatternFactory for_variable(const SymbolRef &v) const {
-		return PatternFactory(m_test, v, m_next, m_shortest);
+		return PatternFactory(m_variables, m_test, v, m_next, m_shortest);
 	}
 
 	PatternFactory for_test(const BaseExpressionRef &t) const {
-		return PatternFactory(t, m_variable, m_next, m_shortest);
+		return PatternFactory(m_variables, t, m_variable, m_next, m_shortest);
 	}
 
 	PatternFactory for_next(const PatternMatcherRef &n) const {
-		return PatternFactory(m_test, m_variable, n, m_shortest);
+		return PatternFactory(m_variables, m_test, m_variable, n, m_shortest);
 	}
 
 	PatternFactory for_shortest() const {
-		return PatternFactory(m_test, m_variable, m_next, true);
+		return PatternFactory(m_variables, m_test, m_variable, m_next, true);
 	}
 
 	PatternFactory for_longest() const {
-		return PatternFactory(m_test, m_variable, m_next, false);
+		return PatternFactory(m_variables, m_test, m_variable, m_next, false);
 	}
 
 	PatternFactory stripped() const {
-		return PatternFactory(BaseExpressionRef(), SymbolRef(), m_next, m_shortest);
-	}
-
-	PatternMatcherRef next() const {
-		return m_next;
+		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), m_next, m_shortest);
 	}
 
 	template<template<typename, typename> class Matcher, typename Parameter>
@@ -1315,7 +1325,6 @@ PatternMatcherRef PatternCompiler::compile_element(
 class PatternBuilder {
 private:
     PatternMatcherRef m_next_matcher;
-    bool m_might_assign_variables = false;
 
 public:
     template<typename Compile>
@@ -1329,15 +1338,10 @@ public:
 
         m_next_matcher = matcher;
 
-        if (matcher->might_assign_variables()) {
-            m_might_assign_variables = true;
-        }
-
         matcher->set_size(size);
     }
 
     PatternMatcherRef entry() {
-        m_next_matcher->set_might_assign_variables(m_might_assign_variables);
         return m_next_matcher;
     }
 };
@@ -1361,7 +1365,6 @@ PatternMatcherRef PatternCompiler::compile(
 	std::reverse(matchable.begin(), matchable.end());
 
 	PatternMatcherRef next_matcher = factory.next();
-	bool might_assign_variables = false;
 
 	for (index_t i = n - 1; i >= 0; i--) {
         const PatternMatcherSize size(
@@ -1372,14 +1375,10 @@ PatternMatcherRef PatternCompiler::compile(
 
 		next_matcher = matcher;
 
-		if (matcher->might_assign_variables()) {
-			might_assign_variables = true;
-		}
-
 		matcher->set_size(size);
     }
 
-	next_matcher->set_might_assign_variables(might_assign_variables);
+	next_matcher->set_variables(factory.variables());
 
 	return next_matcher;
 }
@@ -1459,7 +1458,7 @@ public:
 				*m_patt_begin, m_size_from_here, m_factory.stripped());
 
 			const auto fixed_size = matcher->fixed_size();
-			if (fixed_size && !matcher->might_assign_variables()) {
+			if (fixed_size && matcher->variables().empty()) {
 				return make(TestRepeated<SimpleGreedy>(matcher, SimpleGreedy(*fixed_size)));
 			} else {
 				return make(TestRepeated<ComplexGreedy>(matcher, ComplexGreedy()));
@@ -1561,7 +1560,6 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 						boost::static_pointer_cast<const Symbol>(patt_begin[0]));
 					const PatternMatcherRef matcher = compile(
 						patt_begin[1], size.from_here(), factory.for_variable(variable));
-					matcher->set_might_assign_variables(true);
 					return matcher;
 				}
 			}
@@ -1589,12 +1587,14 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt) {
 	PatternCompiler compiler;
-	return compiler.compile(patt, MatchSize::exactly(0), PatternFactory().for_shortest());
+	CompiledVariables variables;
+	return compiler.compile(patt, MatchSize::exactly(0), PatternFactory(variables).for_shortest());
 }
 
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt) {
 	PatternCompiler compiler;
-	return compiler.compile(patt, MatchSize::exactly(0), PatternFactory().for_longest());
+	CompiledVariables variables;
+	return compiler.compile(patt, MatchSize::exactly(0), PatternFactory(variables).for_longest());
 }
 
 index_t PatternMatcher::match(

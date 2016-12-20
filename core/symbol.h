@@ -91,17 +91,6 @@ struct SymbolRules {
 	*/
 };
 
-struct SymbolHash {
-	inline std::size_t operator()(const Symbol *symbol) const;
-};
-
-using VariableList = std::forward_list<const Symbol*,
-	boost::fast_pool_allocator<const Symbol*>>;
-
-using VariableMap = boost::unordered_map<const Symbol*, BaseExpressionRef,
-	SymbolHash, std::equal_to<const Symbol*>,
-	boost::fast_pool_allocator<std::pair<const Symbol*, BaseExpressionRef>>>;
-
 typedef std::unique_ptr<SymbolRules> SymbolRulesRef;
 
 class Symbol : public BaseExpression {
@@ -209,10 +198,6 @@ public:
 
 	void add_rule(const RuleRef &rule);
 };
-
-inline std::size_t SymbolHash::operator()(const Symbol *symbol) const {
-	return uintptr_t(symbol) / sizeof(Symbol);
-}
 
 class SymbolKey {
 private:
@@ -344,6 +329,165 @@ inline auto scoped(
 	return [symbol, &f] (BaseExpressionRef &&value) {
 		return scope(symbol, std::move(value), f);
 	};
+}
+
+class FastLeafSequence;
+class SlowLeafSequence;
+class AsciiCharacterSequence;
+class SimpleCharacterSequence;
+class ComplexCharacterSequence;
+
+class PatternMatcherSize {
+private:
+	MatchSize m_from_here;
+	MatchSize m_from_next;
+
+public:
+	inline PatternMatcherSize() {
+	}
+
+	inline PatternMatcherSize(
+			const MatchSize &from_here,
+			const MatchSize &from_next) :
+			m_from_here(from_here),
+			m_from_next(from_next) {
+	}
+
+	inline const MatchSize &from_here() const {
+		return m_from_here;
+	}
+
+	inline const MatchSize &from_next() const {
+		return m_from_next;
+	}
+};
+
+constexpr size_t log2(size_t n) {
+	// kudos to https://hbfs.wordpress.com/2016/03/22/log2-with-c-metaprogramming/
+	return (n < 2) ? 1 : 1 + log2(n / 2);
+}
+
+inline std::size_t SymbolHash::operator()(const Symbol *symbol) const {
+	constexpr int bits = log2(sizeof(Symbol));
+	return uintptr_t(symbol) >> bits;
+}
+
+class CompiledVariables {
+private:
+	VariableMap<index_t> m_indices;
+	std::list<SymbolRef> m_symbols;
+
+protected:
+	friend class PatternFactory;
+
+	index_t lookup_slot(const SymbolRef &variable) {
+		const auto i = m_indices.find(variable.get());
+		if (i != m_indices.end()) {
+			return i->second;
+		} else {
+			m_symbols.push_back(variable);
+			const index_t index = m_indices.size();
+			m_indices[variable.get()] = index;
+			return index;
+		}
+	}
+
+public:
+	inline index_t find(const Symbol *variable) const {
+		const auto i = m_indices.find(variable);
+		if (i != m_indices.end()) {
+			return i->second;
+		} else {
+			return -1;
+		}
+	}
+
+	inline size_t size() const {
+		return m_indices.size();
+	}
+
+	inline bool empty() const {
+		return m_indices.empty();
+	}
+};
+
+class PatternMatcher {
+protected:
+	std::atomic<size_t> m_ref_count;
+	PatternMatcherSize m_size;
+	CompiledVariables m_variables;
+
+public:
+	inline void set_size(const PatternMatcherSize &size) {
+		m_size = size;
+	}
+
+	inline void set_variables(const CompiledVariables &variables) {
+		m_variables = variables;
+	}
+
+	inline const CompiledVariables &variables() const {
+		return m_variables;
+	}
+
+	inline PatternMatcher() : m_ref_count(0) {
+	}
+
+	virtual ~PatternMatcher() {
+	}
+
+	inline bool might_match(size_t size) const {
+		return m_size.from_here().contains(size);
+	}
+
+	inline optional<size_t> fixed_size() const {
+		return m_size.from_here().fixed_size();
+	}
+
+	virtual index_t match(
+		const FastLeafSequence &sequence,
+		index_t begin,
+		index_t end) const = 0;
+
+	virtual index_t match(
+		const SlowLeafSequence &sequence,
+		index_t begin,
+		index_t end) const = 0;
+
+	virtual index_t match(
+		const AsciiCharacterSequence &sequence,
+		index_t begin,
+		index_t end) const = 0;
+
+	virtual index_t match(
+		const SimpleCharacterSequence &sequence,
+		index_t begin,
+		index_t end) const = 0;
+
+	virtual index_t match(
+		const ComplexCharacterSequence &sequence,
+		index_t begin,
+		index_t end) const = 0;
+
+	index_t match(
+		MatchContext &context,
+		const String *string,
+		index_t begin,
+		index_t end) const;
+
+	friend void intrusive_ptr_add_ref(PatternMatcher *matcher);
+	friend void intrusive_ptr_release(PatternMatcher *matcher);
+};
+
+
+inline void intrusive_ptr_add_ref(PatternMatcher *matcher) {
+	matcher->m_ref_count++;
+}
+
+inline void intrusive_ptr_release(PatternMatcher *matcher) {
+	if (--matcher->m_ref_count == 0) {
+		delete matcher;
+	}
 }
 
 #endif //CMATHICS_SYMBOL_H_H

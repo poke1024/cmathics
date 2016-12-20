@@ -49,6 +49,17 @@ using StaticExpression = ExpressionImplementation<StaticSlice<N>>;
 template<int N>
 using StaticExpressionRef = boost::intrusive_ptr<ExpressionImplementation<StaticSlice<N>>>;
 
+struct SymbolHash {
+	inline std::size_t operator()(const Symbol *symbol) const;
+};
+
+template<typename Value>
+using VariableMap = boost::unordered_map<const Symbol*, Value,
+	SymbolHash, std::equal_to<const Symbol*>,
+	boost::fast_pool_allocator<std::pair<const Symbol*, Value>>>;
+
+using VariablePtrMap = VariableMap<const BaseExpressionRef*>;
+
 template<int UpToSize>
 class StaticExpressionHeap {
 private:
@@ -157,9 +168,16 @@ public:
 	}
 };
 
+struct Slot {
+	BaseExpressionRef value; // slot for variable #i
+	index_t index_to_ith; // index of i-th fixed slot
+};
+
+using SlotAllocator = boost::pool_allocator<Slot>;
+
 class Heap {
 private:
-	static thread_local Heap *_s_instance;
+	static /*thread_local*/ Heap *_s_instance;
 
 	boost::object_pool<Symbol> _symbols;
 
@@ -179,18 +197,18 @@ private:
 	boost::object_pool<Cache> _caches;
 	boost::object_pool<RefsExtent> _refs_extents;
 
+	boost::fast_pool_allocator<VariablePtrMap::value_type> _variable_ptr_map;
+	SlotAllocator _slots;
+
 	Heap();
 
 public:
-	boost::fast_pool_allocator<const Symbol*> _variable_list_allocator;
-	boost::fast_pool_allocator<std::pair<const Symbol*, BaseExpressionRef>> _variable_map_allocator;
-
-	static inline auto variable_list() {
-		return _s_instance->_variable_list_allocator;
+	static inline auto variable_ptr_map_allocator() {
+		return _s_instance->_variable_ptr_map;
 	}
 
-	static inline auto variable_map() {
-		return _s_instance->_variable_map_allocator;
+	static inline auto slots_allocator() {
+		return _s_instance->_slots;
 	}
 
 public:

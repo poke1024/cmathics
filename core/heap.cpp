@@ -6,7 +6,7 @@
 #include "definitions.h"
 #include "matcher.h"
 
-thread_local Heap *Heap::_s_instance = nullptr;
+/*thread_local*/ Heap *Heap::_s_instance = nullptr;
 
 
 Heap::Heap() :
