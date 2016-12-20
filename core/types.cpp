@@ -83,7 +83,7 @@ const char *type_name(Type type) {
     }
 }
 
-std::ostream &operator<<(std::ostream &s, const Match &m) {
+/*std::ostream &operator<<(std::ostream &s, const Match &m) {
     s << "Match<" << (m ? "true" : "false"); // << ", ";
     auto node = m.variables();
     s << "{";
@@ -102,7 +102,7 @@ std::ostream &operator<<(std::ostream &s, const Match &m) {
     s << "}";
     s << ">";
     return s;
-}
+}*/
 
 InstantiateSymbolicForm::Function InstantiateSymbolicForm::s_functions[256];
 

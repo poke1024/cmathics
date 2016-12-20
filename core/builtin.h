@@ -242,7 +242,7 @@ public:
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		const Match m = match(_patt, expr, evaluation.definitions);
 		if (m) {
-			return apply_from_tuple(_func, std::tuple_cat(m.get<N>(), std::make_tuple(evaluation)));
+			return apply_from_tuple(_func, std::tuple_cat(m.unpack<N>(), std::make_tuple(evaluation)));
 		} else {
 			return BaseExpressionRef();
 		}

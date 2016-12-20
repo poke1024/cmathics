@@ -34,7 +34,6 @@ Symbols::Symbols(Definitions &definitions) :
 
 Symbol::Symbol(const char *name, ExtendedType symbol) :
     BaseExpression(symbol),
-	_matches(nullptr),
     _replacement(nullptr) {
 
 	const size_t n = snprintf(
@@ -53,16 +52,10 @@ Symbol::~Symbol() {
 	if (_name != _short_name) {
 		delete[] _name;
 	}
-
-	while (_matches) {
-		MatchNode *next = _matches->next_in_symbol;
-		s_match_nodes.free(_matches);
-		_matches = next;
-	}
 }
 
 BaseExpressionRef Symbol::replace_all(const Match &match) const {
-	const BaseExpressionRef *value = get_matched_value(match.id());
+	const BaseExpressionRef *value = match.get_matched_value(this);
 	if (value) {
 		return *value;
 	} else {

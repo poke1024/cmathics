@@ -159,14 +159,6 @@ inline BaseExpressionRef from_primitive(const Numeric::Z &value) {
 	return value.to_expression();
 }
 
-inline MatchId Heap::MatchId() {
-	return _s_instance->_match_ids.construct();
-}
-
-inline void Heap::release(MatchIdData *data) {
-	_s_instance->_match_ids.free(data);
-}
-
 inline void intrusive_ptr_add_ref(const BaseExpression *expr) {
 	++expr->_ref_count;
 }
@@ -174,15 +166,5 @@ inline void intrusive_ptr_add_ref(const BaseExpression *expr) {
 inline void intrusive_ptr_release(const BaseExpression *expr) {
 	if(--expr->_ref_count == 0) {
 		Heap::release(const_cast<BaseExpression*>(expr));
-	}
-}
-
-inline void intrusive_ptr_add_ref(MatchIdData *data) {
-	data->m_ref_count++;
-}
-
-inline void intrusive_ptr_release(MatchIdData *data) {
-	if (--data->m_ref_count == 0) {
-		Heap::release(data);
 	}
 }

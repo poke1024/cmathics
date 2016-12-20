@@ -81,7 +81,7 @@ protected:
 	BaseExpressionRef *_addr;
 	BaseExpressionRef *_end;
 	TypeMask _type_mask;
-	TypeMask *_type_mask_ptr;
+	std::atomic<TypeMask> *_type_mask_ptr;
 
 public:
 	inline direct_storage(const BaseExpressionRef &head, size_t n) : _type_mask(0) {

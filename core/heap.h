@@ -59,7 +59,7 @@ private:
 	MakeFromInitializerList;
 
 	typedef
-	std::function<std::tuple<ExpressionRef, BaseExpressionRef*, TypeMask*>(const BaseExpressionRef &head)>
+	std::function<std::tuple<ExpressionRef, BaseExpressionRef*, std::atomic<TypeMask>*>(const BaseExpressionRef &head)>
 	MakeLateInit;
 
 	void *_pool[UpToSize + 1];
@@ -131,17 +131,17 @@ public:
   		    _pool[N])->construct(head, slice));
 	}
 
-	ExpressionRef make(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
+	inline ExpressionRef make(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
 		assert(leaves.size() <= UpToSize);
 		return _make_from_vector[leaves.size()](head, leaves);
 	}
 
-	ExpressionRef make(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves) {
+	inline ExpressionRef make(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves) {
 		assert(leaves.size() <= UpToSize);
 		return _make_from_initializer_list[leaves.size()](head, leaves);
 	}
 
-	std::tuple<ExpressionRef, BaseExpressionRef*, TypeMask*> make_late_init(const BaseExpressionRef &head, size_t N) {
+	inline auto make_late_init(const BaseExpressionRef &head, size_t N) {
 		assert(N <= UpToSize);
 		return _make_late_init[N](head);
 	}
@@ -174,8 +174,6 @@ private:
 
 	boost::object_pool<Cache> _caches;
 	boost::object_pool<RefsExtent> _refs_extents;
-
-	boost::object_pool<MatchIdData> _match_ids;
 
 	Heap();
 
@@ -225,7 +223,7 @@ public:
 		return _s_instance->_static_expression_heap.make(head, leaves);
 	}
 
-	static inline std::tuple<ExpressionRef, BaseExpressionRef*, TypeMask*> StaticExpression(
+	static inline auto StaticExpression(
 		const BaseExpressionRef &head,
 		size_t N) {
 
@@ -261,10 +259,6 @@ public:
 	static inline RefsExtentRef RefsExtent(const std::initializer_list<BaseExpressionRef> &data);
 
 	static inline void release(class RefsExtent *extent);
-
-	static inline MatchId MatchId();
-
-	static inline void release(MatchIdData *data);
 };
 
 #endif //CMATHICS_HEAP_H

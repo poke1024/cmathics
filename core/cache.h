@@ -99,7 +99,7 @@ public:
 
 class PatternMatcher {
 protected:
-	size_t m_ref_count;
+	std::atomic<size_t> m_ref_count;
     PatternMatcherSize m_size;
 	bool m_any_variables;
 

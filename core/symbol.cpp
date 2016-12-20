@@ -3,8 +3,6 @@
 #include "symbol.h"
 #include "builtin.h"
 
-boost::object_pool<MatchNode> s_match_nodes;
-
 void Messages::add(
     const SymbolRef &name,
     const char *tag,

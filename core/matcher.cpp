@@ -347,14 +347,14 @@ public:
 
 	template<typename Element, typename F>
 	inline index_t operator()(MatchContext &context, Element &element, const F &f) const {
-		if (!context.matched_variables.assign(m_variable.get(), *element)) {
+		if (!context.match.assign(m_variable.get(), *element)) {
 			return -1;
 		}
 
 		const index_t match = f();
 
 		if (match < 0) {
-			context.matched_variables.unassign(m_variable.get());
+			context.match.unassign(m_variable.get());
 		}
 
 		return match;
@@ -843,12 +843,12 @@ public:
 		const index_t max_size,
 		const Take &take) const {
 
-		std::vector<std::tuple<index_t, MatchNode*>> states;
-		auto &variables = sequence.context().matched_variables;
+		std::vector<std::tuple<index_t, MatchList::const_iterator>> states;
+		auto &match = sequence.context().match;
 
 		index_t n = 0;
 		while (n < max_size) {
-			auto * const vars0 = variables.get();
+			const auto vars0 = match.begin();
 			const index_t up_to = test_element(
 				sequence, begin + n, begin + max_size);
 			if (up_to < 0) {
@@ -862,12 +862,12 @@ public:
 		for (auto i = states.rbegin(); i != states.rend(); i++) {
 			const index_t n = std::get<0>(*i);
 			if (n >= min_size) {
-				const index_t match = take(n);
-				if (match >= 0) {
-					return match;
+				const index_t up_to = take(n);
+				if (up_to >= 0) {
+					return up_to;
 				}
 			}
-			variables.backtrace(std::get<1>(*i));
+			match.backtrace(std::get<1>(*i));
 		}
 
 		return -1;
@@ -948,16 +948,16 @@ public:
 		const Sequence &sequence,
 		Args... args) const {
 
-		auto &variables = sequence.context().matched_variables;
-		auto * const vars0 = variables.get();
+		auto &match = sequence.context().match;
+		const auto vars0 = match.begin();
 
-		const index_t match = simple_test(test_element, 0, sequence, args...);
+		const index_t up_to = simple_test(test_element, 0, sequence, args...);
 
-		if (match < 0) {
-			variables.backtrace(vars0);
+		if (up_to < 0) {
+			match.backtrace(vars0);
 		}
 
-		return match;
+		return up_to;
 	}
 };
 

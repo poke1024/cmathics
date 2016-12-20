@@ -254,25 +254,6 @@ struct BaseExpressionTuple<0, refs...> {
     typedef std::tuple<refs...> type;
 };
 
-class MatchIdData { // uniquely identifies a specific match
-protected:
-	size_t m_ref_count;
-
-	friend void intrusive_ptr_add_ref(MatchIdData *data);
-	friend void intrusive_ptr_release(MatchIdData *data);
-
-public:
-	inline MatchIdData() : m_ref_count(0) {
-	}
-
-	inline bool is_obsolete() const {
-		// caller is the last one holding a ref to this?
-		return m_ref_count == 1;
-	}
-};
-
-typedef boost::intrusive_ptr<MatchIdData> MatchId;
-
 class MatchContext;
 
 class Match;
@@ -316,7 +297,7 @@ protected:
     const ExtendedType _extended_type;
 
 protected:
-    mutable size_t _ref_count;
+    mutable std::atomic<size_t> _ref_count;
     mutable optional<SymbolicForm> _symbolic_form;
 
     virtual bool instantiate_symbolic_form() const {
