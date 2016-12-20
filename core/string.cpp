@@ -139,18 +139,20 @@ hash_t StringExtent::hash(size_t offset, size_t length) const {
 
 bool eq_ascii_simple(const AsciiStringExtent *y, size_t iy, const SimpleStringExtent *x, size_t ix, size_t n) {
     const char * const ascii = y->data() + iy;
-    const UnicodeString &simple = x->unicode();
+    const auto simple = x->unicode();
+
     for (size_t i = 0; i < n; i++) {
         if (simple.charAt(ix + i) != ascii[i]) {
             return false;
         }
     }
-    return true;
+
+	return true;
 }
 
 bool eq_ascii_complex(const AsciiStringExtent *y, size_t iy, const ComplexStringExtent *x, size_t ix, size_t n) {
 	const char * const ascii = y->data() + iy;
-	const UnicodeString &complex = x->unicode();
+	const auto complex = x->unicode();
 
 	const size_t cp_ix = x->offsets()[ix];
 	const size_t cp_n = x->offsets()[ix + n] - cp_ix;

@@ -266,7 +266,7 @@ public:
             return BaseExpressionRef();
         }
 
-        UnicodeString s(str->as_string()->unicode());
+        auto s(str->as_string()->unicode());
 
         index_t end = s.length();
         index_t begin = 0;

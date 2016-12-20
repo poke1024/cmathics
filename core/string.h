@@ -29,7 +29,7 @@ public:
         return m_type;
     }
 
-	virtual const UnicodeString &unicode() const = 0;
+	virtual UnicodeString unicode() const = 0;
 
     virtual size_t length() const = 0; // length in characters (i.e. glyphs)
 
@@ -48,10 +48,12 @@ public:
     virtual size_t walk_code_points(size_t offset, index_t cp_offset) const = 0;
 };
 
+typedef std::shared_ptr<UnicodeString> UnicodeStringRef;
+
 class AsciiStringExtent : public StringExtent {
 private:
     const std::string m_ascii;
-	mutable optional<UnicodeString> m_string;
+	mutable UnicodeStringRef m_string;
 
 public:
     inline AsciiStringExtent(std::string &&ascii) : StringExtent(StringExtent::ascii), m_ascii(ascii) {
@@ -69,11 +71,19 @@ public:
 		return m_ascii;
 	}
 
-	virtual inline const UnicodeString &unicode() const final {
-		if (!m_string) {
-			m_string = UnicodeString::fromUTF8(StringPiece(m_ascii));
+	virtual UnicodeString unicode() const final {
+		// note that the following code might run concurrently
+		// in different threads. we must not return UnicodeString&.
+
+		const UnicodeStringRef string = m_string;
+		if (string) {
+			return *string;
+		} else {
+			UnicodeStringRef new_string = std::make_shared<UnicodeString>(
+				UnicodeString::fromUTF8(StringPiece(m_ascii)));
+			m_string = new_string;
+			return *new_string;
 		}
-		return *m_string;
 	}
 
     virtual std::string utf8(size_t offset, size_t length) const;
@@ -120,7 +130,7 @@ public:
 
     static constexpr Type extent_type = simple;
 
-    virtual inline const UnicodeString &unicode() const final {
+    virtual inline UnicodeString unicode() const final {
         return m_string;
     }
 
@@ -174,7 +184,7 @@ public:
 
     static constexpr Type extent_type = complex;
 
-    virtual inline const UnicodeString &unicode() const final {
+    virtual inline UnicodeString unicode() const final {
 		return m_string;
 	}
 

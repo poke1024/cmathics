@@ -91,11 +91,15 @@ struct SymbolRules {
 	*/
 };
 
+struct SymbolHash {
+	inline std::size_t operator()(const Symbol *symbol) const;
+};
+
 using VariableList = std::forward_list<const Symbol*,
 	boost::fast_pool_allocator<const Symbol*>>;
 
 using VariableMap = boost::unordered_map<const Symbol*, BaseExpressionRef,
-	boost::hash<const Symbol*>, std::equal_to<const Symbol*>,
+	SymbolHash, std::equal_to<const Symbol*>,
 	boost::fast_pool_allocator<std::pair<const Symbol*, BaseExpressionRef>>>;
 
 typedef std::unique_ptr<SymbolRules> SymbolRulesRef;
@@ -205,6 +209,10 @@ public:
 
 	void add_rule(const RuleRef &rule);
 };
+
+inline std::size_t SymbolHash::operator()(const Symbol *symbol) const {
+	return uintptr_t(symbol) / sizeof(Symbol);
+}
 
 class SymbolKey {
 private:
