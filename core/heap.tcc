@@ -283,3 +283,13 @@ inline void intrusive_ptr_release(const BaseExpression *expr) {
 		Heap::release(const_cast<BaseExpression*>(expr));
 	}
 }
+
+inline void intrusive_ptr_add_ref(Cache *cache) {
+	++cache->m_ref_count;
+}
+
+inline void intrusive_ptr_release(Cache *cache) {
+	if(--cache->m_ref_count == 0) {
+		Heap::release(cache);
+	}
+}

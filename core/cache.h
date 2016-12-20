@@ -3,85 +3,42 @@
 
 #include <unordered_set>
 
-struct NameNode;
-
-typedef NameNode* Name;
-
-class NameSet {
-private:
-	std::unordered_set<Name> _names;
-
-protected:
-	friend struct NameNode;
-
-	inline void unlink(Name name) {
-		_names.erase(name);
-	}
-
-public:
-	inline ~NameSet();
-
-	inline void add(Name name);
-
-	inline bool contains(Name name) const {
-		return _names.find(name) != _names.end();
-	}
-};
-
-struct NameNode {
-	std::unordered_set<NameSet*> _sets;
-
-	inline void link(NameSet *set) {
-		_sets.insert(set);
-	}
-
-	inline void unlink(NameSet *set) {
-		_sets.erase(set);
-	}
-
-	inline ~NameNode() {
-		for (NameSet *set : _sets) {
-			set->unlink(this);
-		}
-	}
-};
-
-inline NameSet::~NameSet() {
-	for (Name name : _names) {
-		name->unlink(this);
-	}
-}
-
-inline void NameSet::add(Name name) {
-	_names.insert(name);
-	try {
-		name->link(this);
-	} catch(...) {
-		_names.erase(name);
-		throw;
-	}
-}
-
 class PatternMatcher;
 
 typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
 
-class Cache {
+class ReplaceCache {
 private:
-	NameNode _name;
+	const std::unordered_set<const Expression*> m_skipped;
 
 public:
-	NameSet skip_replace_vars;
-	bool skip_slots;
+	inline ReplaceCache(std::unordered_set<const Expression*> &&skipped) : m_skipped(skipped) {
+	}
+
+	inline bool skip(const Expression* expr) const {
+		return m_skipped.find(expr) != m_skipped.end();
+	}
+};
+
+typedef std::shared_ptr<ReplaceCache> ReplaceCacheRef;
+
+class Cache {
+protected:
+	std::atomic<size_t> m_ref_count;
+
+	friend void intrusive_ptr_add_ref(Cache *cache);
+	friend void intrusive_ptr_release(Cache *cache);
+
+public:
+	std::atomic<bool> skip_slots;
+	ReplaceCacheRef replace_cache;
 	PatternMatcherRef expression_matcher;
 	PatternMatcherRef string_matcher;
 
-	inline Cache() : skip_slots(false) {
-	}
-
-	inline Name name() {
-		return &_name;
+	inline Cache() : m_ref_count(0), skip_slots(false) {
 	}
 };
+
+typedef boost::intrusive_ptr<Cache> CacheRef;
 
 #endif //CMATHICS_CACHE_H

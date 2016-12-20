@@ -538,7 +538,7 @@ class SliceMethod {
 
 class Expression : public BaseExpression {
 private:
-	mutable Cache *_cache;
+	mutable CacheRef m_cache;
 
 protected:
 	template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
@@ -562,13 +562,7 @@ public:
 
 	inline Expression(const BaseExpressionRef &head, SliceCode slice_id, const Slice *slice_ptr) :
 		BaseExpression(build_extended_type(ExpressionType, slice_id)),
-		_head(head), _slice_ptr(slice_ptr), _cache(nullptr) {
-	}
-
-	inline ~Expression() {
-		if (_cache) {
-			Heap::release_cache(_cache);
-		}
+		_head(head), _slice_ptr(slice_ptr) {
 	}
 
 	template<size_t N>
@@ -629,15 +623,15 @@ public:
 
 	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const = 0;
 
-	inline bool has_cache() const {
-		return _cache;
+	inline CacheRef get_cache() const { // concurrent.
+		return m_cache;
 	}
 
-	inline Cache *cache() const {
-		Cache *cache = _cache;
+	inline CacheRef ensure_cache() const { // concurrent.
+		CacheRef cache = m_cache;
 		if (!cache) {
 			cache = Heap::new_cache();
-			_cache = cache;
+			m_cache = cache;
 		}
 		return cache;
 	}

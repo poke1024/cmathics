@@ -71,10 +71,7 @@ public:
 		return m_ascii;
 	}
 
-	virtual UnicodeString unicode() const final {
-		// note that the following code might run concurrently
-		// in different threads. we must not return UnicodeString&.
-
+	virtual UnicodeString unicode() const final { // concurrent.
 		const UnicodeStringRef string = m_string;
 		if (string) {
 			return *string;

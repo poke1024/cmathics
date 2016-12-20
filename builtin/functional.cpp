@@ -11,7 +11,9 @@ inline BaseExpressionRef replace_slots(
 	const Slots &slots,
 	const Evaluation &evaluation) {
 
-	if (expr->has_cache() && expr->cache()->skip_slots) {
+	const CacheRef cache = expr->get_cache();
+
+	if (cache && cache->skip_slots) {
 		return BaseExpressionRef();
 	}
 
@@ -68,7 +70,7 @@ inline BaseExpressionRef replace_slots(
 				(bool)new_head);
 
 			if (!result) {
-				expr->cache()->skip_slots = true;
+				expr->ensure_cache()->skip_slots = true;
 			}
 
 			return result;
@@ -76,17 +78,18 @@ inline BaseExpressionRef replace_slots(
 }
 
 inline BaseExpressionRef replace_vars(
-	Name name,
+	const ReplaceCacheRef &cache,
+	std::unordered_set<const Expression *> &new_cache,
 	const VariableMap<const BaseExpressionRef*> &variables,
 	const Expression *body_ptr) {
 
-	if (body_ptr->has_cache() && body_ptr->cache()->skip_replace_vars.contains(name)) {
+	if (cache && cache->skip(body_ptr)) {
 		return BaseExpressionRef();
 	}
 
 	const BaseExpressionRef &head = body_ptr->head();
 
-	auto replace = [name, &variables] (const BaseExpressionRef &expr) {
+	auto replace = [&cache, &new_cache, &variables] (const BaseExpressionRef &expr) {
 		const Type type = expr->type();
 
 		if (type == SymbolType) {
@@ -95,7 +98,7 @@ inline BaseExpressionRef replace_vars(
 				return *(i->second);
 			}
 		} else if (type == ExpressionType) {
-			return replace_vars(name, variables, expr->as_expression());
+			return replace_vars(cache, new_cache, variables, expr->as_expression());
 		}
 
 		return BaseExpressionRef();
@@ -114,7 +117,7 @@ inline BaseExpressionRef replace_vars(
 	});
 
 	if (!result) {
-		body_ptr->cache()->skip_replace_vars.add(name);
+		new_cache.insert(body_ptr);
 	}
 
 	return result;
@@ -126,12 +129,12 @@ public:
 		Rule(function_pattern(head, definitions)) {
 	}
 
-	virtual BaseExpressionRef try_apply(const Expression *args, const Evaluation &evaluation) const {
-		const BaseExpressionRef &head = args->_head;
+	virtual BaseExpressionRef try_apply(const Expression *function, const Evaluation &evaluation) const {
+		const BaseExpressionRef &head = function->_head;
 		if (head->type() != ExpressionType) {
 			return BaseExpressionRef();
 		}
-		return head->as_expression()->with_slice<CompileToSliceType>([args, &evaluation] (const auto &head_slice) {
+		return head->as_expression()->with_slice<CompileToSliceType>([function, &evaluation] (const auto &head_slice) {
 
 			switch (head_slice.size()) {
 				case 1: { // Function[body_][args___]
@@ -140,7 +143,7 @@ public:
 					if (body->type() != ExpressionType) {
 						return BaseExpressionRef();
 					}
-					return args->with_slice([&body, &evaluation] (const auto &slots) {
+					return function->with_slice([&body, &evaluation] (const auto &slots) {
 						return replace_slots(body->as_expression(), slots, evaluation);
 					});
 				}
@@ -152,7 +155,7 @@ public:
 					}
 					const Expression *vars_ptr = vars->as_expression();
 
-					if (vars_ptr->size() != args->size()) { // exit early if params don't match
+					if (vars_ptr->size() != function->size()) { // exit early if params don't match
 						return BaseExpressionRef();
 					}
 
@@ -162,12 +165,12 @@ public:
 					}
 					const Expression *body_ptr = body->as_expression();
 
-					return args->with_leaves_array(
-						[vars_ptr, body_ptr, &evaluation]
+					return function->with_leaves_array(
+						[vars_ptr, body_ptr, &evaluation, &function]
 						(const BaseExpressionRef *args, size_t n_args) {
 
 							return vars_ptr->with_slice(
-								[args, n_args, vars_ptr, body_ptr, &evaluation] (const auto &vars_slice) {
+								[args, n_args, vars_ptr, body_ptr, &evaluation, &function] (const auto &vars_slice) {
 
 									const size_t n_vars = vars_slice.size();
 
@@ -183,7 +186,20 @@ public:
 										vars[static_cast<const Symbol*>(vars_slice[i].get())] = &args[i];
 									}
 
-									return replace_vars(vars_ptr->cache()->name(), vars, body_ptr);
+									const CacheRef cache = function->get_cache();
+									ReplaceCacheRef replace_cache =
+										cache ? cache->replace_cache : ReplaceCacheRef();
+									std::unordered_set<const Expression*> new_cache;
+
+									const BaseExpressionRef result = replace_vars(
+										replace_cache, new_cache, vars, body_ptr);
+
+									if (!cache && !new_cache.empty()) {
+										function->ensure_cache()->replace_cache =
+											std::make_shared<ReplaceCache>(std::move(new_cache));
+									}
+
+									return result;
 								});
 						}
 					);

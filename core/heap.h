@@ -281,11 +281,11 @@ public:
 
 	static inline StringRef String(const StringExtentRef &extent, size_t offset, size_t length);
 
-	static inline Cache *new_cache() {
-		return _s_instance->_caches.construct();
+	static inline CacheRef new_cache() {
+		return CacheRef(_s_instance->_caches.construct());
 	}
 
-	static inline void release_cache(Cache *cache) {
+	static inline void release(Cache *cache) {
 		_s_instance->_caches.free(cache);
 	}
 

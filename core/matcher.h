@@ -86,20 +86,24 @@ inline typename BaseExpressionTuple<N>::type Match::unpack() const {
 
 #include "leaves.h"
 
-inline PatternMatcherRef Expression::expression_matcher() const {
-	Cache * const cache_ptr = cache();
-	if (!cache_ptr->expression_matcher) {
-		cache_ptr->expression_matcher = compile_expression_pattern(BaseExpressionRef(this));
+inline PatternMatcherRef Expression::expression_matcher() const { // concurrent.
+	const CacheRef cache = ensure_cache();
+	PatternMatcherRef matcher = cache->expression_matcher;
+	if (!matcher) {
+		matcher = compile_expression_pattern(BaseExpressionRef(this));
+		cache->expression_matcher = matcher;
 	}
-	return cache_ptr->expression_matcher;
+	return matcher;
 }
 
-inline PatternMatcherRef Expression::string_matcher() const {
-	Cache *const cache_ptr = cache();
-	if (!cache_ptr->string_matcher) {
-		cache_ptr->string_matcher = compile_string_pattern(BaseExpressionRef(this));
+inline PatternMatcherRef Expression::string_matcher() const { // concurrent.
+	const CacheRef cache = ensure_cache();
+	PatternMatcherRef matcher = cache->string_matcher;
+	if (!matcher) {
+		matcher = compile_string_pattern(BaseExpressionRef(this));
+		cache->string_matcher = matcher;
 	}
-	return cache_ptr->string_matcher;
+	return matcher;
 }
 
 class FastLeafSequence {
