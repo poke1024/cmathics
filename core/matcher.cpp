@@ -1621,3 +1621,13 @@ index_t PatternMatcher::match(
         }
     }
 }
+
+FunctionBodyRef Matcher::precompile(const BaseExpressionRef &item) const {
+	if (m_matcher && item->type() == ExpressionType) {
+		CompiledArguments arguments(m_matcher->variables());
+		return std::make_shared<FunctionBody>(
+			arguments, item->as_expression());
+	} else {
+		return FunctionBodyRef();
+	}
+}

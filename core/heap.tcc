@@ -10,7 +10,6 @@ protected:
 	friend void intrusive_ptr_add_ref(Match *match);
 	friend void intrusive_ptr_release(Match *match);
 
-
 public:
 	inline Match() :
 		m_ref_count(0),
@@ -87,8 +86,12 @@ public:
 		return m_slots_fixed;
 	}
 
-	inline BaseExpressionRef slot(index_t i) const {
+	inline const BaseExpressionRef &ith_slot(index_t i) const {
 		return m_slots[m_slots[i].index_to_ith].value;
+	}
+
+	inline const BaseExpressionRef &slot(index_t i) const {
+		return m_slots[i].value;
 	}
 
 	template<int N>

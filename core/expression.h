@@ -676,5 +676,67 @@ public:
 	}
 };
 
+template<typename Arguments>
+std::vector<const FunctionBody::Node> FunctionBody::nodes(
+	Arguments &arguments,
+	const Expression *body) {
 
+	return body->with_slice([&arguments] (const auto &slice) {
+		std::vector<const Node> refs;
+		const size_t n = slice.size();
+		refs.reserve(n);
+		for (size_t i = 0; i < n; i++) {
+			refs.emplace_back(Node(arguments, slice[i]));
+		}
+		return refs;
+	});
+}
+
+template<typename Arguments>
+FunctionBody::FunctionBody(
+	Arguments &arguments,
+	const Expression *body) :
+
+	m_head(Node(arguments, body->head())),
+	m_leaves(nodes(arguments, body)) {
+}
+
+template<typename Arguments>
+inline BaseExpressionRef FunctionBody::instantiate(
+	const Expression *body,
+	const Arguments &args) const {
+
+	const auto replace = [&args] (const BaseExpressionRef &expr, const Node &node) {
+		const index_t slot = node.slot();
+		if (slot >= 0) {
+			return args(slot, expr);
+		} else {
+			const FunctionBodyRef &down = node.down();
+			if (down) {
+				return down->instantiate(expr->as_expression(), args);
+			} else {
+				return expr;
+			}
+		}
+	};
+
+	const auto &head = m_head;
+	const auto &leaves = m_leaves;
+
+	return body->with_slice<CompileToSliceType>(
+		[body, &head, &leaves, &replace] (const auto &slice) {
+			const auto generate = [&slice, &leaves, &replace] (auto &storage) {
+				const size_t n = slice.size();
+				for (size_t i = 0; i < n; i++) {
+					storage << replace(slice[i], leaves[i]);
+				}
+				return nothing();
+			};
+
+			nothing state;
+			return ExpressionRef(expression(
+				replace(body->head(), head),
+				slice.create(generate, slice.size(), state)));
+		});
+}
 #endif

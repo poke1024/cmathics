@@ -33,7 +33,7 @@ public:
 	}
 
 	inline void reset() {
-		match.reset();
+		match->reset();
 	}
 };
 
@@ -61,7 +61,7 @@ struct unpack_symbols {
 
 		// symbols are already ordered in the order of their (first) appearance in the original pattern.
 		assert(index != match.n_slots_fixed());
-		std::get<N>(t) = match.slot(index);
+		std::get<N>(t) = match.ith_slot(index);
 		unpack_symbols<M, N + 1>()(match, index + 1, t);
 	}
 };
@@ -276,43 +276,89 @@ public:
 
 class Matcher {
 private:
+	typedef MatchRef (Matcher::*MatchFunction)(const BaseExpressionRef &, const Evaluation &) const;
+
 	PatternMatcherRef m_matcher;
 	const BaseExpressionRef m_patt;
-	const Evaluation &m_evaluation;
+	MatchFunction m_perform_match;
 
-public:
-	inline Matcher(const BaseExpressionRef &patt, const Evaluation &evaluation) :
-		m_patt(patt), m_evaluation(evaluation) {
-
-		if (patt->type() == ExpressionType) {
-			m_matcher = patt->as_expression()->expression_matcher();
+private:
+	inline MatchRef match_atom(const BaseExpressionRef &item, const Evaluation &evaluation) const {
+		if (m_patt->same(item)) {
+			return Heap::DefaultMatch();
+		} else {
+			return MatchRef(); // no match
 		}
 	}
 
-	inline MatchRef operator()(const BaseExpressionRef &item) const {
-		if (m_matcher) {
+	inline MatchRef match_expression(const BaseExpressionRef &item, const Evaluation &evaluation) const {
+		MatchContext context(m_matcher, evaluation);
+		const index_t match = m_matcher->match(
+			FastLeafSequence(context, &item), 0, 1);
+		if (match >= 0) {
+			return context.match;
+		} else {
+			return MatchRef(); // no match
+		}
+	}
+
+	inline MatchRef match_none(const BaseExpressionRef &item, const Evaluation &evaluation) const {
+		return MatchRef(); // no match
+	}
+
+public:
+	inline Matcher(const BaseExpressionRef &patt) :
+		m_patt(patt) {
+
+		if (patt->type() == ExpressionType) {
+			m_matcher = patt->as_expression()->expression_matcher();
 			if (m_matcher->might_match(1)) {
-				MatchContext context(m_matcher, m_evaluation);
-				const index_t match = m_matcher->match(
+				m_perform_match = &Matcher::match_expression;
+			} else {
+				m_perform_match = &Matcher::match_none;
+			}
+		} else {
+			m_perform_match = &Matcher::match_atom;
+		}
+	}
+
+	inline MatchRef operator()(const BaseExpressionRef &item, const Evaluation &evaluation) const {
+		return (this->*m_perform_match)(item, evaluation);
+	}
+
+	FunctionBodyRef precompile(const BaseExpressionRef &item) const;
+};
+
+template<typename F>
+inline auto match(const BaseExpressionRef &patt, const Evaluation &evaluation, const F &f) {
+	if (patt->type() == ExpressionType) {
+		const auto matcher = patt->as_expression()->expression_matcher();
+		if (matcher->might_match(1)) {
+			MatchContext context(matcher, evaluation);
+			return f([&matcher, &context] (const BaseExpressionRef &item) {
+				context.reset();
+				const index_t match = matcher->match(
 					FastLeafSequence(context, &item), 0, 1);
 				if (match >= 0) {
 					return context.match;
+				} else {
+					return MatchRef(); // no match
 				}
-			}
-			return MatchRef(); // no match
+			});
 		} else {
-			if (m_patt->same(item)) {
+			return f([] (const BaseExpressionRef &item) {
+				return MatchRef(); // no match
+			});
+		}
+	} else {
+		return f([&patt] (const BaseExpressionRef &item) {
+			if (patt->same(item)) {
 				return Heap::DefaultMatch();
 			} else {
 				return MatchRef(); // no match
 			}
-		}
+		});
 	}
-};
-
-inline MatchRef match(const BaseExpressionRef &patt, const BaseExpressionRef &item, const Evaluation &evaluation) {
-	const Matcher matcher(patt, evaluation);
-	return matcher(item);
 }
 
 #endif //CMATHICS_MATCHER_H

@@ -6,33 +6,6 @@ BaseExpressionRef function_pattern(
 	const SymbolRef &head,
     const Definitions &definitions);
 
-struct Directive {
-    enum Action {
-        Slot,
-        Copy,
-        Descend
-    };
-
-    const Action m_action;
-    const index_t m_slot;
-
-    inline Directive(Action action, index_t slot = 0) :
-        m_action(action), m_slot(slot) {
-    }
-
-    inline static Directive slot(index_t slot) {
-        return Directive(Directive::Slot, slot);
-    }
-
-    inline static Directive copy() {
-        return Directive(Directive::Copy);
-    }
-
-    inline static Directive descend() {
-        return Directive(Directive::Descend);
-    }
-};
-
 class SlotArguments {
 private:
     index_t m_slot_count;
@@ -45,9 +18,9 @@ public:
         return m_slot_count;
     }
 
-    Directive operator()(const BaseExpressionRef &item) {
+    SlotDirective operator()(const BaseExpressionRef &item) {
         if (item->type() != ExpressionType) {
-            return Directive::copy();
+            return SlotDirective::copy();
         }
 
         const Expression *expr = item->as_expression();
@@ -68,7 +41,7 @@ public:
                             throw std::runtime_error("Slot index must be >= 1");
                         } else {
                             m_slot_count = std::max(m_slot_count, slot_id);
-                            return Directive::slot(slot_id - 1);
+                            return SlotDirective::slot(slot_id - 1);
                         }
                     } else {
                         throw std::runtime_error("Slot index must be integral");
@@ -79,12 +52,12 @@ public:
             case SymbolFunction:
                 if (expr->size() == 1) {
                     // do not replace Slots in nested Functions
-                    return Directive::copy();
+                    return SlotDirective::copy();
                 }
                 // fallthrough
 
             default:
-                return Directive::descend();
+                return SlotDirective::descend();
         }
     }
 };
@@ -97,7 +70,7 @@ public:
 
 class ListArguments {
 private:
-    std::unordered_map<const Symbol*, size_t> m_arguments;
+    VariableMap<size_t> m_arguments;
 
 public:
     inline void add(const BaseExpressionRef &var, index_t slot) {
@@ -108,108 +81,21 @@ public:
         m_arguments[static_cast<const Symbol*>(var.get())] = slot;
     }
 
-    inline Directive operator()(const BaseExpressionRef &item) {
+    inline SlotDirective operator()(const BaseExpressionRef &item) {
         if (item->type() == SymbolType) {
             const auto i = m_arguments.find(
                 static_cast<const Symbol*>(item.get()));
 
             if (i != m_arguments.end()) {
-                return Directive::slot(i->second);
+                return SlotDirective::slot(i->second);
             } else {
-                return Directive::copy();
+                return SlotDirective::copy();
             }
         } else {
-            return Directive::descend();
+            return SlotDirective::descend();
         }
     }
 };
-
-template<typename Arguments>
-FunctionBody::Node::Node(
-    Arguments &arguments,
-    const BaseExpressionRef &expr) {
-
-    const Directive directive = arguments(expr);
-
-    switch (directive.m_action) {
-        case Directive::Slot:
-            m_slot = directive.m_slot;
-            break;
-        case Directive::Copy:
-            m_slot = -1;
-            break;
-        case Directive::Descend:
-            m_slot = -1;
-            if (expr->type() == ExpressionType) {
-                m_down = std::make_shared<FunctionBody>(
-                    arguments, expr->as_expression());
-            }
-            break;
-    }
-}
-
-template<typename Arguments>
-std::vector<const FunctionBody::Node> FunctionBody::nodes(
-    Arguments &arguments,
-    const Expression *body_ptr) {
-
-    return body_ptr->with_slice([&arguments] (const auto &slice) {
-        std::vector<const Node> refs;
-        const size_t n = slice.size();
-        for (size_t i = 0; i < n; i++) {
-            refs.emplace_back(Node(arguments, slice[i]));
-        }
-        return refs;
-    });
-}
-
-template<typename Arguments>
-FunctionBody::FunctionBody(
-    Arguments &arguments,
-	const Expression *body) :
-
-    m_head(Node(arguments, body->head())),
-    m_leaves(nodes(arguments, body)) {
-}
-
-inline BaseExpressionRef FunctionBody::instantiate(
-    const Expression *body,
-	const BaseExpressionRef *args) const {
-
-	const auto replace = [&args] (const BaseExpressionRef &expr, const Node &node) {
-        const index_t slot = node.slot();
-        if (slot >= 0) {
-            return args[slot];
-        } else {
-            const FunctionBodyRef &down = node.down();
-            if (down) {
-                return down->instantiate(expr->as_expression(), args);
-            } else {
-                return expr;
-            }
-        }
-	};
-
-    const auto &head = m_head;
-    const auto &leaves = m_leaves;
-
-    return body->with_slice<CompileToSliceType>(
-        [body, &head, &leaves, &replace] (const auto &slice) {
-            const auto generate = [&slice, &leaves, &replace] (auto &storage) {
-                const size_t n = slice.size();
-                for (size_t i = 0; i < n; i++) {
-                    storage << replace(slice[i], leaves[i]);
-                }
-                return nothing();
-            };
-
-            nothing state;
-            return ExpressionRef(expression(
-                replace(body->head(), head),
-                slice.create(generate, slice.size(), state)));
-
-        });
-}
 
 SlotFunction::SlotFunction(const Expression *body) {
     SlotArguments arguments;
@@ -217,9 +103,10 @@ SlotFunction::SlotFunction(const Expression *body) {
     m_slot_count = arguments.slot_count();
 }
 
+template<typename Arguments>
 inline BaseExpressionRef SlotFunction::instantiate(
     const Expression *body,
-    const BaseExpressionRef *args,
+    const Arguments &args,
     size_t n_args) const {
 
     if (n_args != m_slot_count) {
@@ -250,7 +137,9 @@ private:
         return args->with_leaves_array(
             [&slot_function, &body] (const BaseExpressionRef *args, size_t n_args) {
                 return slot_function->instantiate(
-                    body->as_expression(), args, n_args);
+                    body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
+		                return args[i];
+                    }, n_args);
             });
     }
 
@@ -295,7 +184,9 @@ private:
         return args->with_leaves_array(
             [&vars_function, &body] (const BaseExpressionRef *args, size_t n_args) {
                 return vars_function->instantiate(
-                    body->as_expression(), args);
+                    body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
+		                return args[i];
+	                });
             });
     }
 

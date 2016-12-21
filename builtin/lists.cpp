@@ -492,19 +492,21 @@ public:
 	        };
 
 	        if (rule_form.is_rule()) {
-	            const Matcher matcher(rule_form.left_side(), evaluation);
-	            return generate([&matcher, &rule_form] (auto &storage, const BaseExpressionRef &node) {
-		            const MatchRef match = matcher(node);
-		            if (match) {
-			            storage << rule_form.right_side()->replace_all_or_copy(match);
-		            }
-	            });
+		        return match(rule_form.left_side(), evaluation, [&generate, &rule_form] (const auto &match) {
+			        return generate([&match, &rule_form] (auto &storage, const BaseExpressionRef &node) {
+				        const MatchRef result = match(node);
+				        if (result) {
+					        storage << rule_form.right_side()->replace_all_or_copy(result);
+				        }
+			        });
+		        });
             } else {
-		        const Matcher matcher(patt, evaluation);
-		        return generate([&matcher, &rule_form] (auto &storage, const BaseExpressionRef &node) {
-			        if (matcher(node)) {
-				        storage << node;
-			        }
+		        return match(patt, evaluation, [&generate] (const auto &match) {
+			        return generate([&match] (auto &storage, const BaseExpressionRef &node) {
+				        if (match(node)) {
+					        storage << node;
+				        }
+			        });
 		        });
 	        }
         } catch (const Levelspec::InvalidError&) {

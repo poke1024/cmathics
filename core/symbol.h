@@ -411,6 +411,30 @@ public:
 	}
 };
 
+class CompiledArguments { // for use with class FunctionBody
+private:
+	const CompiledVariables &m_variables;
+
+public:
+	inline CompiledArguments(const CompiledVariables &variables) :
+		m_variables(variables) {
+	}
+
+	inline SlotDirective operator()(const BaseExpressionRef &item) {
+		if (item->type() == SymbolType) {
+			const index_t index = m_variables.find(
+				static_cast<const Symbol*>(item.get()));
+			if (index >= 0) {
+				return SlotDirective::slot(index);
+			} else {
+				return SlotDirective::copy();
+			}
+		} else {
+			return SlotDirective::descend();
+		}
+	}
+};
+
 class PatternMatcher {
 protected:
 	std::atomic<size_t> m_ref_count;

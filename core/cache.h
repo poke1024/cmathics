@@ -47,10 +47,62 @@ public:
         Arguments &arguments,
         const Expression *body_ptr);
 
+	template<typename Arguments>
     inline BaseExpressionRef instantiate(
         const Expression *body,
-        const BaseExpressionRef *args) const;
+        const Arguments &args) const;
 };
+
+struct SlotDirective {
+	enum Action {
+		Slot,
+		Copy,
+		Descend
+	};
+
+	const Action m_action;
+	const index_t m_slot;
+
+	inline SlotDirective(Action action, index_t slot = 0) :
+		m_action(action), m_slot(slot) {
+	}
+
+	inline static SlotDirective slot(index_t slot) {
+		return SlotDirective(SlotDirective::Slot, slot);
+	}
+
+	inline static SlotDirective copy() {
+		return SlotDirective(SlotDirective::Copy);
+	}
+
+	inline static SlotDirective descend() {
+		return SlotDirective(SlotDirective::Descend);
+	}
+};
+
+template<typename Arguments>
+FunctionBody::Node::Node(
+	Arguments &arguments,
+	const BaseExpressionRef &expr) {
+
+	const SlotDirective directive = arguments(expr);
+
+	switch (directive.m_action) {
+		case SlotDirective::Slot:
+			m_slot = directive.m_slot;
+			break;
+		case SlotDirective::Copy:
+			m_slot = -1;
+			break;
+		case SlotDirective::Descend:
+			m_slot = -1;
+			if (expr->type() == ExpressionType) {
+				m_down = std::make_shared<FunctionBody>(
+						arguments, expr->as_expression());
+			}
+			break;
+	}
+}
 
 struct SlotFunction {
 private:
@@ -60,9 +112,10 @@ private:
 public:
     SlotFunction(const Expression *body);
 
+	template<typename Arguments>
     inline BaseExpressionRef instantiate(
         const Expression *body,
-        const BaseExpressionRef *args,
+	    const Arguments &args,
         size_t n_args) const;
 };
 
