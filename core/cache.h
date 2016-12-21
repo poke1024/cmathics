@@ -7,20 +7,66 @@ class PatternMatcher;
 
 typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
 
-class ReplaceCache {
+class FunctionBody;
+
+typedef std::shared_ptr<FunctionBody> FunctionBodyRef;
+
+class FunctionBody {
 private:
-	const std::unordered_set<const Expression*> m_skipped;
+    class Node {
+    private:
+        index_t m_slot;
+        FunctionBodyRef m_down;
+
+    public:
+        template<typename Arguments>
+        Node(
+            Arguments &arguments,
+            const BaseExpressionRef &expr);
+
+        inline index_t slot() const {
+            return m_slot;
+        }
+
+        inline const FunctionBodyRef &down() const {
+            return m_down;
+        }
+    };
+
+    const Node m_head;
+	const std::vector<const Node> m_leaves;
+
+    template<typename Arguments>
+    static std::vector<const Node> nodes(
+        Arguments &arguments,
+        const Expression *body_ptr);
 
 public:
-	inline ReplaceCache(std::unordered_set<const Expression*> &&skipped) : m_skipped(skipped) {
-	}
+    template<typename Arguments>
+    FunctionBody(
+        Arguments &arguments,
+        const Expression *body_ptr);
 
-	inline bool skip(const Expression* expr) const {
-		return m_skipped.find(expr) != m_skipped.end();
-	}
+    inline BaseExpressionRef instantiate(
+        const Expression *body,
+        const BaseExpressionRef *args) const;
 };
 
-typedef std::shared_ptr<ReplaceCache> ReplaceCacheRef;
+struct SlotFunction {
+private:
+    size_t m_slot_count;
+    FunctionBodyRef m_function;
+
+public:
+    SlotFunction(const Expression *body);
+
+    inline BaseExpressionRef instantiate(
+        const Expression *body,
+        const BaseExpressionRef *args,
+        size_t n_args) const;
+};
+
+typedef std::shared_ptr<SlotFunction> SlotFunctionRef;
 
 class Cache {
 protected:
@@ -30,12 +76,12 @@ protected:
 	friend void intrusive_ptr_release(Cache *cache);
 
 public:
-	std::atomic<bool> skip_slots;
-	ReplaceCacheRef replace_cache;
+    SlotFunctionRef slot_function;
+    FunctionBodyRef vars_function;
 	PatternMatcherRef expression_matcher;
 	PatternMatcherRef string_matcher;
 
-	inline Cache() : m_ref_count(0), skip_slots(false) {
+	inline Cache() : m_ref_count(0) {
 	}
 };
 

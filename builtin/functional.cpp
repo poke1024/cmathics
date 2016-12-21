@@ -3,127 +3,302 @@
 // as Function is a very important pattern, we provide a special optimized Rule for it.
 
 BaseExpressionRef function_pattern(
-	const SymbolRef &head, const Definitions &definitions);
+	const SymbolRef &head,
+    const Definitions &definitions);
 
-template<typename Slots>
-inline BaseExpressionRef replace_slots(
-	const Expression *expr,
-	const Slots &slots,
-	const Evaluation &evaluation) {
+struct Directive {
+    enum Action {
+        Slot,
+        Copy,
+        Descend
+    };
 
-	const CacheRef cache = expr->get_cache();
+    const Action m_action;
+    const index_t m_slot;
 
-	if (cache && cache->skip_slots) {
-		return BaseExpressionRef();
-	}
+    inline Directive(Action action, index_t slot = 0) :
+        m_action(action), m_slot(slot) {
+    }
 
-	return expr->with_slice<CompileToSliceType>(
-		[expr, &slots, &evaluation] (const auto &slice) -> BaseExpressionRef {
-			const BaseExpressionRef &head = expr->head();
+    inline static Directive slot(index_t slot) {
+        return Directive(Directive::Slot, slot);
+    }
 
-			switch (head->extended_type()) {
-				case SymbolSlot:
-					if (slice.size() != 1) {
-						// error
-					} else {
-						const auto slot = slice[0];
-						if (slot->type() == MachineIntegerType) {
-							const machine_integer_t slot_id =
-								static_cast<const MachineInteger*>(slot.get())->value;
-							if (slot_id < 1) {
-								// error
-							} else if (slot_id > slots.size()) {
-								// error
-							} else {
-								return slots[slot_id - 1];
-							}
-						} else {
-							// error
-						}
-					}
-					break;
+    inline static Directive copy() {
+        return Directive(Directive::Copy);
+    }
 
-				case SymbolFunction:
-					if (slice.size() == 1) {
-						// do not replace Slots in nested Functions
-						return BaseExpressionRef();
-					}
+    inline static Directive descend() {
+        return Directive(Directive::Descend);
+    }
+};
 
-				default: {
-					// nothing
-				}
-			}
+class SlotArguments {
+private:
+    index_t m_slot_count;
 
-			BaseExpressionRef new_head;
-			if (head->type() == ExpressionType) {
-				new_head = replace_slots(head->as_expression(), slots, evaluation);
-			}
+public:
+    SlotArguments() : m_slot_count(0) {
+    }
 
-			const BaseExpressionRef result = transform<MakeTypeMask(ExpressionType)>(
-				new_head ? new_head : head,
-				slice,
-				0,
-				slice.size(),
-				[&slots, &evaluation] (const BaseExpressionRef &ref) {
-					return replace_slots(ref->as_expression(), slots, evaluation);
-				},
-				(bool)new_head);
+    inline size_t slot_count() const {
+        return m_slot_count;
+    }
 
-			if (!result) {
-				expr->ensure_cache()->skip_slots = true;
-			}
+    Directive operator()(const BaseExpressionRef &item) {
+        if (item->type() != ExpressionType) {
+            return Directive::copy();
+        }
 
-			return result;
-		});
+        const Expression *expr = item->as_expression();
+        const BaseExpressionRef &head = expr->head();
+
+        switch (head->extended_type()) {
+            case SymbolSlot:
+                if (expr->size() != 1) {
+                    throw std::runtime_error("Slot must contain one leaf");
+                } else {
+                    const BaseExpressionRef *leaves = expr->static_leaves<1>();
+                    const BaseExpressionRef &slot = leaves[0];
+
+                    if (slot->type() == MachineIntegerType) {
+                        const machine_integer_t slot_id =
+                            static_cast<const MachineInteger *>(slot.get())->value;
+                        if (slot_id < 1) {
+                            throw std::runtime_error("Slot index must be >= 1");
+                        } else {
+                            m_slot_count = std::max(m_slot_count, slot_id);
+                            return Directive::slot(slot_id - 1);
+                        }
+                    } else {
+                        throw std::runtime_error("Slot index must be integral");
+                    }
+                }
+                break;
+
+            case SymbolFunction:
+                if (expr->size() == 1) {
+                    // do not replace Slots in nested Functions
+                    return Directive::copy();
+                }
+                // fallthrough
+
+            default:
+                return Directive::descend();
+        }
+    }
+};
+
+class InvalidVariable : public std::runtime_error {
+public:
+    InvalidVariable() : std::runtime_error("invalid var") {
+    }
+};
+
+class ListArguments {
+private:
+    std::unordered_map<const Symbol*, size_t> m_arguments;
+
+public:
+    inline void add(const BaseExpressionRef &var, index_t slot) {
+        if (var->type() != SymbolType) {
+            throw InvalidVariable();
+        }
+
+        m_arguments[static_cast<const Symbol*>(var.get())] = slot;
+    }
+
+    inline Directive operator()(const BaseExpressionRef &item) {
+        if (item->type() == SymbolType) {
+            const auto i = m_arguments.find(
+                static_cast<const Symbol*>(item.get()));
+
+            if (i != m_arguments.end()) {
+                return Directive::slot(i->second);
+            } else {
+                return Directive::copy();
+            }
+        } else {
+            return Directive::descend();
+        }
+    }
+};
+
+template<typename Arguments>
+FunctionBody::Node::Node(
+    Arguments &arguments,
+    const BaseExpressionRef &expr) {
+
+    const Directive directive = arguments(expr);
+
+    switch (directive.m_action) {
+        case Directive::Slot:
+            m_slot = directive.m_slot;
+            break;
+        case Directive::Copy:
+            m_slot = -1;
+            break;
+        case Directive::Descend:
+            m_slot = -1;
+            if (expr->type() == ExpressionType) {
+                m_down = std::make_shared<FunctionBody>(
+                    arguments, expr->as_expression());
+            }
+            break;
+    }
 }
 
-inline BaseExpressionRef replace_vars(
-	const ReplaceCacheRef &cache,
-	std::unordered_set<const Expression *> &new_cache,
-	const VariableMap<const BaseExpressionRef*> &variables,
-	const Expression *body_ptr) {
+template<typename Arguments>
+std::vector<const FunctionBody::Node> FunctionBody::nodes(
+    Arguments &arguments,
+    const Expression *body_ptr) {
 
-	if (cache && cache->skip(body_ptr)) {
-		return BaseExpressionRef();
-	}
+    return body_ptr->with_slice([&arguments] (const auto &slice) {
+        std::vector<const Node> refs;
+        const size_t n = slice.size();
+        for (size_t i = 0; i < n; i++) {
+            refs.emplace_back(Node(arguments, slice[i]));
+        }
+        return refs;
+    });
+}
 
-	const BaseExpressionRef &head = body_ptr->head();
+template<typename Arguments>
+FunctionBody::FunctionBody(
+    Arguments &arguments,
+	const Expression *body) :
 
-	auto replace = [&cache, &new_cache, &variables] (const BaseExpressionRef &expr) {
-		const Type type = expr->type();
+    m_head(Node(arguments, body->head())),
+    m_leaves(nodes(arguments, body)) {
+}
 
-		if (type == SymbolType) {
-			const auto i = variables.find(static_cast<const Symbol*>(expr.get()));
-			if (i != variables.end()) {
-				return *(i->second);
-			}
-		} else if (type == ExpressionType) {
-			return replace_vars(cache, new_cache, variables, expr->as_expression());
-		}
+inline BaseExpressionRef FunctionBody::instantiate(
+    const Expression *body,
+	const BaseExpressionRef *args) const {
 
-		return BaseExpressionRef();
+	const auto replace = [&args] (const BaseExpressionRef &expr, const Node &node) {
+        const index_t slot = node.slot();
+        if (slot >= 0) {
+            return args[slot];
+        } else {
+            const FunctionBodyRef &down = node.down();
+            if (down) {
+                return down->instantiate(expr->as_expression(), args);
+            } else {
+                return expr;
+            }
+        }
 	};
 
-	const BaseExpressionRef new_head = replace(head);
+    const auto &head = m_head;
+    const auto &leaves = m_leaves;
 
-	const ExpressionRef result = body_ptr->with_slice([&head, &new_head, &replace] (const auto &slice) {
-		return transform<MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType)>(
-			new_head ? new_head : head,
-			slice,
-			0,
-			slice.size(),
-			replace,
-			(bool)new_head);
-	});
+    return body->with_slice<CompileToSliceType>(
+        [body, &head, &leaves, &replace] (const auto &slice) {
+            const auto generate = [&slice, &leaves, &replace] (auto &storage) {
+                const size_t n = slice.size();
+                for (size_t i = 0; i < n; i++) {
+                    storage << replace(slice[i], leaves[i]);
+                }
+                return nothing();
+            };
 
-	if (!result) {
-		new_cache.insert(body_ptr);
-	}
+            nothing state;
+            return ExpressionRef(expression(
+                replace(body->head(), head),
+                slice.create(generate, slice.size(), state)));
 
-	return result;
+        });
+}
+
+SlotFunction::SlotFunction(const Expression *body) {
+    SlotArguments arguments;
+    m_function = std::make_shared<FunctionBody>(arguments, body);
+    m_slot_count = arguments.slot_count();
+}
+
+inline BaseExpressionRef SlotFunction::instantiate(
+    const Expression *body,
+    const BaseExpressionRef *args,
+    size_t n_args) const {
+
+    if (n_args != m_slot_count) {
+        throw std::runtime_error("wrong slot count");
+    }
+
+    return m_function->instantiate(body, args);
 }
 
 class FunctionRule : public Rule {
+private:
+    inline BaseExpressionRef slot(
+        const Expression *args,
+        const BaseExpressionRef &body) const {
+
+        if (body->type() != ExpressionType) {
+            return BaseExpressionRef();
+        }
+
+        const CacheRef cache = args->ensure_cache();
+        SlotFunctionRef slot_function = cache->slot_function;
+
+        if (!slot_function) {
+            slot_function = std::make_shared<SlotFunction>(body->as_expression());
+            cache->slot_function = slot_function;
+        }
+
+        return args->with_leaves_array(
+            [&slot_function, &body] (const BaseExpressionRef *args, size_t n_args) {
+                return slot_function->instantiate(
+                    body->as_expression(), args, n_args);
+            });
+    }
+
+    inline BaseExpressionRef vars(
+        const Expression *args,
+        const BaseExpressionRef &vars,
+        const BaseExpressionRef &body) const {
+
+        if (vars->type() != ExpressionType) {
+            return BaseExpressionRef();
+        }
+        if (vars->as_expression()->size() != args->size()) {
+            return BaseExpressionRef(); // exit early if vars don't match
+        }
+        if (body->type() != ExpressionType) {
+            return BaseExpressionRef();
+        }
+
+        const CacheRef cache = args->ensure_cache();
+        FunctionBodyRef vars_function = cache->vars_function;
+
+        if (!vars_function) {
+            try {
+                vars_function = vars->as_expression()->with_leaves_array(
+                    [&body](const BaseExpressionRef *vars, size_t n_vars) {
+                        ListArguments arguments;
+
+                        for (size_t i = 0; i < n_vars; i++) {
+                            arguments.add(vars[i], i);
+                        }
+
+                        return std::make_shared<FunctionBody>(
+                            arguments, body->as_expression());
+                    });
+            } catch(const InvalidVariable&) {
+                return BaseExpressionRef();
+            }
+
+            cache->vars_function = vars_function;
+        }
+
+        return args->with_leaves_array(
+            [&vars_function, &body] (const BaseExpressionRef *args, size_t n_args) {
+                return vars_function->instantiate(
+                    body->as_expression(), args);
+            });
+    }
+
 public:
 	FunctionRule(const SymbolRef &head, const Definitions &definitions) :
 		Rule(function_pattern(head, definitions)) {
@@ -134,81 +309,20 @@ public:
 		if (head->type() != ExpressionType) {
 			return BaseExpressionRef();
 		}
-		return head->as_expression()->with_slice<CompileToSliceType>([function, &evaluation] (const auto &head_slice) {
 
-			switch (head_slice.size()) {
-				case 1: { // Function[body_][args___]
+        const Expression * const head_expr = head->as_expression();
+        switch (head_expr->size()) {
+            case 1: // Function[body_][args___]
+                return slot(function, head_expr->static_leaves<1>()[0]);
 
-					const BaseExpressionRef &body = head_slice[0];
-					if (body->type() != ExpressionType) {
-						return BaseExpressionRef();
-					}
-					return function->with_slice([&body, &evaluation] (const auto &slots) {
-						return replace_slots(body->as_expression(), slots, evaluation);
-					});
-				}
+            case 2: { // Function[vars_, body_][args___]
+                const BaseExpressionRef * const leaves = head_expr->static_leaves<2>();
+                return vars(function, leaves[0], leaves[1]);
+            }
 
-				case 2: { // Function[vars_, body_][args___]
-					const BaseExpressionRef &vars = head_slice[0];
-					if (vars->type() != ExpressionType) {
-						return BaseExpressionRef();
-					}
-					const Expression *vars_ptr = vars->as_expression();
-
-					if (vars_ptr->size() != function->size()) { // exit early if params don't match
-						return BaseExpressionRef();
-					}
-
-					const BaseExpressionRef &body = head_slice[1];
-					if (body->type() != ExpressionType) {
-						return BaseExpressionRef();
-					}
-					const Expression *body_ptr = body->as_expression();
-
-					return function->with_leaves_array(
-						[vars_ptr, body_ptr, &evaluation, &function]
-						(const BaseExpressionRef *args, size_t n_args) {
-
-							return vars_ptr->with_slice(
-								[args, n_args, vars_ptr, body_ptr, &evaluation, &function] (const auto &vars_slice) {
-
-									const size_t n_vars = vars_slice.size();
-
-									for (size_t i = 0; i < n_vars; i++) {
-										if (vars_slice[i]->type() != SymbolType) {
-											return BaseExpressionRef();
-										}
-									}
-
-									VariablePtrMap vars(Heap::variable_ptr_map_allocator());
-
-									for (size_t i = 0; i < n_vars; i++) {
-										vars[static_cast<const Symbol*>(vars_slice[i].get())] = &args[i];
-									}
-
-									const CacheRef cache = function->get_cache();
-									ReplaceCacheRef replace_cache =
-										cache ? cache->replace_cache : ReplaceCacheRef();
-									std::unordered_set<const Expression*> new_cache;
-
-									const BaseExpressionRef result = replace_vars(
-										replace_cache, new_cache, vars, body_ptr);
-
-									if (!cache && !new_cache.empty()) {
-										function->ensure_cache()->replace_cache =
-											std::make_shared<ReplaceCache>(std::move(new_cache));
-									}
-
-									return result;
-								});
-						}
-					);
-				}
-
-				default:
-					return BaseExpressionRef();
-			}
-		});
+            default:
+                return BaseExpressionRef();
+		}
 	}
 
 	virtual MatchSize leaf_match_size() const {
@@ -217,7 +331,6 @@ public:
 };
 
 void Builtins::Functional::initialize() {
-
 	add("Function",
 		Attributes::HoldAll, {
 			NewRule<FunctionRule>
