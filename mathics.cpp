@@ -50,14 +50,14 @@ public:
 						    return BaseExpressionRef();
 					    }
 
-					    const SymbolicForm form = expr->symbolic_form();
-					    if (form.is_null()) {
+					    const SymbolicFormRef form = symbolic_form(expr);
+					    if (!form || form->is_none()) {
 						    return BaseExpressionRef();
 					    }
 
 					    return Heap::BigReal(
-							    form,
-							    Precision(double(static_cast<const MachineInteger*>(n.get())->value)));
+						    form,
+						    Precision(double(static_cast<const MachineInteger*>(n.get())->value)));
 				    })
 		    });
 

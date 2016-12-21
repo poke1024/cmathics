@@ -331,12 +331,12 @@ public:
 
 	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
         return do_symbolic(
-            [] (const SymbolicForm &form) {
-                const SymbolicForm new_form = SymEngine::expand(form);
-                if (new_form.get() != form.get()) {
-                    return optional<SymbolicForm>(new_form);
+            [] (const SymbolicFormRef &form) {
+                const SymEngineRef new_form = SymEngine::expand(form->get());
+                if (new_form.get() != form->get().get()) {
+                    return Heap::SymbolicForm(new_form);
                 } else {
-                    return optional<SymbolicForm>();
+                    return Heap::SymbolicForm(SymEngineRef());
                 }
             },
             [] (const BaseExpressionRef &leaf, const Evaluation &evaluation) {
@@ -346,20 +346,14 @@ public:
 	}
 
 	virtual optional<SymEngine::vec_basic> symbolic_operands() const {
-		for (const auto &leaf : _leaves.leaves()) {
-			if (leaf->no_symbolic_form()) {
-				return optional<SymEngine::vec_basic>();
-			}
-		}
-
 		SymEngine::vec_basic operands;
         operands.reserve(size());
 		for (const auto &leaf : _leaves.leaves()) {
-            const SymbolicForm form = leaf->symbolic_form();
-            if (form.is_null()) {
+            const SymbolicFormRef form = symbolic_form(leaf);
+            if (form->is_none()) {
                 return optional<SymEngine::vec_basic>();
             }
-			operands.push_back(form);
+			operands.push_back(form->get());
 		}
 
 		return operands;
@@ -374,34 +368,28 @@ inline const BaseExpressionRef *Expression::static_leaves() const {
     return static_cast<const StaticSlice<N>*>(_slice_ptr)->refs();
 }
 
-inline bool Expression::symbolic_1(const SymEngineUnaryFunction &f) const {
-    const SymbolicForm symbolic_a = static_leaves<1>()[0]->symbolic_form();
-    if (!symbolic_a.is_null()) {
-        _symbolic_form = f(symbolic_a);
-        return true;
+inline SymbolicFormRef Expression::symbolic_1(const SymEngineUnaryFunction &f) const {
+    const SymbolicFormRef symbolic_a = symbolic_form(static_leaves<1>()[0]);
+    if (!symbolic_a->is_none()) {
+	    return Heap::SymbolicForm(f(symbolic_a->get()));
     } else {
-        return false;
+        return Heap::NoSymbolicForm();
     }
 }
 
-inline bool Expression::symbolic_2(const SymEngineBinaryFunction &f) const {
+inline SymbolicFormRef Expression::symbolic_2(const SymEngineBinaryFunction &f) const {
 	const BaseExpressionRef * const leaves = static_leaves<2>();
 	const BaseExpressionRef &a = leaves[0];
 	const BaseExpressionRef &b = leaves[1];
 
-	if (a->no_symbolic_form() || b->no_symbolic_form()) {
-		return false;
-	}
-
-    const SymbolicForm symbolic_a = a->symbolic_form();
-    if (!symbolic_a.is_null()) {
-        const SymbolicForm symbolic_b = b->symbolic_form();
-        if (!symbolic_b.is_null()) {
-            _symbolic_form = f(symbolic_a, symbolic_b);
-            return true;
+    const SymbolicFormRef symbolic_a = symbolic_form(a);
+    if (!symbolic_a->is_none()) {
+        const SymbolicFormRef symbolic_b = symbolic_form(b);
+        if (!symbolic_b->is_none()) {
+	        return Heap::SymbolicForm(f(symbolic_a->get(), symbolic_b->get()));
         }
     }
-    return false;
+    return Heap::NoSymbolicForm();
 }
 
 template<typename U>
@@ -611,12 +599,12 @@ BaseExpressionRef ExpressionImplementation<Slice>::do_symbolic(
 	const Recurse &recurse,
 	const Evaluation &evaluation) const {
 
-	const SymbolicForm form = symbolic_form();
+	const SymbolicFormRef form = symbolic_form(this);
 
-	if (!form.is_null()) {
-		const optional<SymbolicForm> new_form = compute(form);
-		if (new_form) {
-			return from_symbolic_form(*new_form, evaluation);
+	if (form && !form->is_none()) {
+		const SymbolicFormRef new_form = compute(form);
+		if (new_form && !new_form->is_none()) {
+			return from_symbolic_form(new_form->get(), evaluation);
 		} else {
 			return BaseExpressionRef();
 		}

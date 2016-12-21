@@ -295,7 +295,7 @@ BaseExpressionRef evaluate(
 			<< " TO " << intermediate_form << std::endl;
 	}
 
-	const Expression *safe_intermediate_form =
+	const Expression * const safe_intermediate_form =
 		intermediate_form ?
 			intermediate_form.get() :
             self;
@@ -320,28 +320,35 @@ BaseExpressionRef evaluate(
 	// Simplify symbolic form, if possible. We guarantee that no vcall
     // happens unless a symbolic resolution is really necessary.
 
-	if (!safe_intermediate_form->is_symengine_simplified()) {
+	SymbolicFormRef form = fast_symbolic_form(safe_intermediate_form);
+
+	if (!form->is_none() && !form->is_simplified()) {
+		if (false) { // debug
+			std::cout << "inspecting " << safe_intermediate_form->fullform() << std::endl;
+		}
+
+		const BaseExpressionRef simplified = from_symbolic_form(form->get(), evaluation);
+
+		if (false) { // debug
+			std::cout << "simplified into " << simplified->fullform() << std::endl;
+		}
+
+		assert(symbolic_form(simplified)->is_simplified());
+
+		return simplified;
+	}
+
+	/*if (!form) {
 		// if this expression already has a symbolic form attached, then
 		// we already simplified it earlier and we must not recheck here;
         // note that we end up in an infinite loop otherwise.
 
-		if (::instantiate_symbolic_form(safe_intermediate_form)) {
-            if (false) { // debug
-                std::cout << "inspecting " << safe_intermediate_form->fullform() << std::endl;
-            }
+		form = ::instantiate_symbolic_form(safe_intermediate_form);
 
-            const BaseExpressionRef simplified =
-                from_symbolic_form(safe_intermediate_form->symbolic_form(), evaluation);
-
-            if (false) { // debug
-                std::cout << "simplified into " << simplified->fullform() << std::endl;
-            }
-
-            return simplified;
         } else {
             safe_intermediate_form->set_no_symbolic_form();
         }
-	}
+	}*/
 
 	return intermediate_form;
 }

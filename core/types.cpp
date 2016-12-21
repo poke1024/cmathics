@@ -133,7 +133,7 @@ void InstantiateSymbolicForm::init() {
         if (expr->size() == 2) {
             return expr->symbolic_2(SymEngine::pow);
         } else {
-            return false;
+            return Heap::NoSymbolicForm();
         }
     });
 
@@ -143,7 +143,7 @@ void InstantiateSymbolicForm::init() {
 		} else if (expr->size() == 2) {
 			return expr->symbolic_2(SymEngine::log);
 		} else {
-			return false;
+			return Heap::NoSymbolicForm();
 		}
 	});
 
@@ -151,7 +151,7 @@ void InstantiateSymbolicForm::init() {
         if (expr->size() == 1) {
             return expr->symbolic_1(SymEngine::cos);
         } else {
-            return false;
+            return Heap::NoSymbolicForm();
         }
     });
 
@@ -159,7 +159,7 @@ void InstantiateSymbolicForm::init() {
         if (expr->size() == 1) {
             return expr->symbolic_1(SymEngine::sin);
         } else {
-            return false;
+            return Heap::NoSymbolicForm();
         }
     });
 
@@ -167,17 +167,17 @@ void InstantiateSymbolicForm::init() {
 		if (expr->size() == 1) {
 			return expr->symbolic_1(SymEngine::tan);
 		} else {
-			return false;
+			return Heap::NoSymbolicForm();
 		}
 	});
 }
 
 BaseExpressionRef from_symbolic_expr(
-	const SymbolicForm &form,
+	const SymEngineRef &ref,
 	const BaseExpressionRef &head,
 	const Evaluation &evaluation) {
 
-	const auto &args = form->get_args();
+	const auto &args = ref->get_args();
 	return expression(
 		head,
 		[&args, &evaluation] (auto &storage) {
@@ -188,7 +188,7 @@ BaseExpressionRef from_symbolic_expr(
 		args.size());
 }
 
-BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation &evaluation) {
+BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation &evaluation) {
     BaseExpressionRef expr;
 
 	switch (form->get_type_code()) {
@@ -292,6 +292,6 @@ BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation 
 		}
 	}
 
-    expr->set_symbolic_form(form);
+    expr->set_simplified_form(form);
     return expr;
 }

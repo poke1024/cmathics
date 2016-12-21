@@ -287,24 +287,68 @@ class Evaluation;
 
 class SortKey;
 
-typedef SymEngine::RCP<const SymEngine::Basic> SymbolicForm;
+/*#if defined(WITH_SYMENGINE_THREAD_SAFE)
+#else
+static_assert(false, "need WITH_SYMENGINE_THREAD_SAFE");
+#endif*/
+
+typedef SymEngine::RCP<const SymEngine::Basic> SymEngineRef;
+
+class SymbolicForm {
+private:
+	const SymEngineRef m_ref;
+	const bool m_is_simplified; // owner BaseExpression was simplified to this SymbolicForm
+
+protected:
+	friend inline void intrusive_ptr_add_ref(SymbolicForm *form);
+	friend inline void intrusive_ptr_release(SymbolicForm *form);
+
+	std::atomic<size_t> m_ref_count;
+
+public:
+	SymbolicForm(const SymEngineRef &ref, bool is_simplified) :
+		m_ref(ref), m_ref_count(0), m_is_simplified(is_simplified) {
+	}
+
+	inline bool is_simplified() const {
+		return m_is_simplified;
+	}
+
+	inline bool is_none() const {
+		// checks whether there is no SymEngine form for this expression.
+		return m_ref.is_null();
+	}
+
+	inline SymEngineRef get() const {
+		return m_ref;
+	}
+};
+
+typedef boost::intrusive_ptr<SymbolicForm> SymbolicFormRef;
 
 class BaseExpression;
 class Expression;
 
-BaseExpressionRef from_symbolic_form(const SymbolicForm &form, const Evaluation &evaluation);
+BaseExpressionRef from_symbolic_form(const SymEngineRef &ref, const Evaluation &evaluation);
 
 class BaseExpression {
 protected:
     const ExtendedType _extended_type;
 
 protected:
-    mutable std::atomic<size_t> _ref_count;
-    mutable optional<SymbolicForm> _symbolic_form;
+	template<typename T>
+	friend inline SymbolicFormRef symbolic_form(const T &item);
 
-    virtual bool instantiate_symbolic_form() const {
-        throw std::runtime_error("instantiate_symbolic_form not implemented");
-    }
+	friend inline SymbolicFormRef fast_symbolic_form(const Expression *expr);
+
+	mutable SymbolicFormRef m_symbolic_form;
+
+	virtual SymbolicFormRef instantiate_symbolic_form() const {
+		throw std::runtime_error("instantiate_symbolic_form not implemented");
+	}
+
+protected:
+    mutable std::atomic<size_t> _ref_count;
 
 	virtual optional<hash_t> compute_match_hash() const {
 		throw std::runtime_error("compute_match_hash not implemented");
@@ -312,13 +356,7 @@ protected:
 
 public:
     template<typename T>
-    inline void set_symbolic_form(const SymEngine::RCP<const T> &form) const {
-       _symbolic_form = SymEngine::rcp_static_cast<const SymEngine::Basic>(form);
-    }
-
-    inline void set_no_symbolic_form() const {
-        _symbolic_form = SymbolicForm();
-    }
+    inline void set_simplified_form(const SymEngine::RCP<const T> &ref) const;
 
     inline BaseExpression(ExtendedType type) : _extended_type(type), _ref_count(0) {
     }
@@ -345,35 +383,6 @@ public:
 		} else {
 			return hash();
 		}
-	}
-
-	inline bool is_symengine_simplified() const {
-		// this returns true if this expression has already been converted
-		// into and then rebuilt from the SymEngine representation.
-
-		// it also returns true if no SymEngine represenation was found in
-		// that process (i.e. _symbolic_form is set, but to nullptr). this
-		// just means that is can not be simplified any more.
-
-		return bool(_symbolic_form);
-	}
-
-    inline bool no_symbolic_form() const {
-        // checks whether there is no SymEngine form for this expression.
-        // if false is returned, it can also mean that the answer is not
-        // known currently and symbolic_form() needs to be called.
-
-        return _symbolic_form and (*_symbolic_form).is_null();
-    }
-
-	inline SymbolicForm symbolic_form() const {
-		if (!_symbolic_form) {
-			if (!instantiate_symbolic_form()) {
-                set_no_symbolic_form();
-			}
-		}
-
-		return *_symbolic_form;
 	}
 
 	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
@@ -475,6 +484,11 @@ inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressi
 
 #include "heap.h"
 
+template<typename T>
+inline void BaseExpression::set_simplified_form(const SymEngine::RCP<const T> &ref) const {
+	m_symbolic_form = Heap::SymbolicForm(SymEngine::rcp_static_cast<const SymEngine::Basic>(ref), true);
+}
+
 inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
     if (expr) {
         s << expr->fullform();
@@ -493,19 +507,19 @@ public:
 	}
 };
 
-typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineUnaryFunction)(
-	const SymEngine::RCP<const SymEngine::Basic>&);
+typedef SymEngineRef (*SymEngineUnaryFunction)(
+	const SymEngineRef&);
 
-typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineBinaryFunction)(
-	const SymEngine::RCP<const SymEngine::Basic>&,
-	const SymEngine::RCP<const SymEngine::Basic>&);
+typedef SymEngineRef (*SymEngineBinaryFunction)(
+	const SymEngineRef&,
+	const SymEngineRef&);
 
-typedef SymEngine::RCP<const SymEngine::Basic> (*SymEngineNAryFunction)(
+typedef SymEngineRef (*SymEngineNAryFunction)(
 	const SymEngine::vec_basic&);
 
 class InstantiateSymbolicForm {
 public:
-    typedef std::function<bool(const Expression *expr)> Function;
+    typedef std::function<SymbolicFormRef(const Expression *expr)> Function;
 
 private:
     static Function s_functions[256];
@@ -638,19 +652,18 @@ public:
 
 	virtual optional<SymEngine::vec_basic> symbolic_operands() const = 0;
 
-    virtual bool instantiate_symbolic_form() const;
+    virtual SymbolicFormRef instantiate_symbolic_form() const;
 
-	inline bool symbolic_1(const SymEngineUnaryFunction &f) const;
+	inline SymbolicFormRef symbolic_1(const SymEngineUnaryFunction &f) const;
 
-	inline bool symbolic_2(const SymEngineBinaryFunction &f) const;
+	inline SymbolicFormRef symbolic_2(const SymEngineBinaryFunction &f) const;
 
-	inline bool symbolic_n(const SymEngineNAryFunction &f) const {
+	inline SymbolicFormRef symbolic_n(const SymEngineNAryFunction &f) const {
 		const optional<SymEngine::vec_basic> operands = symbolic_operands();
 		if (operands) {
-			_symbolic_form = f(*operands);
-			return true;
+			return Heap::SymbolicForm(f(*operands));
 		} else {
-			return false;
+			return Heap::NoSymbolicForm();
 		}
 	}
 
@@ -661,14 +674,37 @@ public:
 	inline PatternMatcherRef string_matcher() const;
 };
 
-inline bool instantiate_symbolic_form(const Expression *expr) {
-    const auto &f = InstantiateSymbolicForm::lookup(
-        expr->_head->extended_type());
-    if (f) {
-        return f(expr);
-    } else {
-        return false;
-    }
+template<typename T>
+inline SymbolicFormRef symbolic_form(const T &item) {
+	SymbolicFormRef form = item->m_symbolic_form;
+
+	if (!form) { // not yet computed?
+		form = item->instantiate_symbolic_form();
+		item->m_symbolic_form = form;
+	}
+
+	return form;
+}
+
+inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
+	SymbolicFormRef form = expr->m_symbolic_form;
+	if (form) {
+		return form;
+	}
+	const auto &f = InstantiateSymbolicForm::lookup(
+		expr->_head->extended_type());
+	if (f) {
+		form = f(expr);
+	} else {
+		form = Heap::NoSymbolicForm();
+	}
+	expr->m_symbolic_form = form;
+	return form;
+}
+
+template<>
+inline SymbolicFormRef symbolic_form<const ExpressionPtr&>(const ExpressionPtr& expr) {
+	return fast_symbolic_form(expr);
 }
 
 inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {

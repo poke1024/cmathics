@@ -113,7 +113,7 @@ protected:
 	}
 
 protected:
-    virtual bool instantiate_symbolic_form() const;
+    virtual SymbolicFormRef instantiate_symbolic_form() const;
 
 public:
 	Symbol(const char *name, ExtendedType symbol = SymbolExtendedType);

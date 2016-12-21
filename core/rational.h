@@ -63,9 +63,8 @@ public:
     }
 
 protected:
-    virtual bool instantiate_symbolic_form() const {
-        set_symbolic_form(SymEngine::Rational::from_mpq(value.get_mpq_t()));
-        return true;
+    virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
+        return Heap::SymbolicForm(SymEngine::Rational::from_mpq(value.get_mpq_t()));
     }
 };
 

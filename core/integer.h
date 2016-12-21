@@ -51,9 +51,8 @@ public:
     }
 
 protected:
-	virtual bool instantiate_symbolic_form() const {
-        set_symbolic_form(SymEngine::integer(value));
-        return true;
+	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
+        return Heap::SymbolicForm(SymEngine::integer(value));
 	}
 };
 
@@ -95,9 +94,8 @@ public:
     }
 
 protected:
-	virtual bool instantiate_symbolic_form() const {
-		set_symbolic_form(SymEngine::integer(value.get_mpz_t()));
-        return true;
+	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
+		return Heap::SymbolicForm(SymEngine::integer(value.get_mpz_t()));
 	}
 };
 

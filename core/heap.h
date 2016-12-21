@@ -200,6 +200,9 @@ private:
 	boost::object_pool<Match> _matches;
 	MatchRef _default_match;
 
+	boost::object_pool<SymbolicForm> _symbolic_forms;
+	SymbolicFormRef _no_symbolic_form;
+
 	boost::fast_pool_allocator<VariablePtrMap::value_type> _variable_ptr_map;
 	SlotAllocator _slots;
 
@@ -230,7 +233,7 @@ public:
 
 	static inline BaseExpressionRef MachineReal(machine_real_t value);
     static inline BaseExpressionRef BigReal(machine_real_t value, const Precision &prec);
-	static inline BaseExpressionRef BigReal(const SymbolicForm &form, const Precision &prec);
+	static inline BaseExpressionRef BigReal(const SymbolicFormRef &form, const Precision &prec);
 	static inline BaseExpressionRef BigReal(arb_t value, const Precision &prec);
 
 	static inline StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
@@ -303,6 +306,18 @@ public:
 
 	static inline void release(class Match *match) {
 		_s_instance->_matches.free(match);
+	}
+
+	static inline SymbolicFormRef SymbolicForm(const SymEngineRef &ref, bool is_simplified = false) {
+		return _s_instance->_symbolic_forms.construct(ref, is_simplified);
+	}
+
+	static inline SymbolicFormRef NoSymbolicForm() {
+		return _s_instance->_no_symbolic_form;
+	}
+
+	static inline void release(class SymbolicForm *form) {
+		return _s_instance->_symbolic_forms.free(form);
 	}
 };
 

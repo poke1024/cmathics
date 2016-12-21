@@ -45,6 +45,6 @@ BaseExpressionRef Expression::evaluate_expression(
 	}
 }
 
-bool Expression::instantiate_symbolic_form() const {
-    return ::instantiate_symbolic_form(this);
+SymbolicFormRef Expression::instantiate_symbolic_form() const {
+    return fast_symbolic_form(this);
 }

@@ -138,7 +138,7 @@ inline BaseExpressionRef Heap::BigReal(machine_real_t value, const Precision &pr
 	return BaseExpressionRef(_s_instance->_big_reals.construct(value, prec));
 }
 
-inline BaseExpressionRef Heap::BigReal(const SymbolicForm &form, const Precision &prec) {
+inline BaseExpressionRef Heap::BigReal(const SymbolicFormRef &form, const Precision &prec) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_reals.construct(form, prec));
 }
@@ -294,5 +294,15 @@ inline void intrusive_ptr_add_ref(Cache *cache) {
 inline void intrusive_ptr_release(Cache *cache) {
 	if(--cache->m_ref_count == 0) {
 		Heap::release(cache);
+	}
+}
+
+inline void intrusive_ptr_add_ref(SymbolicForm *form) {
+	++form->m_ref_count;
+}
+
+inline void intrusive_ptr_release(SymbolicForm *form) {
+	if(--form->m_ref_count == 0) {
+		Heap::release(form);
 	}
 }

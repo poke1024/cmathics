@@ -54,9 +54,8 @@ public:
     }
 
 protected:
-    virtual bool instantiate_symbolic_form() const {
-        set_symbolic_form(SymEngine::real_double(value));
-        return true;
+    virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
+        return Heap::SymbolicForm(SymEngine::real_double(value));
     }
 };
 
@@ -106,11 +105,11 @@ public:
         arb_set_d(value, value_);
     }
 
-    explicit inline BigReal(const SymbolicForm &form, const Precision &prec_) :
+    explicit inline BigReal(const SymbolicFormRef &form, const Precision &prec_) :
         BaseExpression(BigRealExtendedType), prec(prec_) {
 
         arb_init(value);
-        SymEngine::eval_arb(value, *form.get(), prec.bits);
+        SymEngine::eval_arb(value, *form->get().get(), prec.bits);
     }
 
     virtual ~BigReal() {
@@ -147,14 +146,12 @@ public:
     }
 
 protected:
-    virtual bool instantiate_symbolic_form() const {
+    virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
         // FIXME; this is inexact, as we only use the midpoint
 
         SymEngine::mpfr_class x;
         arf_get_mpfr(x.get_mpfr_t(), arb_midref(value), MPFR_RNDN);
-        set_symbolic_form(SymEngine::real_mpfr(x));
-
-        return true;
+        return Heap::SymbolicForm(SymEngine::real_mpfr(x));
     }
 };
 
