@@ -1190,7 +1190,7 @@ PatternMatcherRef PatternCompiler::compile_element(
     const PatternMatcherSize &size,
 	const PatternFactory &factory) {
 
-	PatternMatcherRef matcher;
+	UnsafePatternMatcherRef matcher;
 
 	switch (curr->type()) {
 		case ExpressionType: {
@@ -1229,7 +1229,7 @@ PatternMatcherRef PatternCompiler::compile_element(
 
 class PatternBuilder {
 private:
-    PatternMatcherRef m_next_matcher;
+    MutablePatternMatcherRef m_next_matcher;
 
 public:
     template<typename Compile>
@@ -1258,6 +1258,7 @@ PatternMatcherRef PatternCompiler::compile(
 	const PatternFactory &factory) {
 
 	const index_t n = end - begin;
+	assert(n > 0); // FIXME; allow empty patterns
 
 	std::vector<MatchSize> matchable;
 	matchable.reserve(n + 1);
@@ -1269,7 +1270,7 @@ PatternMatcherRef PatternCompiler::compile(
 	}
 	std::reverse(matchable.begin(), matchable.end());
 
-	PatternMatcherRef next_matcher = factory.next();
+	UnsafePatternMatcherRef next_matcher = factory.next();
 
 	for (index_t i = n - 1; i >= 0; i--) {
         const PatternMatcherSize size(

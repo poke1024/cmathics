@@ -216,7 +216,7 @@ private:
 	const std::vector<U> _data;
 
 public:
-	typedef SharedPtr<PackExtent<U>> Ref;
+	typedef ConstSharedPtr<PackExtent<U>> Ref;
 
 	inline explicit PackExtent(const std::vector<U> &data) : _data(data) {
 	}
@@ -594,7 +594,7 @@ struct create_using_generator {
 template<int N>
 class static_slice_storage {
 public:
-	std::array<BaseExpressionRef, N> m_array;
+	std::array<UnsafeBaseExpressionRef, N> m_array;
 	int m_index;
 
 	inline static_slice_storage() : m_index(0) {
@@ -619,11 +619,11 @@ auto static_slice_array(const F &f, T &r) {
 }
 
 template<int N>
-class StaticSlice : protected std::array<BaseExpressionRef, N>, public BaseRefsSlice<static_slice_code(N)> {
+class StaticSlice : protected std::array<UnsafeBaseExpressionRef, N>, public BaseRefsSlice<static_slice_code(N)> {
 private:
 	typedef BaseRefsSlice<static_slice_code(N)> BaseSlice;
 
-	typedef std::array<BaseExpressionRef, N> Array;
+	typedef std::array<UnsafeBaseExpressionRef, N> Array;
 
 public:
 	inline const BaseExpressionRef *begin() const {

@@ -434,7 +434,7 @@ struct CasesOptions {
 
 class Cases : public Builtin {
 private:
-    BaseExpressionRef m_default_ls;
+    MutableBaseExpressionRef m_default_ls;
 
 public:
     static constexpr const char *name = "Cases";
@@ -520,7 +520,7 @@ inline bool iterate_integer_range(
     BaseExpressionPtr imax,
     BaseExpressionPtr di,
     const Evaluation &evaluation,
-    ExpressionRef &result) {
+    UnsafeExpressionRef &result) {
 
     const machine_integer_t imin_integer =
         static_cast<const class MachineInteger *>(imin)->value;
@@ -572,7 +572,7 @@ inline ExpressionRef machine_integer_range(
             evaluation.List,
             PackedSlice<machine_integer_t>(std::move(leaves)));
     } else {
-        return expression(
+        return expression_from_generator(
             evaluation.List,
             [imin, imax, di] (auto &storage) {
                 for (machine_integer_t x = imin; x <= imax; x += di) {
@@ -597,12 +597,12 @@ public:
         const machine_integer_t imin,
         const machine_integer_t imax,
         const machine_integer_t di,
-        const machine_integer_t n,
+		    const machine_integer_t n,
         const Evaluation &evaluation) const {
 
 	    const F &func = m_func;
 
-	    return expression(evaluation.List, [imin, imax, di, func] (auto &storage) {
+	    return expression_from_generator(evaluation.List, [imin, imax, di, func] (auto &storage) {
 		    machine_integer_t index = imin;
 		    while (index <= imax) {
 			    storage << func(Pool::MachineInteger(index));
@@ -656,7 +656,7 @@ protected:
 				evaluation.List,
 				PackedSlice<machine_real_t>(std::move(leaves)));
 		} else {
-			return expression(
+			return expression_from_generator(
 				evaluation.List,
 				[&leaves] (auto &storage) {
 					for (machine_real_t x : leaves) {
@@ -680,7 +680,7 @@ protected:
 		std::vector<BaseExpressionRef> result;
 		TypeMask type_mask = 0;
 
-		BaseExpressionRef index = imin;
+		UnsafeBaseExpressionRef index = imin;
 		while (true) {
 			const ExtendedType if_continue =
 				expression(LessEqual, index, imax)->
@@ -721,7 +721,7 @@ public:
 		constexpr TypeMask machine_int_mask = MakeTypeMask(MachineIntegerType);
 
 		if ((type_mask & machine_int_mask) == type_mask) { // expression is all MachineIntegers
-            ExpressionRef result;
+			UnsafeExpressionRef result;
             if (iterate_integer_range(m_symbol, machine_integer_range, imin, imax, di, evaluation, result)) {
                 return result;
             }
@@ -749,7 +749,7 @@ protected:
         std::vector<BaseExpressionRef> result;
         TypeMask type_mask = 0;
 
-        BaseExpressionRef index = imin;
+        UnsafeBaseExpressionRef index = imin;
         while (true) {
             const ExtendedType if_continue =
                 expression(LessEqual, index, imax)->
@@ -786,7 +786,7 @@ protected:
             imax->type() == MachineIntegerType &&
             di->type() == MachineIntegerType) {
 
-            ExpressionRef result;
+            UnsafeExpressionRef result;
             if (iterate_integer_range(m_symbol,
                 machine_integer_table<F>(f),
                 imin, imax, di, evaluation, result)) {
@@ -973,7 +973,7 @@ void Builtins::Lists::initialize() {
         Attributes::None, {
             builtin<1>([](BaseExpressionPtr x, const Evaluation &evaluation) {
                 if (x->type() == ExpressionType) {
-                    return evaluation.Boolean(x->as_expression()->_head == evaluation.List);
+                    return evaluation.Boolean(x->as_expression()->_head.get() == evaluation.List);
                 } else {
                     return evaluation.False;
                 }
@@ -984,7 +984,7 @@ void Builtins::Lists::initialize() {
         Attributes::None, {
             builtin<1>([](BaseExpressionPtr x, const Evaluation &evaluation) {
                 if (x->type() == ExpressionType) {
-                    return evaluation.Boolean(x->as_expression()->_head != evaluation.List);
+                    return evaluation.Boolean(x->as_expression()->_head.get() != evaluation.List);
                 } else {
                     return evaluation.True;
                 }

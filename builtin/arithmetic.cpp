@@ -753,7 +753,7 @@ inline BaseExpressionRef add_machine_inexact(const Expression *expr, const Slice
 	// at least one non-symbolic
 	assert(symbolics.size() != slice.size());
 
-	BaseExpressionRef result;
+	UnsafeBaseExpressionRef result;
 
 	if (symbolics.size() == slice.size() - 1) {
 		// one non-symbolic: nothing to do

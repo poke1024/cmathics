@@ -108,8 +108,8 @@ class Cache : public Shared<Cache, SharedPool> {
 public:
     SlotFunctionRef slot_function;
     FunctionBodyRef vars_function;
-	PatternMatcherRef expression_matcher;
-	PatternMatcherRef string_matcher;
+	MutablePatternMatcherRef expression_matcher;
+	MutablePatternMatcherRef string_matcher;
 };
 
 #endif //CMATHICS_CACHE_H

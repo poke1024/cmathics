@@ -229,7 +229,7 @@ class CharacterSequence;
 
 class String : public BaseExpression {
 private:
-	mutable optional<SymbolRef> m_option_symbol; // "System`" + value
+	mutable MutableSymbolRef m_option_symbol; // "System`" + value
 
     const StringExtentRef m_extent;
     const index_t m_offset;
@@ -412,7 +412,7 @@ public:
     private:
         const CharacterSequence<Extent> * const m_sequence;
         const index_t m_begin;
-        BaseExpressionRef m_cached;
+        UnsafeBaseExpressionRef m_cached;
 
     public:
         inline Element(const CharacterSequence<Extent> *sequence, index_t begin) :
@@ -439,7 +439,7 @@ public:
         const CharacterSequence<Extent> * const m_sequence;
         const index_t m_begin;
         const index_t m_end;
-        BaseExpressionRef m_cached;
+	    UnsafeBaseExpressionRef m_cached;
 
     public:
         inline Sequence(const CharacterSequence<Extent> *sequence, index_t begin, index_t end) :

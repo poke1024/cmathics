@@ -29,7 +29,7 @@ public:
 
 class Definitions {
 private:
-    std::unordered_map<SymbolKey,SymbolRef> _definitions;
+    std::unordered_map<SymbolKey,MutableSymbolRef> _definitions;
 	const Symbols _symbols;
 
 protected:

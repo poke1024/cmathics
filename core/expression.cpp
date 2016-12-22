@@ -8,7 +8,7 @@ BaseExpressionRef Expression::evaluate_expression(
 
 	// Evaluate the head
 
-	auto head = _head;
+	UnsafeBaseExpressionRef head = _head;
 
 	while (true) {
 		auto new_head = head->evaluate(evaluation);
@@ -22,7 +22,7 @@ BaseExpressionRef Expression::evaluate_expression(
 	// Evaluate the leaves and apply rules.
 
 	if (head->type() != SymbolType) {
-		if (head != _head) {
+		if (head.get() != _head.get()) {
 			const ExpressionRef new_head_expr = static_pointer_cast<const Expression>(clone(head));
 			const BaseExpressionRef result = new_head_expr->evaluate_expression_with_non_symbol_head(evaluation);
 			if (result) {

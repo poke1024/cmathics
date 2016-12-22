@@ -19,8 +19,8 @@ public:
         size_t n,
         const Evaluation &evaluation) {
 
-        BaseExpressionRef result = BaseExpressionRef(evaluation.Null);
-        BaseExpressionRef prev_result;
+		UnsafeBaseExpressionRef result = UnsafeBaseExpressionRef(evaluation.Null);
+		UnsafeBaseExpressionRef prev_result;
 
         for (size_t i = 0; i < n; i++) {
             prev_result = result;

@@ -21,10 +21,10 @@ class MachineReal;
 class BigReal;
 
 class RefsExtent;
-typedef SharedPtr<RefsExtent> RefsExtentRef;
+typedef ConstSharedPtr<RefsExtent> RefsExtentRef;
 
 class StringExtent;
-typedef SharedPtr<StringExtent> StringExtentRef;
+typedef ConstSharedPtr<StringExtent> StringExtentRef;
 
 template<int N>
 class StaticSlice;
@@ -39,13 +39,13 @@ template<typename U>
 using PackedExpression = ExpressionImplementation<PackedSlice<U>>;
 
 template<typename U>
-using PackedExpressionRef = SharedPtr<ExpressionImplementation<PackedSlice<U>>>;
+using PackedExpressionRef = ConstSharedPtr<ExpressionImplementation<PackedSlice<U>>>;
 
 template<int N>
 using StaticExpression = ExpressionImplementation<StaticSlice<N>>;
 
 template<int N>
-using StaticExpressionRef = SharedPtr<ExpressionImplementation<StaticSlice<N>>>;
+using StaticExpressionRef = ConstSharedPtr<ExpressionImplementation<StaticSlice<N>>>;
 
 struct SymbolHash {
 	inline std::size_t operator()(const Symbol *symbol) const;
@@ -60,7 +60,9 @@ using VariablePtrMap = VariableMap<const BaseExpressionRef*>;
 
 class Cache;
 
-typedef SharedPtr<Cache> CacheRef;
+typedef ConstSharedPtr<Cache> CacheRef;
+typedef SharedPtr<Cache> MutableCacheRef;
+typedef UnsafeSharedPtr<Cache> UnsafeCacheRef;
 
 #include "pattern.h"
 
@@ -78,7 +80,7 @@ private:
 	MakeFromInitializerList;
 
 	typedef
-	std::function<std::tuple<ExpressionRef, BaseExpressionRef*, std::atomic<TypeMask>*>(const BaseExpressionRef &head)>
+	std::function<std::tuple<ExpressionRef, UnsafeBaseExpressionRef*, std::atomic<TypeMask>*>(const BaseExpressionRef &head)>
 	MakeLateInit;
 
 	void *_pool[UpToSize + 1];
@@ -195,10 +197,10 @@ private:
 	boost::object_pool<RefsExtent> _refs_extents;
 
 	boost::object_pool<Match> _matches;
-	MatchRef _default_match;
+	MutableMatchRef _default_match;
 
 	boost::object_pool<SymbolicForm> _symbolic_forms;
-	SymbolicFormRef _no_symbolic_form;
+	MutableSymbolicFormRef _no_symbolic_form;
 
 	boost::fast_pool_allocator<VariablePtrMap::value_type> _variable_ptr_map;
 	SlotAllocator _slots;

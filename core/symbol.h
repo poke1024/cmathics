@@ -126,7 +126,7 @@ public:
 		return *_evaluate_with_head;
 	}
 
-	BaseExpressionRef own_value;
+	MutableBaseExpressionRef own_value;
 
 	virtual inline bool same(const BaseExpression &expr) const final {
 		// compare as pointers: Symbol instances are unique
@@ -254,7 +254,7 @@ namespace std {
 inline BaseExpressionRef BaseExpression::evaluate(
 	const Evaluation &evaluation) const {
 
-    BaseExpressionRef result;
+    UnsafeBaseExpressionRef result;
 
     while (true) {
         const BaseExpression *expr = result ? result.get() : this;
@@ -308,6 +308,19 @@ inline BaseExpressionRef scope(
 	BaseExpressionRef &&value,
 	const F &f) {
 
+#if 1
+	const BaseExpressionRef old_value(symbol->own_value);
+	symbol->own_value = value;
+
+	try {
+		const BaseExpressionRef result = f();
+		symbol->own_value = old_value;
+		return result;
+	} catch(...) {
+		symbol->own_value = old_value;
+		throw;
+	}
+#else
     BaseExpressionRef swapped(value);
     std::swap(swapped, symbol->own_value);
 
@@ -319,6 +332,7 @@ inline BaseExpressionRef scope(
         std::swap(swapped, symbol->own_value);
 		throw;
 	}
+#endif
 }
 
 template<typename F>

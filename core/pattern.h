@@ -56,7 +56,7 @@ public:
 class CompiledVariables {
 private:
     VariableMap<index_t> m_indices;
-    std::list<SymbolRef> m_symbols;
+    std::list<MutableSymbolRef> m_symbols;
 
 protected:
     friend class PatternFactory;
@@ -180,7 +180,9 @@ public:
         index_t end) const;
 };
 
-typedef SharedPtr<PatternMatcher> PatternMatcherRef;
+typedef ConstSharedPtr<PatternMatcher> PatternMatcherRef;
+typedef SharedPtr<PatternMatcher> MutablePatternMatcherRef;
+typedef UnsafeSharedPtr<PatternMatcher> UnsafePatternMatcherRef;
 
 struct Slot {
     // there are two kind of slot indices: (1) the order in which the slots were
@@ -188,7 +190,7 @@ struct Slot {
     // array in class Match). (2) the order in which slots are filled when an
     // expression is matched (this is implemented using index_to_ith).
 
-    BaseExpressionRef value; // slot for variable #i
+    UnsafeBaseExpressionRef value; // slot for variable #i
     index_t index_to_ith; // index of i-th fixed slot
 };
 
@@ -207,7 +209,7 @@ public:
 
     inline Match(const PatternMatcherRef &matcher);
 
-    inline const BaseExpressionRef *get_matched_value(const Symbol *variable) const {
+    inline const UnsafeBaseExpressionRef *get_matched_value(const Symbol *variable) const {
         const index_t index = m_matcher->variables().find(variable);
         if (index >= 0) {
             return &m_slots[index].value;
@@ -270,11 +272,11 @@ public:
         return m_slots_fixed;
     }
 
-    inline const BaseExpressionRef &ith_slot(index_t i) const {
+    inline const UnsafeBaseExpressionRef &ith_slot(index_t i) const {
         return m_slots[m_slots[i].index_to_ith].value;
     }
 
-    inline const BaseExpressionRef &slot(index_t i) const {
+    inline const UnsafeBaseExpressionRef &slot(index_t i) const {
         return m_slots[i].value;
     }
 

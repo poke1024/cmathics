@@ -20,7 +20,10 @@ struct nothing {
 
 class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
-typedef SharedPtr<const BaseExpression> BaseExpressionRef;
+
+typedef ConstSharedPtr<const BaseExpression> BaseExpressionRef;
+typedef SharedPtr<const BaseExpression> MutableBaseExpressionRef;
+typedef UnsafeSharedPtr<const BaseExpression> UnsafeBaseExpressionRef;
 
 enum Type : uint8_t { // values represented as bits in TypeMasks
 	SymbolType = 0,
@@ -261,12 +264,15 @@ class MatchContext;
 
 class Match;
 
-typedef SharedPtr<Match> MatchRef;
+typedef ConstSharedPtr<Match> MatchRef;
+typedef SharedPtr<Match> MutableMatchRef;
 
 std::ostream &operator<<(std::ostream &s, const MatchRef &m);
 
 class Expression;
-typedef SharedPtr<const Expression> ExpressionRef;
+typedef ConstSharedPtr<const Expression> ExpressionRef;
+typedef SharedPtr<const Expression> MutableExpressionRef;
+typedef UnsafeSharedPtr<const Expression> UnsafeExpressionRef;
 typedef const Expression *ExpressionPtr;
 
 template<typename S>
@@ -274,17 +280,19 @@ class ExpressionImplementation;
 class DynamicSlice;
 typedef const ExpressionImplementation<DynamicSlice> DynamicExpression;
 typedef const DynamicExpression* DynamicExpressionPtr;
-typedef SharedPtr<const DynamicExpression> DynamicExpressionRef;
+typedef ConstSharedPtr<const DynamicExpression> DynamicExpressionRef;
 
 class Symbol;
 
-// in contrast to BaseExpressionRef, SymbolRefs are not constant. Symbols might
-// change, after all, if rules are added.
-typedef SharedPtr<Symbol> SymbolRef;
+typedef ConstSharedPtr<Symbol> SymbolRef;
+typedef SharedPtr<Symbol> MutableSymbolRef;
+typedef UnsafeSharedPtr<Symbol> UnsafeSymbolRef;
 
 class String;
 
-typedef SharedPtr<const String> StringRef;
+typedef ConstSharedPtr<const String> StringRef;
+typedef SharedPtr<const String> MutableStringRef;
+typedef UnsafeSharedPtr<const String> UnsafeStringRef;
 
 class Evaluation;
 
@@ -321,7 +329,9 @@ public:
 	}
 };
 
-typedef SharedPtr<SymbolicForm> SymbolicFormRef;
+typedef ConstSharedPtr<SymbolicForm> SymbolicFormRef;
+typedef SharedPtr<SymbolicForm> MutableSymbolicFormRef;
+typedef UnsafeSharedPtr<SymbolicForm> UnsafeSymbolicFormRef;
 
 class BaseExpression;
 class Expression;
@@ -338,7 +348,7 @@ protected:
 
 	friend inline SymbolicFormRef fast_symbolic_form(const Expression *expr);
 
-	mutable SymbolicFormRef m_symbolic_form;
+	mutable MutableSymbolicFormRef m_symbolic_form;
 
 	virtual SymbolicFormRef instantiate_symbolic_form() const {
 		throw std::runtime_error("instantiate_symbolic_form not implemented");
@@ -560,7 +570,7 @@ inline void Pool::release(Cache *cache) {
 
 class Expression : public BaseExpression {
 private:
-	mutable CacheRef m_cache;
+	mutable MutableCacheRef m_cache;
 
 protected:
 	template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
@@ -613,7 +623,7 @@ public:
 		if (slice_needs_no_materialize(StaticSliceCode) || leaves) {
 			return f(leaves, size());
 		} else {
-			BaseExpressionRef materialized;
+			UnsafeBaseExpressionRef materialized;
 			return f(materialize(materialized), size());
 		}
 	}
@@ -624,7 +634,7 @@ public:
 	template<typename F>
 	inline auto map(const BaseExpressionRef &head, const F &f) const;
 
-	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const = 0;
+	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const = 0;
 
 	virtual inline BaseExpressionPtr head(const Evaluation &evaluation) const final {
 		return _head.get();
@@ -651,7 +661,7 @@ public:
 	}
 
 	inline CacheRef ensure_cache() const { // concurrent.
-		CacheRef cache = m_cache;
+		UnsafeCacheRef cache = m_cache;
 		if (!cache) {
 			cache = Pool::new_cache();
 			m_cache = cache;
@@ -685,7 +695,7 @@ public:
 
 template<typename T>
 inline SymbolicFormRef symbolic_form(const T &item) {
-	SymbolicFormRef form = item->m_symbolic_form;
+	UnsafeSymbolicFormRef form = item->m_symbolic_form;
 
 	if (!form) { // not yet computed?
 		form = item->instantiate_symbolic_form();
@@ -696,7 +706,7 @@ inline SymbolicFormRef symbolic_form(const T &item) {
 }
 
 inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
-	SymbolicFormRef form = expr->m_symbolic_form;
+	UnsafeSymbolicFormRef form = expr->m_symbolic_form;
 	if (form) {
 		return form;
 	}

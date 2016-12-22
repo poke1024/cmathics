@@ -267,7 +267,7 @@ public:
 		return _head->lookup_name();
 	}
 
-	virtual const BaseExpressionRef *materialize(BaseExpressionRef &materialized) const;
+	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
 
 	virtual SortKey pattern_key() const {
 		switch (_head->extended_type()) {
@@ -509,7 +509,7 @@ ExpressionRef ExpressionImplementation<Slice>::slice(
 			}
 		};
 
-		return expression(head, generate_leaves, new_size);
+		return expression_from_generator(head, generate_leaves, new_size);
 	}
 }
 
@@ -559,7 +559,7 @@ ExpressionRef ExpressionImplementation<Slice>::clone(const BaseExpressionRef &he
 }
 
 template<typename Slice>
-const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(BaseExpressionRef &materialized) const {
+const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(UnsafeBaseExpressionRef &materialized) const {
 	auto expr = expression(_head, _leaves.unpack());
 	materialized = expr;
 	return expr->_leaves.refs();
@@ -573,7 +573,7 @@ void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) c
 
 	const ExpressionRef message = expression(
 		symbols.MessageName, name, tag_str);
-	StringRef text_template = static_cast<const Symbol*>(
+	MutableStringRef text_template = static_cast<const Symbol*>(
 		name.get())->lookup_message(message.get(), *this);
 
 	if (!text_template) {

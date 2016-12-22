@@ -66,12 +66,13 @@ public:
 	}
 };
 
-typedef SharedPtr<Rule> RuleRef;
+typedef ConstSharedPtr<Rule> RuleRef;
+typedef SharedPtr<Rule> MutableRuleRef;
 
 class Rules {
 public:
 	struct Entry {
-		RuleRef rule;
+		MutableRuleRef rule;
 		MatchSize match_size;
 		optional<hash_t> match_hash;
 	};

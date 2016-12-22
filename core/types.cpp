@@ -9,7 +9,7 @@ BaseExpressionRef exactly_n_pattern(
 	const SymbolRef &head, size_t n, const Definitions &definitions) {
 
 	const auto &Blank = definitions.symbols().Blank;
-	return expression(head, [n, &Blank] (auto &storage) {
+	return expression_from_generator(head, [n, &Blank] (auto &storage) {
 		for (size_t i = 0; i < n; i++) {
 			storage << expression(Blank);
 		}
@@ -23,7 +23,7 @@ BaseExpressionRef at_least_n_pattern(
 	const auto &Blank = symbols.Blank;
 	const auto &BlankNullSequence = symbols.BlankNullSequence;
 
-	return expression(head, [n, &Blank, &BlankNullSequence] (auto &storage) {
+	return expression_from_generator(head, [n, &Blank, &BlankNullSequence] (auto &storage) {
 		for (size_t i = 0; i < n; i++) {
 			storage << expression(Blank);
 		}
@@ -178,7 +178,7 @@ BaseExpressionRef from_symbolic_expr(
 	const Evaluation &evaluation) {
 
 	const auto &args = ref->get_args();
-	return expression(
+	return expression_from_generator(
 		head,
 		[&args, &evaluation] (auto &storage) {
 			for (const auto &arg : args) {
@@ -189,7 +189,7 @@ BaseExpressionRef from_symbolic_expr(
 }
 
 BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation &evaluation) {
-    BaseExpressionRef expr;
+    UnsafeBaseExpressionRef expr;
 
 	switch (form->get_type_code()) {
 		case SymEngine::INTEGER: {

@@ -259,7 +259,7 @@ public:
 	}
 };
 
-typedef SharedPtr<Builtin> BuiltinRef;
+typedef ConstSharedPtr<Builtin> BuiltinRef;
 
 class Unit {
 private:

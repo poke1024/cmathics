@@ -42,6 +42,138 @@ public:
     }
 };
 
+// ConstSharedPtr is a SharedPtr that never changes what it's pointing to.
+
+namespace thread_safe_intrusive_ptr {
+	template<typename T>
+	class intrusive_ptr;
+};
+
+template<typename T>
+using SharedPtr = thread_safe_intrusive_ptr::intrusive_ptr<T>;
+
+template<typename T>
+class ConstSharedPtr {
+protected:
+	T *m_ptr;
+
+public:
+	ConstSharedPtr() : m_ptr(nullptr) {
+	}
+
+	ConstSharedPtr(T *ptr) : m_ptr(ptr) {
+		if (ptr) {
+			intrusive_ptr_add_ref(ptr);
+		}
+	}
+
+	ConstSharedPtr(const ConstSharedPtr<T> &p) : m_ptr(p.get()) {
+		if (m_ptr) {
+			intrusive_ptr_add_ref(m_ptr);
+		}
+	}
+
+	ConstSharedPtr(ConstSharedPtr<T> &&p) : m_ptr(p.get()) {
+		// the caller guarantees that no other thread can access p.
+		p.m_ptr = nullptr;
+	}
+
+	template<typename U>
+	ConstSharedPtr(const ConstSharedPtr<U> &p) : m_ptr(p.get()) {
+		if (m_ptr) {
+			intrusive_ptr_add_ref(m_ptr);
+		}
+	}
+
+	ConstSharedPtr(const SharedPtr<T> &p);
+
+	~ConstSharedPtr() {
+		if (m_ptr) {
+			intrusive_ptr_release(m_ptr);
+		}
+	}
+
+	T &operator*() const {
+		return *m_ptr;
+	}
+
+	T *operator->() const {
+		return m_ptr;
+	}
+
+	T *get() const {
+		return m_ptr;
+	}
+
+	operator bool() const {
+		return m_ptr != nullptr;
+	}
+
+	bool operator==(const ConstSharedPtr<T> &p) const {
+		return get() == p.get();
+	}
+
+	bool operator!=(const ConstSharedPtr<T> &p) const {
+		return get() != p.get();
+	}
+};
+
+template<typename T, typename U>
+inline ConstSharedPtr<T> static_pointer_cast(const ConstSharedPtr<U> &u) {
+	return static_cast<T*>(u.get());
+}
+
+template<typename T, typename U>
+inline ConstSharedPtr<T> const_pointer_cast(const ConstSharedPtr<U> &u) {
+	return const_cast<T*>(u.get());
+}
+
+template<typename T>
+class UnsafeSharedPtr : public ConstSharedPtr<T> {
+public:
+	using ConstSharedPtr<T>::ConstSharedPtr;
+
+	inline UnsafeSharedPtr &operator=(T *ptr) {
+		T * const old_ptr = ConstSharedPtr<T>::m_ptr;
+		if (ptr != old_ptr) {
+			if (ptr) {
+				intrusive_ptr_add_ref(ptr);
+			}
+			if (old_ptr) {
+				intrusive_ptr_release(old_ptr);
+			}
+			ConstSharedPtr<T>::m_ptr = ptr;
+		}
+		return *this;
+	}
+
+	UnsafeSharedPtr &operator=(const ConstSharedPtr<T> &ptr) {
+		*this = ptr.get();
+		return *this;
+	}
+
+	UnsafeSharedPtr &operator=(const UnsafeSharedPtr<T> &ptr) {
+		*this = ptr.get();
+		return *this;
+	}
+
+	template<typename U>
+	UnsafeSharedPtr &operator=(const ConstSharedPtr<U> &ptr) {
+		*this = ptr.get();
+		return *this;
+	}
+
+	void reset() {
+		if (ConstSharedPtr<T>::m_ptr) {
+			intrusive_ptr_release(ConstSharedPtr<T>::m_ptr);
+		}
+		ConstSharedPtr<T>::m_ptr = nullptr;
+	}
+};
+
+static_assert(sizeof(UnsafeSharedPtr<int>) == sizeof(ConstSharedPtr<int>),
+	"illegal UnsafeSharedPtr structure size");
+
 // SafePtr is a thread safe shared ptr in the vein of std::atomic_shared_ptr;
 // the code is a copy of boost::intrusive_ptr with a few modifications.
 
@@ -67,6 +199,12 @@ private:
 public:
 
     typedef T element_type;
+
+	intrusive_ptr(const ConstSharedPtr<T> &rhs) {
+		T * const p = rhs.get();
+		px = p;
+		if( p != 0 ) intrusive_ptr_add_ref( p );
+	}
 
     intrusive_ptr() BOOST_NOEXCEPT : px( 0 )
     {
@@ -190,6 +328,11 @@ public:
         BOOST_ASSERT( px != 0 );
         return px;
     }
+
+	intrusive_ptr &operator=(const ConstSharedPtr<T> &v) {
+		*this = v.get();
+		return *this;
+	}
 
 // implicit conversion to "bool"
 #include <boost/smart_ptr/detail/operator_bool.hpp>
@@ -342,9 +485,6 @@ template< class T > std::size_t hash_value( boost::intrusive_ptr<T> const & p )
 
 } // end of namespace thread_safe_intrusive_ptr
 
-template<typename T>
-using SharedPtr = thread_safe_intrusive_ptr::intrusive_ptr<T>;
-
 template<typename T, typename U>
 inline SharedPtr<T> static_pointer_cast(const SharedPtr<U> &u) {
     return static_cast<T*>(u.get());
@@ -353,4 +493,11 @@ inline SharedPtr<T> static_pointer_cast(const SharedPtr<U> &u) {
 template<typename T, typename U>
 inline SharedPtr<T> const_pointer_cast(const SharedPtr<U> &u) {
     return const_cast<T*>(u.get());
+}
+
+template<typename T>
+ConstSharedPtr<T>::ConstSharedPtr(const SharedPtr<T> &p) : m_ptr(p.get()) {
+	if (m_ptr) {
+		intrusive_ptr_add_ref(m_ptr);
+	}
 }

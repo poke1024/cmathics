@@ -74,7 +74,7 @@ inline typename BaseExpressionTuple<N>::type Match::unpack() const {
 
 inline PatternMatcherRef Expression::expression_matcher() const { // concurrent.
 	const CacheRef cache = ensure_cache();
-	PatternMatcherRef matcher = cache->expression_matcher;
+	UnsafePatternMatcherRef matcher = cache->expression_matcher;
 	if (!matcher) {
 		matcher = compile_expression_pattern(BaseExpressionRef(this));
 		cache->expression_matcher = matcher;
@@ -84,7 +84,7 @@ inline PatternMatcherRef Expression::expression_matcher() const { // concurrent.
 
 inline PatternMatcherRef Expression::string_matcher() const { // concurrent.
 	const CacheRef cache = ensure_cache();
-	PatternMatcherRef matcher = cache->string_matcher;
+	UnsafePatternMatcherRef matcher = cache->string_matcher;
 	if (!matcher) {
 		matcher = compile_string_pattern(BaseExpressionRef(this));
 		cache->string_matcher = matcher;
@@ -121,18 +121,18 @@ public:
 		const Evaluation &m_evaluation;
 		const BaseExpressionRef * const m_begin;
 		const index_t m_n;
-		BaseExpressionRef m_sequence;
+		UnsafeBaseExpressionRef m_sequence;
 
 	public:
 		inline Sequence(const Evaluation &evaluation, const BaseExpressionRef *array, index_t begin, index_t end) :
 			m_evaluation(evaluation), m_begin(array + begin), m_n(end - begin) {
 		}
 
-		inline const BaseExpressionRef &operator*() {
+		inline const UnsafeBaseExpressionRef &operator*() {
 			if (!m_sequence) {
 				const BaseExpressionRef * const begin = m_begin;
 				const index_t n = m_n;
-				m_sequence = expression(m_evaluation.Sequence, [begin, n] (auto &storage) {
+				m_sequence = expression_from_generator(m_evaluation.Sequence, [begin, n] (auto &storage) {
 					for (index_t i = 0; i < n; i++) {
 						storage << begin[i];
 					}
@@ -179,7 +179,7 @@ public:
     private:
         const Expression * const m_expr;
         const index_t m_begin;
-        BaseExpressionRef m_element;
+	    UnsafeBaseExpressionRef m_element;
 
     public:
         inline Element(const Expression *expr, index_t begin) : m_expr(expr), m_begin(begin) {
@@ -189,7 +189,7 @@ public:
             return m_begin;
         }
 
-        inline const BaseExpressionRef &operator*() {
+        inline const UnsafeBaseExpressionRef &operator*() {
             if (!m_element) {
                 m_element = m_expr->materialize_leaf(m_begin);
             }
@@ -203,14 +203,14 @@ public:
         const Expression * const m_expr;
         const index_t m_begin;
         const index_t m_end;
-        BaseExpressionRef m_sequence;
+	    UnsafeBaseExpressionRef m_sequence;
 
     public:
         inline Sequence(const Evaluation &evaluation, const Expression *expr, index_t begin, index_t end) :
             m_evaluation(evaluation), m_expr(expr), m_begin(begin), m_end(end) {
         }
 
-        inline const BaseExpressionRef &operator*() {
+        inline const UnsafeBaseExpressionRef &operator*() {
             if (!m_sequence) {
                 m_sequence = m_expr->slice(m_evaluation.Sequence, m_begin, m_end);
             }
@@ -246,7 +246,7 @@ public:
 
 class StringMatcher {
 private:
-    PatternMatcherRef m_matcher;
+    MutablePatternMatcherRef m_matcher;
     const BaseExpressionRef m_patt;
     const Evaluation &m_evaluation;
 
@@ -398,7 +398,7 @@ public:
 
 class MatcherBase {
 protected:
-    PatternMatcherRef m_matcher;
+	MutablePatternMatcherRef m_matcher;
 
 public:
 	FunctionBody::Node precompile(const BaseExpressionRef &item) const;

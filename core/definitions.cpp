@@ -55,7 +55,7 @@ Symbol::~Symbol() {
 }
 
 BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
-	const BaseExpressionRef *value = match->get_matched_value(this);
+	const UnsafeBaseExpressionRef *value = match->get_matched_value(this);
 	if (value) {
 		return *value;
 	} else {

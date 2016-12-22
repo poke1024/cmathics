@@ -77,9 +77,9 @@ inline ExpressionRef expression_from_generator(const BaseExpressionRef &head, co
 
 class direct_storage {
 protected:
-	ExpressionRef _expr;
-	BaseExpressionRef *_addr;
-	BaseExpressionRef *_end;
+	UnsafeExpressionRef _expr;
+	UnsafeBaseExpressionRef *_addr;
+	UnsafeBaseExpressionRef *_end;
 	TypeMask _type_mask;
 	std::atomic<TypeMask> *_type_mask_ptr;
 
@@ -103,7 +103,7 @@ public:
 		return *this;
 	}
 
-	inline ExpressionRef to_expression() {
+	inline UnsafeExpressionRef to_expression() {
 		*_type_mask_ptr = _type_mask;
 		return _expr;
 	}
@@ -117,7 +117,7 @@ inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const F &gen
 }
 
 template<typename F>
-inline ExpressionRef expression(const BaseExpressionRef &head, const F &generate, size_t size) {
+inline ExpressionRef expression_from_generator(const BaseExpressionRef &head, const F &generate, size_t size) {
 	if (size <= MaxStaticSliceSize) {
 		return tiny_expression(head, generate, size);
 	} else {
