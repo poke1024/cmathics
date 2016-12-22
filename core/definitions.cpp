@@ -75,10 +75,10 @@ void Symbol::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
 			own_value = rhs;
 			break;
 		case DefinitionsPos::Down:
-			add_down_rule(std::make_shared<RewriteRule>(lhs, rhs));
+			add_down_rule(std::make_shared<DownRule>(lhs, rhs));
 			break;
 		case DefinitionsPos::Sub:
-			add_sub_rule(std::make_shared<RewriteRule>(lhs, rhs));
+			add_sub_rule(std::make_shared<SubRule>(lhs, rhs));
 			break;
 	}
 }

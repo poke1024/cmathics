@@ -169,6 +169,11 @@ public:
 };
 
 struct Slot {
+	// there are two kind of slot indices: (1) the order in which the slots were
+	// ordered when compiling the pattern (this is the natural order of the Slot
+	// array in class Match). (2) the order in which slots are filled when an
+	// expression is matched (this is implemented using index_to_ith).
+
 	BaseExpressionRef value; // slot for variable #i
 	index_t index_to_ith; // index of i-th fixed slot
 };

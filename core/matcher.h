@@ -183,6 +183,81 @@ public:
 	}
 };
 
+class SlowLeafSequence {
+private:
+    MatchContext &m_context;
+    const Expression * const m_expr;
+
+public:
+    class Element {
+    private:
+        const Expression * const m_expr;
+        const index_t m_begin;
+        BaseExpressionRef m_element;
+
+    public:
+        inline Element(const Expression *expr, index_t begin) : m_expr(expr), m_begin(begin) {
+        }
+
+        inline index_t begin() const {
+            return m_begin;
+        }
+
+        inline const BaseExpressionRef &operator*() {
+            if (!m_element) {
+                m_element = m_expr->materialize_leaf(m_begin);
+            }
+            return m_element;
+        }
+    };
+
+    class Sequence {
+    private:
+        const Evaluation &m_evaluation;
+        const Expression * const m_expr;
+        const index_t m_begin;
+        const index_t m_end;
+        BaseExpressionRef m_sequence;
+
+    public:
+        inline Sequence(const Evaluation &evaluation, const Expression *expr, index_t begin, index_t end) :
+            m_evaluation(evaluation), m_expr(expr), m_begin(begin), m_end(end) {
+        }
+
+        inline const BaseExpressionRef &operator*() {
+            if (!m_sequence) {
+                m_sequence = m_expr->slice(m_evaluation.Sequence, m_begin, m_end);
+            }
+            return m_sequence;
+        }
+    };
+
+    inline SlowLeafSequence(MatchContext &context, const Expression *expr) :
+        m_context(context), m_expr(expr) {
+    }
+
+    inline MatchContext &context() const {
+        return m_context;
+    }
+
+    inline Element element(index_t begin) const {
+        return Element(m_expr, begin);
+    }
+
+    inline Sequence slice(index_t begin, index_t end) const {
+        assert(begin <= end);
+        return Sequence(m_context.evaluation, m_expr, begin, end);
+    }
+
+    inline index_t same(index_t begin, BaseExpressionPtr other) const {
+        if (other->same(m_expr->materialize_leaf(begin))) {
+            return begin + 1;
+        } else {
+            return -1;
+        }
+    }
+};
+
 class StringMatcher {
 private:
     PatternMatcherRef m_matcher;
@@ -274,16 +349,84 @@ public:
     }
 };
 
-class Matcher {
+class HeadLeavesMatcher {
+private:
+    const PatternMatcherRef m_match_head;
+    const PatternMatcherRef m_match_leaves;
+
+    template<bool MatchHead>
+    inline bool match(
+        MatchContext &context,
+        const Expression *expr) const {
+
+        const PatternMatcherRef &match_leaves = m_match_leaves;
+
+        if (!match_leaves->might_match(expr->size())) {
+            return false;
+        }
+
+        if (MatchHead) {
+            const BaseExpressionRef &head = expr->head();
+
+            if (m_match_head->match(FastLeafSequence(context, &head), 0, 1) < 0) {
+                return false;
+            }
+        }
+
+        if (slice_needs_no_materialize(expr->slice_code())) {
+            if (expr->with_leaves_array([&context, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
+                return match_leaves->match(FastLeafSequence(context, leaves), 0, size);
+            }) < 0) {
+                return false;
+            }
+        } else {
+            if (match_leaves->match(SlowLeafSequence(context, expr), 0, expr->size()) < 0) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+public:
+    inline HeadLeavesMatcher(
+        const PatternMatcherRef &match_head,
+        const PatternMatcherRef &match_leaves) :
+
+        m_match_head(match_head),
+        m_match_leaves(match_leaves) {
+    }
+
+    inline bool with_head(
+        MatchContext &context,
+        const Expression *expr) const {
+        return match<true>(context, expr);
+    }
+
+    inline bool without_head(
+        MatchContext &context,
+        const Expression *expr) const {
+        return match<false>(context, expr);
+    }
+};
+
+class MatcherBase {
+protected:
+    PatternMatcherRef m_matcher;
+
+public:
+    FunctionBodyRef precompile(const BaseExpressionRef &item) const;
+};
+
+class Matcher : public MatcherBase {
 private:
 	typedef MatchRef (Matcher::*MatchFunction)(const BaseExpressionRef &, const Evaluation &) const;
 
-	PatternMatcherRef m_matcher;
 	const BaseExpressionRef m_patt;
 	MatchFunction m_perform_match;
 
 private:
-	inline MatchRef match_atom(const BaseExpressionRef &item, const Evaluation &evaluation) const {
+	MatchRef match_atom(const BaseExpressionRef &item, const Evaluation &evaluation) const {
 		if (m_patt->same(item)) {
 			return Heap::DefaultMatch();
 		} else {
@@ -291,7 +434,7 @@ private:
 		}
 	}
 
-	inline MatchRef match_expression(const BaseExpressionRef &item, const Evaluation &evaluation) const {
+	MatchRef match_expression(const BaseExpressionRef &item, const Evaluation &evaluation) const {
 		MatchContext context(m_matcher, evaluation);
 		const index_t match = m_matcher->match(
 			FastLeafSequence(context, &item), 0, 1);
@@ -302,7 +445,7 @@ private:
 		}
 	}
 
-	inline MatchRef match_none(const BaseExpressionRef &item, const Evaluation &evaluation) const {
+	MatchRef match_none(const BaseExpressionRef &item, const Evaluation &evaluation) const {
 		return MatchRef(); // no match
 	}
 
@@ -325,8 +468,40 @@ public:
 	inline MatchRef operator()(const BaseExpressionRef &item, const Evaluation &evaluation) const {
 		return (this->*m_perform_match)(item, evaluation);
 	}
+};
 
-	FunctionBodyRef precompile(const BaseExpressionRef &item) const;
+// A SequenceMatcher is a Matcher that takes an Expression and matches only the leaves
+// but not the head - it's basically a Matcher that ignores the head and is thus faster.
+
+class SequenceMatcher : public MatcherBase {
+private:
+    PatternMatcherRef m_matcher; // validates ptr to m_head_leaves_matcher
+    const HeadLeavesMatcher *m_head_leaves_matcher;
+
+public:
+    inline SequenceMatcher(const BaseExpressionRef &patt) : m_head_leaves_matcher(nullptr) {
+        if (patt->type() == ExpressionType) {
+            const PatternMatcherRef matcher =
+                patt->as_expression()->expression_matcher();
+            const auto head_leaves_matcher = matcher->head_leaves_matcher();
+            if (head_leaves_matcher && matcher->might_match(1)) {
+                m_matcher = matcher;
+                m_head_leaves_matcher = head_leaves_matcher;
+            }
+        }
+        if (!m_head_leaves_matcher) {
+            throw std::runtime_error("constructed a SequenceMatcher for a non-expression pattern");
+        }
+    }
+
+    inline MatchRef operator()(const Expression *expr, const Evaluation &evaluation) const {
+        MatchContext context(m_matcher, evaluation);
+        if (m_head_leaves_matcher->without_head(context, expr)) {
+            return context.match;
+        } else {
+            return MatchRef();
+        }
+    }
 };
 
 template<typename F>

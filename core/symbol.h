@@ -435,6 +435,8 @@ public:
 	}
 };
 
+class HeadLeavesMatcher;
+
 class PatternMatcher {
 protected:
 	std::atomic<size_t> m_ref_count;
@@ -466,6 +468,10 @@ public:
 
 	inline optional<size_t> fixed_size() const {
 		return m_size.from_here().fixed_size();
+	}
+
+	virtual const HeadLeavesMatcher *head_leaves_matcher() const {
+		return nullptr;
 	}
 
 	virtual index_t match(

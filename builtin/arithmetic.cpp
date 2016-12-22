@@ -861,7 +861,7 @@ void Builtins::Arithmetic::initialize() {
 
 	add("Subtract",
 	    Attributes::None, {
-			rewrite("Subtract[x_, y_]", "Plus[x, Times[-1, y]]")
+			down("Subtract[x_, y_]", "Plus[x, Times[-1, y]]")
 	    }
 	);
 
@@ -877,13 +877,13 @@ void Builtins::Arithmetic::initialize() {
 
 	add("Sqrt",
 	    Attributes::None, {
-			rewrite("Sqrt[x_]", "x ^ (1 / 2)")
+			down("Sqrt[x_]", "x ^ (1 / 2)")
 	    }
 	);
 
 	add("Exp",
 		Attributes::None, {
-			rewrite("Exp[x_]", "E ^ x")
+			down("Exp[x_]", "E ^ x")
 		}
 	);
 

@@ -3,80 +3,6 @@
 #include "matcher.h"
 #include "unicode/uchar.h"
 
-class SlowLeafSequence {
-private:
-	MatchContext &m_context;
-	const Expression * const m_expr;
-
-public:
-	class Element {
-	private:
-		const Expression * const m_expr;
-		const index_t m_begin;
-		BaseExpressionRef m_element;
-
-	public:
-		inline Element(const Expression *expr, index_t begin) : m_expr(expr), m_begin(begin) {
-		}
-
-		inline index_t begin() const {
-			return m_begin;
-		}
-
-		inline const BaseExpressionRef &operator*() {
-			if (!m_element) {
-				m_element = m_expr->materialize_leaf(m_begin);
-			}
-			return m_element;
-		}
-	};
-
-	class Sequence {
-	private:
-		const Evaluation &m_evaluation;
-		const Expression * const m_expr;
-		const index_t m_begin;
-		const index_t m_end;
-		BaseExpressionRef m_sequence;
-
-	public:
-		inline Sequence(const Evaluation &evaluation, const Expression *expr, index_t begin, index_t end) :
-            m_evaluation(evaluation), m_expr(expr), m_begin(begin), m_end(end) {
-		}
-
-		inline const BaseExpressionRef &operator*() {
-			if (!m_sequence) {
-				m_sequence = m_expr->slice(m_evaluation.Sequence, m_begin, m_end);
-			}
-			return m_sequence;
-		}
-	};
-
-	inline SlowLeafSequence(MatchContext &context, const Expression *expr) :
-        m_context(context), m_expr(expr) {
-	}
-
-	inline MatchContext &context() const {
-		return m_context;
-	}
-
-	inline Element element(index_t begin) const {
-		return Element(m_expr, begin);
-	}
-
-	inline Sequence slice(index_t begin, index_t end) const {
-        assert(begin <= end);
-		return Sequence(m_context.evaluation, m_expr, begin, end);
-	}
-
-	inline index_t same(index_t begin, BaseExpressionPtr other) const {
-		if (other->same(m_expr->materialize_leaf(begin))) {
-			return begin + 1;
-		} else {
-			return -1;
-		}
-	}
-};
 
 #define DECLARE_MATCH_EXPRESSION_METHODS                                                                      \
 	virtual index_t match( 					                                                                  \
@@ -92,7 +18,6 @@ public:
 		index_t end) const {                                                                           	      \
 		return do_match<SlowLeafSequence>(sequence, begin, end);   	            		                      \
 	}                                                                                                         \
-
 
 #define DECLARE_MATCH_CHARACTER_METHODS																		  \
 	virtual index_t match(                                                                               	  \
@@ -141,6 +66,66 @@ public:
 #define DECLARE_MATCH_METHODS                                                                                 \
 	DECLARE_MATCH_EXPRESSION_METHODS                                                                          \
 	DECLARE_MATCH_CHARACTER_METHODS
+
+class Element {
+private:
+    const BaseExpressionRef &m_element;
+
+public:
+    inline Element(const BaseExpressionRef &element) : m_element(element) {
+    }
+
+    inline const BaseExpressionRef &operator*() const {
+        return m_element;
+    }
+};
+
+template<typename Dummy, typename MatchRest>
+class ExpressionMatcher : public PatternMatcher {
+private:
+    const HeadLeavesMatcher m_matcher;
+    const MatchRest m_rest;
+
+    template<typename Sequence>
+    inline index_t do_match(
+        const Sequence &sequence,
+        index_t begin,
+        index_t end) const {
+
+        if (begin == end) {
+            return -1;
+        }
+
+        const auto item = *sequence.element(begin);
+
+        if (item->type() != ExpressionType) {
+            return -1;
+        }
+
+        if (!m_matcher.with_head(sequence.context(), item->as_expression())) {
+            return -1;
+        }
+
+        auto element = Element(item);
+        return m_rest(sequence, begin + 1, end, element);
+    }
+
+public:
+    inline ExpressionMatcher(
+        const std::tuple<PatternMatcherRef, PatternMatcherRef> &match,
+        const MatchRest &next) :
+
+        m_matcher(std::get<0>(match), std::get<1>(match)),
+        m_rest(next) {
+    }
+
+    virtual const HeadLeavesMatcher *head_leaves_matcher() const {
+        return &m_matcher;
+    }
+
+    DECLARE_MATCH_EXPRESSION_METHODS
+    DECLARE_NO_MATCH_CHARACTER_METHODS
+};
 
 template<typename Dummy, typename MatchRest>
 class StartMatcher : public PatternMatcher {
@@ -313,19 +298,6 @@ public:
 	template<typename Sequence, typename Slice>
 	inline bool operator()(const Sequence &sequence, Slice &slice) const {
 		return true;
-	}
-};
-
-class Element {
-private:
-	const BaseExpressionRef &m_element;
-
-public:
-	inline Element(const BaseExpressionRef &element) : m_element(element) {
-	}
-
-	inline const BaseExpressionRef &operator*() const {
-		return m_element;
 	}
 };
 
@@ -1008,73 +980,6 @@ public:
 	DECLARE_MATCH_METHODS
 };
 
-template<typename Dummy, typename MatchRest>
-class ExpressionMatcher : public PatternMatcher {
-private:
-	const PatternMatcherRef m_match_head;
-	const PatternMatcherRef m_match_leaves;
-    const MatchRest m_rest;
-
-	template<typename Sequence>
-	inline index_t do_match(
-		const Sequence &sequence,
-		index_t begin,
-		index_t end) const {
-
-		if (begin == end) {
-			return -1;
-		}
-
-		const auto item = *sequence.element(begin);
-
-		if (item->type() != ExpressionType) {
-			return -1;
-		}
-
-		const Expression *expr = item->as_expression();
-
-		const PatternMatcherRef &match_leaves = m_match_leaves;
-
-		if (!match_leaves->might_match(expr->size())) {
-			return -1;
-		}
-
-		const BaseExpressionRef &head = expr->head();
-
-		if (m_match_head->match(FastLeafSequence(sequence.context(), &head), 0, 1) < 0) {
-			return -1;
-		}
-
-		if (slice_needs_no_materialize(expr->slice_code())) {
-			if (expr->with_leaves_array([&sequence, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
-				return match_leaves->match(FastLeafSequence(sequence.context(), leaves), 0, size);
-			}) < 0) {
-				return -1;
-			}
-		} else {
-			if (match_leaves->match(SlowLeafSequence(sequence.context(), expr), 0, expr->size()) < 0) {
-				return -1;
-			}
-		}
-
-        auto element = Element(item);
-        return m_rest(sequence, begin + 1, end, element);
-	}
-
-public:
-	inline ExpressionMatcher(
-        const std::tuple<PatternMatcherRef, PatternMatcherRef> &match,
-        const MatchRest &next) :
-
-		m_match_head(std::get<0>(match)),
-		m_match_leaves(std::get<1>(match)),
-        m_rest(next) {
-	}
-
-	DECLARE_MATCH_EXPRESSION_METHODS
-    DECLARE_NO_MATCH_CHARACTER_METHODS
-};
-
 class PatternFactory {
 private:
 	CompiledVariables &m_variables;
@@ -1622,7 +1527,7 @@ index_t PatternMatcher::match(
     }
 }
 
-FunctionBodyRef Matcher::precompile(const BaseExpressionRef &item) const {
+FunctionBodyRef MatcherBase::precompile(const BaseExpressionRef &item) const {
 	if (m_matcher && item->type() == ExpressionType) {
 		CompiledArguments arguments(m_matcher->variables());
 		return std::make_shared<FunctionBody>(

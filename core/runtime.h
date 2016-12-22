@@ -235,8 +235,8 @@ protected:
             func));
     }
 
-	inline void rewrite(const char *pattern, const char *into) {
-		m_symbol->add_rule(std::make_shared<RewriteRule>(
+	inline void down(const char *pattern, const char *into) {
+		m_symbol->add_rule(std::make_shared<DownRule>(
 			m_runtime.parse(pattern), m_runtime.parse(into)));
 	}
 
@@ -283,8 +283,8 @@ public:
 		return make_pattern_matched_builtin_rule<N>(m_runtime.parse(pattern), func);
 	}
 
-	inline NewRuleRef rewrite(const char *pattern, const char *into) const {
-		return make_rewrite_rule(m_runtime.parse(pattern), m_runtime.parse(into));
+	inline NewRuleRef down(const char *pattern, const char *into) const {
+		return make_down_rule(m_runtime.parse(pattern), m_runtime.parse(into));
 	}
 
 public:

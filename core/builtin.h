@@ -267,6 +267,7 @@ inline NewRuleRef make_pattern_matched_builtin_rule(
 	};
 }
 
+template<typename Matcher>
 class RewriteRule : public Rule {
 private:
 	const BaseExpressionRef m_into;
@@ -305,9 +306,16 @@ public:
 	}
 };
 
-inline NewRuleRef make_rewrite_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
+typedef RewriteRule<Matcher> SubRule;
+
+// DownRule assumes that the expresion's head was matched already using the down lookup rule
+// process, so it only looks at the leaves.
+
+typedef RewriteRule<SequenceMatcher> DownRule;
+
+inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
 	return [patt, into] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
-		return std::make_shared<RewriteRule>(patt, into);
+		return std::make_shared<DownRule>(patt, into);
 	};
 }
 

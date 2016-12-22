@@ -624,8 +624,8 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		rewrite("Range[imax_]", "Range[1, imax, 1]");
-		rewrite("Range[imin_, imax_]", "Range[imin, imax, 1]");
+		down("Range[imax_]", "Range[1, imax, 1]");
+        down("Range[imin_, imax_]", "Range[imin, imax, 1]");
 		builtin(&Range::apply);
 	}
 
@@ -1054,13 +1054,13 @@ void Builtins::Lists::initialize() {
 
 	add("Mean",
 	    Attributes::None, {
-			rewrite("Mean[x_List]", "Total[x] / Length[x]"),
+			down("Mean[x_List]", "Total[x] / Length[x]"),
 	    });
 
 	add("Total",
 	    Attributes::None, {
-			rewrite("Total[head_]", "Apply[Plus, head]"),
-			rewrite("Total[head_, n_]", "Apply[Plus, Flatten[head, n]]"),
+            down("Total[head_]", "Apply[Plus, head]"),
+            down("Total[head_, n_]", "Apply[Plus, Flatten[head, n]]"),
 	    });
 
     add("Table",

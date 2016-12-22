@@ -10,7 +10,7 @@ void Messages::add(
     const Definitions &definitions) {
 
 	m_rules.add(
-		std::make_shared<RewriteRule>(
+		std::make_shared<DownRule>(
 			expression(definitions.symbols().MessageName, name, Heap::String(std::string(tag))),
 				Heap::String(std::string(text))));
 }
