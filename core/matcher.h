@@ -415,7 +415,7 @@ protected:
     PatternMatcherRef m_matcher;
 
 public:
-    FunctionBodyRef precompile(const BaseExpressionRef &item) const;
+	FunctionBody::Node precompile(const BaseExpressionRef &item) const;
 };
 
 class Matcher : public MatcherBase {
@@ -475,7 +475,6 @@ public:
 
 class SequenceMatcher : public MatcherBase {
 private:
-    PatternMatcherRef m_matcher; // validates ptr to m_head_leaves_matcher
     const HeadLeavesMatcher *m_head_leaves_matcher;
 
 public:
@@ -485,7 +484,7 @@ public:
                 patt->as_expression()->expression_matcher();
             const auto head_leaves_matcher = matcher->head_leaves_matcher();
             if (head_leaves_matcher && matcher->might_match(1)) {
-                m_matcher = matcher;
+                m_matcher = matcher; // validates ptr to m_head_leaves_matcher
                 m_head_leaves_matcher = head_leaves_matcher;
             }
         }
@@ -504,33 +503,63 @@ public:
     }
 };
 
-template<typename F>
-inline auto match(const BaseExpressionRef &patt, const Evaluation &evaluation, const F &f) {
-	if (patt->type() == ExpressionType) {
-		const auto matcher = patt->as_expression()->expression_matcher();
+template<typename Rule, typename F>
+inline auto match(
+    const Rule &rule,
+    const F &f,
+    const Evaluation &evaluation) {
+
+    constexpr int has_rhs = std::tuple_size<Rule>::value > 1;
+    const BaseExpressionRef &lhs = std::get<0>(rule);
+    const BaseExpressionRef &rhs = std::get<std::tuple_size<Rule>::value - 1>(rule);
+
+	if (lhs->type() == ExpressionType) {
+		const auto matcher = lhs->as_expression()->expression_matcher();
 		if (matcher->might_match(1)) {
 			MatchContext context(matcher, evaluation);
-			return f([&matcher, &context] (const BaseExpressionRef &item) {
-				context.reset();
-				const index_t match = matcher->match(
-					FastLeafSequence(context, &item), 0, 1);
-				if (match >= 0) {
-					return context.match;
-				} else {
-					return MatchRef(); // no match
-				}
-			});
+
+            const auto make = [&f, &matcher, &context] (const auto &extract) {
+                return f([&matcher, &context, &extract] (const BaseExpressionRef &item) {
+                    context.reset();
+                    const index_t match = matcher->match(
+                        FastLeafSequence(context, &item), 0, 1);
+                    if (match >= 0) {
+                        return extract(item);
+                    } else {
+                        return BaseExpressionRef(); // no match
+                    }
+                });
+            };
+
+            if (has_rhs) {
+                CompiledArguments arguments(
+					matcher->variables());
+                const FunctionBody::Node node(
+                    arguments, rhs);
+
+                return make([&node, &context, &rhs] (const BaseExpressionRef &item) {
+                    return node.replace_or_copy(
+                        rhs->as_expression(),
+                        [&context] (index_t i, const BaseExpressionRef &prev) {
+                            return context.match->slot(i);
+                        });
+                });
+            } else {
+                return make([] (const BaseExpressionRef &item) {
+                    return item;
+                });
+            }
 		} else {
 			return f([] (const BaseExpressionRef &item) {
-				return MatchRef(); // no match
+				return BaseExpressionRef(); // no match
 			});
 		}
 	} else {
-		return f([&patt] (const BaseExpressionRef &item) {
-			if (patt->same(item)) {
-				return Heap::DefaultMatch();
+		return f([&lhs, &rhs, &has_rhs] (const BaseExpressionRef &item) {
+			if (lhs->same(item)) {
+				return has_rhs ? rhs : item;
 			} else {
-				return MatchRef(); // no match
+				return BaseExpressionRef(); // no match
 			}
 		});
 	}

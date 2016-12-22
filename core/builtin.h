@@ -272,30 +272,26 @@ class RewriteRule : public Rule {
 private:
 	const BaseExpressionRef m_into;
 	const Matcher m_matcher;
-	const FunctionBodyRef m_function;
+	const FunctionBody::Node m_node;
 
 public:
 	RewriteRule(const BaseExpressionRef &patt, const BaseExpressionRef &into) :
-		Rule(patt), m_into(into), m_matcher(patt), m_function(m_matcher.precompile(into)) {
+		Rule(patt), m_into(into), m_matcher(patt), m_node(m_matcher.precompile(into)) {
 	}
 
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		const MatchRef m = m_matcher(expr, evaluation);
 		if (m) {
-			if (m_function) {
-				return m_function->instantiate(
-					m_into->as_expression(),
-					[&m] (index_t i, const BaseExpressionRef &prev) {
-						const BaseExpressionRef &slot = m->slot(i);
-						if (slot) { // was this variable assigned?
-							return slot;
-						} else {
-							return prev;
-						}
-					});
-			} else {
-				return m_into->replace_all_or_copy(m);
-			}
+            return m_node.replace_or_copy(
+                m_into->as_expression(),
+                [&m] (index_t i, const BaseExpressionRef &prev) {
+                    const BaseExpressionRef &slot = m->slot(i);
+                    if (slot) { // was this variable assigned?
+                        return slot;
+                    } else {
+                        return prev;
+                    }
+                });
 		} else {
 			return BaseExpressionRef();
 		}

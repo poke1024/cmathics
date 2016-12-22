@@ -690,40 +690,26 @@ FunctionBody::FunctionBody(
 }
 
 template<typename Arguments>
-inline BaseExpressionRef FunctionBody::instantiate(
+inline BaseExpressionRef FunctionBody::replace_or_copy(
 	const Expression *body,
 	const Arguments &args) const {
-
-	const auto replace = [&args] (const BaseExpressionRef &expr, const Node &node) {
-		const index_t slot = node.slot();
-		if (slot >= 0) {
-			return args(slot, expr);
-		} else {
-			const FunctionBodyRef &down = node.down();
-			if (down) {
-				return down->instantiate(expr->as_expression(), args);
-			} else {
-				return expr;
-			}
-		}
-	};
 
 	const auto &head = m_head;
 	const auto &leaves = m_leaves;
 
 	return body->with_slice<CompileToSliceType>(
-		[body, &head, &leaves, &replace] (const auto &slice) {
-			const auto generate = [&slice, &leaves, &replace] (auto &storage) {
+		[body, &head, &leaves, &args] (const auto &slice) {
+			const auto generate = [&slice, &leaves, &args] (auto &storage) {
 				const size_t n = slice.size();
 				for (size_t i = 0; i < n; i++) {
-					storage << replace(slice[i], leaves[i]);
+					storage << leaves[i].replace_or_copy(slice[i], args);
 				}
 				return nothing();
 			};
 
 			nothing state;
 			return ExpressionRef(expression(
-				replace(body->head(), head),
+				head.replace_or_copy(body->head(), args),
 				slice.create(generate, slice.size(), state)));
 		});
 }

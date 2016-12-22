@@ -12,7 +12,7 @@ class FunctionBody;
 typedef std::shared_ptr<FunctionBody> FunctionBodyRef;
 
 class FunctionBody {
-private:
+public:
     class Node {
     private:
         index_t m_slot;
@@ -24,15 +24,27 @@ private:
             Arguments &arguments,
             const BaseExpressionRef &expr);
 
-        inline index_t slot() const {
-            return m_slot;
-        }
+        template<typename Arguments>
+        inline BaseExpressionRef replace_or_copy(
+            const BaseExpressionRef &expr,
+            const Arguments &args) const {
 
-        inline const FunctionBodyRef &down() const {
-            return m_down;
-        }
+            const index_t slot = m_slot;
+            if (slot >= 0) {
+                return args(slot, expr);
+            } else {
+                const FunctionBodyRef &down = m_down;
+                if (down) {
+                    return down->replace_or_copy(
+						expr->as_expression(), args);
+                } else {
+                    return expr;
+                }
+            }
+        };
     };
 
+private:
     const Node m_head;
 	const std::vector<const Node> m_leaves;
 
@@ -48,7 +60,7 @@ public:
         const Expression *body_ptr);
 
 	template<typename Arguments>
-    inline BaseExpressionRef instantiate(
+    inline BaseExpressionRef replace_or_copy(
         const Expression *body,
         const Arguments &args) const;
 };
@@ -98,9 +110,11 @@ FunctionBody::Node::Node(
 			m_slot = -1;
 			if (expr->type() == ExpressionType) {
 				m_down = std::make_shared<FunctionBody>(
-						arguments, expr->as_expression());
+					arguments, expr->as_expression());
 			}
 			break;
+		default:
+			throw std::runtime_error("invalid SlotDirective");
 	}
 }
 
@@ -113,7 +127,7 @@ public:
     SlotFunction(const Expression *body);
 
 	template<typename Arguments>
-    inline BaseExpressionRef instantiate(
+    inline BaseExpressionRef replace_or_copy(
         const Expression *body,
 	    const Arguments &args,
         size_t n_args) const;

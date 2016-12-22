@@ -104,7 +104,7 @@ SlotFunction::SlotFunction(const Expression *body) {
 }
 
 template<typename Arguments>
-inline BaseExpressionRef SlotFunction::instantiate(
+inline BaseExpressionRef SlotFunction::replace_or_copy(
     const Expression *body,
     const Arguments &args,
     size_t n_args) const {
@@ -113,7 +113,7 @@ inline BaseExpressionRef SlotFunction::instantiate(
         throw std::runtime_error("wrong slot count");
     }
 
-    return m_function->instantiate(body, args);
+    return m_function->replace_or_copy(body, args);
 }
 
 class FunctionRule : public Rule {
@@ -136,7 +136,7 @@ private:
 
         return args->with_leaves_array(
             [&slot_function, &body] (const BaseExpressionRef *args, size_t n_args) {
-                return slot_function->instantiate(
+                return slot_function->replace_or_copy(
                     body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
 		                return args[i];
                     }, n_args);
@@ -183,7 +183,7 @@ private:
 
         return args->with_leaves_array(
             [&vars_function, &body] (const BaseExpressionRef *args, size_t n_args) {
-                return vars_function->instantiate(
+                return vars_function->replace_or_copy(
                     body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
 		                return args[i];
 	                });

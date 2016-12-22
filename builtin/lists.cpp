@@ -479,35 +479,31 @@ public:
 
 	        const RuleForm rule_form(patt);
 
-	        const auto generate = [&list, &evaluation, &options, &levelspec] (const auto &callback) {
+	        const auto generate = [&list, &evaluation, &options, &levelspec] (const auto &match) {
 		        return expression_from_generator(
-			        evaluation.List, [&list, &options, &levelspec, &callback] (auto &storage) {
+			        evaluation.List, [&list, &options, &levelspec, &match] (auto &storage) {
 				        levelspec.walk_immutable(
 						    BaseExpressionRef(list),
 						    options.Heads->is_true(),
-				            [&storage, &callback] (const BaseExpressionRef &node) {
-					            return callback(storage, node);
+				            [&storage, &match] (const BaseExpressionRef &node) {
+                                const BaseExpressionRef result = match(node);
+                                if (result) {
+                                    storage << result;
+                                }
 				            });
 			        });
 	        };
 
 	        if (rule_form.is_rule()) {
-		        return match(rule_form.left_side(), evaluation, [&generate, &rule_form] (const auto &match) {
-			        return generate([&match, &rule_form] (auto &storage, const BaseExpressionRef &node) {
-				        const MatchRef result = match(node);
-				        if (result) {
-					        storage << rule_form.right_side()->replace_all_or_copy(result);
-				        }
-			        });
-		        });
+                return match(
+                    std::make_tuple(rule_form.left_side(), rule_form.right_side()),
+                    generate,
+                    evaluation);
             } else {
-		        return match(patt, evaluation, [&generate] (const auto &match) {
-			        return generate([&match] (auto &storage, const BaseExpressionRef &node) {
-				        if (match(node)) {
-					        storage << node;
-				        }
-			        });
-		        });
+                return match(
+                    std::make_tuple(patt),
+                    generate,
+                    evaluation);
 	        }
         } catch (const Levelspec::InvalidError&) {
             evaluation.message(m_symbol, "level", ls);
