@@ -120,16 +120,16 @@ public:
 			    const String *s = leaves[i]->as_string();
 			    text.append(s->ascii(), s->length());
 		    }
-	        return Heap::String(std::make_shared<AsciiStringExtent>(std::move(text)));
+	        return Pool::String(new AsciiStringExtent(std::move(text)));
 	    } else {
 			UnicodeString text(number_of_code_points, 0, 0);
 		    for (size_t i = 0; i < n; i++) {
 			    text.append(leaves[i]->as_string()->unicode());
 		    }
 	        if (extent_type == StringExtent::simple) {
-		        return Heap::String(std::make_shared<SimpleStringExtent>(text));
+		        return Pool::String(new SimpleStringExtent(text));
 	        } else {
-		        return Heap::String(std::make_shared<ComplexStringExtent>(text));
+		        return Pool::String(new ComplexStringExtent(text));
 	        }
 	    }
     }
@@ -179,7 +179,7 @@ public:
             return BaseExpressionRef();
         }
 
-        return Heap::MachineInteger(
+        return Pool::MachineInteger(
             static_cast<const String*>(str)->length());
     }
 };

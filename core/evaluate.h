@@ -85,7 +85,7 @@ protected:
 
 public:
 	inline direct_storage(const BaseExpressionRef &head, size_t n) : _type_mask(0) {
-		std::tie(_expr, _addr, _type_mask_ptr) = Heap::StaticExpression(head, n);
+		std::tie(_expr, _addr, _type_mask_ptr) = Pool::StaticExpression(head, n);
 		_end = _addr + n;
 	}
 

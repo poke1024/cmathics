@@ -99,7 +99,7 @@ public:
 
 SlotFunction::SlotFunction(const Expression *body) {
     SlotArguments arguments;
-    m_function = std::make_shared<FunctionBody>(arguments, body);
+    m_function = new FunctionBody(arguments, body);
     m_slot_count = arguments.slot_count();
 }
 
@@ -130,7 +130,7 @@ private:
         SlotFunctionRef slot_function = cache->slot_function;
 
         if (!slot_function) {
-            slot_function = std::make_shared<SlotFunction>(body->as_expression());
+            slot_function = new SlotFunction(body->as_expression());
             cache->slot_function = slot_function;
         }
 
@@ -171,8 +171,8 @@ private:
                             arguments.add(vars[i], i);
                         }
 
-                        return std::make_shared<FunctionBody>(
-                            arguments, body->as_expression());
+                        return FunctionBodyRef(new FunctionBody(
+                            arguments, body->as_expression()));
                     });
             } catch(const InvalidVariable&) {
                 return BaseExpressionRef();

@@ -334,9 +334,9 @@ public:
             [] (const SymbolicFormRef &form) {
                 const SymEngineRef new_form = SymEngine::expand(form->get());
                 if (new_form.get() != form->get().get()) {
-                    return Heap::SymbolicForm(new_form);
+                    return Pool::SymbolicForm(new_form);
                 } else {
-                    return Heap::SymbolicForm(SymEngineRef());
+                    return Pool::SymbolicForm(SymEngineRef());
                 }
             },
             [] (const BaseExpressionRef &leaf, const Evaluation &evaluation) {
@@ -371,9 +371,9 @@ inline const BaseExpressionRef *Expression::static_leaves() const {
 inline SymbolicFormRef Expression::symbolic_1(const SymEngineUnaryFunction &f) const {
     const SymbolicFormRef symbolic_a = symbolic_form(static_leaves<1>()[0]);
     if (!symbolic_a->is_none()) {
-	    return Heap::SymbolicForm(f(symbolic_a->get()));
+	    return Pool::SymbolicForm(f(symbolic_a->get()));
     } else {
-        return Heap::NoSymbolicForm();
+        return Pool::NoSymbolicForm();
     }
 }
 
@@ -386,15 +386,15 @@ inline SymbolicFormRef Expression::symbolic_2(const SymEngineBinaryFunction &f) 
     if (!symbolic_a->is_none()) {
         const SymbolicFormRef symbolic_b = symbolic_form(b);
         if (!symbolic_b->is_none()) {
-	        return Heap::SymbolicForm(f(symbolic_a->get(), symbolic_b->get()));
+	        return Pool::SymbolicForm(f(symbolic_a->get(), symbolic_b->get()));
         }
     }
-    return Heap::NoSymbolicForm();
+    return Pool::NoSymbolicForm();
 }
 
 template<typename U>
 inline PackedExpressionRef<U> expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
-	return Heap::Expression(head, slice);
+	return Pool::Expression(head, slice);
 }
 
 template<typename E, typename T>
@@ -417,21 +417,21 @@ inline ExpressionRef expression(
 	const size_t size = leaves.size();
 
 	if (size <= MaxStaticSliceSize) {
-		return Heap::StaticExpression(head, leaves);
+		return Pool::StaticExpression(head, leaves);
 	} else if (size < MinPackedSliceSize) {
-		return Heap::Expression(head, DynamicSlice(std::move(leaves), some_type_mask));
+		return Pool::Expression(head, DynamicSlice(std::move(leaves), some_type_mask));
 	} else {
 		const TypeMask type_mask = is_exact_type_mask(some_type_mask) ?
             some_type_mask : exact_type_mask(leaves);
 		switch (type_mask) {
 			case MakeTypeMask(MachineIntegerType):
-				return Heap::Expression(head, PackedSlice<machine_integer_t>(
+				return Pool::Expression(head, PackedSlice<machine_integer_t>(
 					collect<MachineInteger, machine_integer_t>(leaves)));
 			case MakeTypeMask(MachineRealType):
-				return Heap::Expression(head, PackedSlice<machine_real_t>(
+				return Pool::Expression(head, PackedSlice<machine_real_t>(
 					collect<MachineReal, machine_real_t>(leaves)));
 			default:
-				return Heap::Expression(head, DynamicSlice(std::move(leaves), type_mask));
+				return Pool::Expression(head, DynamicSlice(std::move(leaves), type_mask));
 		}
 	}
 }
@@ -439,14 +439,14 @@ inline ExpressionRef expression(
 inline ExpressionRef expression(
 	const BaseExpressionRef &head) {
 
-	return Heap::EmptyExpression(head);
+	return Pool::EmptyExpression(head);
 }
 
 inline ExpressionRef expression(
     const BaseExpressionRef &head,
     const BaseExpressionRef &a) {
 
-    return Heap::StaticExpression<1>(head, StaticSlice<1>({a}));
+    return Pool::StaticExpression<1>(head, StaticSlice<1>({a}));
 }
 
 inline ExpressionRef expression(
@@ -454,7 +454,7 @@ inline ExpressionRef expression(
     const BaseExpressionRef &a,
     const BaseExpressionRef &b) {
 
-    return Heap::StaticExpression<2>(head, StaticSlice<2>({a, b}));
+    return Pool::StaticExpression<2>(head, StaticSlice<2>({a, b}));
 }
 
 inline ExpressionRef expression(
@@ -462,19 +462,19 @@ inline ExpressionRef expression(
 	const std::initializer_list<BaseExpressionRef> &leaves) {
 
 	if (leaves.size() <= MaxStaticSliceSize) {
-		return Heap::StaticExpression(head, leaves);
+		return Pool::StaticExpression(head, leaves);
 	} else {
-		return Heap::Expression(head, DynamicSlice(leaves, UnknownTypeMask));
+		return Pool::Expression(head, DynamicSlice(leaves, UnknownTypeMask));
 	}
 }
 
 inline DynamicExpressionRef expression(const BaseExpressionRef &head, DynamicSlice &&slice) {
-	return Heap::Expression(head, slice);
+	return Pool::Expression(head, slice);
 }
 
 template<int N>
 inline StaticExpressionRef<N> expression(const BaseExpressionRef &head, StaticSlice<N> &&slice) {
-    return Heap::StaticExpression<N>(head, std::move(slice));
+    return Pool::StaticExpression<N>(head, std::move(slice));
 }
 
 template<typename Slice>
@@ -523,7 +523,7 @@ DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(cons
 		for (auto leaf : _leaves.leaves()) {
 			leaves.push_back(leaf);
 		}
-		return Heap::Expression(_head, DynamicSlice(std::move(leaves), _leaves.type_mask()));
+		return Pool::Expression(_head, DynamicSlice(std::move(leaves), _leaves.type_mask()));
 
 	}
 }
@@ -569,7 +569,7 @@ template<typename... Args>
 void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) const {
 	const auto &symbols = definitions.symbols();
 
-	const BaseExpressionRef tag_str = Heap::String(std::string(tag));
+	const BaseExpressionRef tag_str = Pool::String(std::string(tag));
 
 	const ExpressionRef message = expression(
 		symbols.MessageName, name, tag_str);

@@ -12,13 +12,16 @@ enum class DefinitionsPos : int {
 
 #include "sort.h"
 
-class Rule {
+class Rule : public Shared<Rule, SharedHeap> {
 public:
 	const BaseExpressionRef pattern;
 	const SortKey key;
 
 	Rule(const BaseExpressionRef &patt) : pattern(patt), key(patt->pattern_key()) {
 	}
+
+    virtual ~Rule() {
+    }
 
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const = 0;
 
@@ -63,7 +66,7 @@ public:
 	}
 };
 
-typedef std::shared_ptr<Rule> RuleRef;
+typedef boost::intrusive_ptr<Rule> RuleRef;
 
 class Rules {
 public:

@@ -13,7 +13,7 @@ void Builtins::ExpTrig::add_unary(
             const Evaluation &evaluation) {
 
             if (x->type() == MachineRealType) {
-                return Heap::MachineReal(f(
+                return Pool::MachineReal(f(
                     static_cast<const MachineReal*>(x)->value));
             } else {
                 return BaseExpressionRef(); // leave to SymEngine

@@ -444,7 +444,7 @@ public:
 
     void build(Runtime &runtime) {
         m_default_ls = expression(
-            runtime.definitions().symbols().List, Heap::MachineInteger(1));
+            runtime.definitions().symbols().List, Pool::MachineInteger(1));
 
         const OptionsInitializerList options = {
             {"Heads", offsetof(CasesOptions, Heads), "False"}
@@ -576,7 +576,7 @@ inline ExpressionRef machine_integer_range(
             evaluation.List,
             [imin, imax, di] (auto &storage) {
                 for (machine_integer_t x = imin; x <= imax; x += di) {
-                    storage << Heap::MachineInteger(x);
+                    storage << Pool::MachineInteger(x);
                 }
             },
             n
@@ -605,7 +605,7 @@ public:
 	    return expression(evaluation.List, [imin, imax, di, func] (auto &storage) {
 		    machine_integer_t index = imin;
 		    while (index <= imax) {
-			    storage << func(Heap::MachineInteger(index));
+			    storage << func(Pool::MachineInteger(index));
 			    index += di;
 		    }
 	    }, n);
@@ -660,7 +660,7 @@ protected:
 				evaluation.List,
 				[&leaves] (auto &storage) {
 					for (machine_real_t x : leaves) {
-						storage << Heap::MachineReal(x);
+						storage << Pool::MachineReal(x);
 					}
 				},
 				leaves.size()
@@ -961,7 +961,7 @@ public:
 template<typename F>
 NewRuleRef make_iteration_function_rule() {
     return [] (const SymbolRef &head, const Definitions &definitions) {
-        return std::make_shared<IterationFunctionRule<F>>(head, definitions);
+        return new IterationFunctionRule<F>(head, definitions);
     };
 }
 

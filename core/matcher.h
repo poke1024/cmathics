@@ -7,6 +7,7 @@
 #include "evaluation.h"
 #include "symbol.h"
 #include "expression.h"
+#include "builtin.h"
 
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt);
 
@@ -29,26 +30,11 @@ public:
 		const Evaluation &evaluation_,
 		MatchOptions options_ = 0) :
 
-        evaluation(evaluation_), match(Heap::Match(matcher)), options(options_) {
+        evaluation(evaluation_), match(Pool::Match(matcher)), options(options_) {
 	}
 
 	inline void reset() {
 		match->reset();
-	}
-};
-
-template<int M, int N>
-struct unpack_leaves {
-	void operator()(const BaseExpressionRef *leaves, typename BaseExpressionTuple<M>::type &t) {
-		// symbols are already ordered in the order of their (first) appearance in the original pattern.
-		std::get<N>(t) = leaves->get();
-		unpack_leaves<M, N + 1>()(leaves + 1, t);
-	}
-};
-
-template<int M>
-struct unpack_leaves<M, M> {
-	void operator()(const BaseExpressionRef *leaves, typename BaseExpressionTuple<M>::type &t) {
 	}
 };
 
@@ -314,7 +300,7 @@ public:
 			const String *patt_string = m_patt->as_string();
 			const auto string_unicode = string->unicode();
 			const auto patt_unicode = patt_string->unicode();
-			const auto match = Heap::DefaultMatch();
+			const auto match = Pool::DefaultMatch();
 
 			while (true) {
 				const index_t next = string_unicode.indexOf(patt_unicode, curr);
@@ -339,7 +325,7 @@ public:
 	        }
         } else if (m_patt->type() == StringType) {
 	        if (m_patt->as_string()->same(string)) {
-		        return Heap::DefaultMatch();
+		        return Pool::DefaultMatch();
 	        } else {
 		        return MatchRef();
 	        }
@@ -428,7 +414,7 @@ private:
 private:
 	MatchRef match_atom(const BaseExpressionRef &item, const Evaluation &evaluation) const {
 		if (m_patt->same(item)) {
-			return Heap::DefaultMatch();
+			return Pool::DefaultMatch();
 		} else {
 			return MatchRef(); // no match
 		}
@@ -563,6 +549,19 @@ inline auto match(
 			}
 		});
 	}
+}
+
+typedef RewriteRule<Matcher> SubRule;
+
+// DownRule assumes that the expresion's head was matched already using the down lookup rule
+// process, so it only looks at the leaves.
+
+typedef RewriteRule<SequenceMatcher> DownRule;
+
+inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
+	return [patt, into] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
+		return RuleRef(new DownRule(patt, into));
+	};
 }
 
 #endif //CMATHICS_MATCHER_H

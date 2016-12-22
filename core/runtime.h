@@ -4,6 +4,7 @@
 #include "types.h"
 #include "builtin.h"
 #include "parser.h"
+#include "matcher.h"
 
 class Runtime {
 private:
@@ -45,7 +46,13 @@ public:
     }
 };
 
-class Builtin : public std::enable_shared_from_this<Builtin> {
+class Builtin : public Shared<Builtin, SharedHeap> {
+private:
+	template<typename T>
+	auto shared_from_this() {
+		return boost::intrusive_ptr<T>(static_cast<T*>(this));
+	}
+
 protected:
 	Runtime &m_runtime;
 	const SymbolRef m_symbol;
@@ -96,7 +103,7 @@ protected:
 
 	template<typename T>
 	inline void builtin(F1<T> fptr) {
-        const auto self = std::static_pointer_cast<T>(shared_from_this());
+        const auto self = shared_from_this<T>();
 
 		auto func = [self, fptr] (
 			BaseExpressionPtr a,
@@ -106,7 +113,7 @@ protected:
 			return (p->*fptr)(a, evaluation);
 		};
 
-		m_symbol->add_rule(std::make_shared<BuiltinRule<1, decltype(func)>>(
+		m_symbol->add_rule(new BuiltinRule<1, decltype(func)>(
 			m_symbol,
 			m_runtime.definitions(),
 			func));
@@ -114,7 +121,7 @@ protected:
 
 	template<typename T>
 	inline void builtin(B1<T> fptr) {
-		const auto self = std::static_pointer_cast<T>(shared_from_this());
+		const auto self = shared_from_this<T>();
 
 		auto func = [self, fptr] (
 			BaseExpressionPtr a,
@@ -128,7 +135,7 @@ protected:
 			}
 		};
 
-		m_symbol->add_rule(std::make_shared<BuiltinRule<1, decltype(func)>>(
+		m_symbol->add_rule(new BuiltinRule<1, decltype(func)>(
 			m_symbol,
 			m_runtime.definitions(),
 			func));
@@ -136,7 +143,7 @@ protected:
 
     template<typename T>
     inline void builtin(F2<T> fptr) {
-        const auto self = std::static_pointer_cast<T>(shared_from_this());
+		const auto self = shared_from_this<T>();
 
 	    auto func = [self, fptr] (
 			BaseExpressionPtr a,
@@ -147,7 +154,7 @@ protected:
 		    return (p->*fptr)(a, b, evaluation);
 	    };
 
-	    m_symbol->add_rule(std::make_shared<BuiltinRule<2, decltype(func)>>(
+	    m_symbol->add_rule(new BuiltinRule<2, decltype(func)>(
 		    m_symbol,
 		    m_runtime.definitions(),
 		    func));
@@ -155,7 +162,7 @@ protected:
 
     template<typename T>
     inline void builtin(F3<T> fptr) {
-        const auto self = std::static_pointer_cast<T>(shared_from_this());
+		const auto self = shared_from_this<T>();
 
 	    auto func = [self, fptr] (
 		    BaseExpressionPtr a,
@@ -167,7 +174,7 @@ protected:
 		    return (p->*fptr)(a, b, c, evaluation);
 	    };
 
-	    m_symbol->add_rule(std::make_shared<BuiltinRule<3, decltype(func)>>(
+	    m_symbol->add_rule(new BuiltinRule<3, decltype(func)>(
 		    m_symbol,
 		    m_runtime.definitions(),
             func));
@@ -175,7 +182,7 @@ protected:
 
 	template<typename T>
 	inline void builtin(FN<T> fptr) {
-		const auto self = std::static_pointer_cast<T>(shared_from_this());
+		const auto self = shared_from_this<T>();
 
 		auto func = [self, fptr] (
 			const BaseExpressionRef *leaves,
@@ -186,7 +193,7 @@ protected:
 			return (p->*fptr)(leaves, n, evaluation);
 		};
 
-		m_symbol->add_rule(std::make_shared<VariadicBuiltinRule<0, decltype(func)>>(
+		m_symbol->add_rule(new VariadicBuiltinRule<0, decltype(func)>(
 			m_symbol,
 			m_runtime.definitions(),
 			func));
@@ -194,7 +201,7 @@ protected:
 
 	template<typename T, typename Options>
 	inline void builtin(const OptionsInitializerList &options, OptionsF2<T, Options> fptr) {
-		const auto self = std::static_pointer_cast<T>(shared_from_this());
+		const auto self = shared_from_this<T>();
 
 		auto func = [self, fptr] (
 			BaseExpressionPtr a,
@@ -206,7 +213,7 @@ protected:
 			return (p->*fptr)(a, b, options, evaluation);
 		};
 
-		m_symbol->add_rule(std::make_shared<OptionsBuiltinRule<2, Options, decltype(func)>>(
+		m_symbol->add_rule(new OptionsBuiltinRule<2, Options, decltype(func)>(
 			m_symbol,
 			m_runtime.definitions(),
 			options,
@@ -215,7 +222,7 @@ protected:
 
     template<typename T, typename Options>
     inline void builtin(const OptionsInitializerList &options, OptionsF3<T, Options> fptr) {
-        const auto self = std::static_pointer_cast<T>(shared_from_this());
+		const auto self = shared_from_this<T>();
 
         auto func = [self, fptr] (
             BaseExpressionPtr a,
@@ -228,7 +235,7 @@ protected:
             return (p->*fptr)(a, b, c, options, evaluation);
         };
 
-        m_symbol->add_rule(std::make_shared<OptionsBuiltinRule<3, Options, decltype(func)>>(
+        m_symbol->add_rule(new OptionsBuiltinRule<3, Options, decltype(func)>(
             m_symbol,
             m_runtime.definitions(),
             options,
@@ -236,7 +243,7 @@ protected:
     }
 
 	inline void down(const char *pattern, const char *into) {
-		m_symbol->add_rule(std::make_shared<DownRule>(
+		m_symbol->add_rule(new DownRule(
 			m_runtime.parse(pattern), m_runtime.parse(into)));
 	}
 
@@ -252,7 +259,7 @@ public:
 	}
 };
 
-typedef std::shared_ptr<Builtin> BuiltinRef;
+typedef boost::intrusive_ptr<Builtin> BuiltinRef;
 
 class Unit {
 private:

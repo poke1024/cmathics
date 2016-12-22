@@ -7,7 +7,7 @@
 #include "types.h"
 #include "hash.h"
 
-class StringExtent {
+class StringExtent : public Shared<StringExtent, SharedHeap> {
 public:
     enum Type {
         ascii,
@@ -48,10 +48,10 @@ public:
     virtual size_t walk_code_points(size_t offset, index_t cp_offset) const = 0;
 };
 
-typedef std::shared_ptr<UnicodeString> UnicodeStringRef;
-
 class AsciiStringExtent : public StringExtent {
 private:
+    typedef std::shared_ptr<UnicodeString> UnicodeStringRef;
+
     const std::string m_ascii;
 	mutable UnicodeStringRef m_string;
 
@@ -72,13 +72,13 @@ public:
 	}
 
 	virtual UnicodeString unicode() const final { // concurrent.
-		const UnicodeStringRef string = m_string;
+		const UnicodeStringRef string = std::atomic_load(&m_string);
 		if (string) {
 			return *string;
 		} else {
 			UnicodeStringRef new_string = std::make_shared<UnicodeString>(
 				UnicodeString::fromUTF8(StringPiece(m_ascii)));
-			m_string = new_string;
+			std::atomic_store(&m_string, new_string);
 			return *new_string;
 		}
 	}
@@ -347,7 +347,7 @@ public:
 
 	inline StringRef substr(index_t begin, index_t end) const {
 		assert(begin >= 0);
-		return Heap::String(
+		return Pool::String(
 			m_extent,
 			m_offset + begin,
 			std::max(index_t(0), std::min(end - begin, m_length - begin)));
@@ -355,25 +355,25 @@ public:
 
     inline StringRef take(index_t n) const {
         if (n >= 0) {
-            return Heap::String(m_extent, m_offset, std::min(n, index_t(m_length)));
+            return Pool::String(m_extent, m_offset, std::min(n, index_t(m_length)));
         } else {
             n = std::min(-n, index_t(m_length));
-            return Heap::String(m_extent, m_offset + m_length - n, n);
+            return Pool::String(m_extent, m_offset + m_length - n, n);
         }
     }
 
     inline StringRef drop(index_t n) const {
         if (n >= 0) {
             n = std::min(n, index_t(m_length));
-            return Heap::String(m_extent, m_offset + n, m_length - n);
+            return Pool::String(m_extent, m_offset + n, m_length - n);
         } else {
             n = std::min(-n, index_t(m_length));
-            return Heap::String(m_extent, m_offset, m_length - n);
+            return Pool::String(m_extent, m_offset, m_length - n);
         }
     }
 
 	inline StringRef repeat(size_t n) const {
-		return Heap::String(m_extent->repeat(m_offset, m_length, n));
+		return Pool::String(m_extent->repeat(m_offset, m_length, n));
 	}
 
     inline size_t number_of_code_points() const {
@@ -382,7 +382,7 @@ public:
 
     inline StringRef strip_code_points(index_t cp_left, index_t cp_right) const {
         const size_t shift = m_extent->walk_code_points(m_offset, cp_left);
-        return Heap::String(
+        return Pool::String(
             m_extent,
             m_offset + shift,
             m_length - shift - m_extent->walk_code_points(m_offset + m_length, -cp_right));
@@ -425,7 +425,7 @@ public:
 
         inline const BaseExpressionRef &operator*() {
             if (!m_cached) {
-                m_cached = Heap::String(
+                m_cached = Pool::String(
                     StringExtentRef(m_sequence->m_extent),
                     m_sequence->m_offset + m_begin,
                     1);
@@ -448,7 +448,7 @@ public:
 
         inline const BaseExpressionRef &operator*() {
             if (!m_cached) {
-                m_cached = Heap::String(
+                m_cached = Pool::String(
                     StringExtentRef(m_sequence->m_extent),
                     m_sequence->m_offset + m_begin,
                     m_end - m_begin);

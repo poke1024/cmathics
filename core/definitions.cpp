@@ -5,6 +5,7 @@
 #include "evaluation.h"
 #include "pattern.h"
 #include "builtin.h"
+#include "matcher.h"
 
 inline DefinitionsPos get_definitions_pos(
 	BaseExpressionPtr pattern,
@@ -75,10 +76,10 @@ void Symbol::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
 			own_value = rhs;
 			break;
 		case DefinitionsPos::Down:
-			add_down_rule(std::make_shared<DownRule>(lhs, rhs));
+			add_down_rule(new DownRule(lhs, rhs));
 			break;
 		case DefinitionsPos::Sub:
-			add_sub_rule(std::make_shared<SubRule>(lhs, rhs));
+			add_sub_rule(new SubRule(lhs, rhs));
 			break;
 	}
 }
@@ -104,7 +105,7 @@ Definitions::Definitions() : _symbols(*this) {
 
 SymbolRef Definitions::new_symbol(const char *name, ExtendedType type) {
     assert(_definitions.find(name) == _definitions.end());
-    const SymbolRef symbol = Heap::Symbol(name, type);
+    const SymbolRef symbol = Pool::Symbol(name, type);
     _definitions[SymbolKey(symbol)] = symbol;
     return symbol;
 }

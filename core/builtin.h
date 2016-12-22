@@ -26,7 +26,7 @@ decltype(auto) apply_from_tuple(F&& fn, Tuple&& t)
 
 template<typename T>
 RuleRef NewRule(const SymbolRef &head, const Definitions &definitions) {
-	return std::make_shared<T>(head, definitions);
+	return RuleRef(new T(head, definitions));
 }
 
 template<int N, typename... refs>
@@ -37,6 +37,21 @@ struct BuiltinFunctionArguments {
 template<typename... refs>
 struct BuiltinFunctionArguments<0, refs...> {
     typedef std::function<BaseExpressionRef(refs..., const Evaluation&)> type;
+};
+
+template<int M, int N>
+struct unpack_leaves {
+	void operator()(const BaseExpressionRef *leaves, typename BaseExpressionTuple<M>::type &t) {
+		// symbols are already ordered in the order of their (first) appearance in the original pattern.
+		std::get<N>(t) = leaves->get();
+		unpack_leaves<M, N + 1>()(leaves + 1, t);
+	}
+};
+
+template<int M>
+struct unpack_leaves<M, M> {
+	void operator()(const BaseExpressionRef *leaves, typename BaseExpressionTuple<M>::type &t) {
+	}
 };
 
 template<int N, typename F>
@@ -220,7 +235,7 @@ typedef std::function<RuleRef(const SymbolRef &head, Definitions &definitions)> 
 template<int N, typename F>
 inline NewRuleRef make_builtin_rule(const F &func) {
 	return [func] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
-		return std::make_shared<BuiltinRule<N, F>>(head, definitions, func);
+		return new BuiltinRule<N, F>(head, definitions, func);
 	};
 }
 
@@ -301,18 +316,5 @@ public:
 		return m_into;
 	}
 };
-
-typedef RewriteRule<Matcher> SubRule;
-
-// DownRule assumes that the expresion's head was matched already using the down lookup rule
-// process, so it only looks at the leaves.
-
-typedef RewriteRule<SequenceMatcher> DownRule;
-
-inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
-	return [patt, into] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
-		return std::make_shared<DownRule>(patt, into);
-	};
-}
 
 #endif // CMATHICS_BUILTIN_H

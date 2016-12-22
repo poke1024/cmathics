@@ -155,9 +155,9 @@ namespace Numeric {
 
 		inline BaseExpressionRef to_expression() const {
 			if (is_big) {
-				return Heap::BigInteger(std::move(mpz_class(big_value)));
+				return Pool::BigInteger(std::move(mpz_class(big_value)));
 			} else {
-				return Heap::MachineInteger(machine_integer_t(machine_value));
+				return Pool::MachineInteger(machine_integer_t(machine_value));
 			}
 		}
 

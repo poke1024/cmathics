@@ -55,7 +55,7 @@ public:
 						    return BaseExpressionRef();
 					    }
 
-					    return Heap::BigReal(
+					    return Pool::BigReal(
 						    form,
 						    Precision(double(static_cast<const MachineInteger*>(n.get())->value)));
 				    })
@@ -142,7 +142,7 @@ void mini_console() {
 
 	const SymbolRef Line = runtime.definitions().symbols().StateLine;
 
-	Line->own_value = Heap::MachineInteger(1);
+	Line->own_value = Pool::MachineInteger(1);
     std::cout << "In[" << 1 << "]:= ";
     for (std::string line; std::getline(std::cin, line);) {
 	    if (line.empty()) {
@@ -163,7 +163,7 @@ void mini_console() {
 
 		// FIXME use increment().
 		assert(Line->own_value && Line->own_value->type() == MachineIntegerType);
-		Line->own_value = Heap::MachineInteger(
+		Line->own_value = Pool::MachineInteger(
 			static_cast<const MachineInteger*>(Line->own_value.get())->value + 1);
 
 		std::cout << std::endl;
@@ -173,7 +173,7 @@ void mini_console() {
 }
 
 int main() {
-    Heap::init();
+    Pool::init();
 	EvaluateDispatch::init();
 	InstantiateSymbolicForm::init();
 

@@ -55,7 +55,7 @@ public:
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Heap::SymbolicForm(SymEngine::real_double(value));
+        return Pool::SymbolicForm(SymEngine::real_double(value));
     }
 };
 
@@ -151,7 +151,7 @@ protected:
 
         SymEngine::mpfr_class x;
         arf_get_mpfr(x.get_mpfr_t(), arb_midref(value), MPFR_RNDN);
-        return Heap::SymbolicForm(SymEngine::real_mpfr(x));
+        return Pool::SymbolicForm(SymEngine::real_mpfr(x));
     }
 };
 

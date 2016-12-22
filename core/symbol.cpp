@@ -2,6 +2,7 @@
 #include "expression.h"
 #include "symbol.h"
 #include "builtin.h"
+#include "matcher.h"
 
 void Messages::add(
     const SymbolRef &name,
@@ -10,9 +11,9 @@ void Messages::add(
     const Definitions &definitions) {
 
 	m_rules.add(
-		std::make_shared<DownRule>(
-			expression(definitions.symbols().MessageName, name, Heap::String(std::string(tag))),
-				Heap::String(std::string(text))));
+		new DownRule(
+			expression(definitions.symbols().MessageName, name, Pool::String(std::string(tag))),
+				Pool::String(std::string(text))));
 }
 
 StringRef Messages::lookup(
@@ -40,7 +41,7 @@ void Symbol::add_message(
 
 	SymbolRules *rules = create_rules();
     if (!rules->messages) {
-	    rules->messages = std::make_shared<Messages>();
+	    rules->messages = new Messages();
     }
 	rules->messages->add(SymbolRef(this), tag, text, definitions);
 }
@@ -60,16 +61,16 @@ StringRef Symbol::lookup_message(
 SymbolicFormRef Symbol::instantiate_symbolic_form() const {
     switch (extended_type()) {
         case SymbolI:
-            return Heap::SymbolicForm(SymEngine::I);
+            return Pool::SymbolicForm(SymEngine::I);
 
         case SymbolPi:
-            return Heap::SymbolicForm(SymEngine::pi);
+            return Pool::SymbolicForm(SymEngine::pi);
 
         case SymbolE:
-            return Heap::SymbolicForm(SymEngine::E);
+            return Pool::SymbolicForm(SymEngine::E);
 
         case SymbolEulerGamma:
-            return Heap::SymbolicForm(SymEngine::EulerGamma);
+            return Pool::SymbolicForm(SymEngine::EulerGamma);
 
         default: {
             // quite a hack currently. we store the pointer to our symbol to avoid having
@@ -78,7 +79,7 @@ SymbolicFormRef Symbol::instantiate_symbolic_form() const {
             const Symbol * const addr = this;
             std::string name;
             name.append(reinterpret_cast<const char*>(&addr), sizeof(addr) / sizeof(char));
-            return Heap::SymbolicForm(SymEngine::symbol(name));
+            return Pool::SymbolicForm(SymEngine::symbol(name));
         }
     }
 }

@@ -11,8 +11,8 @@
 Evaluation::Evaluation(Definitions &new_definitions, bool new_catch_interrupts) :
 	Symbols(new_definitions.symbols()),
 	definitions(new_definitions),
-	zero(Heap::MachineInteger(0)),
-	one(Heap::MachineInteger(1)) {
+	zero(Pool::MachineInteger(0)),
+	one(Pool::MachineInteger(1)) {
 
     recursion_depth = 0;
     timeout = false;

@@ -3,15 +3,11 @@
 
 #include <unordered_set>
 
-class PatternMatcher;
-
-typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
-
 class FunctionBody;
 
-typedef std::shared_ptr<FunctionBody> FunctionBodyRef;
+typedef boost::intrusive_ptr<FunctionBody> FunctionBodyRef;
 
-class FunctionBody {
+class FunctionBody : public Shared<FunctionBody, SharedHeap> {
 public:
     class Node {
     private:
@@ -65,33 +61,6 @@ public:
         const Arguments &args) const;
 };
 
-struct SlotDirective {
-	enum Action {
-		Slot,
-		Copy,
-		Descend
-	};
-
-	const Action m_action;
-	const index_t m_slot;
-
-	inline SlotDirective(Action action, index_t slot = 0) :
-		m_action(action), m_slot(slot) {
-	}
-
-	inline static SlotDirective slot(index_t slot) {
-		return SlotDirective(SlotDirective::Slot, slot);
-	}
-
-	inline static SlotDirective copy() {
-		return SlotDirective(SlotDirective::Copy);
-	}
-
-	inline static SlotDirective descend() {
-		return SlotDirective(SlotDirective::Descend);
-	}
-};
-
 template<typename Arguments>
 FunctionBody::Node::Node(
 	Arguments &arguments,
@@ -109,7 +78,7 @@ FunctionBody::Node::Node(
 		case SlotDirective::Descend:
 			m_slot = -1;
 			if (expr->type() == ExpressionType) {
-				m_down = std::make_shared<FunctionBody>(
+				m_down = new FunctionBody(
 					arguments, expr->as_expression());
 			}
 			break;
@@ -118,7 +87,7 @@ FunctionBody::Node::Node(
 	}
 }
 
-struct SlotFunction {
+struct SlotFunction : public Shared<SlotFunction, SharedHeap> {
 private:
     size_t m_slot_count;
     FunctionBodyRef m_function;
@@ -133,25 +102,14 @@ public:
         size_t n_args) const;
 };
 
-typedef std::shared_ptr<SlotFunction> SlotFunctionRef;
+typedef boost::intrusive_ptr<SlotFunction> SlotFunctionRef;
 
-class Cache {
-protected:
-	std::atomic<size_t> m_ref_count;
-
-	friend void intrusive_ptr_add_ref(Cache *cache);
-	friend void intrusive_ptr_release(Cache *cache);
-
+class Cache : public Shared<Cache, SharedPool> {
 public:
     SlotFunctionRef slot_function;
     FunctionBodyRef vars_function;
 	PatternMatcherRef expression_matcher;
 	PatternMatcherRef string_matcher;
-
-	inline Cache() : m_ref_count(0) {
-	}
 };
-
-typedef boost::intrusive_ptr<Cache> CacheRef;
 
 #endif //CMATHICS_CACHE_H

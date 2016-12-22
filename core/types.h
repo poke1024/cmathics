@@ -15,6 +15,48 @@ using std::experimental::optional;
 struct nothing {
 };
 
+class SharedHeap {
+public:
+    template<typename T>
+    inline static void release(const T *obj) {
+        delete obj;
+    }
+};
+
+class SharedPool {
+public:
+    template<typename T>
+    inline static void release(const T *obj);
+};
+
+template<typename T, typename Owner>
+class Shared;
+
+template<typename T, typename Owner>
+inline void intrusive_ptr_add_ref(const Shared<T, Owner> *obj) {
+    ++obj->m_ref_count;
+};
+
+template<typename T, typename Owner>
+inline void intrusive_ptr_release(const Shared<T, Owner> *obj) {
+    if (--obj->m_ref_count == 0) {
+        Owner::release(static_cast<const T*>(obj));
+    }
+};
+
+template<typename T, typename Owner>
+class Shared { // similar to intrusive_ref_counter
+protected:
+    friend void ::intrusive_ptr_add_ref<T, Owner>(const Shared<T, Owner> *obj);
+    friend void ::intrusive_ptr_release<T, Owner>(const Shared<T, Owner> *obj);
+
+    mutable std::atomic<size_t> m_ref_count;
+
+public:
+    inline Shared() : m_ref_count(0) {
+    }
+};
+
 class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
 typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
@@ -294,20 +336,14 @@ static_assert(false, "need WITH_SYMENGINE_THREAD_SAFE");
 
 typedef SymEngine::RCP<const SymEngine::Basic> SymEngineRef;
 
-class SymbolicForm {
+class SymbolicForm : public Shared<SymbolicForm, SharedPool> {
 private:
 	const SymEngineRef m_ref;
 	const bool m_is_simplified; // owner BaseExpression was simplified to this SymbolicForm
 
-protected:
-	friend inline void intrusive_ptr_add_ref(SymbolicForm *form);
-	friend inline void intrusive_ptr_release(SymbolicForm *form);
-
-	std::atomic<size_t> m_ref_count;
-
 public:
 	SymbolicForm(const SymEngineRef &ref, bool is_simplified) :
-		m_ref(ref), m_ref_count(0), m_is_simplified(is_simplified) {
+		m_ref(ref), m_is_simplified(is_simplified) {
 	}
 
 	inline bool is_simplified() const {
@@ -331,7 +367,7 @@ class Expression;
 
 BaseExpressionRef from_symbolic_form(const SymEngineRef &ref, const Evaluation &evaluation);
 
-class BaseExpression {
+class BaseExpression : public Shared<BaseExpression, SharedPool> {
 protected:
     const ExtendedType _extended_type;
 
@@ -348,8 +384,6 @@ protected:
 	}
 
 protected:
-    mutable std::atomic<size_t> _ref_count;
-
 	virtual optional<hash_t> compute_match_hash() const {
 		throw std::runtime_error("compute_match_hash not implemented");
 	}
@@ -358,7 +392,7 @@ public:
     template<typename T>
     inline void set_simplified_form(const SymEngine::RCP<const T> &ref) const;
 
-    inline BaseExpression(ExtendedType type) : _extended_type(type), _ref_count(0) {
+    inline BaseExpression(ExtendedType type) : _extended_type(type) {
     }
 
     virtual ~BaseExpression() {
@@ -473,9 +507,6 @@ public:
 
 	virtual SortKey sort_key() const;
 	virtual SortKey pattern_key() const;
-
-	friend void intrusive_ptr_add_ref(const BaseExpression *expr);
-    friend void intrusive_ptr_release(const BaseExpression *expr);
 };
 
 inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressionRef &b) {
@@ -485,8 +516,13 @@ inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressi
 #include "heap.h"
 
 template<typename T>
+inline void SharedPool::release(const T *obj) {
+    ::Pool::release(const_cast<T*>(obj));
+}
+
+template<typename T>
 inline void BaseExpression::set_simplified_form(const SymEngine::RCP<const T> &ref) const {
-	m_symbolic_form = Heap::SymbolicForm(SymEngine::rcp_static_cast<const SymEngine::Basic>(ref), true);
+	m_symbolic_form = Pool::SymbolicForm(SymEngine::rcp_static_cast<const SymEngine::Basic>(ref), true);
 }
 
 inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
@@ -550,6 +586,17 @@ template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
 class SliceMethod {
 };
 
+#include "pattern.h"
+#include "cache.h"
+
+inline CacheRef Pool::new_cache() {
+	return CacheRef(_s_instance->_caches.construct());
+}
+
+inline void Pool::release(Cache *cache) {
+	_s_instance->_caches.free(cache);
+}
+
 class Expression : public BaseExpression {
 private:
 	mutable CacheRef m_cache;
@@ -576,7 +623,8 @@ public:
 
 	inline Expression(const BaseExpressionRef &head, SliceCode slice_id, const Slice *slice_ptr) :
 		BaseExpression(build_extended_type(ExpressionType, slice_id)),
-		_head(head), _slice_ptr(slice_ptr) {
+		_head(head),
+		_slice_ptr(slice_ptr) {
 	}
 
 	template<size_t N>
@@ -644,7 +692,7 @@ public:
 	inline CacheRef ensure_cache() const { // concurrent.
 		CacheRef cache = m_cache;
 		if (!cache) {
-			cache = Heap::new_cache();
+			cache = Pool::new_cache();
 			m_cache = cache;
 		}
 		return cache;
@@ -661,9 +709,9 @@ public:
 	inline SymbolicFormRef symbolic_n(const SymEngineNAryFunction &f) const {
 		const optional<SymEngine::vec_basic> operands = symbolic_operands();
 		if (operands) {
-			return Heap::SymbolicForm(f(*operands));
+			return Pool::SymbolicForm(f(*operands));
 		} else {
-			return Heap::NoSymbolicForm();
+			return Pool::NoSymbolicForm();
 		}
 	}
 
@@ -696,7 +744,7 @@ inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
 	if (f) {
 		form = f(expr);
 	} else {
-		form = Heap::NoSymbolicForm();
+		form = Pool::NoSymbolicForm();
 	}
 	expr->m_symbolic_form = form;
 	return form;

@@ -1,188 +1,78 @@
-class Match {
-private:
-	PatternMatcherRef m_matcher;
-	std::vector<Slot, SlotAllocator> m_slots;
-	index_t m_slots_fixed;
-
-protected:
-	std::atomic<size_t> m_ref_count;
-
-	friend void intrusive_ptr_add_ref(Match *match);
-	friend void intrusive_ptr_release(Match *match);
-
-public:
-	inline Match() :
-		m_ref_count(0),
-		m_slots_fixed(0) {
-	}
-
-	inline Match(const PatternMatcherRef &matcher) :
-		m_ref_count(0),
-		m_matcher(matcher),
-		m_slots(matcher->variables().size(), Heap::slots_allocator()),
-		m_slots_fixed(0) {
-	}
-
-	inline const BaseExpressionRef *get_matched_value(const Symbol *variable) const {
-		const index_t index = m_matcher->variables().find(variable);
-		if (index >= 0) {
-			return &m_slots[index].value;
-		} else {
-			return nullptr;
-		}
-	}
-
-	inline void reset() {
-		const size_t n = m_slots_fixed;
-		for (size_t i = 0; i < n; i++) {
-			m_slots[m_slots[i].index_to_ith].value.reset();
-		}
-		m_slots_fixed = 0;
-	}
-
-	inline bool assign(const index_t slot_index, const BaseExpressionRef &value) {
-		Slot &slot = m_slots[slot_index];
-		if (slot.value) {
-			return slot.value->same(value);
-		} else {
-			slot.value = value;
-			m_slots[m_slots_fixed++].index_to_ith = slot_index;
-			return true;
-		}
-	}
-
-	inline void unassign(const index_t slot_index) {
-		m_slots_fixed--;
-		assert(m_slots[m_slots_fixed].index_to_ith == slot_index);
-		m_slots[slot_index].value.reset();
-	}
-
-	inline void prepend(Match &match) {
-		const index_t k = m_slots_fixed;
-		const index_t n = match.m_slots_fixed;
-
-		for (index_t i = 0; i < k; i++) {
-			m_slots[i + n].index_to_ith = m_slots[i].index_to_ith;
-		}
-
-		for (index_t i = 0; i < n; i++) {
-			const index_t index = match.m_slots[i].index_to_ith;
-			m_slots[i].index_to_ith = index;
-			m_slots[index].value = match.m_slots[index].value;
-		}
-
-		m_slots_fixed = n + k;
-	}
-
-	inline void backtrack(index_t n) {
-		while (m_slots_fixed > n) {
-			m_slots_fixed--;
-			const index_t index = m_slots[m_slots_fixed].index_to_ith;
-			m_slots[index].value.reset();
-		}
-	}
-
-	inline size_t n_slots_fixed() const {
-		return m_slots_fixed;
-	}
-
-	inline const BaseExpressionRef &ith_slot(index_t i) const {
-		return m_slots[m_slots[i].index_to_ith].value;
-	}
-
-	inline const BaseExpressionRef &slot(index_t i) const {
-		return m_slots[i].value;
-	}
-
-	template<int N>
-	typename BaseExpressionTuple<N>::type unpack() const;
-};
-
-inline void intrusive_ptr_add_ref(Match *match) {
-	match->m_ref_count++;
-}
-
-inline void intrusive_ptr_release(Match *match) {
-	if (--match->m_ref_count == 0) {
-		Heap::release(match);
-	}
-}
-
-inline SymbolRef Heap::Symbol(const char *name, ExtendedType type) {
+inline SymbolRef Pool::Symbol(const char *name, ExtendedType type) {
 	assert(_s_instance);
 	return SymbolRef(_s_instance->_symbols.construct(name, type));
 }
 
-inline BaseExpressionRef Heap::MachineInteger(machine_integer_t value) {
+inline BaseExpressionRef Pool::MachineInteger(machine_integer_t value) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_machine_integers.construct(value));
 }
 
-inline BaseExpressionRef Heap::MachineReal(machine_real_t value) {
+inline BaseExpressionRef Pool::MachineReal(machine_real_t value) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_machine_reals.construct(value));
 }
 
-inline BaseExpressionRef Heap::BigInteger(const mpz_class &value) {
+inline BaseExpressionRef Pool::BigInteger(const mpz_class &value) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_integers.construct(value));
 }
 
-inline BaseExpressionRef Heap::BigInteger(mpz_class &&value) {
+inline BaseExpressionRef Pool::BigInteger(mpz_class &&value) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_integers.construct(value));
 }
 
-inline BaseExpressionRef Heap::BigReal(machine_real_t value, const Precision &prec) {
+inline BaseExpressionRef Pool::BigReal(machine_real_t value, const Precision &prec) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_reals.construct(value, prec));
 }
 
-inline BaseExpressionRef Heap::BigReal(const SymbolicFormRef &form, const Precision &prec) {
+inline BaseExpressionRef Pool::BigReal(const SymbolicFormRef &form, const Precision &prec) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_reals.construct(form, prec));
 }
 
-inline BaseExpressionRef Heap::BigReal(arb_t value, const Precision &prec) {
+inline BaseExpressionRef Pool::BigReal(arb_t value, const Precision &prec) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_reals.construct(value, prec));
 }
 
-inline BaseExpressionRef Heap::BigRational(machine_integer_t x, machine_integer_t y) {
+inline BaseExpressionRef Pool::BigRational(machine_integer_t x, machine_integer_t y) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_rationals.construct(x, y));
 }
 
-inline BaseExpressionRef Heap::BigRational(const mpq_class &value) {
+inline BaseExpressionRef Pool::BigRational(const mpq_class &value) {
 	assert(_s_instance);
 	return _s_instance->_big_rationals.construct(value);
 }
 
-inline StaticExpressionRef<0> Heap::EmptyExpression(const BaseExpressionRef &head) {
+inline StaticExpressionRef<0> Pool::EmptyExpression(const BaseExpressionRef &head) {
 	return StaticExpression<0>(head, EmptySlice());
 }
 
-inline DynamicExpressionRef Heap::Expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
+inline DynamicExpressionRef Pool::Expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
 	assert(_s_instance);
 	return DynamicExpressionRef(_s_instance->_dynamic_expressions.construct(head, slice));
 }
 
-inline StringRef Heap::String(std::string &&utf8) {
+inline StringRef Pool::String(std::string &&utf8) {
 	assert(_s_instance);
 	return StringRef(_s_instance->_strings.construct(utf8));
 }
 
-inline StringRef Heap::String(const StringExtentRef &extent) {
+inline StringRef Pool::String(const StringExtentRef &extent) {
 	assert(_s_instance);
 	return StringRef(_s_instance->_strings.construct(extent));
 }
 
-inline StringRef Heap::String(const StringExtentRef &extent, size_t offset, size_t length) {
+inline StringRef Pool::String(const StringExtentRef &extent, size_t offset, size_t length) {
 	assert(_s_instance);
 	return StringRef(_s_instance->_strings.construct(extent, offset, length));
 }
 
-inline void Heap::release(BaseExpression *expr) {
+inline void Pool::release(BaseExpression *expr) {
 	switch (expr->type()) {
 		case SymbolType:
 			_s_instance->_symbols.free(static_cast<class Symbol*>(expr));
@@ -234,16 +124,16 @@ inline void Heap::release(BaseExpression *expr) {
 	}
 }
 
-inline MatchRef Heap::Match(const PatternMatcherRef &matcher) {
+inline MatchRef Pool::Match(const PatternMatcherRef &matcher) {
 	return _s_instance->_matches.construct(matcher);
 }
 
-inline MatchRef Heap::DefaultMatch() {
+inline MatchRef Pool::DefaultMatch() {
 	return _s_instance->_default_match;
 }
 
 inline BaseExpressionRef from_primitive(machine_integer_t value) {
-	return Heap::MachineInteger(value);
+	return Pool::MachineInteger(value);
 }
 
 static_assert(sizeof(long) == sizeof(machine_integer_t),
@@ -251,58 +141,34 @@ static_assert(sizeof(long) == sizeof(machine_integer_t),
 
 inline BaseExpressionRef from_primitive(const mpz_class &value) {
 	if (value.fits_slong_p()) {
-		return Heap::MachineInteger(machine_integer_t(value.get_si()));
+		return Pool::MachineInteger(machine_integer_t(value.get_si()));
 	} else {
-		return Heap::BigInteger(value);
+		return Pool::BigInteger(value);
 	}
 }
 
 inline BaseExpressionRef from_primitive(mpz_class &&value) {
 	if (value.fits_slong_p()) {
-		return Heap::MachineInteger(machine_integer_t(value.get_si()));
+		return Pool::MachineInteger(machine_integer_t(value.get_si()));
 	} else {
-		return Heap::BigInteger(value);
+		return Pool::BigInteger(value);
 	}
 }
 
 inline BaseExpressionRef from_primitive(machine_real_t value) {
-	return Heap::MachineReal(value);
+	return Pool::MachineReal(value);
 }
 
 inline BaseExpressionRef from_primitive(const mpq_class &value) {
-	return Heap::BigRational(value);
+	return Pool::BigRational(value);
 }
 
 inline BaseExpressionRef from_primitive(const Numeric::Z &value) {
 	return value.to_expression();
 }
 
-inline void intrusive_ptr_add_ref(const BaseExpression *expr) {
-	++expr->_ref_count;
-}
-
-inline void intrusive_ptr_release(const BaseExpression *expr) {
-	if(--expr->_ref_count == 0) {
-		Heap::release(const_cast<BaseExpression*>(expr));
-	}
-}
-
-inline void intrusive_ptr_add_ref(Cache *cache) {
-	++cache->m_ref_count;
-}
-
-inline void intrusive_ptr_release(Cache *cache) {
-	if(--cache->m_ref_count == 0) {
-		Heap::release(cache);
-	}
-}
-
-inline void intrusive_ptr_add_ref(SymbolicForm *form) {
-	++form->m_ref_count;
-}
-
-inline void intrusive_ptr_release(SymbolicForm *form) {
-	if(--form->m_ref_count == 0) {
-		Heap::release(form);
-	}
+inline Match::Match(const PatternMatcherRef &matcher) :
+	m_matcher(matcher),
+	m_slots(matcher->variables().size(), Pool::slots_allocator()),
+	m_slots_fixed(0) {
 }

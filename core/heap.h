@@ -11,8 +11,6 @@
 #include "gmpxx.h"
 #include <arb.h>
 
-#include "cache.h"
-
 class MachineInteger;
 class BigInteger;
 
@@ -26,7 +24,7 @@ class RefsExtent;
 typedef boost::intrusive_ptr<RefsExtent> RefsExtentRef;
 
 class StringExtent;
-typedef std::shared_ptr<StringExtent> StringExtentRef;
+typedef boost::intrusive_ptr<StringExtent> StringExtentRef;
 
 template<int N>
 class StaticSlice;
@@ -59,6 +57,12 @@ using VariableMap = boost::unordered_map<const Symbol*, Value,
 	boost::fast_pool_allocator<std::pair<const Symbol*, Value>>>;
 
 using VariablePtrMap = VariableMap<const BaseExpressionRef*>;
+
+class Cache;
+
+typedef boost::intrusive_ptr<Cache> CacheRef;
+
+#include "pattern.h"
 
 template<int UpToSize>
 class StaticExpressionHeap {
@@ -168,21 +172,9 @@ public:
 	}
 };
 
-struct Slot {
-	// there are two kind of slot indices: (1) the order in which the slots were
-	// ordered when compiling the pattern (this is the natural order of the Slot
-	// array in class Match). (2) the order in which slots are filled when an
-	// expression is matched (this is implemented using index_to_ith).
-
-	BaseExpressionRef value; // slot for variable #i
-	index_t index_to_ith; // index of i-th fixed slot
-};
-
-using SlotAllocator = boost::pool_allocator<Slot>;
-
-class Heap {
+class Pool {
 private:
-	static /*thread_local*/ Heap *_s_instance;
+	static /*thread_local*/ Pool *_s_instance;
 
 	boost::object_pool<Symbol> _symbols;
 
@@ -211,7 +203,7 @@ private:
 	boost::fast_pool_allocator<VariablePtrMap::value_type> _variable_ptr_map;
 	SlotAllocator _slots;
 
-	Heap();
+    Pool();
 
 public:
 	static inline auto variable_ptr_map_allocator() {
@@ -289,13 +281,9 @@ public:
 
 	static inline StringRef String(const StringExtentRef &extent, size_t offset, size_t length);
 
-	static inline CacheRef new_cache() {
-		return CacheRef(_s_instance->_caches.construct());
-	}
+	static inline CacheRef new_cache();
 
-	static inline void release(Cache *cache) {
-		_s_instance->_caches.free(cache);
-	}
+	static inline void release(Cache *cache);
 
 	static inline RefsExtentRef RefsExtent(const std::vector<BaseExpressionRef> &data);
 

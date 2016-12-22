@@ -133,7 +133,7 @@ void InstantiateSymbolicForm::init() {
         if (expr->size() == 2) {
             return expr->symbolic_2(SymEngine::pow);
         } else {
-            return Heap::NoSymbolicForm();
+            return Pool::NoSymbolicForm();
         }
     });
 
@@ -143,7 +143,7 @@ void InstantiateSymbolicForm::init() {
 		} else if (expr->size() == 2) {
 			return expr->symbolic_2(SymEngine::log);
 		} else {
-			return Heap::NoSymbolicForm();
+			return Pool::NoSymbolicForm();
 		}
 	});
 
@@ -151,7 +151,7 @@ void InstantiateSymbolicForm::init() {
         if (expr->size() == 1) {
             return expr->symbolic_1(SymEngine::cos);
         } else {
-            return Heap::NoSymbolicForm();
+            return Pool::NoSymbolicForm();
         }
     });
 
@@ -159,7 +159,7 @@ void InstantiateSymbolicForm::init() {
         if (expr->size() == 1) {
             return expr->symbolic_1(SymEngine::sin);
         } else {
-            return Heap::NoSymbolicForm();
+            return Pool::NoSymbolicForm();
         }
     });
 
@@ -167,7 +167,7 @@ void InstantiateSymbolicForm::init() {
 		if (expr->size() == 1) {
 			return expr->symbolic_1(SymEngine::tan);
 		} else {
-			return Heap::NoSymbolicForm();
+			return Pool::NoSymbolicForm();
 		}
 	});
 }
@@ -200,7 +200,7 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 
 		case SymEngine::REAL_DOUBLE: {
 			const machine_real_t &value(static_cast<const SymEngine::RealDouble*>(form.get())->i);
-			expr = Heap::MachineReal(value);
+			expr = Pool::MachineReal(value);
 			break;
 		}
 
@@ -219,13 +219,13 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 
 			arf_clear(temp);
 
-			expr = Heap::BigReal(r, Precision(value.get_prec()));
+			expr = Pool::BigReal(r, Precision(value.get_prec()));
 			break;
 		}
 
 		case SymEngine::RATIONAL: {
 			const mpq_class value(static_cast<const SymEngine::Rational*>(form.get())->i.get_mpq_t());
-			expr = Heap::BigRational(value);
+			expr = Pool::BigRational(value);
             break;
 		}
 

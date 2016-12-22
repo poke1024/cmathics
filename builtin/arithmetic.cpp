@@ -47,31 +47,31 @@ struct Comparison<MachineInteger, BigRational> {
 inline BaseExpressionRef operator+(const MachineInteger &x, const MachineInteger &y) {
 	long r;
 	if (!__builtin_saddl_overflow(x.value, y.value, &r)) {
-		return Heap::MachineInteger(r);
+		return Pool::MachineInteger(r);
 	} else {
-		return Heap::BigInteger(mpz_class(long(x.value)) + long(y.value));
+		return Pool::BigInteger(mpz_class(long(x.value)) + long(y.value));
 	}
 }
 
 inline BaseExpressionRef operator*(const MachineInteger &x, const MachineInteger &y) {
 	long r;
 	if (!__builtin_smull_overflow(x.value, y.value, &r)) {
-		return Heap::MachineInteger(r);
+		return Pool::MachineInteger(r);
 	} else {
-		return Heap::BigInteger(mpz_class(long(x.value)) * long(y.value));
+		return Pool::BigInteger(mpz_class(long(x.value)) * long(y.value));
 	}
 }
 
 inline BaseExpressionRef operator+(const MachineReal &x, const MachineReal &y) {
-	return Heap::MachineReal(x.value + y.value);
+	return Pool::MachineReal(x.value + y.value);
 }
 
 inline BaseExpressionRef operator+(const BigInteger &x, const BigInteger &y) {
-	return Heap::BigInteger(x.value + y.value);
+	return Pool::BigInteger(x.value + y.value);
 }
 
 inline BaseExpressionRef operator+(const BigInteger &x, const MachineInteger &y) {
-	return Heap::BigInteger(x.value + long(y.value));
+	return Pool::BigInteger(x.value + long(y.value));
 }
 
 inline BaseExpressionRef operator+(const MachineInteger &x, const BigInteger &y) {
@@ -79,7 +79,7 @@ inline BaseExpressionRef operator+(const MachineInteger &x, const BigInteger &y)
 }
 
 inline BaseExpressionRef operator+(const BigInteger &x, const MachineReal &y) {
-	return Heap::MachineReal(x.value.get_d() + y.value);
+	return Pool::MachineReal(x.value.get_d() + y.value);
 }
 
 inline BaseExpressionRef operator+(const MachineReal &x, const BigInteger &y) {
@@ -97,7 +97,7 @@ inline BaseExpressionRef operator+(const BigInteger &x, const BigReal &y) {
 
 	arf_clear(temp);
 
-	return Heap::BigReal(r, y.prec);
+	return Pool::BigReal(r, y.prec);
 }
 
 inline BaseExpressionRef operator+(const BigReal &x, const BigInteger &y) {
@@ -105,7 +105,7 @@ inline BaseExpressionRef operator+(const BigReal &x, const BigInteger &y) {
 }
 
 inline BaseExpressionRef operator+(const BigRational &x, const BigInteger &y) {
-	return Heap::BigRational(x.value + y.value);
+	return Pool::BigRational(x.value + y.value);
 }
 
 inline BaseExpressionRef operator+(const BigInteger &x, const BigRational &y) {
@@ -113,7 +113,7 @@ inline BaseExpressionRef operator+(const BigInteger &x, const BigRational &y) {
 }
 
 inline BaseExpressionRef operator+(const BigRational &x, const MachineInteger &y) {
-	return Heap::BigRational(x.value + long(y.value));
+	return Pool::BigRational(x.value + long(y.value));
 }
 
 inline BaseExpressionRef operator+(const MachineInteger &x, const BigRational &y) {
@@ -121,7 +121,7 @@ inline BaseExpressionRef operator+(const MachineInteger &x, const BigRational &y
 }
 
 inline BaseExpressionRef operator+(const MachineReal &x, const BigRational &y) {
-	return Heap::MachineReal(x.value + y.value.get_d());
+	return Pool::MachineReal(x.value + y.value.get_d());
 }
 
 inline BaseExpressionRef operator+(const BigRational &x, const MachineReal &y) {
@@ -129,7 +129,7 @@ inline BaseExpressionRef operator+(const BigRational &x, const MachineReal &y) {
 }
 
 inline BaseExpressionRef operator+(const MachineReal &x, const MachineInteger &y) {
-	return Heap::MachineReal(x.value + y.value);
+	return Pool::MachineReal(x.value + y.value);
 }
 
 inline BaseExpressionRef operator+(const MachineInteger &x, const MachineReal &y) {
@@ -140,7 +140,7 @@ inline BaseExpressionRef operator+(const MachineInteger &x, const BigReal &y) {
 	arb_t r;
 	arb_init(r);
 	arb_add_si(r, y.value, long(x.value), y.prec.bits);
-	return Heap::BigReal(r, y.prec);
+	return Pool::BigReal(r, y.prec);
 }
 
 inline BaseExpressionRef operator+(const BigReal &x, const MachineInteger &y) {
@@ -148,7 +148,7 @@ inline BaseExpressionRef operator+(const BigReal &x, const MachineInteger &y) {
 }
 
 inline BaseExpressionRef operator+(const MachineReal &x, const BigReal &y) {
-	return Heap::MachineReal(x.value + y.as_double());
+	return Pool::MachineReal(x.value + y.as_double());
 }
 
 inline BaseExpressionRef operator+(const BigReal &x, const MachineReal &y) {
@@ -159,7 +159,7 @@ inline BaseExpressionRef operator+(const BigReal &x, const BigReal &y) {
 	arb_t r;
 	arb_init(r);
 	arb_add(r, x.value, y.value, std::min(x.prec.bits, y.prec.bits));
-	return Heap::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
+	return Pool::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
 }
 
 inline BaseExpressionRef operator+(const BigRational &x, const BigReal &y) {
@@ -183,7 +183,7 @@ inline BaseExpressionRef operator+(const BigRational &x, const BigReal &y) {
 	arf_clear(den);
 	arf_clear(q);
 
-	return Heap::BigReal(r, y.prec);
+	return Pool::BigReal(r, y.prec);
 }
 
 inline BaseExpressionRef operator+(const BigReal &x, const BigRational &y) {
@@ -191,15 +191,15 @@ inline BaseExpressionRef operator+(const BigReal &x, const BigRational &y) {
 }
 
 inline BaseExpressionRef operator+(const BigRational &x, const BigRational &y) {
-	return Heap::BigRational(x.value + y.value);
+	return Pool::BigRational(x.value + y.value);
 }
 
 inline BaseExpressionRef operator*(const BigInteger &x, const BigInteger &y) {
-	return Heap::BigInteger(x.value * y.value);
+	return Pool::BigInteger(x.value * y.value);
 }
 
 inline BaseExpressionRef operator*(const BigInteger &x, const MachineInteger &y) {
-	return Heap::BigInteger(x.value * long(y.value));
+	return Pool::BigInteger(x.value * long(y.value));
 }
 
 inline BaseExpressionRef operator*(const MachineInteger &x, const BigInteger &y) {
@@ -211,7 +211,7 @@ inline BaseExpressionRef operator*(const BigRational &x, const MachineInteger &y
 	if (q.get_den() == 1) {
 		return from_primitive(q.get_num());
 	} else {
-		return Heap::BigRational(q);
+		return Pool::BigRational(q);
 	}
 }
 
@@ -224,7 +224,7 @@ inline BaseExpressionRef operator*(const BigRational &x, const BigInteger &y) {
 	if (q.get_den() == 1) {
 		return from_primitive(q.get_num());
 	} else {
-		return Heap::BigRational(q);
+		return Pool::BigRational(q);
 	}
 }
 
@@ -233,7 +233,7 @@ inline BaseExpressionRef operator*(const BigInteger &x, const BigRational &y) {
 }
 
 inline BaseExpressionRef operator*(const MachineReal &x, const BigRational &y) {
-	return Heap::MachineReal(x.value * y.value.get_d());
+	return Pool::MachineReal(x.value * y.value.get_d());
 }
 
 inline BaseExpressionRef operator*(const BigRational &x, const MachineReal &y) {
@@ -241,7 +241,7 @@ inline BaseExpressionRef operator*(const BigRational &x, const MachineReal &y) {
 }
 
 inline BaseExpressionRef operator*(const MachineReal &x, const MachineInteger &y) {
-	return Heap::MachineReal(x.value * y.value);
+	return Pool::MachineReal(x.value * y.value);
 }
 
 inline BaseExpressionRef operator*(const MachineInteger &x, const MachineReal &y) {
@@ -249,14 +249,14 @@ inline BaseExpressionRef operator*(const MachineInteger &x, const MachineReal &y
 }
 
 inline BaseExpressionRef operator*(const MachineReal &x, const MachineReal &y) {
-	return Heap::MachineReal(x.value * y.value);
+	return Pool::MachineReal(x.value * y.value);
 }
 
 inline BaseExpressionRef operator*(const MachineInteger &x, const BigReal &y) {
 	arb_t r;
 	arb_init(r);
 	arb_mul_si(r, y.value, long(x.value), y.prec.bits);
-	return Heap::BigReal(r, y.prec);
+	return Pool::BigReal(r, y.prec);
 }
 
 inline BaseExpressionRef operator*(const BigReal &x, const MachineInteger &y) {
@@ -264,7 +264,7 @@ inline BaseExpressionRef operator*(const BigReal &x, const MachineInteger &y) {
 }
 
 inline BaseExpressionRef operator*(const BigInteger &x, const MachineReal &y) {
-	return Heap::MachineReal(x.value.get_d() * y.value);
+	return Pool::MachineReal(x.value.get_d() * y.value);
 }
 
 inline BaseExpressionRef operator*(const MachineReal &x, const BigInteger &y) {
@@ -272,7 +272,7 @@ inline BaseExpressionRef operator*(const MachineReal &x, const BigInteger &y) {
 }
 
 inline BaseExpressionRef operator*(const MachineReal &x, const BigReal &y) {
-	return Heap::MachineReal(x.value * y.as_double());
+	return Pool::MachineReal(x.value * y.as_double());
 }
 
 inline BaseExpressionRef operator*(const BigReal &x, const MachineReal &y) {
@@ -283,7 +283,7 @@ inline BaseExpressionRef operator*(const BigReal &x, const BigReal &y) {
 	arb_t r;
 	arb_init(r);
 	arb_mul(r, x.value, y.value, std::min(x.prec.bits, y.prec.bits));
-	return Heap::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
+	return Pool::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
 }
 
 inline BaseExpressionRef operator*(const BigInteger &x, const BigReal &y) {
@@ -297,7 +297,7 @@ inline BaseExpressionRef operator*(const BigInteger &x, const BigReal &y) {
 
 	arf_clear(temp);
 
-	return Heap::BigReal(r, y.prec);
+	return Pool::BigReal(r, y.prec);
 }
 
 inline BaseExpressionRef operator*(const BigReal &x, const BigInteger &y) {
@@ -325,7 +325,7 @@ inline BaseExpressionRef operator*(const BigRational &x, const BigReal &y) {
 	arf_clear(den);
 	arf_clear(q);
 
-	return Heap::BigReal(r, y.prec);
+	return Pool::BigReal(r, y.prec);
 }
 
 inline BaseExpressionRef operator*(const BigReal &x, const BigRational &y) {
@@ -333,7 +333,7 @@ inline BaseExpressionRef operator*(const BigReal &x, const BigRational &y) {
 }
 
 inline BaseExpressionRef operator*(const BigRational &x, const BigRational &y) {
-	return Heap::BigRational(x.value * y.value);
+	return Pool::BigRational(x.value * y.value);
 }
 
 template<>
@@ -575,9 +575,9 @@ public:
 							static_cast<const MachineInteger*>(divisor)->value;
 						const auto r = std::div(x, y);
 						if (r.rem == 0) {
-							return Heap::MachineInteger(r.quot);
+							return Pool::MachineInteger(r.quot);
 						} else {
-							return Heap::BigRational(x, y);
+							return Pool::BigRational(x, y);
 						}
 					}
 
@@ -586,7 +586,7 @@ public:
 							static_cast<const MachineInteger*>(a)->value;
 						const machine_real_t y =
 							static_cast<const MachineReal*>(divisor)->value;
-						return Heap::MachineReal(x / y);
+						return Pool::MachineReal(x / y);
 					}
 
 					default:
@@ -611,7 +611,7 @@ public:
 							static_cast<const MachineReal*>(a)->value;
 						const machine_integer_t y =
 							static_cast<const MachineInteger*>(divisor)->value;
-						return Heap::MachineReal(x / y);
+						return Pool::MachineReal(x / y);
 					}
 
 					case MachineRealType: {
@@ -619,7 +619,7 @@ public:
 							static_cast<const MachineReal*>(a)->value;
 						const machine_real_t y =
 							static_cast<const MachineReal*>(divisor)->value;
-						return Heap::MachineReal(x / y);
+						return Pool::MachineReal(x / y);
 					}
 
 					default:
@@ -642,7 +642,7 @@ public:
 	virtual BaseExpressionRef try_apply(
         const Expression *expr, const Evaluation &evaluation) const {
 
-		return Heap::MachineInteger(Value);
+		return Pool::MachineInteger(Value);
 	}
 };
 
@@ -705,7 +705,7 @@ inline BaseExpressionRef add_only_machine_reals(const Slice &slice) {
 		result += value;
 	}
 
-	return Heap::MachineReal(result);
+	return Pool::MachineReal(result);
 }
 
 template<typename Slice>
