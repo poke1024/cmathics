@@ -24,7 +24,7 @@ StringRef Messages::lookup(
 		message->slice_code(), message, evaluation);
 
     if (result && result->type() == StringType) {
-        return boost::static_pointer_cast<const String>(result);
+        return static_pointer_cast<const String>(result);
     }
 
     return StringRef();

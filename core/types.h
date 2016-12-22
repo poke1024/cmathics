@@ -6,60 +6,21 @@
 #include <functional>
 #include <vector>
 #include <cstdlib>
-#include <boost/intrusive_ptr.hpp>
-#include <experimental/optional>
 #include <symengine/basic.h>
 
+#include <experimental/optional>
 using std::experimental::optional;
+
+#include <boost/intrusive_ptr.hpp>
+#include "shared.h"
 
 struct nothing {
 };
 
-class SharedHeap {
-public:
-    template<typename T>
-    inline static void release(const T *obj) {
-        delete obj;
-    }
-};
-
-class SharedPool {
-public:
-    template<typename T>
-    inline static void release(const T *obj);
-};
-
-template<typename T, typename Owner>
-class Shared;
-
-template<typename T, typename Owner>
-inline void intrusive_ptr_add_ref(const Shared<T, Owner> *obj) {
-    ++obj->m_ref_count;
-};
-
-template<typename T, typename Owner>
-inline void intrusive_ptr_release(const Shared<T, Owner> *obj) {
-    if (--obj->m_ref_count == 0) {
-        Owner::release(static_cast<const T*>(obj));
-    }
-};
-
-template<typename T, typename Owner>
-class Shared { // similar to intrusive_ref_counter
-protected:
-    friend void ::intrusive_ptr_add_ref<T, Owner>(const Shared<T, Owner> *obj);
-    friend void ::intrusive_ptr_release<T, Owner>(const Shared<T, Owner> *obj);
-
-    mutable std::atomic<size_t> m_ref_count;
-
-public:
-    inline Shared() : m_ref_count(0) {
-    }
-};
 
 class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
-typedef boost::intrusive_ptr<const BaseExpression> BaseExpressionRef;
+typedef SharedPtr<const BaseExpression> BaseExpressionRef;
 
 enum Type : uint8_t { // values represented as bits in TypeMasks
 	SymbolType = 0,
@@ -300,12 +261,12 @@ class MatchContext;
 
 class Match;
 
-typedef boost::intrusive_ptr<Match> MatchRef;
+typedef SharedPtr<Match> MatchRef;
 
 std::ostream &operator<<(std::ostream &s, const MatchRef &m);
 
 class Expression;
-typedef boost::intrusive_ptr<const Expression> ExpressionRef;
+typedef SharedPtr<const Expression> ExpressionRef;
 typedef const Expression *ExpressionPtr;
 
 template<typename S>
@@ -313,17 +274,17 @@ class ExpressionImplementation;
 class DynamicSlice;
 typedef const ExpressionImplementation<DynamicSlice> DynamicExpression;
 typedef const DynamicExpression* DynamicExpressionPtr;
-typedef boost::intrusive_ptr<const DynamicExpression> DynamicExpressionRef;
+typedef SharedPtr<const DynamicExpression> DynamicExpressionRef;
 
 class Symbol;
 
 // in contrast to BaseExpressionRef, SymbolRefs are not constant. Symbols might
 // change, after all, if rules are added.
-typedef boost::intrusive_ptr<Symbol> SymbolRef;
+typedef SharedPtr<Symbol> SymbolRef;
 
 class String;
 
-typedef boost::intrusive_ptr<const String> StringRef;
+typedef SharedPtr<const String> StringRef;
 
 class Evaluation;
 
@@ -360,7 +321,7 @@ public:
 	}
 };
 
-typedef boost::intrusive_ptr<SymbolicForm> SymbolicFormRef;
+typedef SharedPtr<SymbolicForm> SymbolicFormRef;
 
 class BaseExpression;
 class Expression;
@@ -756,7 +717,7 @@ inline SymbolicFormRef symbolic_form<const ExpressionPtr&>(const ExpressionPtr& 
 }
 
 inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
-	s << boost::static_pointer_cast<const BaseExpression>(expr);
+	s << static_pointer_cast<const BaseExpression>(expr);
 	return s;
 }
 

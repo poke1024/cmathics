@@ -50,7 +50,7 @@ class Builtin : public Shared<Builtin, SharedHeap> {
 private:
 	template<typename T>
 	auto shared_from_this() {
-		return boost::intrusive_ptr<T>(static_cast<T*>(this));
+		return SharedPtr<T>(static_cast<T*>(this));
 	}
 
 protected:
@@ -259,7 +259,7 @@ public:
 	}
 };
 
-typedef boost::intrusive_ptr<Builtin> BuiltinRef;
+typedef SharedPtr<Builtin> BuiltinRef;
 
 class Unit {
 private:

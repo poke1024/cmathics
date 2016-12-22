@@ -180,7 +180,7 @@ public:
         index_t end) const;
 };
 
-typedef boost::intrusive_ptr<PatternMatcher> PatternMatcherRef;
+typedef SharedPtr<PatternMatcher> PatternMatcherRef;
 
 struct Slot {
     // there are two kind of slot indices: (1) the order in which the slots were

@@ -5,7 +5,7 @@
 
 class FunctionBody;
 
-typedef boost::intrusive_ptr<FunctionBody> FunctionBodyRef;
+typedef SharedPtr<FunctionBody> FunctionBodyRef;
 
 class FunctionBody : public Shared<FunctionBody, SharedHeap> {
 public:
@@ -102,7 +102,7 @@ public:
         size_t n_args) const;
 };
 
-typedef boost::intrusive_ptr<SlotFunction> SlotFunctionRef;
+typedef SharedPtr<SlotFunction> SlotFunctionRef;
 
 class Cache : public Shared<Cache, SharedPool> {
 public:

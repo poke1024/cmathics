@@ -216,7 +216,7 @@ private:
 	const std::vector<U> _data;
 
 public:
-	typedef boost::intrusive_ptr<PackExtent<U>> Ref;
+	typedef SharedPtr<PackExtent<U>> Ref;
 
 	inline explicit PackExtent(const std::vector<U> &data) : _data(data) {
 	}

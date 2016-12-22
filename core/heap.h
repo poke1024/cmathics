@@ -21,10 +21,10 @@ class MachineReal;
 class BigReal;
 
 class RefsExtent;
-typedef boost::intrusive_ptr<RefsExtent> RefsExtentRef;
+typedef SharedPtr<RefsExtent> RefsExtentRef;
 
 class StringExtent;
-typedef boost::intrusive_ptr<StringExtent> StringExtentRef;
+typedef SharedPtr<StringExtent> StringExtentRef;
 
 template<int N>
 class StaticSlice;
@@ -39,13 +39,13 @@ template<typename U>
 using PackedExpression = ExpressionImplementation<PackedSlice<U>>;
 
 template<typename U>
-using PackedExpressionRef = boost::intrusive_ptr<ExpressionImplementation<PackedSlice<U>>>;
+using PackedExpressionRef = SharedPtr<ExpressionImplementation<PackedSlice<U>>>;
 
 template<int N>
 using StaticExpression = ExpressionImplementation<StaticSlice<N>>;
 
 template<int N>
-using StaticExpressionRef = boost::intrusive_ptr<ExpressionImplementation<StaticSlice<N>>>;
+using StaticExpressionRef = SharedPtr<ExpressionImplementation<StaticSlice<N>>>;
 
 struct SymbolHash {
 	inline std::size_t operator()(const Symbol *symbol) const;
@@ -60,7 +60,7 @@ using VariablePtrMap = VariableMap<const BaseExpressionRef*>;
 
 class Cache;
 
-typedef boost::intrusive_ptr<Cache> CacheRef;
+typedef SharedPtr<Cache> CacheRef;
 
 #include "pattern.h"
 

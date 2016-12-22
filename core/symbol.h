@@ -75,7 +75,7 @@ public:
 	StringRef lookup(const Expression *message, const Evaluation &evaluation) const;
 };
 
-typedef boost::intrusive_ptr<Messages> MessagesRef;
+typedef SharedPtr<Messages> MessagesRef;
 
 struct SymbolRules {
 	Rules sub_rules;

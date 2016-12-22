@@ -516,7 +516,7 @@ ExpressionRef ExpressionImplementation<Slice>::slice(
 template<typename Slice>
 DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(const BaseExpressionRef &self) const {
 	if (std::is_same<Slice, DynamicSlice>()) {
-		return boost::static_pointer_cast<DynamicExpression>(self);
+		return static_pointer_cast<DynamicExpression>(self);
 	} else {
 		std::vector<BaseExpressionRef> leaves;
 		leaves.reserve(_leaves.size());

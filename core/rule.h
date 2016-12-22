@@ -66,7 +66,7 @@ public:
 	}
 };
 
-typedef boost::intrusive_ptr<Rule> RuleRef;
+typedef SharedPtr<Rule> RuleRef;
 
 class Rules {
 public:

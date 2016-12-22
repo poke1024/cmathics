@@ -1461,8 +1461,8 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 		case SymbolPattern:
 			if (patt_end - patt_begin == 2) { // 2 leaves?
 				if ((*patt_begin)->type() == SymbolType) {
-					const SymbolRef variable = boost::const_pointer_cast<Symbol>(
-						boost::static_pointer_cast<const Symbol>(patt_begin[0]));
+					const SymbolRef variable = const_pointer_cast<Symbol>(
+						static_pointer_cast<const Symbol>(patt_begin[0]));
 					const PatternMatcherRef matcher = compile(
 						patt_begin[1], size.from_here(), factory.for_variable(variable));
 					return matcher;

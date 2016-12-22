@@ -23,7 +23,7 @@ BaseExpressionRef Expression::evaluate_expression(
 
 	if (head->type() != SymbolType) {
 		if (head != _head) {
-			const ExpressionRef new_head_expr = boost::static_pointer_cast<const Expression>(clone(head));
+			const ExpressionRef new_head_expr = static_pointer_cast<const Expression>(clone(head));
 			const BaseExpressionRef result = new_head_expr->evaluate_expression_with_non_symbol_head(evaluation);
 			if (result) {
 				return result;
