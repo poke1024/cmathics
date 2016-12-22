@@ -12,7 +12,10 @@ inline BaseExpressionRef assign(
 		const_cast<Symbol*>(name)->add_rule(lhs, rhs);
 	}
 
-	return rhs; // or evaluation.Null?
+	// f[x_] := f[x - 1] will end up in an inifinite recursion
+	// if we do not return Null but rhs here.
+
+	return evaluation.Null;
 }
 
 void Builtins::Assignment::initialize() {
