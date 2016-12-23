@@ -213,7 +213,7 @@ private:
         if (add_ref && p) {
             intrusive_ptr_add_ref(p);
         }
-        T * const q = px.exchange(p);
+        T * const q = px.exchange(p, std::memory_order_acq_rel);
         if (q) {
             intrusive_ptr_release(q);
         }
@@ -287,12 +287,12 @@ public:
 
     intrusive_ptr(intrusive_ptr && rhs) BOOST_NOEXCEPT
     {
-        px.store(rhs.px.exchange(0));
+        px.store(rhs.px.exchange(0, std::memory_order_acq_rel));
     }
 
     intrusive_ptr & operator=(intrusive_ptr && rhs) BOOST_NOEXCEPT
     {
-        set<false>(static_cast<intrusive_ptr&&>(rhs).px.exchange(0));
+        set<false>(static_cast<intrusive_ptr&&>(rhs).px.exchange(0, std::memory_order_acq_rel));
         return *this;
     }
 
@@ -312,7 +312,7 @@ public:
 
     void reset() BOOST_NOEXCEPT
     {
-        T * const q = px.exchange(0);
+        T * const q = px.exchange(0, std::memory_order_acq_rel);
         if (q) {
             intrusive_ptr_release(q);
         }
@@ -335,7 +335,7 @@ public:
 
     T * detach() BOOST_NOEXCEPT
     {
-	    return px.exchange(0);
+	    return px.exchange(0, std::memory_order_acq_rel);
     }
 
     T & operator*() const
