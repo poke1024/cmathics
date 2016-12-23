@@ -181,8 +181,7 @@ public:
 };
 
 typedef ConstSharedPtr<PatternMatcher> PatternMatcherRef;
-typedef SharedPtr<PatternMatcher, std::memory_order_seq_cst> MutablePatternMatcherRef;
-typedef SharedPtr<PatternMatcher, std::memory_order_relaxed> RelaxedPatternMatcherRef;
+typedef SharedPtr<PatternMatcher> MutablePatternMatcherRef;
 typedef UnsafeSharedPtr<PatternMatcher> UnsafePatternMatcherRef;
 
 struct Slot {

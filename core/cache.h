@@ -6,7 +6,7 @@
 class RewriteExpression;
 
 typedef ConstSharedPtr<RewriteExpression> RewriteExpressionRef;
-typedef SharedPtr<RewriteExpression, std::memory_order_relaxed> RelaxedRewriteExpressionRef;
+typedef SharedPtr<RewriteExpression> MutableRewriteExpressionRef;
 typedef UnsafeSharedPtr<RewriteExpression> UnsafeRewriteExpressionRef;
 
 class RewriteBaseExpression {
@@ -51,7 +51,7 @@ public:
 class Rewrite;
 
 typedef ConstSharedPtr<Rewrite> RewriteRef;
-typedef SharedPtr<Rewrite, std::memory_order_relaxed> RelaxedRewriteRef;
+typedef SharedPtr<Rewrite> MutableRewriteRef;
 typedef UnsafeSharedPtr<Rewrite> UnsafeRewriteRef;
 
 class Rewrite : public RewriteBaseExpression, public Shared<Rewrite, SharedHeap> {
@@ -142,7 +142,7 @@ inline RewriteRef Rewrite::construct(
 
 class SlotFunction;
 
-typedef SharedPtr<SlotFunction, std::memory_order_relaxed> RelaxedSlotFunctionRef;
+typedef SharedPtr<SlotFunction> MutableSlotFunctionRef;
 typedef UnsafeSharedPtr<SlotFunction> UnsafeSlotFunctionRef;
 
 struct SlotFunction : public Shared<SlotFunction, SharedHeap> {
@@ -182,13 +182,13 @@ PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt);
 
 class Cache : public Shared<Cache, SharedPool> {
 private:
-	RelaxedRewriteRef m_rewrite;
-	RelaxedPatternMatcherRef m_expression_matcher;
-	RelaxedPatternMatcherRef m_string_matcher;
+	MutableRewriteRef m_rewrite;
+	MutablePatternMatcherRef m_expression_matcher;
+	MutablePatternMatcherRef m_string_matcher;
 
 public:
-	RelaxedSlotFunctionRef slot_function;
-	RelaxedRewriteExpressionRef vars_function;
+	MutableSlotFunctionRef slot_function;
+	MutableRewriteExpressionRef vars_function;
 
 	inline PatternMatcherRef expression_matcher(BaseExpressionPtr expr) { // concurrent.
 		UnsafePatternMatcherRef matcher = m_expression_matcher;

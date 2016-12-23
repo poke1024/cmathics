@@ -61,7 +61,7 @@ using VariablePtrMap = VariableMap<const BaseExpressionRef*>;
 class Cache;
 
 typedef ConstSharedPtr<Cache> CacheRef;
-typedef SharedPtr<Cache, std::memory_order_relaxed> RelaxedCacheRef;
+typedef SharedPtr<Cache> MutableCacheRef;
 typedef UnsafeSharedPtr<Cache> UnsafeCacheRef;
 
 #include "pattern.h"

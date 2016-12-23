@@ -75,7 +75,7 @@ public:
 	StringRef lookup(const Expression *message, const Evaluation &evaluation) const;
 };
 
-typedef SharedPtr<Messages, std::memory_order_seq_cst> MutableMessagesRef;
+typedef SharedPtr<Messages> MutableMessagesRef;
 
 struct SymbolRules {
 	Rules sub_rules;

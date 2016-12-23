@@ -22,7 +22,7 @@ class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
 
 typedef ConstSharedPtr<const BaseExpression> BaseExpressionRef;
-typedef SharedPtr<const BaseExpression, std::memory_order_seq_cst> MutableBaseExpressionRef;
+typedef SharedPtr<const BaseExpression> MutableBaseExpressionRef;
 typedef UnsafeSharedPtr<const BaseExpression> UnsafeBaseExpressionRef;
 
 enum Type : uint8_t { // values represented as bits in TypeMasks
@@ -265,7 +265,7 @@ class MatchContext;
 class Match;
 
 typedef ConstSharedPtr<Match> MatchRef;
-typedef SharedPtr<Match, std::memory_order_seq_cst> MutableMatchRef;
+typedef SharedPtr<Match> MutableMatchRef;
 
 std::ostream &operator<<(std::ostream &s, const MatchRef &m);
 
@@ -283,7 +283,7 @@ typedef ConstSharedPtr<const DynamicExpression> DynamicExpressionRef;
 class Symbol;
 
 typedef ConstSharedPtr<Symbol> SymbolRef;
-typedef SharedPtr<Symbol, std::memory_order_seq_cst> MutableSymbolRef;
+typedef SharedPtr<Symbol> MutableSymbolRef;
 typedef UnsafeSharedPtr<Symbol> UnsafeSymbolRef;
 
 class String;
@@ -327,8 +327,7 @@ public:
 };
 
 typedef ConstSharedPtr<SymbolicForm> SymbolicFormRef;
-typedef SharedPtr<SymbolicForm, std::memory_order_relaxed> RelaxedSymbolicFormRef;
-typedef SharedPtr<SymbolicForm, std::memory_order_seq_cst> MutableSymbolicFormRef;
+typedef SharedPtr<SymbolicForm> MutableSymbolicFormRef;
 typedef UnsafeSharedPtr<SymbolicForm> UnsafeSymbolicFormRef;
 
 class BaseExpression;
@@ -346,7 +345,7 @@ protected:
 
 	friend inline SymbolicFormRef fast_symbolic_form(const Expression *expr);
 
-	mutable RelaxedSymbolicFormRef m_symbolic_form;
+	mutable MutableSymbolicFormRef m_symbolic_form;
 
 	virtual SymbolicFormRef instantiate_symbolic_form() const {
 		throw std::runtime_error("instantiate_symbolic_form not implemented");
@@ -568,7 +567,7 @@ inline void Pool::release(Cache *cache) {
 
 class Expression : public BaseExpression {
 private:
-	mutable RelaxedCacheRef m_cache;
+	mutable MutableCacheRef m_cache;
 
 protected:
 	template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
