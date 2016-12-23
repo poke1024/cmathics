@@ -56,7 +56,7 @@ public:
 class CompiledVariables {
 private:
     VariableMap<index_t> m_indices;
-    std::list<MutableSymbolRef> m_symbols;
+    std::list<UnsafeSymbolRef> m_symbols;
 
 protected:
     friend class PatternFactory;
@@ -181,7 +181,8 @@ public:
 };
 
 typedef ConstSharedPtr<PatternMatcher> PatternMatcherRef;
-typedef SharedPtr<PatternMatcher> MutablePatternMatcherRef;
+typedef SharedPtr<PatternMatcher, std::memory_order_seq_cst> MutablePatternMatcherRef;
+typedef SharedPtr<PatternMatcher, std::memory_order_relaxed> RelaxedPatternMatcherRef;
 typedef UnsafeSharedPtr<PatternMatcher> UnsafePatternMatcherRef;
 
 struct Slot {

@@ -67,7 +67,7 @@ public:
 };
 
 typedef ConstSharedPtr<Rule> RuleRef;
-typedef SharedPtr<Rule> MutableRuleRef;
+typedef SharedPtr<Rule, std::memory_order_seq_cst> MutableRuleRef;
 
 class Rules {
 public:

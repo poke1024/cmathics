@@ -73,23 +73,11 @@ inline typename BaseExpressionTuple<N>::type Match::unpack() const {
 #include "leaves.h"
 
 inline PatternMatcherRef Expression::expression_matcher() const { // concurrent.
-	const CacheRef cache = ensure_cache();
-	UnsafePatternMatcherRef matcher = cache->expression_matcher;
-	if (!matcher) {
-		matcher = compile_expression_pattern(BaseExpressionRef(this));
-		cache->expression_matcher = matcher;
-	}
-	return matcher;
+	return ensure_cache()->expression_matcher(this);
 }
 
 inline PatternMatcherRef Expression::string_matcher() const { // concurrent.
-	const CacheRef cache = ensure_cache();
-	UnsafePatternMatcherRef matcher = cache->string_matcher;
-	if (!matcher) {
-		matcher = compile_string_pattern(BaseExpressionRef(this));
-		cache->string_matcher = matcher;
-	}
-	return matcher;
+	return ensure_cache()->string_matcher(this);
 }
 
 class FastLeafSequence {
@@ -401,7 +389,7 @@ protected:
 	MutablePatternMatcherRef m_matcher;
 
 public:
-	FunctionBody::Node precompile(const BaseExpressionRef &item) const;
+	RewriteBaseExpression prepare(const BaseExpressionRef &item) const;
 };
 
 class Matcher : public MatcherBase {
@@ -493,6 +481,7 @@ template<typename Rule, typename F>
 inline auto match(
     const Rule &rule,
     const F &f,
+	const Expression *cache_owner,
     const Evaluation &evaluation) {
 
     constexpr int has_rhs = std::tuple_size<Rule>::value > 1;
@@ -518,13 +507,10 @@ inline auto match(
             };
 
             if (has_rhs) {
-                CompiledArguments arguments(
-					matcher->variables());
-                const FunctionBody::Node node(
-                    arguments, rhs);
+	            const RewriteRef rewrite = cache_owner->ensure_cache()->rewrite(matcher, rhs);
 
-                return make([&node, &context, &rhs] (const BaseExpressionRef &item) {
-                    return node.replace_or_copy(
+                return make([&rewrite, &context, &rhs] (const BaseExpressionRef &item) {
+                    return rewrite->rewrite_or_copy(
                         rhs->as_expression(),
                         [&context] (index_t i, const BaseExpressionRef &prev) {
                             return context.match->slot(i);

@@ -41,7 +41,7 @@ public:
 		const SymbolRef symbol = _definitions.lookup(full_down.c_str());
 		symbol->set_attributes(T::attributes);
 
-		auto command = std::make_shared<T>(*this, symbol, _definitions);
+		auto command = SharedPtr<T, std::memory_order_seq_cst>(new T(*this, symbol, _definitions));
 		command->build(*this);
     }
 };
@@ -50,7 +50,7 @@ class Builtin : public Shared<Builtin, SharedHeap> {
 private:
 	template<typename T>
 	auto shared_from_this() {
-		return SharedPtr<T>(static_cast<T*>(this));
+		return SharedPtr<T, std::memory_order_seq_cst>(static_cast<T*>(this));
 	}
 
 protected:

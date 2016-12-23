@@ -61,7 +61,7 @@ using VariablePtrMap = VariableMap<const BaseExpressionRef*>;
 class Cache;
 
 typedef ConstSharedPtr<Cache> CacheRef;
-typedef SharedPtr<Cache> MutableCacheRef;
+typedef SharedPtr<Cache, std::memory_order_relaxed> RelaxedCacheRef;
 typedef UnsafeSharedPtr<Cache> UnsafeCacheRef;
 
 #include "pattern.h"
@@ -219,8 +219,6 @@ public:
 public:
     static void init();
 
-    static inline void release(BaseExpression *expr);
-
 	static inline SymbolRef Symbol(const char *name, ExtendedType type);
 
 	static inline BaseExpressionRef MachineInteger(machine_integer_t value);
@@ -285,23 +283,15 @@ public:
 
 	static inline CacheRef new_cache();
 
-	static inline void release(Cache *cache);
-
 	static inline RefsExtentRef RefsExtent(const std::vector<BaseExpressionRef> &data);
 
 	static inline RefsExtentRef RefsExtent(std::vector<BaseExpressionRef> &&data);
 
 	static inline RefsExtentRef RefsExtent(const std::initializer_list<BaseExpressionRef> &data);
 
-	static inline void release(class RefsExtent *extent);
-
 	static inline MatchRef Match(const PatternMatcherRef &matcher);
 
 	static inline MatchRef DefaultMatch();
-
-	static inline void release(class Match *match) {
-		_s_instance->_matches.free(match);
-	}
 
 	static inline SymbolicFormRef SymbolicForm(const SymEngineRef &ref, bool is_simplified = false) {
 		return _s_instance->_symbolic_forms.construct(ref, is_simplified);
@@ -309,6 +299,18 @@ public:
 
 	static inline SymbolicFormRef NoSymbolicForm() {
 		return _s_instance->_no_symbolic_form;
+	}
+
+
+public:
+	static inline void release(BaseExpression *expr);
+
+	static inline void release(class RefsExtent *extent);
+
+	static inline void release(Cache *cache);
+
+	static inline void release(class Match *match) {
+		_s_instance->_matches.free(match);
 	}
 
 	static inline void release(class SymbolicForm *form) {

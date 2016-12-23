@@ -97,14 +97,14 @@ public:
     }
 };
 
-SlotFunction::SlotFunction(const Expression *body) {
+UnsafeSlotFunctionRef SlotFunction::construct(const Expression *body) {
     SlotArguments arguments;
-    m_function = new FunctionBody(arguments, body);
-    m_slot_count = arguments.slot_count();
+    return UnsafeSlotFunctionRef(new SlotFunction(
+        new RewriteExpression(arguments, body), arguments.slot_count()));
 }
 
 template<typename Arguments>
-inline BaseExpressionRef SlotFunction::replace_or_copy(
+inline BaseExpressionRef SlotFunction::rewrite_or_copy(
     const Expression *body,
     const Arguments &args,
     size_t n_args) const {
@@ -113,7 +113,7 @@ inline BaseExpressionRef SlotFunction::replace_or_copy(
         throw std::runtime_error("wrong slot count");
     }
 
-    return m_function->replace_or_copy(body, args);
+    return m_rewrite->rewrite_or_copy(body, args);
 }
 
 class FunctionRule : public Rule {
@@ -127,16 +127,16 @@ private:
         }
 
         const CacheRef cache = args->ensure_cache();
-        SlotFunctionRef slot_function = cache->slot_function;
+	    UnsafeSlotFunctionRef slot_function = cache->slot_function;
 
         if (!slot_function) {
-            slot_function = new SlotFunction(body->as_expression());
+            slot_function = SlotFunction::construct(body->as_expression());
             cache->slot_function = slot_function;
         }
 
         return args->with_leaves_array(
             [&slot_function, &body] (const BaseExpressionRef *args, size_t n_args) {
-                return slot_function->replace_or_copy(
+                return slot_function->rewrite_or_copy(
                     body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
 		                return args[i];
                     }, n_args);
@@ -159,7 +159,7 @@ private:
         }
 
         const CacheRef cache = args->ensure_cache();
-        FunctionBodyRef vars_function = cache->vars_function;
+	    UnsafeRewriteExpressionRef vars_function = cache->vars_function;
 
         if (!vars_function) {
             try {
@@ -171,7 +171,7 @@ private:
                             arguments.add(vars[i], i);
                         }
 
-                        return FunctionBodyRef(new FunctionBody(
+                        return UnsafeRewriteExpressionRef(new RewriteExpression(
                             arguments, body->as_expression()));
                     });
             } catch(const InvalidVariable&) {
@@ -183,7 +183,7 @@ private:
 
         return args->with_leaves_array(
             [&vars_function, &body] (const BaseExpressionRef *args, size_t n_args) {
-                return vars_function->replace_or_copy(
+                return vars_function->rewrite_or_copy(
                     body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
 		                return args[i];
 	                });

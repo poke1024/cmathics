@@ -1528,9 +1528,9 @@ index_t PatternMatcher::match(
     }
 }
 
-FunctionBody::Node MatcherBase::precompile(const BaseExpressionRef &item) const {
+RewriteBaseExpression MatcherBase::prepare(const BaseExpressionRef &item) const {
     CompiledArguments arguments(
         m_matcher->variables());
-    return FunctionBody::Node(
+    return RewriteBaseExpression::construct(
         arguments, item->as_expression());
 }

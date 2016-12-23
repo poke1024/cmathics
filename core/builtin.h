@@ -278,7 +278,7 @@ inline NewRuleRef make_pattern_matched_builtin_rule(
 	const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
 
 	return [patt, func] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
-		return std::make_shared<PatternMatchedBuiltinRule<N>>(patt, func);
+		return new PatternMatchedBuiltinRule<N>(patt, func);
 	};
 }
 
@@ -287,17 +287,17 @@ class RewriteRule : public Rule {
 private:
 	const BaseExpressionRef m_into;
 	const Matcher m_matcher;
-	const FunctionBody::Node m_node;
+	const RewriteBaseExpression m_rewrite;
 
 public:
 	RewriteRule(const BaseExpressionRef &patt, const BaseExpressionRef &into) :
-		Rule(patt), m_into(into), m_matcher(patt), m_node(m_matcher.precompile(into)) {
+		Rule(patt), m_into(into), m_matcher(patt), m_rewrite(m_matcher.prepare(into)) {
 	}
 
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		const MatchRef m = m_matcher(expr, evaluation);
 		if (m) {
-            return m_node.replace_or_copy(
+            return m_rewrite.rewrite_or_copy(
                 m_into->as_expression(),
                 [&m] (index_t i, const BaseExpressionRef &prev) {
                     const BaseExpressionRef &slot = m->slot(i);

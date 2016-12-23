@@ -45,12 +45,12 @@ public:
 // ConstSharedPtr is a SharedPtr that never changes what it's pointing to.
 
 namespace thread_safe_intrusive_ptr {
-	template<typename T>
+	template<typename T, std::memory_order MemoryOrder>
 	class intrusive_ptr;
 };
 
-template<typename T>
-using SharedPtr = thread_safe_intrusive_ptr::intrusive_ptr<T>;
+template<typename T, std::memory_order MemoryOrder>
+using SharedPtr = thread_safe_intrusive_ptr::intrusive_ptr<T, MemoryOrder>;
 
 template<typename T>
 class ConstSharedPtr {
@@ -85,7 +85,8 @@ public:
 		}
 	}
 
-	ConstSharedPtr(const SharedPtr<T> &p);
+	template<std::memory_order MemoryOrder>
+	ConstSharedPtr(const SharedPtr<T, MemoryOrder> &p);
 
 	~ConstSharedPtr() {
 		if (m_ptr) {
@@ -179,7 +180,7 @@ static_assert(sizeof(UnsafeSharedPtr<int>) == sizeof(ConstSharedPtr<int>),
 
 namespace thread_safe_intrusive_ptr {
 
-template<class T> class intrusive_ptr
+template<class T, std::memory_order MO> class intrusive_ptr
 {
 private:
 
@@ -190,7 +191,7 @@ private:
         if (add_ref && p) {
             intrusive_ptr_add_ref(p);
         }
-        T * const q = px.exchange(p);
+        T * const q = px.exchange(p, MO);
         if (q) {
             intrusive_ptr_release(q);
         }
@@ -202,7 +203,7 @@ public:
 
 	intrusive_ptr(const ConstSharedPtr<T> &rhs) {
 		T * const p = rhs.get();
-		px = p;
+		px.store(p, MO);
 		if( p != 0 ) intrusive_ptr_add_ref( p );
 	}
 
@@ -220,16 +221,16 @@ public:
     template<class U>
 #if !defined( BOOST_SP_NO_SP_CONVERTIBLE )
 
-    intrusive_ptr( intrusive_ptr<U> const & rhs, typename boost::detail::sp_enable_if_convertible<U,T>::type = boost::detail::sp_empty() )
+    intrusive_ptr( intrusive_ptr<U, MO> const & rhs, typename boost::detail::sp_enable_if_convertible<U,T>::type = boost::detail::sp_empty() )
 
 #else
 
-    intrusive_ptr( intrusive_ptr<U> const & rhs )
+    intrusive_ptr( intrusive_ptr<U, MO> const & rhs )
 
 #endif
     {
         T * const p = rhs.get();
-        px = p;
+        px.store(p, MO);
         if( p != 0 ) intrusive_ptr_add_ref( p );
     }
 
@@ -238,19 +239,19 @@ public:
     intrusive_ptr(intrusive_ptr const & rhs)
     {
         T * const p = rhs.get();
-        px = p;
+        px.store(p, MO);
         if( p != 0 ) intrusive_ptr_add_ref( p );
     }
 
     ~intrusive_ptr()
     {
-        T * const p = px.load();
+        T * const p = px.load(MO);
         if( p != 0 ) intrusive_ptr_release( p );
     }
 
 #if !defined(BOOST_NO_MEMBER_TEMPLATES) || defined(BOOST_MSVC6_MEMBER_TEMPLATES)
 
-    template<class U> intrusive_ptr & operator=(intrusive_ptr<U> const & rhs)
+    template<class U, std::memory_order UMO> intrusive_ptr & operator=(intrusive_ptr<U, UMO> const & rhs)
     {
         set(rhs.get());
         return *this;
@@ -264,12 +265,14 @@ public:
 
     intrusive_ptr(intrusive_ptr && rhs) BOOST_NOEXCEPT
     {
-        px.store(rhs.px.exchange(0));
+	    // move semantics should never happen across two threads.
+        px.store(rhs.px.exchange(0, std::memory_order_relaxed));
     }
 
     intrusive_ptr & operator=(intrusive_ptr && rhs) BOOST_NOEXCEPT
     {
-        set<false>(static_cast<intrusive_ptr&&>(rhs).px.exchange(0));
+	    // move semantics should never happen across two threads.
+        set<false>(static_cast<intrusive_ptr&&>(rhs).px.exchange(0, std::memory_order_relaxed));
         return *this;
     }
 
@@ -277,7 +280,7 @@ public:
 
     intrusive_ptr & operator=(intrusive_ptr const & rhs)
     {
-        set(rhs.px.load());
+        set(rhs.px.load(MO));
         return *this;
     }
 
@@ -289,7 +292,7 @@ public:
 
     void reset() BOOST_NOEXCEPT
     {
-        T * const q = px.exchange(0);
+        T * const q = px.exchange(0, MO);
         if (q) {
             intrusive_ptr_release(q);
         }
@@ -307,26 +310,24 @@ public:
 
     T * get() const BOOST_NOEXCEPT
     {
-        return px;
+        return px.load(MO);
     }
 
     T * detach() BOOST_NOEXCEPT
     {
-        T * ret = px;
-        px = 0;
-        return ret;
+	    return px.exchange(0, MO);
     }
 
     T & operator*() const
     {
         BOOST_ASSERT( px != 0 );
-        return *px;
+        return *px.load(MO);
     }
 
     T * operator->() const
     {
         BOOST_ASSERT( px != 0 );
-        return px;
+        return px.load(MO);
     }
 
 	intrusive_ptr &operator=(const ConstSharedPtr<T> &v) {
@@ -342,32 +343,32 @@ private:
     std::atomic<T*> px;
 };
 
-template<class T, class U> inline bool operator==(intrusive_ptr<T> const & a, intrusive_ptr<U> const & b)
+template<class T, class U, std::memory_order MO> inline bool operator==(intrusive_ptr<T, MO> const & a, intrusive_ptr<U, MO> const & b)
 {
     return a.get() == b.get();
 }
 
-template<class T, class U> inline bool operator!=(intrusive_ptr<T> const & a, intrusive_ptr<U> const & b)
+template<class T, class U, std::memory_order MO> inline bool operator!=(intrusive_ptr<T, MO> const & a, intrusive_ptr<U, MO> const & b)
 {
     return a.get() != b.get();
 }
 
-template<class T, class U> inline bool operator==(intrusive_ptr<T> const & a, U * b)
+template<class T, class U, std::memory_order MO> inline bool operator==(intrusive_ptr<T, MO> const & a, U * b)
 {
     return a.get() == b;
 }
 
-template<class T, class U> inline bool operator!=(intrusive_ptr<T> const & a, U * b)
+template<class T, class U, std::memory_order MO> inline bool operator!=(intrusive_ptr<T, MO> const & a, U * b)
 {
     return a.get() != b;
 }
 
-template<class T, class U> inline bool operator==(T * a, intrusive_ptr<U> const & b)
+template<class T, class U, std::memory_order MO> inline bool operator==(T * a, intrusive_ptr<U, MO> const & b)
 {
     return a == b.get();
 }
 
-template<class T, class U> inline bool operator!=(T * a, intrusive_ptr<U> const & b)
+template<class T, class U, std::memory_order MO> inline bool operator!=(T * a, intrusive_ptr<U, MO> const & b)
 {
     return a != b.get();
 }
@@ -385,29 +386,29 @@ template<class T> inline bool operator!=(intrusive_ptr<T> const & a, intrusive_p
 
 #if !defined( BOOST_NO_CXX11_NULLPTR )
 
-template<class T> inline bool operator==( intrusive_ptr<T> const & p, boost::detail::sp_nullptr_t ) BOOST_NOEXCEPT
+template<class T, std::memory_order MO> inline bool operator==( intrusive_ptr<T, MO> const & p, boost::detail::sp_nullptr_t ) BOOST_NOEXCEPT
 {
     return p.get() == 0;
 }
 
-template<class T> inline bool operator==( boost::detail::sp_nullptr_t, intrusive_ptr<T> const & p ) BOOST_NOEXCEPT
+template<class T, std::memory_order MO> inline bool operator==( boost::detail::sp_nullptr_t, intrusive_ptr<T, MO> const & p ) BOOST_NOEXCEPT
 {
     return p.get() == 0;
 }
 
-template<class T> inline bool operator!=( intrusive_ptr<T> const & p, boost::detail::sp_nullptr_t ) BOOST_NOEXCEPT
+template<class T, std::memory_order MO> inline bool operator!=( intrusive_ptr<T, MO> const & p, boost::detail::sp_nullptr_t ) BOOST_NOEXCEPT
 {
     return p.get() != 0;
 }
 
-template<class T> inline bool operator!=( boost::detail::sp_nullptr_t, intrusive_ptr<T> const & p ) BOOST_NOEXCEPT
+template<class T, std::memory_order MO> inline bool operator!=( boost::detail::sp_nullptr_t, intrusive_ptr<T, MO> const & p ) BOOST_NOEXCEPT
 {
     return p.get() != 0;
 }
 
 #endif
 
-template<class T> inline bool operator<(intrusive_ptr<T> const & a, intrusive_ptr<T> const & b)
+template<class T, std::memory_order MO> inline bool operator<(intrusive_ptr<T, MO> const & a, intrusive_ptr<T, MO> const & b)
 {
     return std::less<T *>()(a.get(), b.get());
 }
@@ -419,7 +420,7 @@ template<class T> inline bool operator<(intrusive_ptr<T> const & a, intrusive_pt
 
 // mem_fn support
 
-template<class T> T * get_pointer(intrusive_ptr<T> const & p)
+template<class T, std::memory_order MO> T * get_pointer(intrusive_ptr<T, MO> const & p)
 {
     return p.get();
 }
@@ -461,7 +462,7 @@ template<class Y> std::ostream & operator<< (std::ostream & os, intrusive_ptr<Y>
 using std::basic_ostream;
 template<class E, class T, class Y> basic_ostream<E, T> & operator<< (basic_ostream<E, T> & os, intrusive_ptr<Y> const & p)
 # else
-template<class E, class T, class Y> std::basic_ostream<E, T> & operator<< (std::basic_ostream<E, T> & os, intrusive_ptr<Y> const & p)
+template<class E, class T, class Y, std::memory_order MO> std::basic_ostream<E, T> & operator<< (std::basic_ostream<E, T> & os, intrusive_ptr<Y, MO> const & p)
 # endif
 {
     os << p.get();
@@ -476,28 +477,44 @@ template<class E, class T, class Y> std::basic_ostream<E, T> & operator<< (std::
 
 // hash_value
 
-template< class T > struct hash;
+template<class T, std::memory_order MO> struct hash;
 
-template< class T > std::size_t hash_value( boost::intrusive_ptr<T> const & p )
+template<class T, std::memory_order MO> std::size_t hash_value( intrusive_ptr<T, MO> const & p )
 {
     return boost::hash< T* >()( p.get() );
 }
 
 } // end of namespace thread_safe_intrusive_ptr
 
-template<typename T, typename U>
-inline SharedPtr<T> static_pointer_cast(const SharedPtr<U> &u) {
+template<typename T, typename U, std::memory_order MemoryOrder>
+inline SharedPtr<T, MemoryOrder> static_pointer_cast(const SharedPtr<U, MemoryOrder> &u) {
     return static_cast<T*>(u.get());
 }
 
-template<typename T, typename U>
-inline SharedPtr<T> const_pointer_cast(const SharedPtr<U> &u) {
+template<typename T, typename U, std::memory_order MemoryOrder>
+inline SharedPtr<T, MemoryOrder> const_pointer_cast(const SharedPtr<U, MemoryOrder> &u) {
     return const_cast<T*>(u.get());
 }
 
 template<typename T>
-ConstSharedPtr<T>::ConstSharedPtr(const SharedPtr<T> &p) : m_ptr(p.get()) {
+template<std::memory_order MemoryOrder>
+ConstSharedPtr<T>::ConstSharedPtr(const SharedPtr<T, MemoryOrder> &p) : m_ptr(p.get()) {
 	if (m_ptr) {
 		intrusive_ptr_add_ref(m_ptr);
 	}
 }
+
+template<typename T>
+class ThreadSharedPtr {
+private:
+	T *m_ptr[8];
+
+	// FIXME: each thread gets its own pointers
+
+public:
+	void sync() {
+		// call at start of a thread operation; syncs all n pointers to
+		// the same global initial state.
+	}
+};
+

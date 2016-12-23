@@ -1,7 +1,7 @@
 #include "lists.h"
 #include "../core/definitions.h"
 
-inline const Expression *if_list(const BaseExpressionRef &item) {
+inline const Expression *if_list(const BaseExpressionPtr item) {
     if (item->type() == ExpressionType) {
         const Expression *expr =item->as_expression();
         if (expr->head()->extended_type() == SymbolList) {
@@ -446,7 +446,7 @@ public:
         m_default_ls = expression(
             runtime.definitions().symbols().List, Pool::MachineInteger(1));
 
-        const OptionsInitializerList options = {
+	    const OptionsInitializerList options = {
             {"Heads", offsetof(CasesOptions, Heads), "False"}
         };
 
@@ -460,7 +460,7 @@ public:
         const CasesOptions &options,
         const Evaluation &evaluation) {
 
-        return apply3(list, patt, m_default_ls.get(), options, evaluation);
+	    return apply3(list, patt, m_default_ls.get(), options, evaluation);
     }
 
     inline BaseExpressionRef apply3(
@@ -498,11 +498,13 @@ public:
                 return match(
                     std::make_tuple(rule_form.left_side(), rule_form.right_side()),
                     generate,
+		            patt->as_expression(),
                     evaluation);
             } else {
                 return match(
                     std::make_tuple(patt),
                     generate,
+	                nullptr,
                     evaluation);
 	        }
         } catch (const Levelspec::InvalidError&) {
@@ -842,10 +844,12 @@ public:
 					    Symbol * const iterator = iterator_expr->as_symbol();
 
 					    const BaseExpressionRef &domain = slice[1];
-					    const Expression *domain_list = if_list(domain);
+					    const Expression *domain_list = if_list(domain.get());
 
 					    if (domain_list) {
-						    domain_list = if_list(domain_list->evaluate_or_copy(evaluation));
+						    const BaseExpressionRef domain2 =
+								domain_list->evaluate_or_copy(evaluation);
+						    domain_list = if_list(domain2.get());
 						    if (domain_list) {
 							    return domain_list->map(evaluation.List,
 									[iterator, &f] (const auto &slice, auto &storage) {

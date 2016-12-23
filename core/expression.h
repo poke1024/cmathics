@@ -573,7 +573,7 @@ void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) c
 
 	const ExpressionRef message = expression(
 		symbols.MessageName, name, tag_str);
-	MutableStringRef text_template = static_cast<const Symbol*>(
+	UnsafeStringRef text_template = static_cast<const Symbol*>(
 		name.get())->lookup_message(message.get(), *this);
 
 	if (!text_template) {
@@ -665,32 +665,32 @@ public:
 };
 
 template<typename Arguments>
-std::vector<const FunctionBody::Node> FunctionBody::nodes(
+std::vector<const RewriteBaseExpression> RewriteExpression::nodes(
 	Arguments &arguments,
 	const Expression *body) {
 
 	return body->with_slice([&arguments] (const auto &slice) {
-		std::vector<const Node> refs;
+		std::vector<const RewriteBaseExpression> refs;
 		const size_t n = slice.size();
 		refs.reserve(n);
 		for (size_t i = 0; i < n; i++) {
-			refs.emplace_back(Node(arguments, slice[i]));
+			refs.emplace_back(RewriteBaseExpression::construct(arguments, slice[i]));
 		}
 		return refs;
 	});
 }
 
 template<typename Arguments>
-FunctionBody::FunctionBody(
+RewriteExpression::RewriteExpression(
 	Arguments &arguments,
 	const Expression *body) :
 
-	m_head(Node(arguments, body->head())),
+	m_head(RewriteBaseExpression::construct(arguments, body->head())),
 	m_leaves(nodes(arguments, body)) {
 }
 
 template<typename Arguments>
-inline BaseExpressionRef FunctionBody::replace_or_copy(
+inline BaseExpressionRef RewriteExpression::rewrite_or_copy(
 	const Expression *body,
 	const Arguments &args) const {
 
@@ -702,14 +702,14 @@ inline BaseExpressionRef FunctionBody::replace_or_copy(
 			const auto generate = [&slice, &leaves, &args] (auto &storage) {
 				const size_t n = slice.size();
 				for (size_t i = 0; i < n; i++) {
-					storage << leaves[i].replace_or_copy(slice[i], args);
+					storage << leaves[i].rewrite_or_copy(slice[i], args);
 				}
 				return nothing();
 			};
 
 			nothing state;
 			return ExpressionRef(expression(
-				head.replace_or_copy(body->head(), args),
+				head.rewrite_or_copy(body->head(), args),
 				slice.create(generate, slice.size(), state)));
 		});
 }

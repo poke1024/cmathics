@@ -22,7 +22,7 @@ class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
 
 typedef ConstSharedPtr<const BaseExpression> BaseExpressionRef;
-typedef SharedPtr<const BaseExpression> MutableBaseExpressionRef;
+typedef SharedPtr<const BaseExpression, std::memory_order_seq_cst> MutableBaseExpressionRef;
 typedef UnsafeSharedPtr<const BaseExpression> UnsafeBaseExpressionRef;
 
 enum Type : uint8_t { // values represented as bits in TypeMasks
@@ -265,13 +265,12 @@ class MatchContext;
 class Match;
 
 typedef ConstSharedPtr<Match> MatchRef;
-typedef SharedPtr<Match> MutableMatchRef;
+typedef SharedPtr<Match, std::memory_order_seq_cst> MutableMatchRef;
 
 std::ostream &operator<<(std::ostream &s, const MatchRef &m);
 
 class Expression;
 typedef ConstSharedPtr<const Expression> ExpressionRef;
-typedef SharedPtr<const Expression> MutableExpressionRef;
 typedef UnsafeSharedPtr<const Expression> UnsafeExpressionRef;
 typedef const Expression *ExpressionPtr;
 
@@ -279,19 +278,17 @@ template<typename S>
 class ExpressionImplementation;
 class DynamicSlice;
 typedef const ExpressionImplementation<DynamicSlice> DynamicExpression;
-typedef const DynamicExpression* DynamicExpressionPtr;
 typedef ConstSharedPtr<const DynamicExpression> DynamicExpressionRef;
 
 class Symbol;
 
 typedef ConstSharedPtr<Symbol> SymbolRef;
-typedef SharedPtr<Symbol> MutableSymbolRef;
+typedef SharedPtr<Symbol, std::memory_order_seq_cst> MutableSymbolRef;
 typedef UnsafeSharedPtr<Symbol> UnsafeSymbolRef;
 
 class String;
 
 typedef ConstSharedPtr<const String> StringRef;
-typedef SharedPtr<const String> MutableStringRef;
 typedef UnsafeSharedPtr<const String> UnsafeStringRef;
 
 class Evaluation;
@@ -330,7 +327,8 @@ public:
 };
 
 typedef ConstSharedPtr<SymbolicForm> SymbolicFormRef;
-typedef SharedPtr<SymbolicForm> MutableSymbolicFormRef;
+typedef SharedPtr<SymbolicForm, std::memory_order_relaxed> RelaxedSymbolicFormRef;
+typedef SharedPtr<SymbolicForm, std::memory_order_seq_cst> MutableSymbolicFormRef;
 typedef UnsafeSharedPtr<SymbolicForm> UnsafeSymbolicFormRef;
 
 class BaseExpression;
@@ -348,7 +346,7 @@ protected:
 
 	friend inline SymbolicFormRef fast_symbolic_form(const Expression *expr);
 
-	mutable MutableSymbolicFormRef m_symbolic_form;
+	mutable RelaxedSymbolicFormRef m_symbolic_form;
 
 	virtual SymbolicFormRef instantiate_symbolic_form() const {
 		throw std::runtime_error("instantiate_symbolic_form not implemented");
@@ -570,7 +568,7 @@ inline void Pool::release(Cache *cache) {
 
 class Expression : public BaseExpression {
 private:
-	mutable MutableCacheRef m_cache;
+	mutable RelaxedCacheRef m_cache;
 
 protected:
 	template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
