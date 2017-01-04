@@ -81,8 +81,8 @@ public:
     operator ConstSharedPtr<T>() const {
         while (true) {
             if (m_lock.test_and_set(std::memory_order_acq_rel)) {
-                ConstSharedPtr<T> p(m_ptr);
-                m_lock.clear();
+                ConstSharedPtr<T> p(m_ptr); // must not throw
+                m_lock.clear(std::memory_order_release);
                 return p;
             }
         }
@@ -96,7 +96,7 @@ public:
             if (m_lock.test_and_set(std::memory_order_acq_rel)) {
                 T *old = m_ptr;
                 m_ptr = ptr;
-                m_lock.clear();
+                m_lock.clear(std::memory_order_release);
                 if (old) {
                     intrusive_ptr_release(old);
                 }
