@@ -23,71 +23,6 @@
 #include "core/parser.h"
 #include "core/runtime.h"
 
-#include "builtin/arithmetic.h"
-#include "builtin/assignment.h"
-#include "builtin/control.h"
-#include "builtin/exptrig.h"
-#include "builtin/functional.h"
-#include "builtin/lists.h"
-#include "builtin/strings.h"
-#include "builtin/structure.h"
-#include "builtin/numbertheory.h"
-
-class Experimental : public Unit {
-public:
-	Experimental(Runtime &runtime) : Unit(runtime) {
-	}
-
-	void initialize() {
-		add("N",
-		    Attributes::None, {
-				    builtin<2>([] (
-						    const BaseExpressionRef &expr,
-						    const BaseExpressionRef &n,
-						    const Evaluation &evaluation) {
-
-					    if (n->type() != MachineIntegerType) {
-						    return BaseExpressionRef();
-					    }
-
-					    const SymbolicFormRef form = symbolic_form(expr);
-					    if (!form || form->is_none()) {
-						    return BaseExpressionRef();
-					    }
-
-					    return Pool::BigReal(
-						    form,
-						    Precision(double(static_cast<const MachineInteger*>(n.get())->value)));
-				    })
-		    });
-
-		add("Expand",
-		    Attributes::None, {
-				    builtin<1>([] (
-						    const BaseExpressionRef &expr,
-						    const Evaluation &evaluation) {
-
-					    return expr->expand(evaluation);
-				    })
-		    });
-
-
-		add("Timing",
-		    Attributes::HoldAll, {
-				    builtin<1>(
-						    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
-							    const auto &List = evaluation.List;
-							    const auto start_time = std::chrono::steady_clock::now();
-							    const auto evaluated = expr->evaluate(evaluation);
-							    const auto end_time = std::chrono::steady_clock::now();
-							    const auto microseconds = std::chrono::duration_cast<
-									    std::chrono::microseconds>(end_time - start_time).count();
-							    return expression(List, from_primitive(double(microseconds) / 1000000.0), evaluated);
-						    }
-				    )
-		    });
-	}
-};
 
 void python_test(const char *input) {
     Runtime runtime;
@@ -128,18 +63,6 @@ void python_test(const char *input) {
 void mini_console() {
     Runtime runtime;
 
-	Experimental(runtime).initialize();
-
-	Builtins::Arithmetic(runtime).initialize();
-	Builtins::Assignment(runtime).initialize();
-	Builtins::Control(runtime).initialize();
-	Builtins::ExpTrig(runtime).initialize();
-	Builtins::Functional(runtime).initialize();
-	Builtins::Lists(runtime).initialize();
-	Builtins::Strings(runtime).initialize();
-	Builtins::Structure(runtime).initialize();
-	Builtins::NumberTheory(runtime).initialize();
-
 	const SymbolRef Line = runtime.definitions().symbols().StateLine;
 
 	Line->own_value = Pool::MachineInteger(1);
@@ -176,11 +99,7 @@ void mini_console() {
 }
 
 int main() {
-    Pool::init();
-	EvaluateDispatch::init();
-	InstantiateSymbolicForm::init();
-
-    python::Context context;
+    Runtime::init();
 
     mini_console();
 

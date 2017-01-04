@@ -1,3 +1,5 @@
+// @formatter:off
+
 #include "arithmetic.h"
 #include "../core/definitions.h"
 
@@ -907,3 +909,4 @@ void Builtins::Arithmetic::initialize() {
 			GreaterEqual
 	    });
 }
+

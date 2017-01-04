@@ -5,14 +5,23 @@
 #include "builtin.h"
 #include "parser.h"
 #include "matcher.h"
+#include "python.h"
 
 class Runtime {
 private:
+    python::Context _python_context;
 	Definitions _definitions;
 	Parser _parser;
 
+    static Runtime *s_instance;
+
 public:
+    static void init(); // call once
+
+    static Runtime *get();
+
 	Runtime();
+    ~Runtime();
 
 	inline Definitions &definitions() {
 		return _definitions;

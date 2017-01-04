@@ -1,4 +1,4 @@
-#include <stdlib.h>
+/*#include <stdlib.h>
 #include <gtest/gtest.h>
 #include <gmpxx.h>
 
@@ -36,3 +36,4 @@ TEST(Rational, Rational_numer) {
     EXPECT_EQ(integer->type(), MachineIntegerType);
     EXPECT_EQ(std::static_pointer_cast<const MachineInteger>(integer)->value, 5);
 }
+*/

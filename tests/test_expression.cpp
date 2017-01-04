@@ -1,8 +1,8 @@
-#include <gtest/gtest.h>
+/*#include <gtest/gtest.h>
 
 
 #include "core/expression.h"
-
+*/
 
 /*
 TEST(Symbol, new) {

@@ -1,4 +1,4 @@
-#include <stdlib.h>
+/*#include <stdlib.h>
 #include <gmpxx.h>
 #include <gtest/gtest.h>
 
@@ -82,3 +82,4 @@ TEST(Integer_from_mpz, BigInteger) {
     ASSERT_EQ(result->type(), BigIntegerType);
     EXPECT_STREQ(mpz_get_str(NULL, 16, std::static_pointer_cast<const BigInteger>(result)->value), hex_value);
 }
+*/
