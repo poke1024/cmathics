@@ -67,12 +67,13 @@ public:
 };
 
 typedef ConstSharedPtr<Rule> RuleRef;
-typedef SharedPtr<Rule> MutableRuleRef;
+typedef QuasiConstSharedPtr<Rule> CachedRuleRef;
+typedef UnsafeSharedPtr<Rule> UnsafeRuleRef;
 
 class Rules {
 public:
 	struct Entry {
-		MutableRuleRef rule;
+		UnsafeRuleRef rule;
 		MatchSize match_size;
 		optional<hash_t> match_hash;
 	};

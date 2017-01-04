@@ -181,7 +181,8 @@ public:
 };
 
 typedef ConstSharedPtr<PatternMatcher> PatternMatcherRef;
-typedef SharedPtr<PatternMatcher> MutablePatternMatcherRef;
+typedef QuasiConstSharedPtr<PatternMatcher> CachedPatternMatcherRef;
+// typedef SharedPtr<PatternMatcher> MutablePatternMatcherRef;
 typedef UnsafeSharedPtr<PatternMatcher> UnsafePatternMatcherRef;
 
 struct Slot {

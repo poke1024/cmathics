@@ -155,19 +155,22 @@ void mini_console() {
 		    Evaluation evaluation(runtime.definitions(), true);
 		    BaseExpressionRef evaluated = evaluation.evaluate(expr);
 
-			assert(Line->own_value);
-		    std::cout << "Out[" << Line->own_value->fullform() << "]= " << evaluated << std::endl;
+            const BaseExpressionRef line_number = Line->own_value;
+			assert(line_number);
+		    std::cout << "Out[" << line_number->fullform() << "]= " << evaluated << std::endl;
 	    } catch (parse_exception) {
 		    std::cout << ": " << line << " could not be parsed." << std::endl;
 	    }
 
 		// FIXME use increment().
-		assert(Line->own_value && Line->own_value->type() == MachineIntegerType);
-		Line->own_value = Pool::MachineInteger(
-			static_cast<const MachineInteger*>(Line->own_value.get())->value + 1);
+        const BaseExpressionRef line_number = Line->own_value;
+		assert(line_number && line_number->type() == MachineIntegerType);
+        const BaseExpressionRef new_line_number = Pool::MachineInteger(
+			static_cast<const MachineInteger*>(line_number.get())->value + 1);
+        Line->own_value = new_line_number;
 
 		std::cout << std::endl;
-		std::cout << "In[" << Line->own_value->fullform() << "]:= ";
+		std::cout << "In[" << new_line_number->fullform() << "]:= ";
 	    std::cout.flush();
     }
 }

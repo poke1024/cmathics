@@ -434,7 +434,7 @@ struct CasesOptions {
 
 class Cases : public Builtin {
 private:
-    MutableBaseExpressionRef m_default_ls;
+    CachedBaseExpressionRef m_default_ls;
 
 public:
     static constexpr const char *name = "Cases";
@@ -443,8 +443,8 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        m_default_ls = expression(
-            runtime.definitions().symbols().List, Pool::MachineInteger(1));
+        m_default_ls.initialize(expression(
+            runtime.definitions().symbols().List, Pool::MachineInteger(1)));
 
 	    const OptionsInitializerList options = {
             {"Heads", offsetof(CasesOptions, Heads), "False"}

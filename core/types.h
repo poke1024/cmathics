@@ -22,6 +22,7 @@ class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
 
 typedef ConstSharedPtr<const BaseExpression> BaseExpressionRef;
+typedef QuasiConstSharedPtr<const BaseExpression> CachedBaseExpressionRef;
 typedef SharedPtr<const BaseExpression> MutableBaseExpressionRef;
 typedef UnsafeSharedPtr<const BaseExpression> UnsafeBaseExpressionRef;
 
@@ -265,7 +266,7 @@ class MatchContext;
 class Match;
 
 typedef ConstSharedPtr<Match> MatchRef;
-typedef SharedPtr<Match> MutableMatchRef;
+typedef UnsafeSharedPtr<Match> UnsafeMatchRef;
 
 std::ostream &operator<<(std::ostream &s, const MatchRef &m);
 
@@ -284,6 +285,7 @@ class Symbol;
 
 typedef ConstSharedPtr<Symbol> SymbolRef;
 typedef SharedPtr<Symbol> MutableSymbolRef;
+typedef ConstSharedPtr<Symbol> ConstSymbolRef;
 typedef UnsafeSharedPtr<Symbol> UnsafeSymbolRef;
 
 class String;
@@ -327,7 +329,7 @@ public:
 };
 
 typedef ConstSharedPtr<SymbolicForm> SymbolicFormRef;
-typedef SharedPtr<SymbolicForm> MutableSymbolicFormRef;
+typedef QuasiConstSharedPtr<SymbolicForm> CachedSymbolicFormRef;
 typedef UnsafeSharedPtr<SymbolicForm> UnsafeSymbolicFormRef;
 
 class BaseExpression;
@@ -345,7 +347,7 @@ protected:
 
 	friend inline SymbolicFormRef fast_symbolic_form(const Expression *expr);
 
-	mutable MutableSymbolicFormRef m_symbolic_form;
+	mutable CachedSymbolicFormRef m_symbolic_form;
 
 	virtual SymbolicFormRef instantiate_symbolic_form() const {
 		throw std::runtime_error("instantiate_symbolic_form not implemented");
@@ -490,7 +492,9 @@ inline void SharedPool::release(const T *obj) {
 
 template<typename T>
 inline void BaseExpression::set_simplified_form(const SymEngine::RCP<const T> &ref) const {
-	m_symbolic_form = Pool::SymbolicForm(SymEngine::rcp_static_cast<const SymEngine::Basic>(ref), true);
+	m_symbolic_form.ensure([&ref] () {
+        return Pool::SymbolicForm(SymEngine::rcp_static_cast<const SymEngine::Basic>(ref), true);
+    });
 }
 
 inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
@@ -567,7 +571,7 @@ inline void Pool::release(Cache *cache) {
 
 class Expression : public BaseExpression {
 private:
-	mutable MutableCacheRef m_cache;
+	mutable CachedCacheRef m_cache;
 
 protected:
 	template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
@@ -658,12 +662,9 @@ public:
 	}
 
 	inline CacheRef ensure_cache() const { // concurrent.
-		UnsafeCacheRef cache = m_cache;
-		if (!cache) {
-			cache = Pool::new_cache();
-			m_cache = cache;
-		}
-		return cache;
+        return CacheRef(m_cache.ensure([] () {
+            return Pool::new_cache();
+        }));
 	}
 
 	virtual optional<SymEngine::vec_basic> symbolic_operands() const = 0;
@@ -692,30 +693,21 @@ public:
 
 template<typename T>
 inline SymbolicFormRef symbolic_form(const T &item) {
-	UnsafeSymbolicFormRef form = item->m_symbolic_form;
-
-	if (!form) { // not yet computed?
-		form = item->instantiate_symbolic_form();
-		item->m_symbolic_form = form;
-	}
-
-	return form;
+    return SymbolicFormRef(item->m_symbolic_form.ensure([&item] () {
+        return item->instantiate_symbolic_form();
+    }));
 }
 
 inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
-	UnsafeSymbolicFormRef form = expr->m_symbolic_form;
-	if (form) {
-		return form;
-	}
-	const auto &f = InstantiateSymbolicForm::lookup(
-		expr->_head->extended_type());
-	if (f) {
-		form = f(expr);
-	} else {
-		form = Pool::NoSymbolicForm();
-	}
-	expr->m_symbolic_form = form;
-	return form;
+	return SymbolicFormRef(expr->m_symbolic_form.ensure([expr] () {
+        const auto &f = InstantiateSymbolicForm::lookup(
+            expr->_head->extended_type());
+        if (f) {
+            return f(expr);
+        } else {
+            return Pool::NoSymbolicForm();
+        }
+    }));
 }
 
 template<>

@@ -22,6 +22,9 @@ Pool::Pool() :
 }
 
 void Pool::init() {
+    // we assume: no other threads are running yet; otherwise setting
+    // _default_match would be unsafe.
+
     assert(_s_instance == nullptr);
     _s_instance = new Pool();
 

@@ -40,10 +40,9 @@ void Symbol::add_message(
     const Definitions &definitions) {
 
 	SymbolRules *rules = create_rules();
-    if (!rules->messages) {
-	    rules->messages = new Messages();
-    }
-	rules->messages->add(SymbolRef(this), tag, text, definitions);
+    rules->messages.ensure([] () {
+        return new Messages();
+    })->add(SymbolRef(this), tag, text, definitions);
 }
 
 StringRef Symbol::lookup_message(

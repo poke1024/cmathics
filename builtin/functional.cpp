@@ -127,12 +127,10 @@ private:
         }
 
         const CacheRef cache = args->ensure_cache();
-	    UnsafeSlotFunctionRef slot_function = cache->slot_function;
 
-        if (!slot_function) {
-            slot_function = SlotFunction::construct(body->as_expression());
-            cache->slot_function = slot_function;
-        }
+        ConstSlotFunctionRef slot_function = cache->slot_function.ensure([&body] () {
+            return SlotFunction::construct(body->as_expression());
+        });
 
         return args->with_leaves_array(
             [&slot_function, &body] (const BaseExpressionRef *args, size_t n_args) {
@@ -159,11 +157,10 @@ private:
         }
 
         const CacheRef cache = args->ensure_cache();
-	    UnsafeRewriteExpressionRef vars_function = cache->vars_function;
 
-        if (!vars_function) {
-            try {
-                vars_function = vars->as_expression()->with_leaves_array(
+        try {
+            ConstRewriteExpressionRef vars_function = cache->vars_function.ensure([&vars, &body] () {
+                return vars->as_expression()->with_leaves_array(
                     [&body](const BaseExpressionRef *vars, size_t n_vars) {
                         ListArguments arguments;
 
@@ -174,20 +171,18 @@ private:
                         return UnsafeRewriteExpressionRef(new RewriteExpression(
                             arguments, body->as_expression()));
                     });
-            } catch(const InvalidVariable&) {
-                return BaseExpressionRef();
-            }
-
-            cache->vars_function = vars_function;
-        }
-
-        return args->with_leaves_array(
-            [&vars_function, &body] (const BaseExpressionRef *args, size_t n_args) {
-                return vars_function->rewrite_or_copy(
-                    body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
-		                return args[i];
-	                });
             });
+
+            return args->with_leaves_array(
+                [&vars_function, &body] (const BaseExpressionRef *args, size_t n_args) {
+                    return vars_function->rewrite_or_copy(
+                        body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
+                            return args[i];
+                        });
+                });
+        } catch(const InvalidVariable&) {
+            return BaseExpressionRef();
+        }
     }
 
 public:

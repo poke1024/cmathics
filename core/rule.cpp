@@ -9,6 +9,8 @@ static struct {
 } CompareSortKey;
 
 inline void insert_rule(std::vector<Rules::Entry> &entries, const Rules::Entry &entry) {
+    // FIXME lock.
+
 	const SortKey key = entry.rule->key;
 	const auto i = std::lower_bound(
 		entries.begin(), entries.end(), key, CompareSortKey);

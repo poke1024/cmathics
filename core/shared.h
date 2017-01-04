@@ -42,15 +42,239 @@ public:
     }
 };
 
-// ConstSharedPtr is a SharedPtr that never changes what it's pointing to.
-
-namespace thread_safe_intrusive_ptr {
-	template<typename T>
-	class intrusive_ptr;
-};
+template<typename T>
+class ConstSharedPtr;
 
 template<typename T>
-using SharedPtr = thread_safe_intrusive_ptr::intrusive_ptr<T>;
+class UnsafeSharedPtr;
+
+template<typename T>
+class SharedPtr {
+protected:
+    mutable std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
+	T *m_ptr;
+
+public:
+    SharedPtr() : m_ptr(nullptr) {
+    }
+
+    SharedPtr(T *ptr) : m_ptr(ptr) {
+        if (ptr) {
+            intrusive_ptr_add_ref(ptr);
+        }
+    }
+
+    SharedPtr(const SharedPtr &p) {
+        const ConstSharedPtr<T> const_p(p);
+        m_ptr = const_p.get();
+        if (m_ptr) {
+            intrusive_ptr_add_ref(m_ptr);
+        }
+    }
+
+	~SharedPtr() {
+		if (m_ptr) {
+			intrusive_ptr_release(m_ptr);
+		}
+	}
+
+    operator ConstSharedPtr<T>() const {
+        while (true) {
+            if (m_lock.test_and_set(std::memory_order_acq_rel)) {
+                ConstSharedPtr<T> p(m_ptr);
+                m_lock.clear();
+                return p;
+            }
+        }
+    }
+
+    SharedPtr &operator=(T *ptr) {
+        if (ptr) {
+            intrusive_ptr_add_ref(ptr);
+        }
+        while (true) {
+            if (m_lock.test_and_set(std::memory_order_acq_rel)) {
+                T *old = m_ptr;
+                m_ptr = ptr;
+                m_lock.clear();
+                if (old) {
+                    intrusive_ptr_release(old);
+                }
+                break;
+            }
+        }
+        return *this;
+    }
+
+    SharedPtr &operator=(const SharedPtr &p) {
+        const ConstSharedPtr<T> const_p(p);
+        *this = const_p.get();
+        return *this;
+    }
+
+    template<typename U>
+    SharedPtr &operator=(const ConstSharedPtr<U> &p) {
+        *this = p.get();
+        return *this;
+    }
+};
+
+// a QuasiConstSharedPtr is a fully concurrent shared pointer, which only values the first
+// non-nullptr assignment; all following assignments are ignored. why is this?
+
+// imagine a fully concurrent SharedPtr instance p, and two threads accessing it:
+
+// T1                               T2
+// p = my_object;                   ... some work ...
+// ...                              p = my_other_object;
+// p->attribute = 1;
+
+// obviously this would produce a data race; if "p = my_other_pointer" runs as shown
+// above, the reference to my_pointer will get my_object, and, if it's the only ref,
+// my_object will get freed. the following access to "p->attribute" would be invalid.
+// in order to provide fully concurrent SharedPtrs, additional locks would be needed.
+
+// a CachedPtr, once set, will always retain a value once set and never change it and
+// never return to nullptr. that's why it's also safe to use which checks regarding its
+// non-nullness.
+
+// CachedPtr does not enforce seq cst ordering, but only acquire-release ordering. this
+// means that, while it's ensured that once a thread sees a SharedPtr value, the data
+// and object that is pointed to is fully available and consistent, the order in which
+// the values of several CachedPtr are seen from different threads might be different.
+
+// Having multiple CachedPtr instances set by one or several threads, a thread X might
+// observe the new CachedPtr values in a different order than a thread Y; you cannot
+// assume that several threads see the same global state of things with regard to
+// multiple SafePtrs (for this, seq cst ordering is needed, which is slower).
+
+// code using CachedPtr should thus not assume that another CachedPtr, that was set in
+// the modifying code earlier originally, will be available in the expected state. code
+// should instead only focus on single SharedPtr instances and rely on data structures
+// like mutexes if a certain configuration of two or more CachedPtr is expected.
+
+template<typename T>
+class QuasiConstSharedPtr {
+protected:
+	std::atomic<T*> m_ptr;
+
+public:
+	QuasiConstSharedPtr() : m_ptr(nullptr) {
+	}
+
+	QuasiConstSharedPtr(T *ptr) : m_ptr(ptr) {
+		if (ptr) {
+			intrusive_ptr_add_ref(ptr);
+		}
+	}
+
+   	QuasiConstSharedPtr(const ConstSharedPtr<T> &p) : m_ptr(p.get()) {
+        T * const ptr = get();
+		if (ptr) {
+			intrusive_ptr_add_ref(ptr);
+		}
+    }
+
+	QuasiConstSharedPtr(const QuasiConstSharedPtr<T> &p) : m_ptr(p.get()) {
+        T * const ptr = get();
+		if (ptr) {
+			intrusive_ptr_add_ref(ptr);
+		}
+	}
+
+	QuasiConstSharedPtr(QuasiConstSharedPtr<T> &&p) : m_ptr(p.get()) {
+		// the caller guarantees that no other thread can access p.
+		p.m_ptr = nullptr;
+	}
+
+	template<typename U>
+	QuasiConstSharedPtr(const QuasiConstSharedPtr<U> &p) : m_ptr(p.get()) {
+		if (m_ptr) {
+			intrusive_ptr_add_ref(m_ptr);
+		}
+	}
+
+	~QuasiConstSharedPtr() {
+        T * const ptr = get();
+		if (ptr) {
+			intrusive_ptr_release(ptr);
+		}
+	}
+
+    template<typename F>
+    T *ensure(const F &f) { // ensure that this QuasiConstSharedPtr is not a nullptr
+        T *ptr = get();
+        if (ptr) {
+            return ptr;
+        }
+
+        ConstSharedPtr<T> p = f();
+        ptr = p.get();
+
+        while (true) {
+            T *actual = nullptr;
+            if (m_ptr.compare_exchange_strong(actual, ptr, std::memory_order_acq_rel)) {
+                intrusive_ptr_add_ref(ptr);
+                return ptr;
+            }
+            if (actual) {
+                return actual;
+            }
+        }
+    }
+
+    QuasiConstSharedPtr &initialize(T *ptr) {
+        T *expected = nullptr;
+        if (m_ptr.compare_exchange_strong(expected, ptr, std::memory_order_acq_rel)) {
+            if (ptr) {
+                intrusive_ptr_add_ref(ptr);
+            }
+        } else {
+            // initialize expects that value was not set before. there's something
+            // wrong if we get here. maybe you want to use ensure() instead?
+            assert(false);
+        }
+        return *this;
+    }
+
+    template<typename U>
+    QuasiConstSharedPtr &initialize(const UnsafeSharedPtr<U> &p) {
+        return initialize(p.get());
+    }
+
+    template<typename U>
+    QuasiConstSharedPtr &initialize(const ConstSharedPtr<U> &p) {
+        return initialize(p.get());
+    }
+
+    inline T *get() const {
+		return m_ptr.load(std::memory_order_acquire);
+	}
+
+    T &operator*() const {
+		return *m_ptr;
+	}
+
+	T *operator->() const {
+		return m_ptr;
+	}
+
+	operator bool() const {
+		return m_ptr != nullptr;
+	}
+};
+
+template<typename T, typename U>
+inline QuasiConstSharedPtr<T> static_pointer_cast(const QuasiConstSharedPtr<U> &u) {
+	return static_cast<T*>(u.get());
+}
+
+template<typename T, typename U>
+inline QuasiConstSharedPtr<T> const_pointer_cast(const QuasiConstSharedPtr<U> &u) {
+	return const_cast<T*>(u.get());
+}
+
+// ConstSharedPtr is a shared ptr that never changes what it's pointing to.
 
 template<typename T>
 class ConstSharedPtr {
@@ -85,7 +309,7 @@ public:
 		}
 	}
 
-	ConstSharedPtr(const SharedPtr<T> &p);
+	ConstSharedPtr(const QuasiConstSharedPtr<T> &p);
 
 	~ConstSharedPtr() {
 		if (m_ptr) {
@@ -117,6 +341,13 @@ public:
 		return get() != p.get();
 	}
 };
+
+template<typename T>
+ConstSharedPtr<T>::ConstSharedPtr(const QuasiConstSharedPtr<T> &p) : m_ptr(p.get()) {
+	if (m_ptr) {
+		intrusive_ptr_add_ref(m_ptr);
+	}
+}
 
 template<typename T, typename U>
 inline ConstSharedPtr<T> static_pointer_cast(const ConstSharedPtr<U> &u) {
@@ -173,355 +404,6 @@ public:
 
 static_assert(sizeof(UnsafeSharedPtr<int>) == sizeof(ConstSharedPtr<int>),
 	"illegal UnsafeSharedPtr structure size");
-
-// SafePtr is a thread safe shared ptr in the vein of std::atomic_shared_ptr;
-// the code is a copy of boost::intrusive_ptr with modifications.
-
-// SafePtr does not enforce seq cst ordering, but only acquire-release ordering. this
-// means that, while it's ensured that once a thread sees a SharedPtr value, the data
-// and object that is pointed to is fully available and consistent, the order in which
-// the values of several SharedPtrs are seen from different threads might be different.
-
-// Having multiple SafePtr instances set by one or several threads, a thread X might
-// observe the new SafePtr values in a different order than a thread Y; you cannot
-// assume that several threads see the same global state of things with regard to
-// multiple SafePtrs (for this, seq cst ordering is needed, which is slower).
-
-// code using SharedPtr should thus not assume that another SharedPtr, that was set in
-// the modifying code earlier originally, will be available in the expected state. code
-// should instead only focus on single SharedPtr instances and rely on data structures
-// like mutexes if a certain configuration of two or more SharedPtrs is expected.
-
-// for more information on std::memory_order, see these excellent web sites:
-// http://en.cppreference.com/w/cpp/atomic/memory_order
-// http://preshing.com/20120913/acquire-and-release-semantics/
-// http://preshing.com/20131125/acquire-and-release-fences-dont-work-the-way-youd-expect/
-// http://preshing.com/20140709/the-purpose-of-memory_order_consume-in-cpp11/
-// https://www.cl.cam.ac.uk/~pes20/cpp/cpp0xmappings.html
-// http://en.cppreference.com/w/cpp/atomic/memory_order
-
-namespace thread_safe_intrusive_ptr {
-
-template<class T> class intrusive_ptr
-{
-private:
-
-    typedef intrusive_ptr this_type;
-
-    template<bool add_ref=true>
-    inline void set(T * const p) {
-        if (add_ref && p) {
-            intrusive_ptr_add_ref(p);
-        }
-        T * const q = px.exchange(p, std::memory_order_acq_rel);
-        if (q) {
-            intrusive_ptr_release(q);
-        }
-    }
-
-public:
-
-    typedef T element_type;
-
-	intrusive_ptr(const ConstSharedPtr<T> &rhs) {
-		T * const p = rhs.get();
-		px.store(p, std::memory_order_release);
-		if( p != 0 ) intrusive_ptr_add_ref( p );
-	}
-
-    intrusive_ptr() BOOST_NOEXCEPT : px( 0 )
-    {
-    }
-
-    intrusive_ptr( T * p, bool add_ref = true ): px( p )
-    {
-        if( p != 0 && add_ref ) intrusive_ptr_add_ref( p );
-    }
-
-#if !defined(BOOST_NO_MEMBER_TEMPLATES) || defined(BOOST_MSVC6_MEMBER_TEMPLATES)
-
-    template<class U>
-#if !defined( BOOST_SP_NO_SP_CONVERTIBLE )
-
-    intrusive_ptr( intrusive_ptr<U> const & rhs, typename boost::detail::sp_enable_if_convertible<U,T>::type = boost::detail::sp_empty() )
-
-#else
-
-    intrusive_ptr( intrusive_ptr<U> const & rhs )
-
-#endif
-    {
-        T * const p = rhs.get();
-        px.store(p, std::memory_order_release);
-        if( p != 0 ) intrusive_ptr_add_ref( p );
-    }
-
-#endif
-
-    intrusive_ptr(intrusive_ptr const & rhs)
-    {
-        T * const p = rhs.get();
-        px.store(p, std::memory_order_release);
-        if( p != 0 ) intrusive_ptr_add_ref( p );
-    }
-
-    ~intrusive_ptr()
-    {
-        T * const p = px.load(std::memory_order_acquire);
-        if( p != 0 ) intrusive_ptr_release( p );
-    }
-
-#if !defined(BOOST_NO_MEMBER_TEMPLATES) || defined(BOOST_MSVC6_MEMBER_TEMPLATES)
-
-    template<class U> intrusive_ptr & operator=(intrusive_ptr<U> const & rhs)
-    {
-        set(rhs.get());
-        return *this;
-    }
-
-#endif
-
-// Move support
-
-#if !defined( BOOST_NO_CXX11_RVALUE_REFERENCES )
-
-    intrusive_ptr(intrusive_ptr && rhs) BOOST_NOEXCEPT
-    {
-        px.store(rhs.px.exchange(0, std::memory_order_acq_rel));
-    }
-
-    intrusive_ptr & operator=(intrusive_ptr && rhs) BOOST_NOEXCEPT
-    {
-        set<false>(static_cast<intrusive_ptr&&>(rhs).px.exchange(0, std::memory_order_acq_rel));
-        return *this;
-    }
-
-#endif
-
-    intrusive_ptr & operator=(intrusive_ptr const & rhs)
-    {
-        set(rhs.px.load(std::memory_order_acquire));
-        return *this;
-    }
-
-    intrusive_ptr & operator=(T * p)
-    {
-        set(p);
-        return *this;
-    }
-
-    void reset() BOOST_NOEXCEPT
-    {
-        T * const q = px.exchange(0, std::memory_order_acq_rel);
-        if (q) {
-            intrusive_ptr_release(q);
-        }
-    }
-
-    /*void reset( T * rhs )
-    {
-        this_type( rhs ).swap( *this );
-    }
-
-    void reset( T * rhs, bool add_ref )
-    {
-        this_type( rhs, add_ref ).swap( *this );
-    }*/
-
-    T * get() const BOOST_NOEXCEPT
-    {
-        return px.load(std::memory_order_acquire);
-    }
-
-    T * detach() BOOST_NOEXCEPT
-    {
-	    return px.exchange(0, std::memory_order_acq_rel);
-    }
-
-    T & operator*() const
-    {
-        BOOST_ASSERT( px != 0 );
-        return *px.load(std::memory_order_acquire);
-    }
-
-    T * operator->() const
-    {
-        BOOST_ASSERT( px != 0 );
-        return px.load(std::memory_order_acquire);
-    }
-
-	intrusive_ptr &operator=(const ConstSharedPtr<T> &v) {
-		*this = v.get();
-		return *this;
-	}
-
-// implicit conversion to "bool"
-#include <boost/smart_ptr/detail/operator_bool.hpp>
-
-private:
-
-    std::atomic<T*> px;
-};
-
-template<class T, class U> inline bool operator==(intrusive_ptr<T> const & a, intrusive_ptr<U> const & b)
-{
-    return a.get() == b.get();
-}
-
-template<class T, class U> inline bool operator!=(intrusive_ptr<T> const & a, intrusive_ptr<U> const & b)
-{
-    return a.get() != b.get();
-}
-
-template<class T, class U> inline bool operator==(intrusive_ptr<T> const & a, U * b)
-{
-    return a.get() == b;
-}
-
-template<class T, class U> inline bool operator!=(intrusive_ptr<T> const & a, U * b)
-{
-    return a.get() != b;
-}
-
-template<class T, class U> inline bool operator==(T * a, intrusive_ptr<U> const & b)
-{
-    return a == b.get();
-}
-
-template<class T, class U> inline bool operator!=(T * a, intrusive_ptr<U> const & b)
-{
-    return a != b.get();
-}
-
-#if __GNUC__ == 2 && __GNUC_MINOR__ <= 96
-
-// Resolve the ambiguity between our op!= and the one in rel_ops
-
-template<class T> inline bool operator!=(intrusive_ptr<T> const & a, intrusive_ptr<T> const & b)
-{
-    return a.get() != b.get();
-}
-
-#endif
-
-#if !defined( BOOST_NO_CXX11_NULLPTR )
-
-template<class T> inline bool operator==( intrusive_ptr<T> const & p, boost::detail::sp_nullptr_t ) BOOST_NOEXCEPT
-{
-    return p.get() == 0;
-}
-
-template<class T> inline bool operator==( boost::detail::sp_nullptr_t, intrusive_ptr<T> const & p ) BOOST_NOEXCEPT
-{
-    return p.get() == 0;
-}
-
-template<class T> inline bool operator!=( intrusive_ptr<T> const & p, boost::detail::sp_nullptr_t ) BOOST_NOEXCEPT
-{
-    return p.get() != 0;
-}
-
-template<class T> inline bool operator!=( boost::detail::sp_nullptr_t, intrusive_ptr<T> const & p ) BOOST_NOEXCEPT
-{
-    return p.get() != 0;
-}
-
-#endif
-
-template<class T> inline bool operator<(intrusive_ptr<T> const & a, intrusive_ptr<T> const & b)
-{
-    return std::less<T *>()(a.get(), b.get());
-}
-
-/*template<class T> void swap(intrusive_ptr<T> & lhs, intrusive_ptr<T> & rhs)
-{
-    lhs.swap(rhs);
-}*/
-
-// mem_fn support
-
-template<class T> T * get_pointer(intrusive_ptr<T> const & p)
-{
-    return p.get();
-}
-
-/*template<class T, class U> intrusive_ptr<T> static_pointer_cast(intrusive_ptr<U> const & p)
-{
-    return static_cast<T *>(p.get());
-}
-
-template<class T, class U> intrusive_ptr<T> const_pointer_cast(intrusive_ptr<U> const & p)
-{
-    return const_cast<T *>(p.get());
-}
-
-template<class T, class U> intrusive_ptr<T> dynamic_pointer_cast(intrusive_ptr<U> const & p)
-{
-    return dynamic_cast<T *>(p.get());
-}*/
-
-// operator<<
-
-#if !defined(BOOST_NO_IOSTREAM)
-
-#if defined(BOOST_NO_TEMPLATED_IOSTREAMS) || ( defined(__GNUC__) &&  (__GNUC__ < 3) )
-
-template<class Y> std::ostream & operator<< (std::ostream & os, intrusive_ptr<Y> const & p)
-{
-    os << p.get();
-    return os;
-}
-
-#else
-
-// in STLport's no-iostreams mode no iostream symbols can be used
-#ifndef _STLP_NO_IOSTREAMS
-
-# if defined(BOOST_MSVC) && BOOST_WORKAROUND(BOOST_MSVC, < 1300 && __SGI_STL_PORT)
-// MSVC6 has problems finding std::basic_ostream through the using declaration in namespace _STL
-using std::basic_ostream;
-template<class E, class T, class Y> basic_ostream<E, T> & operator<< (basic_ostream<E, T> & os, intrusive_ptr<Y> const & p)
-# else
-template<class E, class T, class Y> std::basic_ostream<E, T> & operator<< (std::basic_ostream<E, T> & os, intrusive_ptr<Y> const & p)
-# endif
-{
-    os << p.get();
-    return os;
-}
-
-#endif // _STLP_NO_IOSTREAMS
-
-#endif // __GNUC__ < 3
-
-#endif // !defined(BOOST_NO_IOSTREAM)
-
-// hash_value
-
-template<class T> struct hash;
-
-template<class T> std::size_t hash_value( intrusive_ptr<T> const & p )
-{
-    return boost::hash< T* >()( p.get() );
-}
-
-} // end of namespace thread_safe_intrusive_ptr
-
-template<typename T, typename U>
-inline SharedPtr<T> static_pointer_cast(const SharedPtr<U> &u) {
-    return static_cast<T*>(u.get());
-}
-
-template<typename T, typename U>
-inline SharedPtr<T> const_pointer_cast(const SharedPtr<U> &u) {
-    return const_cast<T*>(u.get());
-}
-
-template<typename T>
-ConstSharedPtr<T>::ConstSharedPtr(const SharedPtr<T> &p) : m_ptr(p.get()) {
-	if (m_ptr) {
-		intrusive_ptr_add_ref(m_ptr);
-	}
-}
 
 template<typename T>
 class ThreadSharedPtr {

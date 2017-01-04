@@ -234,7 +234,7 @@ public:
 
 class StringMatcher {
 private:
-    MutablePatternMatcherRef m_matcher;
+    CachedPatternMatcherRef m_matcher;
     const BaseExpressionRef m_patt;
     const Evaluation &m_evaluation;
 
@@ -247,11 +247,11 @@ public:
 
         switch (patt->type()) {
             case ExpressionType:
-                m_matcher = patt->as_expression()->string_matcher();
+                m_matcher.initialize(patt->as_expression()->string_matcher());
                 break;
 
             case SymbolType:
-                m_matcher = compile_string_pattern(patt); // FIXME
+                m_matcher.initialize(compile_string_pattern(patt)); // FIXME
                 break;
 
             default:
@@ -386,7 +386,7 @@ public:
 
 class MatcherBase {
 protected:
-	MutablePatternMatcherRef m_matcher;
+	CachedPatternMatcherRef m_matcher;
 
 public:
 	RewriteBaseExpression prepare(const BaseExpressionRef &item) const;
@@ -428,7 +428,7 @@ public:
 		m_patt(patt) {
 
 		if (patt->type() == ExpressionType) {
-			m_matcher = patt->as_expression()->expression_matcher();
+			m_matcher.initialize(patt->as_expression()->expression_matcher());
 			if (m_matcher->might_match(1)) {
 				m_perform_match = &Matcher::match_expression;
 			} else {
@@ -458,7 +458,7 @@ public:
                 patt->as_expression()->expression_matcher();
             const auto head_leaves_matcher = matcher->head_leaves_matcher();
             if (head_leaves_matcher && matcher->might_match(1)) {
-                m_matcher = matcher; // validates ptr to m_head_leaves_matcher
+                m_matcher.initialize(matcher); // validates ptr to m_head_leaves_matcher
                 m_head_leaves_matcher = head_leaves_matcher;
             }
         }

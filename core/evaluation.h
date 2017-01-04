@@ -89,13 +89,15 @@ public:
 };
 
 inline SymbolRef String::option_symbol(const Evaluation &evaluation) const {
-	MutableSymbolRef symbol = m_option_symbol;
+	ConstSymbolRef symbol = m_option_symbol;
 	if (!symbol) {
 		const std::string fullname = std::string("System`") + utf8();
-		symbol = evaluation.definitions.lookup_no_create(fullname.c_str());
-		m_option_symbol = symbol;
-	}
-	return symbol;
+		const SymbolRef new_symbol = evaluation.definitions.lookup_no_create(fullname.c_str());
+		m_option_symbol = new_symbol;
+        return new_symbol;
+	} else {
+        return symbol;
+    }
 }
 
 #endif

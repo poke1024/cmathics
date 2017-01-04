@@ -1229,7 +1229,7 @@ PatternMatcherRef PatternCompiler::compile_element(
 
 class PatternBuilder {
 private:
-    MutablePatternMatcherRef m_next_matcher;
+    CachedPatternMatcherRef m_next_matcher;
 
 public:
     template<typename Compile>
@@ -1241,7 +1241,7 @@ public:
         const PatternMatcherRef matcher =
             compile(factory.for_next(m_next_matcher));
 
-        m_next_matcher = matcher;
+        m_next_matcher.initialize(matcher);
 
         matcher->set_size(size);
     }

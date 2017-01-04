@@ -6,7 +6,8 @@
 class RewriteExpression;
 
 typedef ConstSharedPtr<RewriteExpression> RewriteExpressionRef;
-typedef SharedPtr<RewriteExpression> MutableRewriteExpressionRef;
+typedef ConstSharedPtr<RewriteExpression> ConstRewriteExpressionRef;
+typedef QuasiConstSharedPtr<RewriteExpression> CachedRewriteExpressionRef;
 typedef UnsafeSharedPtr<RewriteExpression> UnsafeRewriteExpressionRef;
 
 class RewriteBaseExpression {
@@ -51,7 +52,7 @@ public:
 class Rewrite;
 
 typedef ConstSharedPtr<Rewrite> RewriteRef;
-typedef SharedPtr<Rewrite> MutableRewriteRef;
+typedef QuasiConstSharedPtr<Rewrite> CachedRewriteRef;
 typedef UnsafeSharedPtr<Rewrite> UnsafeRewriteRef;
 
 class Rewrite : public RewriteBaseExpression, public Shared<Rewrite, SharedHeap> {
@@ -142,7 +143,8 @@ inline RewriteRef Rewrite::construct(
 
 class SlotFunction;
 
-typedef SharedPtr<SlotFunction> MutableSlotFunctionRef;
+typedef QuasiConstSharedPtr<SlotFunction> CachedSlotFunctionRef;
+typedef ConstSharedPtr<SlotFunction> ConstSlotFunctionRef;
 typedef UnsafeSharedPtr<SlotFunction> UnsafeSlotFunctionRef;
 
 struct SlotFunction : public Shared<SlotFunction, SharedHeap> {
@@ -182,40 +184,31 @@ PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt);
 
 class Cache : public Shared<Cache, SharedPool> {
 private:
-	MutableRewriteRef m_rewrite;
-	MutablePatternMatcherRef m_expression_matcher;
-	MutablePatternMatcherRef m_string_matcher;
+	CachedRewriteRef m_rewrite;
+	CachedPatternMatcherRef m_expression_matcher;
+	CachedPatternMatcherRef m_string_matcher;
 
 public:
-	MutableSlotFunctionRef slot_function;
-	MutableRewriteExpressionRef vars_function;
+	CachedSlotFunctionRef slot_function;
+	CachedRewriteExpressionRef vars_function;
 
 	inline PatternMatcherRef expression_matcher(BaseExpressionPtr expr) { // concurrent.
-		UnsafePatternMatcherRef matcher = m_expression_matcher;
-		if (!matcher) {
-			matcher = compile_expression_pattern(BaseExpressionRef(expr));
-			m_expression_matcher = matcher;
-		}
-		return matcher;
+        return PatternMatcherRef(m_expression_matcher.ensure([expr] () {
+            return compile_expression_pattern(BaseExpressionRef(expr));
+        }));
 	}
 
 	inline PatternMatcherRef string_matcher(BaseExpressionPtr expr) { // concurrent.
-		UnsafePatternMatcherRef matcher = m_string_matcher;
-		if (!matcher) {
-			matcher = compile_string_pattern(BaseExpressionRef(expr));
-			m_string_matcher = matcher;
-		}
-		return matcher;
+        return PatternMatcherRef(m_string_matcher.ensure([expr] () {
+            return compile_string_pattern(BaseExpressionRef(expr));
+        }));
 	}
 
 	inline RewriteRef rewrite(const PatternMatcherRef &matcher, const BaseExpressionRef &rhs) { // concurrent.
-		UnsafeRewriteRef rewrite = m_rewrite;
-		if (!rewrite) {
-			CompiledArguments arguments(matcher->variables());
-			rewrite = Rewrite::construct(arguments, rhs);
-			m_rewrite = rewrite;
-		}
-		return rewrite;
+        return RewriteRef(m_rewrite.ensure([&matcher, &rhs] () {
+            CompiledArguments arguments(matcher->variables());
+            return Rewrite::construct(arguments, rhs);
+        }));
 	}
 };
 

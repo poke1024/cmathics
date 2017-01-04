@@ -61,7 +61,7 @@ using VariablePtrMap = VariableMap<const BaseExpressionRef*>;
 class Cache;
 
 typedef ConstSharedPtr<Cache> CacheRef;
-typedef SharedPtr<Cache> MutableCacheRef;
+typedef QuasiConstSharedPtr<Cache> CachedCacheRef;
 typedef UnsafeSharedPtr<Cache> UnsafeCacheRef;
 
 #include "pattern.h"
@@ -197,10 +197,10 @@ private:
 	boost::object_pool<RefsExtent> _refs_extents;
 
 	boost::object_pool<Match> _matches;
-	MutableMatchRef _default_match;
+	UnsafeMatchRef _default_match;
 
 	boost::object_pool<SymbolicForm> _symbolic_forms;
-	MutableSymbolicFormRef _no_symbolic_form;
+	UnsafeSymbolicFormRef _no_symbolic_form;
 
 	boost::fast_pool_allocator<VariablePtrMap::value_type> _variable_ptr_map;
 	SlotAllocator _slots;
