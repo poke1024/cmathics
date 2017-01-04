@@ -1,3 +1,5 @@
+// @formatter:off
+
 #include "lists.h"
 #include "../core/definitions.h"
 
@@ -1055,7 +1057,16 @@ void Builtins::Lists::initialize() {
 	add("Mean",
 	    Attributes::None, {
 			down("Mean[x_List]", "Total[x] / Length[x]"),
-	    });
+	    }, R"(
+            >> Mean[{26, 64, 36}]
+             = 42
+
+            >> Mean[{1, 1, 2, 3, 5, 8}]
+             = 10 / 3
+
+            >> Mean[{a, b}]
+             = (a + b) / 2
+        )");
 
 	add("Total",
 	    Attributes::None, {

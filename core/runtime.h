@@ -7,8 +7,17 @@
 #include "matcher.h"
 #include "python.h"
 
+using TestList = std::initializer_list<const char*[2]>;
+
 class Runtime {
 private:
+	struct Test {
+		const char *name;
+		const char *tests;
+	};
+
+	std::list<Test> m_tests;
+
     python::Context _python_context;
 	Definitions _definitions;
 	Parser _parser;
@@ -42,7 +51,7 @@ public:
 	void add(
 		const char *name,
 		Attributes attributes,
-		const std::initializer_list <NewRuleRef> &rules);
+		const std::initializer_list<NewRuleRef> &rules);
 
 	template<typename T>
 	void add() {
@@ -50,9 +59,24 @@ public:
 		const SymbolRef symbol = _definitions.lookup(full_down.c_str());
 		symbol->set_attributes(T::attributes);
 
-		auto command = ConstSharedPtr<T>(new T(*this, symbol, _definitions));
+		ConstSharedPtr<T> command(new T(*this, symbol, _definitions));
 		command->build(*this);
+
+#if MAKE_UNIT_TEST
+		add_test(T::name, T::tests);
+#endif
     }
+
+#if MAKE_UNIT_TEST
+	void add_test(
+		const char *name,
+		const char *tests) {
+
+		m_tests.emplace_back(Test{name, tests});
+	}
+
+	void run_tests();
+#endif
 };
 
 class Builtin : public Shared<Builtin, SharedHeap> {
@@ -263,6 +287,10 @@ protected:
 public:
     static constexpr auto attributes = Attributes::None;
 
+#if MAKE_UNIT_TEST
+	static const char *tests;
+#endif
+
     Builtin(Runtime &runtime, const SymbolRef &symbol, Definitions &definitions) :
 		m_runtime(runtime), m_symbol(symbol) {
 	}
@@ -273,14 +301,21 @@ typedef ConstSharedPtr<Builtin> BuiltinRef;
 class Unit {
 private:
 	Runtime &m_runtime;
+#if MAKE_UNIT_TEST
+	std::vector<std::tuple<const char*, const char*>> m_tests;
+#endif
 
 protected:
 	inline void add(
 		const char *name,
 		Attributes attributes,
-		const std::initializer_list<NewRuleRef> &rules) const {
+		const std::initializer_list<NewRuleRef> &rules,
+		const char *tests = "") const {
 
 		m_runtime.add(name, attributes, rules);
+#if MAKE_UNIT_TEST
+		m_runtime.add_test(name, tests);
+#endif
 	}
 
 	template<typename T>

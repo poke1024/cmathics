@@ -10,6 +10,10 @@
 #include "builtin/structure.h"
 #include "builtin/numbertheory.h"
 
+#if MAKE_UNIT_TEST
+const char *Builtin::tests = "";
+#endif
+
 class Experimental : public Unit {
 public:
     Experimental(Runtime &runtime) : Unit(runtime) {
@@ -120,3 +124,55 @@ void Runtime::add(
         symbol->add_rule(new_rule(symbol, _definitions));
     }
 }
+
+#if MAKE_UNIT_TEST
+// trim is taken from http://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
+inline std::string trim(const std::string &s) {
+	auto wsfront=std::find_if_not(s.begin(),s.end(),[](int c){return std::isspace(c);});
+	auto wsback=std::find_if_not(s.rbegin(),s.rend(),[](int c){return std::isspace(c);}).base();
+	return (wsback<=wsfront ? std::string() : std::string(wsfront,wsback));
+}
+
+void Runtime::run_tests() {
+	size_t n_tests = 0;
+
+	for (const auto &record : m_tests) {
+		std::stringstream stream(record.tests);
+		std::string line;
+		while(std::getline(stream, line, '\n')) {
+			if (line.compare(0, 2, ">>") == 0) {
+				n_tests++;
+			}
+		}
+	}
+
+	const int n_digits = std::ceil(std::log10(n_tests));
+
+	size_t index = 1;
+	for (const auto &record : m_tests) {
+		Evaluation evaluation(_definitions, false);
+
+		std::stringstream stream(record.tests);
+		UnsafeBaseExpressionRef result;
+
+		std::string line;
+		while(std::getline(stream, line, '\n')) {
+			line = trim(line);
+			if (line.compare(0, 2, ">>") == 0) {
+				const std::string command_str(trim(line.substr(2)));
+				std::cout << std::setw(n_digits) << index++ << ". TEST " << command_str << std::endl;
+				result = _parser.parse(command_str.c_str())->evaluate_or_copy(evaluation);
+			} else if (line.compare(0, 1, "=") == 0) {
+				const std::string result_str(trim(line.substr(1)));
+				auto parsed = _parser.parse(result_str.c_str());
+				if(!parsed->evaluate_or_copy(evaluation)->same(result)) {
+					std::cout << "FAIL" << std::endl;
+					std::cout << result_str << " != " << result->fullform() << std::endl;
+				}
+			} else {
+				// ignore
+			}
+		}
+	}
+}
+#endif

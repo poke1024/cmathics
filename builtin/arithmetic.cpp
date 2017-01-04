@@ -859,7 +859,10 @@ void Builtins::Arithmetic::initialize() {
 		    Plus1,
 		    Plus2,
 		    Plus3
-	    });
+	    }, R"(
+			>> 1 + 2
+			 = 3
+		)");
 
 	add("Subtract",
 	    Attributes::None, {
@@ -909,4 +912,3 @@ void Builtins::Arithmetic::initialize() {
 			GreaterEqual
 	    });
 }
-

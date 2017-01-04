@@ -8,6 +8,8 @@ int main(int argc, char** argv) {
 
     Runtime runtime;
 
+    runtime.run_tests();
+
     doctest::Context context;
 
     int res = context.run(); // run

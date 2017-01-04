@@ -39,7 +39,12 @@ public:
     }
 
     virtual inline bool same(const BaseExpression &expr) const final {
-        return false; // FIXME
+        if (expr.type() == BigRationalType) {
+	        const auto other = static_cast<const BigRational*>(&expr);
+	        return mpq_equal(value.get_mpq_t(), other->value.get_mpq_t());
+        } else {
+	        return false;
+        }
     }
 
     virtual std::string fullform() const {

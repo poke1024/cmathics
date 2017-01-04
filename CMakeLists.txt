@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.6)
 project(cmathics)
 
+set(CMAKE_CXX_STANDARD 14)
+
 if("$ENV{OPTIMIZE}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -O2")
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 endif()
 
 include_directories(${cmathics_SOURCE_DIR})
@@ -136,7 +136,6 @@ add_custom_target(tests)
 
 set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test_arithmetic.cpp
-    tests/test_datastructures.cpp
     tests/test_definitions.cpp
     tests/test_expression.cpp
     tests/test_integer.cpp
@@ -146,5 +145,6 @@ set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test.cpp)
 
 add_executable(cmathicstest ${TESTS_SOURCE_FILES})
+target_compile_definitions(cmathicstest PRIVATE MAKE_UNIT_TEST=1)
 target_link_libraries(cmathicstest mpfr gmp arb flint symengine icucore icuuc ${PYTHON_LIBRARIES} ${Boost_LIBRARIES})
 
