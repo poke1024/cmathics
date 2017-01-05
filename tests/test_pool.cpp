@@ -49,7 +49,7 @@ public:
 	void add() {
 		const size_t value = m_index ^ m_thread_hash;
 
-		Item *item = m_pool.allocate(value);
+		Item *item = m_pool.construct(value);
 
 		if (m_verify) {
 			Data data;

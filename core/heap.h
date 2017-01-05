@@ -11,6 +11,8 @@
 #include "gmpxx.h"
 #include <arb.h>
 
+#include "concurrent/pool.h"
+
 class MachineInteger;
 class BigInteger;
 
@@ -57,9 +59,9 @@ struct SymbolHash {
 };
 
 template<typename Value>
-using VariableMap = boost::unordered_map<const Symbol*, Value,
-	SymbolHash, std::equal_to<const Symbol*>,
-	boost::fast_pool_allocator<std::pair<const Symbol*, Value>>>;
+using VariableMap = std::unordered_map<const Symbol*, Value,
+	SymbolHash, std::equal_to<const Symbol* const>,
+	ObjectAllocator<std::pair<const Symbol* const, Value>>>;
 
 using VariablePtrMap = VariableMap<const BaseExpressionRef*>;
 
@@ -74,8 +76,6 @@ typedef UnsafeSharedPtr<Cache> UnsafeCacheRef;
 template<int UpToSize>
 class StaticExpressionHeap {
 private:
-    const size_t m_chunk_size;
-
 	typedef
 	std::function<ExpressionRef(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves)>
 	MakeFromVector;
@@ -96,7 +96,7 @@ private:
 
 	template<int N>
 	void initialize() {
-		const auto pool = new boost::object_pool<ExpressionImplementation<StaticSlice<N>>>(m_chunk_size);
+		const auto pool = new ObjectPool<ExpressionImplementation<StaticSlice<N>>>();
 
 		_pool[N] = pool;
 
@@ -146,14 +146,14 @@ private:
 	}
 
 public:
-	inline StaticExpressionHeap(size_t chunk_size) : m_chunk_size(chunk_size) {
+	inline StaticExpressionHeap() {
 		initialize<UpToSize>();
 	}
 
 	template<int N>
 	StaticExpressionRef<N> allocate(const BaseExpressionRef &head, StaticSlice<N> &&slice) {
 		static_assert(N <= UpToSize, "N must not be be greater than UpToSize");
-		return StaticExpressionRef<N>(static_cast<boost::object_pool<ExpressionImplementation<StaticSlice<N>>>*>(
+		return StaticExpressionRef<N>(static_cast<ObjectPool<ExpressionImplementation<StaticSlice<N>>>*>(
   		    _pool[N])->construct(head, slice));
 	}
 
@@ -181,47 +181,45 @@ public:
 
 class Pool {
 private:
-	static /*thread_local*/ Pool *_s_instance;
+	static Pool *_s_instance;
 
 private:
-	boost::object_pool<Symbol> _symbols;
+	ObjectPool<Symbol> _symbols;
 
-	boost::object_pool<MachineInteger> _machine_integers;
-    boost::object_pool<BigInteger> _big_integers;
+	ObjectPool<MachineInteger> _machine_integers;
+	ObjectPool<BigInteger> _big_integers;
 
-	boost::object_pool<BigRational> _big_rationals;
+	ObjectPool<BigRational> _big_rationals;
 
-    boost::object_pool<MachineReal> _machine_reals;
-    boost::object_pool<BigReal> _big_reals;
+	ObjectPool<MachineReal> _machine_reals;
+	ObjectPool<BigReal> _big_reals;
 
-    boost::object_pool<MachineComplex> _machine_complexs;
+	ObjectPool<MachineComplex> _machine_complexs;
 
 	StaticExpressionHeap<MaxStaticSliceSize> _static_expression_heap;
-    boost::object_pool<ExpressionImplementation<DynamicSlice>> _dynamic_expressions;
+	ObjectPool<ExpressionImplementation<DynamicSlice>> _dynamic_expressions;
 
-	boost::object_pool<String> _strings;
+	ObjectPool<String> _strings;
 
 private:
-	boost::object_pool<Cache> _caches;
-	boost::object_pool<RefsExtent> _refs_extents;
+	ObjectPool<Cache> _caches;
+	ObjectPool<RefsExtent> _refs_extents;
 
-	boost::object_pool<Match> _matches;
+	ObjectPool<Match> _matches;
 	UnsafeMatchRef _default_match;
 
-	boost::object_pool<SymbolicForm> _symbolic_forms;
+	ObjectPool<SymbolicForm> _symbolic_forms;
 	UnsafeSymbolicFormRef _no_symbolic_form;
 
-	boost::fast_pool_allocator<VariablePtrMap::value_type> _variable_ptr_map;
+	ObjectAllocator<VariablePtrMap::value_type> _variable_ptr_map;
 	SlotAllocator _slots;
 
-    Pool();
-
 public:
-	static inline auto variable_ptr_map_allocator() {
+	static inline auto &variable_ptr_map_allocator() {
 		return _s_instance->_variable_ptr_map;
 	}
 
-	static inline auto slots_allocator() {
+	static inline auto &slots_allocator() {
 		return _s_instance->_slots;
 	}
 

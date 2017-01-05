@@ -396,7 +396,7 @@ inline const String *BaseExpression::as_string() const {
 }
 
 inline BaseExpressionRef from_primitive(const std::string &value) {
-    return BaseExpressionRef(new String(value));
+    return BaseExpressionRef(Pool::String(std::string(value)));
 }
 
 template<typename Extent>

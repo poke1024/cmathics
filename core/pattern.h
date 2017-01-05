@@ -195,7 +195,7 @@ struct Slot {
     index_t index_to_ith; // index of i-th fixed slot
 };
 
-using SlotAllocator = boost::pool_allocator<Slot>;
+using SlotAllocator = VectorAllocator<Slot>;
 
 class Match : public Shared<Match, SharedPool> {
 private:
