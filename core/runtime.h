@@ -304,15 +304,11 @@ protected:
             func));
     }
 
-	inline void down(const char *pattern, const char *into) {
-		m_symbol->add_rule(new DownRule(
-			m_runtime.parse(pattern), m_runtime.parse(into)));
+	inline void rule(const char *pattern, const char *into) {
+		const BaseExpressionRef lhs = m_runtime.parse(pattern);
+		const BaseExpressionRef rhs = m_runtime.parse(into);
+		m_symbol->add_rule(lhs.get(), rhs.get());
 	}
-
-    inline void sub(const char *pattern, const char *into) {
-        m_symbol->add_rule(new SubRule(
-            m_runtime.parse(pattern), m_runtime.parse(into)));
-    }
 
     inline void message(const char *tag, const char *text) {
         m_symbol->add_message(tag, text, m_runtime.definitions());

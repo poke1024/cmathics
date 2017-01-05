@@ -1,3 +1,5 @@
+// @formatter:off
+
 #ifndef EXPRESSION_H
 #define EXPRESSION_H
 
@@ -358,6 +360,8 @@ public:
 
 		return operands;
 	}
+
+	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const;
 };
 
 #include "leaves.tcc"
@@ -713,4 +717,72 @@ inline BaseExpressionRef RewriteExpression::rewrite_or_copy(
 				slice.create(generate, slice.size(), state)));
 		});
 }
+
+template<typename Slice>
+std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(const Evaluation &evaluation) const {
+	index_t dim = -1;
+
+	std::vector<BaseExpressionRef> items;
+	std::vector<std::vector<BaseExpressionRef>> dim_items;
+
+	const size_t size = this->size();
+	const auto &leaves = this->leaves();
+
+	for (size_t i = 0; i < size; i++) {
+		const BaseExpressionRef &leaf = leaves[i];
+		if (leaf->type() == ExpressionType &&
+		    leaf->as_expression()->head()->extended_type() == SymbolList) {
+
+			const Expression * const expr = leaf->as_expression();
+
+			if (dim < 0) {
+				dim = expr->size();
+
+				expr->with_slice([&items, &dim_items] (const auto &slice) {
+					const size_t size = slice.size();
+					for (index_t j = 0; j < size; j++) {
+						std::vector<BaseExpressionRef> element(items);
+						element.push_back(slice[j]);
+						dim_items.push_back(element);
+					}
+				});
+
+			} else if (dim != expr->size()) {
+					// evaluation.message("Thread", "tdlen");
+					return std::make_tuple(true, UnsafeExpressionRef(this));
+				} else {
+					expr->with_slice([&dim_items] (const auto &slice) {
+						const size_t size = slice.size();
+						for (index_t j = 0; j < size; j++) {
+							dim_items[j].push_back(slice[j]);
+						}
+					});
+				}
+		} else {
+			if (dim < 0) {
+				items.push_back(leaf);
+			} else {
+				for (auto &item : dim_items) {
+					item.push_back(leaf);
+				}
+			}
+		}
+	}
+
+	if (dim < 0) {
+		return std::make_tuple(false, UnsafeExpressionRef(this));
+	} else {
+		const BaseExpressionRef &head = _head;
+
+		return std::make_tuple(true, expression_from_generator(
+			evaluation.List, [&head, &dim_items] (auto &storage) {
+				for (auto &items : dim_items) {
+					storage << expression(head, std::move(items));
+				}
+			}));
+	}
+}
+
 #endif
+
+

@@ -3,62 +3,6 @@
 
 #include "leaves.h"
 
-template<typename Attributes>
-using Evaluator = std::function<BaseExpressionRef(
-    const Expression *self,
-	const BaseExpressionRef &head,
-	const Slice &slice,
-    const Attributes &attributes,
-	const Evaluation &evaluation)>;
-
-typedef std::pair<size_t, size_t> eval_range;
-
-struct _HoldNone {
-	static bool const need_eval = true;
-
-	template<typename Slice>
-	static inline eval_range eval(const Slice &slice) {
-		return eval_range(0, slice.size());
-	}
-};
-
-struct _HoldFirst {
-	static bool const need_eval = true;
-
-	template<typename Slice>
-	static inline eval_range eval(const Slice &slice) {
-		return eval_range(1, slice.size());
-	}
-};
-
-struct _HoldRest {
-	static bool const need_eval = true;
-
-	template<typename Slice>
-	static inline eval_range eval(const Slice &slice) {
-		return eval_range(0, 1);
-	}
-};
-
-struct _HoldAll {
-	static bool const need_eval = true;
-
-	template<typename Slice>
-	static inline eval_range eval(const Slice &slice) {
-		// TODO flatten sequences
-		return eval_range(0, 0);
-	}
-};
-
-struct _HoldAllComplete {
-	static bool const need_eval = false;
-
-	template<typename Slice>
-	static inline eval_range eval(const Slice &slice) {
-		return eval_range(0, 0);
-	}
-};
-
 inline ExpressionRef heap_storage::to_expression(const BaseExpressionRef &head) {
 	return expression(head, std::move(_leaves), _type_mask);
 }
@@ -258,24 +202,38 @@ ExpressionRef transform(
 
 typedef Slice GenericSlice;
 
-template<typename Slice, typename Hold, typename Attributes>
+typedef std::pair<size_t, size_t> eval_range;
+
+template<typename Slice, typename ReducedAttributes>
 BaseExpressionRef evaluate(
 	const Expression *self,
 	const BaseExpressionRef &head,
 	const GenericSlice &generic_slice,
-    const Attributes attributes,
+    const Attributes full_attributes,
 	const Evaluation &evaluation) {
 
-	if (!Hold::need_eval) {
+	const Slice &slice = static_cast<const Slice&>(generic_slice);
+	eval_range eval_leaf;
+
+	const ReducedAttributes attributes(full_attributes);
+
+	if (attributes & Attributes::HoldAllComplete) {
 		// no more evaluation is applied
 		return BaseExpressionRef();
+	} else if (attributes & Attributes::HoldFirst) {
+		if (attributes & Attributes::HoldRest) { // i.e. HoldAll
+			// TODO flatten sequences
+			eval_leaf = eval_range(0, 0);
+		} else {
+			eval_leaf = eval_range(1, slice.size());
+		}
+	} else if (attributes & Attributes::HoldRest) {
+		eval_leaf = eval_range(0, 1);
+	} else {
+		eval_leaf = eval_range(0, slice.size());
 	}
 
-	const Slice &slice = static_cast<const Slice&>(generic_slice);
-
 	const Symbol * const head_symbol = static_cast<const Symbol*>(head.get());
-
-	const eval_range eval_leaf(Hold::eval(slice));
 
 	assert(0 <= eval_leaf.first);
 	assert(eval_leaf.first <= eval_leaf.second);
@@ -298,19 +256,19 @@ BaseExpressionRef evaluate(
 			<< " TO " << intermediate_form << std::endl;
 	}
 
-    /*if 'System`Listable' in attributes:
-    done, threaded = new.thread(evaluation)
-    if done:
-        if threaded.same(new):
-    new._timestamp_cache(evaluation)
-    return new, False
-    else:
-    return threaded, True*/
-
 	const Expression * const safe_intermediate_form =
 		intermediate_form ?
 			intermediate_form.get() :
             self;
+
+	if (attributes & Attributes::Listable) {
+		bool done;
+		UnsafeExpressionRef threaded;
+		std::tie(done, threaded) = safe_intermediate_form->thread(evaluation);
+		if (done) {
+			return threaded;
+		}
+	}
 
 	const SymbolRules *rules = head_symbol->rules();
 
@@ -365,49 +323,41 @@ BaseExpressionRef evaluate(
 	return intermediate_form;
 }
 
-class _NoAttributes { // i.e. no attributes besides Hold attributes
+template<Attributes fixed_attributes>
+class FixedAttributes {
+public:
+	inline FixedAttributes(Attributes attributes) {
+	}
+
+	inline constexpr bool
+	operator&(Attributes y) const {
+		return (attributes_bitmask_t(fixed_attributes) & attributes_bitmask_t(y)) != 0;
+	}
 };
 
+using EvaluateFunction = std::function<BaseExpressionRef(
+	const Expression *expr,
+	const BaseExpressionRef &head,
+	const Slice &slice,
+	const Attributes attributes,
+	const Evaluation &evaluation)>;
+
 class Evaluate {
-private:
-	Evaluator<_NoAttributes> _vtable[NumberOfSliceCodes];
+protected:
+	friend class EvaluateDispatch;
+
+	EvaluateFunction entry[NumberOfSliceCodes];
 
 public:
-	template<typename Hold, typename Attributes, int N>
-	void initialize_static_slice() {
-		_vtable[StaticSlice0Code + N] = ::evaluate<StaticSlice<N>, Hold, Attributes>;
-
-		STATIC_IF (N >= 1) {
-			initialize_static_slice<Hold, Attributes, N-1>();
-		} STATIC_ENDIF
-	}
-
-	template<typename Hold, typename Attributes>
-	void initialize() {
-		static_assert(1 + PackedSliceMachineRealCode - StaticSlice0Code ==
-            NumberOfSliceCodes, "slice code ids error");
-
-		_vtable[DynamicSliceCode] = ::evaluate<DynamicSlice, Hold, Attributes>;
-
-		_vtable[PackedSliceMachineIntegerCode] =
-            ::evaluate<PackedSlice<machine_integer_t>, Hold, Attributes>;
-		_vtable[PackedSliceMachineRealCode] =
-            ::evaluate<PackedSlice<machine_real_t>, Hold, Attributes>;
-
-		initialize_static_slice<Hold, Attributes, MaxStaticSliceSize>();
-	}
-
 	inline BaseExpressionRef operator()(
-		const Expression *self,
+		const Expression *expr,
 		const BaseExpressionRef &head,
 		SliceCode slice_code,
 		const Slice &slice,
-        const Attributes attributes,
+		const Attributes attributes,
 		const Evaluation &evaluation) const {
 
-        _NoAttributes no_attributes;
-
-		return _vtable[slice_code](self, head, slice, no_attributes, evaluation);
+		return entry[slice_code](expr, head, slice, attributes, evaluation);
 	}
 };
 
@@ -415,19 +365,79 @@ class EvaluateDispatch {
 private:
 	static EvaluateDispatch *s_instance;
 
-private:
-	Evaluate _hold_none;
-	Evaluate _hold_first;
-	Evaluate _hold_rest;
-	Evaluate _hold_all;
-	Evaluate _hold_all_complete;
+	template<typename ReducedAttributes>
+	class Precompiled {
+	private:
+		Evaluate m_vtable;
 
-	EvaluateDispatch();
+	public:
+		template<int N>
+		void initialize_static_slice() {
+			m_vtable.entry[StaticSlice0Code + N] = ::evaluate<StaticSlice<N>, ReducedAttributes>;
+
+			STATIC_IF (N >= 1) {
+				initialize_static_slice<N - 1>();
+			} STATIC_ENDIF
+		}
+
+		Precompiled() {
+			static_assert(1 + PackedSliceMachineRealCode - StaticSlice0Code ==
+			              NumberOfSliceCodes, "slice code ids error");
+
+			m_vtable.entry[DynamicSliceCode] = ::evaluate<DynamicSlice, ReducedAttributes>;
+
+			m_vtable.entry[PackedSliceMachineIntegerCode] =
+					::evaluate<PackedSlice<machine_integer_t>, ReducedAttributes>;
+			m_vtable.entry[PackedSliceMachineRealCode] =
+					::evaluate<PackedSlice<machine_real_t>, ReducedAttributes>;
+
+			initialize_static_slice<MaxStaticSliceSize>();
+		}
+
+		inline const Evaluate *vtable() const {
+			return &m_vtable;
+		}
+	};
+
+private:
+	Precompiled<FixedAttributes<Attributes::None>> m_none;
+
+	Precompiled<FixedAttributes<Attributes::HoldFirst>> m_hold_first;
+	Precompiled<FixedAttributes<Attributes::HoldRest>> m_hold_rest;
+	Precompiled<FixedAttributes<Attributes::HoldAll>> m_hold_all;
+	Precompiled<FixedAttributes<Attributes::HoldAllComplete>> m_hold_all_complete;
+
+	Precompiled<FixedAttributes<Attributes::Listable + Attributes::NumericFunction>> m_listable_numeric_function;
+
+	Precompiled<Attributes> m_dynamic;
 
 public:
 	static void init();
 
 	static const Evaluate *pick(Attributes attributes);
 };
+
+inline BaseExpressionRef Symbol::dispatch(
+	const Expression *expr,
+	SliceCode slice_code,
+	const Slice &slice,
+	const Evaluation &evaluation) const {
+
+	const Symbol * const self = this;
+
+	return m_attributes_data.load([self, expr, slice_code, &slice, &evaluation] (auto &data, auto release) {
+		const Attributes attributes = data.attributes;
+		const Evaluate *const evaluate = data.evaluate;
+		release();
+
+		return (*evaluate)(
+			expr,
+			BaseExpressionRef(self),
+			slice_code,
+			slice,
+			attributes,
+			evaluation);
+	});
+}
 
 #endif //CMATHICS_EVALUATE_H

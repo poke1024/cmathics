@@ -60,7 +60,7 @@ public:
         <dd>returns the natural logarithm of $z$.
     </dl>
 
-    #> Log[{0, 1, E, E * E, E ^ 3, E ^ x}]
+    >> Log[{0, 1, E, E * E, E ^ 3, E ^ x}]
      = {-Infinity, 0, 1, 2, 3, Log[E ^ x]}
     >> Log[0.]
      = Indeterminate
@@ -88,11 +88,11 @@ public:
     }
 
     void build(Runtime &runtime) {
-        down("Log[0.]", "Indeterminate");
-        down("Log[0]", "DirectedInfinity[-1]");
-        down("Log[1]", "0");
-        down("Log[E]", "1");
-        down("Log[E^x_Integer]", "x");
+        rule("Log[0.]", "Indeterminate");
+        rule("Log[0]", "DirectedInfinity[-1]");
+        rule("Log[1]", "0");
+        rule("Log[E]", "1");
+        rule("Log[E^x_Integer]", "x");
         // up("Derivative[1][Log]", "1/#&");
         // down("Log[x_?InexactNumberQ]", "Log[E, x]");
         Unary<decltype(_log)>::build(runtime);
@@ -165,7 +165,7 @@ public:
 
     #> Log10[1000]
      = 3
-    #> Log10[{2., 5.}]
+    >> Log10[{2., 5.}]
      = {0.30103, 0.69897}
     >> Log10[E ^ 3]
      = 3 / Log[10]
@@ -271,6 +271,12 @@ public:
 };
 
 void Builtins::ExpTrig::initialize() {
+    add("Exp",
+        Attributes::Listable + Attributes::NumericFunction, {
+        down("Exp[x_]", "E ^ x")
+        }
+    );
+
     add<Log>();
     add<Log2>();
     add<Log10>();

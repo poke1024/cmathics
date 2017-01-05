@@ -624,8 +624,8 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		down("Range[imax_]", "Range[1, imax, 1]");
-        down("Range[imin_, imax_]", "Range[imin, imax, 1]");
+		rule("Range[imax_]", "Range[1, imax, 1]");
+		rule("Range[imin_, imax_]", "Range[imin, imax, 1]");
 		builtin(&Range::apply);
 	}
 

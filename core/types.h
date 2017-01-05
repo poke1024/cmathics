@@ -697,6 +697,8 @@ public:
 	inline PatternMatcherRef expression_matcher() const;
 
 	inline PatternMatcherRef string_matcher() const;
+
+	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const = 0;
 };
 
 template<typename T>

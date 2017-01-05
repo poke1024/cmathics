@@ -64,34 +64,11 @@ BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
 }
 
 void Symbol::set_attributes(Attributes attributes) {
-    const auto * const dispatch = EvaluateDispatch::pick(attributes);
+    const auto * const evaluate = EvaluateDispatch::pick(attributes);
 
-	m_attributes_data.store([attributes, dispatch] (auto &data) {
+	m_attributes_data.store([attributes, evaluate] (auto &data) {
 		data.attributes = attributes;
-		data.dispatch = dispatch;
-	});
-}
-
-BaseExpressionRef Symbol::dispatch(
-    const Expression *expr,
-    SliceCode slice_code,
-    const Slice &slice,
-    const Evaluation &evaluation) const {
-
-	const Symbol * const self = this;
-
-	return m_attributes_data.load([self, expr, slice_code, &slice, &evaluation] (auto &data, auto release) {
-		const Attributes attributes = data.attributes;
-		const Evaluate *const dispatch = data.dispatch;
-		release();
-
-		return (*dispatch)(
-			expr,
-			BaseExpressionRef(self),
-			slice_code,
-			slice,
-			attributes,
-			evaluation);
+		data.evaluate = evaluate;
 	});
 }
 

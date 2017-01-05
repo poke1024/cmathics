@@ -457,19 +457,28 @@ public:
             const PatternMatcherRef matcher =
                 patt->as_expression()->expression_matcher();
             const auto head_leaves_matcher = matcher->head_leaves_matcher();
-            if (head_leaves_matcher && matcher->might_match(1)) {
-                m_matcher.initialize(matcher); // validates ptr to m_head_leaves_matcher
-                m_head_leaves_matcher = head_leaves_matcher;
+            if (head_leaves_matcher) {
+	            if (matcher->might_match(1)) {
+		            m_matcher.initialize(matcher); // validates ptr to m_head_leaves_matcher
+		            m_head_leaves_matcher = head_leaves_matcher;
+	            } else {
+		            m_head_leaves_matcher = nullptr;
+	            }
+            } else {
+	            throw std::runtime_error("constructed a SequenceMatcher for a non-expression pattern");
             }
-        }
-        if (!m_head_leaves_matcher) {
-            throw std::runtime_error("constructed a SequenceMatcher for a non-expression pattern");
+        } else {
+	        throw std::runtime_error("constructed a SequenceMatcher for a non-expression pattern");
         }
     }
 
     inline MatchRef operator()(const Expression *expr, const Evaluation &evaluation) const {
+	    const auto * const matcher = m_head_leaves_matcher;
+	    if (!matcher) {
+		    return MatchRef();
+	    }
         MatchContext context(m_matcher, evaluation);
-        if (m_head_leaves_matcher->without_head(context, expr)) {
+        if (matcher->without_head(context, expr)) {
             return context.match;
         } else {
             return MatchRef();

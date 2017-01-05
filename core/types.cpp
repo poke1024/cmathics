@@ -113,6 +113,22 @@ void InstantiateSymbolicForm::add(ExtendedType type, const Function &f) {
 void InstantiateSymbolicForm::init() {
     std::memset(s_functions, 0, sizeof(s_functions));
 
+	add(SymbolDirectedInfinity, [] (const Expression *expr) {
+		if (expr->size() == 1) {
+			const BaseExpressionRef &leaf = expr->static_leaves<1>()[0];
+			if (leaf->type() == MachineIntegerType) {
+				const machine_integer_t direction = static_cast<const MachineInteger*>(leaf.get())->value;
+				if (direction > 0) {
+					return SymbolicFormRef(Pool::SymbolicForm(SymEngineRef(SymEngine::Inf.get()), true));
+				} else if (direction < 0) {
+					return SymbolicFormRef(Pool::SymbolicForm(SymEngineRef(SymEngine::NegInf.get()), true));
+				}
+			}
+		}
+
+		return Pool::NoSymbolicForm();
+	});
+
 	add(SymbolPlus, [] (const Expression *expr) {
 		if (expr->size() == 2) {
 			return expr->symbolic_2(SymEngine::add);
@@ -280,6 +296,18 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
             expr = from_symbolic_expr(form, evaluation.Tan, evaluation);
             break;
 
+		case SymEngine::INFTY: {
+			const auto * const infty = static_cast<const SymEngine::Infty*>(form.get());
+			if (infty->is_positive()) {
+				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(1));
+			} else if (infty->is_negative()) {
+				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(-1));
+			} else {
+				throw std::runtime_error("cannot handle unsigned infinity from SymEngine");
+			}
+			break;
+		}
+
 		case SymEngine::CONSTANT:
 			if (form->__eq__(*SymEngine::pi.get())) {
 				expr = evaluation.Pi;
@@ -297,6 +325,14 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
                 expr = evaluation.EulerGamma;
                 break;
             }
+			else if (form->__eq__(*SymEngine::Inf.get())) {
+				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(1));
+				break;
+			}
+			else if (form->__eq__(*SymEngine::NegInf.get())) {
+				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(-1));
+				break;
+			}
 			// fallthrough
 
 		default: {

@@ -178,7 +178,7 @@ void Runtime::run_tests() {
                     if (parsed->evaluate_or_copy(evaluation)->fullform() != result->fullform()) {
                         if (!fail_expected) {
                             std::cout << "FAIL" << std::endl;
-                            std::cout << result_str << " != " << result->fullform() << std::endl;
+                            std::cout << parsed->fullform() << " != " << result->fullform() << std::endl;
                             fail_count++;
                         }
                     }

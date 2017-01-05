@@ -63,7 +63,7 @@ operator+(Attributes x, Attributes y)  {
 
 class Definitions;
 
-class Evaluate;
+struct EvaluateVTable;
 
 class Messages : public Shared<Messages, SharedHeap> {
 private:
@@ -94,13 +94,15 @@ struct SymbolRules {
 
 typedef std::unique_ptr<SymbolRules> SymbolRulesRef;
 
+class Evaluate;
+
 class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
 
 	struct AttributesData {
 		Attributes attributes;
-		const Evaluate *dispatch;
+		const Evaluate *evaluate;
 	};
 
 	char _short_name[32];

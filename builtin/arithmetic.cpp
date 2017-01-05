@@ -851,10 +851,51 @@ constexpr auto LessEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<less_equa
 constexpr auto Greater = NewRule<BinaryOperatorRule<BinaryArithmetic<greater>>>;
 constexpr auto GreaterEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<greater_equal>>>;
 
+class Infinity : public Builtin {
+public:
+	static constexpr const char *name = "Infinity";
+
+	static constexpr auto attributes =
+		Attributes::Constant + Attributes::ReadProtected;
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Infinity'
+        <dd>represents an infinite real quantity.
+    </dl>
+
+    >> 1 / Infinity
+     = 0
+    >> Infinity + 100
+     = Infinity
+
+    Use 'Infinity' in sum and limit calculations:
+    #> Sum[1/x^2, {x, 1, Infinity}]
+     = Pi ^ 2 / 6
+
+    #> FullForm[Infinity]
+     = DirectedInfinity[1]
+    #> (2 + 3.5*I) / Infinity
+     = 0. + 0. I
+    #> Infinity + Infinity
+     = Infinity
+    #> Infinity / Infinity
+     : Indeterminate expression 0 Infinity encountered.
+     = Indeterminate
+    )";
+
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		rule("Infinity", "DirectedInfinity[1]");
+	}
+};
+
 void Builtins::Arithmetic::initialize() {
 
 	add("Plus",
-	    Attributes::None, {
+	    Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +
+		    Attributes::OneIdentity + Attributes::Orderless + Attributes::Protected, {
 			Plus0,
 		    Plus1,
 		    Plus2,
@@ -865,31 +906,26 @@ void Builtins::Arithmetic::initialize() {
 		)");
 
 	add("Subtract",
-	    Attributes::None, {
+		Attributes::Listable + Attributes::NumericFunction, {
 			down("Subtract[x_, y_]", "Plus[x, Times[-1, y]]")
 	    }
 	);
 
 	add("Times",
-	    Attributes::None, {
+		Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +
+			Attributes::OneIdentity + Attributes::Orderless + Attributes::Protected, {
 			Times2
 	    });
 
 	add("Power",
-	    Attributes::None, {
+		Attributes::Listable + Attributes::NumericFunction + Attributes::OneIdentity, {
 			Power
 	    });
 
 	add("Sqrt",
-	    Attributes::None, {
+		Attributes::Listable + Attributes::NumericFunction, {
 			down("Sqrt[x_]", "x ^ (1 / 2)")
 	    }
-	);
-
-	add("Exp",
-		Attributes::None, {
-			down("Exp[x_]", "E ^ x")
-		}
 	);
 
 	add("Less",
@@ -911,4 +947,6 @@ void Builtins::Arithmetic::initialize() {
 	    Attributes::None, {
 			GreaterEqual
 	    });
+
+	add<Infinity>();
 }
