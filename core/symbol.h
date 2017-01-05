@@ -101,6 +101,7 @@ protected:
 	char _short_name[32];
 	char *_name;
 
+    mutable std::atomic_flag _attributes_lock = ATOMIC_FLAG_INIT;
 	Attributes _attributes;
 	const Evaluate *_evaluate_with_head;
 
@@ -122,10 +123,6 @@ public:
 	~Symbol();
 
 	virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
-
-	inline const Evaluate &evaluate_with_head() const {
-		return *_evaluate_with_head;
-	}
 
 	MutableBaseExpressionRef own_value;
 
@@ -189,7 +186,13 @@ public:
 
 	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
 
-	void set_attributes(Attributes a);
+	void set_attributes(Attributes attributes);
+
+    BaseExpressionRef dispatch( // using this symbol as head
+        const Expression *expr,
+        SliceCode slice_code,
+        const Slice &slice,
+        const Evaluation &evaluation) const;
 
 	virtual const Symbol *lookup_name() const {
 		return this;

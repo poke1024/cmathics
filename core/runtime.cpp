@@ -149,6 +149,8 @@ void Runtime::run_tests() {
 	const int n_digits = std::ceil(std::log10(n_tests));
 
 	size_t index = 1;
+	size_t fail_count = 0;
+
 	for (const auto &record : m_docs) {
 		Evaluation evaluation(_definitions, false);
 
@@ -177,6 +179,7 @@ void Runtime::run_tests() {
                         if (!fail_expected) {
                             std::cout << "FAIL" << std::endl;
                             std::cout << result_str << " != " << result->fullform() << std::endl;
+                            fail_count++;
                         }
                     }
                 }
@@ -184,6 +187,12 @@ void Runtime::run_tests() {
 				// ignore
 			}
 		}
+	}
+
+	if (fail_count == 0) {
+	    std::cout << "TESTS OK" << std::endl;
+	} else {
+	    std::cout << fail_count << " TESTS FAILED!" << std::endl;
 	}
 }
 #endif

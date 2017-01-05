@@ -3,11 +3,13 @@
 
 #include "leaves.h"
 
-typedef std::function<BaseExpressionRef(
+template<typename Attributes>
+using Evaluator = std::function<BaseExpressionRef(
     const Expression *self,
 	const BaseExpressionRef &head,
 	const Slice &slice,
-	const Evaluation &evaluation)> Evaluator;
+    const Attributes &attributes,
+	const Evaluation &evaluation)>;
 
 typedef std::pair<size_t, size_t> eval_range;
 
@@ -256,11 +258,12 @@ ExpressionRef transform(
 
 typedef Slice GenericSlice;
 
-template<typename Slice, typename Hold>
+template<typename Slice, typename Hold, typename Attributes>
 BaseExpressionRef evaluate(
 	const Expression *self,
 	const BaseExpressionRef &head,
 	const GenericSlice &generic_slice,
+    const Attributes attributes,
 	const Evaluation &evaluation) {
 
 	if (!Hold::need_eval) {
@@ -294,6 +297,15 @@ BaseExpressionRef evaluate(
 			<< " AT [" << eval_leaf.first << ", " << eval_leaf.second << "]"
 			<< " TO " << intermediate_form << std::endl;
 	}
+
+    /*if 'System`Listable' in attributes:
+    done, threaded = new.thread(evaluation)
+    if done:
+        if threaded.same(new):
+    new._timestamp_cache(evaluation)
+    return new, False
+    else:
+    return threaded, True*/
 
 	const Expression * const safe_intermediate_form =
 		intermediate_form ?
@@ -353,30 +365,36 @@ BaseExpressionRef evaluate(
 	return intermediate_form;
 }
 
+class _NoAttributes { // i.e. no attributes besides Hold attributes
+};
+
 class Evaluate {
 private:
-	Evaluator _vtable[NumberOfSliceCodes];
+	Evaluator<_NoAttributes> _vtable[NumberOfSliceCodes];
 
 public:
-	template<typename Hold, int N>
+	template<typename Hold, typename Attributes, int N>
 	void initialize_static_slice() {
-		_vtable[StaticSlice0Code + N] = ::evaluate<StaticSlice<N>, Hold>;
+		_vtable[StaticSlice0Code + N] = ::evaluate<StaticSlice<N>, Hold, Attributes>;
 
 		STATIC_IF (N >= 1) {
-			initialize_static_slice<Hold, N-1>();
+			initialize_static_slice<Hold, Attributes, N-1>();
 		} STATIC_ENDIF
 	}
 
-	template<typename Hold>
+	template<typename Hold, typename Attributes>
 	void initialize() {
-		static_assert(1 + PackedSliceMachineRealCode - StaticSlice0Code == NumberOfSliceCodes, "slice code ids error");
+		static_assert(1 + PackedSliceMachineRealCode - StaticSlice0Code ==
+            NumberOfSliceCodes, "slice code ids error");
 
-		_vtable[DynamicSliceCode] = ::evaluate<DynamicSlice, Hold>;
+		_vtable[DynamicSliceCode] = ::evaluate<DynamicSlice, Hold, Attributes>;
 
-		_vtable[PackedSliceMachineIntegerCode] = ::evaluate<PackedSlice<machine_integer_t>, Hold>;
-		_vtable[PackedSliceMachineRealCode] = ::evaluate<PackedSlice<machine_real_t>, Hold>;
+		_vtable[PackedSliceMachineIntegerCode] =
+            ::evaluate<PackedSlice<machine_integer_t>, Hold, Attributes>;
+		_vtable[PackedSliceMachineRealCode] =
+            ::evaluate<PackedSlice<machine_real_t>, Hold, Attributes>;
 
-		initialize_static_slice<Hold, MaxStaticSliceSize>();
+		initialize_static_slice<Hold, Attributes, MaxStaticSliceSize>();
 	}
 
 	inline BaseExpressionRef operator()(
@@ -384,9 +402,12 @@ public:
 		const BaseExpressionRef &head,
 		SliceCode slice_code,
 		const Slice &slice,
+        const Attributes attributes,
 		const Evaluation &evaluation) const {
 
-		return _vtable[slice_code](self, head, slice, evaluation);
+        _NoAttributes no_attributes;
+
+		return _vtable[slice_code](self, head, slice, no_attributes, evaluation);
 	}
 };
 

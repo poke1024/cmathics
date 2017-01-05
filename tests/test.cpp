@@ -10,6 +10,8 @@ int main(int argc, char** argv) {
 
     runtime.run_tests();
 
+    std::cout << std::endl;
+
     doctest::Context context;
 
     int res = context.run(); // run

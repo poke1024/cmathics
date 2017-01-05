@@ -63,9 +63,40 @@ BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
 	}
 }
 
-void Symbol::set_attributes(Attributes a) {
-	_attributes = a;
-	_evaluate_with_head = EvaluateDispatch::pick(_attributes);
+void Symbol::set_attributes(Attributes attributes) {
+    const auto * const dispatch = EvaluateDispatch::pick(attributes);
+
+    while (true) {
+        if (_attributes_lock.test_and_set()) {
+            _attributes = attributes;
+            _evaluate_with_head = dispatch;
+            return;
+        }
+    }
+}
+
+BaseExpressionRef Symbol::dispatch(
+    const Expression *expr,
+    SliceCode slice_code,
+    const Slice &slice,
+    const Evaluation &evaluation) const {
+
+    while (true) {
+        if (_attributes_lock.test_and_set()) {
+            const Attributes attributes = _attributes;
+            const Evaluate *const evaluate = _evaluate_with_head;
+
+            _attributes_lock.clear();
+
+            return (*evaluate)(
+                expr,
+                BaseExpressionRef(this),
+                slice_code,
+                slice,
+                attributes,
+                evaluation);
+        }
+    }
 }
 
 void Symbol::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {

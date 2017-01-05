@@ -34,14 +34,10 @@ BaseExpressionRef Expression::evaluate_expression(
 			return evaluate_expression_with_non_symbol_head(evaluation);
 		}
 	} else {
-		const Symbol *head_symbol = static_cast<const Symbol *>(head.get());
+		const Symbol *head_symbol = static_cast<const Symbol*>(head.get());
 
-		return head_symbol->evaluate_with_head()(
-			this,
-			head,
-			slice_code(),
-			*_slice_ptr,
-			evaluation);
+		return head_symbol->dispatch(
+			this, slice_code(), *_slice_ptr, evaluation);
 	}
 }
 

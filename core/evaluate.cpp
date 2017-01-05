@@ -12,11 +12,11 @@ void EvaluateDispatch::init() {
 }
 
 EvaluateDispatch::EvaluateDispatch() {
-	_hold_none.initialize<_HoldNone>();
-	_hold_first.initialize<_HoldFirst>();
-	_hold_rest.initialize<_HoldRest>();
-	_hold_all.initialize<_HoldAll>();
-	_hold_all_complete.initialize<_HoldAllComplete>();
+	_hold_none.initialize<_HoldNone, _NoAttributes>();
+	_hold_first.initialize<_HoldFirst, _NoAttributes>();
+	_hold_rest.initialize<_HoldRest, _NoAttributes>();
+	_hold_all.initialize<_HoldAll, _NoAttributes>();
+	_hold_all_complete.initialize<_HoldAllComplete, _NoAttributes>();
 }
 
 const Evaluate *EvaluateDispatch::pick(Attributes attributes) {
