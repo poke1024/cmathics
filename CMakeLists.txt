@@ -142,7 +142,7 @@ set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test_rational.cpp
     tests/test_real.cpp
     tests/test_string.cpp
-    tests/test.cpp core/complex.cpp core/complex.h)
+    tests/test.cpp core/complex.cpp core/complex.h tests/test_pool.cpp)
 
 add_executable(cmathicstest ${TESTS_SOURCE_FILES})
 target_compile_definitions(cmathicstest PRIVATE MAKE_UNIT_TEST=1)
