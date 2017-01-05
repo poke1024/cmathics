@@ -14,11 +14,16 @@
 class MachineInteger;
 class BigInteger;
 
+class MachineRational;
 class BigRational;
 
 class Precision;
+
 class MachineReal;
 class BigReal;
+
+class MachineComplex;
+class BigComplex;
 
 class RefsExtent;
 typedef ConstSharedPtr<RefsExtent> RefsExtentRef;
@@ -178,6 +183,7 @@ class Pool {
 private:
 	static /*thread_local*/ Pool *_s_instance;
 
+private:
 	boost::object_pool<Symbol> _symbols;
 
 	boost::object_pool<MachineInteger> _machine_integers;
@@ -188,11 +194,14 @@ private:
     boost::object_pool<MachineReal> _machine_reals;
     boost::object_pool<BigReal> _big_reals;
 
+    boost::object_pool<MachineComplex> _machine_complexs;
+
 	StaticExpressionHeap<MaxStaticSliceSize> _static_expression_heap;
     boost::object_pool<ExpressionImplementation<DynamicSlice>> _dynamic_expressions;
 
 	boost::object_pool<String> _strings;
 
+private:
 	boost::object_pool<Cache> _caches;
 	boost::object_pool<RefsExtent> _refs_extents;
 
@@ -233,7 +242,9 @@ public:
 	static inline BaseExpressionRef BigReal(const SymbolicFormRef &form, const Precision &prec);
 	static inline BaseExpressionRef BigReal(arb_t value, const Precision &prec);
 
-	static inline StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
+    static inline BaseExpressionRef MachineComplex(machine_real_t real, machine_real_t imag);
+
+    static inline StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
 
 	template<int N>
 	static inline StaticExpressionRef<N> StaticExpression(

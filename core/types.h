@@ -36,7 +36,9 @@ enum Type : uint8_t { // values represented as bits in TypeMasks
     BigRationalType = 6,
 	ComplexType = 7,
 	ExpressionType = 8,
-	StringType = 9
+	StringType = 9,
+    MachineComplexType = 10,
+    BigComplexType = 11
 };
 
 // CoreTypeBits is the number of bits needed to represent every value in
@@ -74,7 +76,9 @@ enum ExtendedType : uint16_t {
 	BigRationalExtendedType = BigRationalType << CoreTypeShift,
 	ComplexExtendedType = ComplexType << CoreTypeShift,
 	ExpressionExtendedType = ExpressionType << CoreTypeShift,
-	StringExtendedType = StringType << CoreTypeShift
+	StringExtendedType = StringType << CoreTypeShift,
+    MachineComplexExtendedType = MachineComplexType << CoreTypeShift,
+    BigComplexExtendedType = BigComplexType << CoreTypeShift
 };
 
 typedef uint32_t TypeMask;
@@ -399,6 +403,10 @@ public:
 
     virtual bool same(const BaseExpression &expr) const = 0;
 
+    virtual bool equals(const BaseExpression &expr) const {
+        return same(expr);
+    }
+
     virtual hash_t hash() const = 0;
 
     virtual std::string fullform() const = 0;
@@ -703,7 +711,12 @@ inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
         const auto &f = InstantiateSymbolicForm::lookup(
             expr->_head->extended_type());
         if (f) {
-            return f(expr);
+            try {
+                return f(expr);
+            } catch(const SymEngine::SymEngineException &e) {
+                std::cerr << "SymEngine error: " << e.what() << std::endl;
+                return Pool::NoSymbolicForm();
+            }
         } else {
             return Pool::NoSymbolicForm();
         }

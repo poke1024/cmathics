@@ -181,7 +181,7 @@ public:
 	};
 
 	template<typename Strategy, typename... Args>
-	inline index_t greedy(const Strategy &strategy, Args... args) const {
+	inline index_t greedy(const Strategy &strategy, const Args&... args) const {
 		return strategy.no_test(args...);
 	}
 };
@@ -221,7 +221,7 @@ public:
 	}
 
 	template<typename Strategy, typename... Args>
-	inline index_t greedy(const Strategy &strategy, Args... args) const {
+	inline index_t greedy(const Strategy &strategy, const Args&... args) const {
 		const TestHead &self = *this;
 		return strategy.simple_test(
 			[&self] (const auto &sequence, index_t begin, index_t end) {
@@ -267,7 +267,7 @@ public:
 	}
 
 	template<typename Strategy, typename... Args>
-	inline index_t greedy(const Strategy &strategy, Args... args) const {
+	inline index_t greedy(const Strategy &strategy, const Args&... args) const {
 		const PatternMatcherRef &patt = m_patt;
 		return m_callback(
 			strategy,
@@ -918,7 +918,7 @@ public:
 	inline index_t complex_test(
 		const Test &test_element,
 		const Sequence &sequence,
-		Args... args) const {
+		const Args&... args) const {
 
 		auto &match = sequence.context().match;
 		const auto vars0 = match->n_slots_fixed();

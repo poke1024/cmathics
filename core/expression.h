@@ -566,7 +566,7 @@ const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(UnsafeBase
 }
 
 template<typename... Args>
-void Evaluation::message(const SymbolRef &name, const char *tag, Args... args) const {
+void Evaluation::message(const SymbolRef &name, const char *tag, const Args&... args) const {
 	const auto &symbols = definitions.symbols();
 
 	const BaseExpressionRef tag_str = Pool::String(std::string(tag));

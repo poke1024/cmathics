@@ -30,5 +30,6 @@ constexpr hash_t string_hash = 0x652d1ee9bdc; // djb2("String")
 
 constexpr hash_t machine_integer_hash = 0x1874fa90f5a6c248; // djb2("MachineInteger")
 constexpr hash_t machine_real_hash = 0xc000a15031b8359e; // djb2("MachineReal")
+constexpr hash_t machine_complex_hash = 0x1874fa8f29a5f052; // djb2("MachineComplex")
 
 #endif

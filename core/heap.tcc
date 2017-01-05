@@ -13,6 +13,11 @@ inline BaseExpressionRef Pool::MachineReal(machine_real_t value) {
 	return BaseExpressionRef(_s_instance->_machine_reals.construct(value));
 }
 
+inline BaseExpressionRef Pool::MachineComplex(machine_real_t real, machine_real_t imag) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_machine_complexs.construct(real, imag));
+}
+
 inline BaseExpressionRef Pool::BigInteger(const mpz_class &value) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_integers.construct(value));
@@ -94,7 +99,11 @@ inline void Pool::release(BaseExpression *expr) {
 			_s_instance->_machine_reals.free(static_cast<class MachineReal*>(expr));
 			break;
 
-		case BigRealType:
+        case MachineComplexType:
+            _s_instance->_machine_complexs.free(static_cast<class MachineComplex*>(expr));
+            break;
+
+        case BigRealType:
 			_s_instance->_big_reals.free(static_cast<class BigReal*>(expr));
 			break;
 

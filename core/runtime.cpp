@@ -11,7 +11,7 @@
 #include "builtin/numbertheory.h"
 
 #if MAKE_UNIT_TEST
-const char *Builtin::tests = "";
+const char *Builtin::docs = "";
 #endif
 
 class Experimental : public Unit {
@@ -136,8 +136,8 @@ inline std::string trim(const std::string &s) {
 void Runtime::run_tests() {
 	size_t n_tests = 0;
 
-	for (const auto &record : m_tests) {
-		std::stringstream stream(record.tests);
+	for (const auto &record : m_docs) {
+		std::stringstream stream(record.second);
 		std::string line;
 		while(std::getline(stream, line, '\n')) {
 			if (line.compare(0, 2, ">>") == 0) {
@@ -149,26 +149,37 @@ void Runtime::run_tests() {
 	const int n_digits = std::ceil(std::log10(n_tests));
 
 	size_t index = 1;
-	for (const auto &record : m_tests) {
+	for (const auto &record : m_docs) {
 		Evaluation evaluation(_definitions, false);
 
-		std::stringstream stream(record.tests);
+		std::stringstream stream(record.second);
 		UnsafeBaseExpressionRef result;
 
 		std::string line;
+		bool fail_expected = false;
 		while(std::getline(stream, line, '\n')) {
 			line = trim(line);
-			if (line.compare(0, 2, ">>") == 0) {
+			if (line.compare(0, 2, ">>") == 0 || line.compare(0, 2, "#>") == 0) {
 				const std::string command_str(trim(line.substr(2)));
 				std::cout << std::setw(n_digits) << index++ << ". TEST " << command_str << std::endl;
 				result = _parser.parse(command_str.c_str())->evaluate_or_copy(evaluation);
+				fail_expected = line.compare(0, 2, "#>") == 0;
 			} else if (line.compare(0, 1, "=") == 0) {
 				const std::string result_str(trim(line.substr(1)));
-				auto parsed = _parser.parse(result_str.c_str());
-				if(!parsed->evaluate_or_copy(evaluation)->same(result)) {
-					std::cout << "FAIL" << std::endl;
-					std::cout << result_str << " != " << result->fullform() << std::endl;
-				}
+
+				if (result_str.length() > 2 &&
+                    result_str[0] == '-' &&
+                    result_str[result_str.length() - 1] == '-') {
+                    // ignore stuff like -Graphics- for now
+                } else {
+                    auto parsed = _parser.parse(result_str.c_str());
+                    if (parsed->evaluate_or_copy(evaluation)->fullform() != result->fullform()) {
+                        if (!fail_expected) {
+                            std::cout << "FAIL" << std::endl;
+                            std::cout << result_str << " != " << result->fullform() << std::endl;
+                        }
+                    }
+                }
 			} else {
 				// ignore
 			}

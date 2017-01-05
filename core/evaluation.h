@@ -85,7 +85,7 @@ public:
     BaseExpressionRef evaluate(BaseExpressionRef expression);
 
     template<typename... Args>
-    void message(const SymbolRef &name, const char *tag, Args... args) const;
+    void message(const SymbolRef &name, const char *tag, const Args&... args) const;
 };
 
 inline SymbolRef String::option_symbol(const Evaluation &evaluation) const {

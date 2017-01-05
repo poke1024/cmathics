@@ -209,6 +209,10 @@ namespace python {
 			return (*this)[static_cast<size_t>(i)];
 		}
 
+        inline std::string str() const {
+            return object(new_reference(PyObject_Str(_py_object))).as_string();
+        }
+
 		inline object repr() const {
 			return object(new_reference(PyObject_Repr(_py_object)));
 		}
@@ -233,6 +237,19 @@ namespace python {
 				return "<not a string>";
 			}
 		}
+
+        inline long as_small_integer() const {
+            if (!PyLong_Check(_py_object)) {
+                throw std::runtime_error("not an integer value");
+            }
+            int overflow;
+            long value = PyLong_AsLongAndOverflow(_py_object, &overflow);
+            if (overflow == 0 && value != -1) {
+                return value;
+            } else {
+                throw std::runtime_error("integer too large");
+            }
+        }
 
 		inline void as_integer(mpz_class &x) const {
 			if (!PyLong_Check(_py_object)) {
@@ -293,10 +310,10 @@ namespace python {
 		object _traceback;
 	public:
 		python_exception(object type, object value, object traceback) :
-				std::runtime_error("some kind of python exception occured"),
-				_type(type),
-				_value(value),
-				_traceback(traceback) {
+            std::runtime_error("some kind of python exception occured"),
+            _type(type),
+            _value(value),
+            _traceback(traceback) {
 		}
 	};
 

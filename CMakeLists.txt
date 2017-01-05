@@ -125,7 +125,7 @@ set(SOURCE_FILES
     builtin/numbertheory.cpp
     builtin/numbertheory.h
     builtin/structure.cpp
-    builtin/structure.h)
+    builtin/structure.h core/complex.cpp core/complex.h)
 
 add_custom_target(standalone)
 
@@ -142,7 +142,7 @@ set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test_rational.cpp
     tests/test_real.cpp
     tests/test_string.cpp
-    tests/test.cpp)
+    tests/test.cpp core/complex.cpp core/complex.h)
 
 add_executable(cmathicstest ${TESTS_SOURCE_FILES})
 target_compile_definitions(cmathicstest PRIVATE MAKE_UNIT_TEST=1)

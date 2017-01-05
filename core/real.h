@@ -13,7 +13,23 @@
 #include "types.h"
 #include "hash.h"
 
+inline bool is_almost_equal(arb_t x, int px, arb_t y, int py) {
+    // considers numbers equal that differ in their last 7 binary digits
+    arb_t tx, ty;
+    arb_init(tx);
+    arb_init(ty);
+    arb_set_round(tx, x, px - 7);
+    arb_set_round(tx, y, py - 7);
+    bool eq = arb_overlaps(tx, ty);
+    arb_clear(tx);
+    arb_clear(ty);
+    return eq;
+}
+
 class MachineReal : public BaseExpression {
+private:
+    static const std::hash<machine_real_t> hash_function;
+
 public:
 	static constexpr Type Type = MachineRealType;
 
@@ -33,15 +49,27 @@ public:
         }
     }
 
+    /*virtual bool equals(const BaseExpression &expr) const final {
+        switch (expr.type()) {
+            case MachineRealType: {
+                arb_init(x);
+                arb_set_d(x, value);
+                std::numerical_limits<machine_real_t>::digits
+                return false;
+            }
+            default:
+                return false;
+        }
+    }*/
+
     virtual hash_t hash() const {
         // TODO better hash see CPython _Py_HashDouble
-        return hash_pair(machine_real_hash, (uint64_t)value);
+        return hash_pair(machine_real_hash, hash_function(value));
     }
 
     virtual std::string fullform() const {
         std::ostringstream s;
-        s << std::showpoint << std::setprecision(
-            std::numeric_limits<machine_real_t>::digits10) << value;
+        s << std::showpoint << std::setprecision(6) << value;
         return s.str();
     }
 

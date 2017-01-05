@@ -14,17 +14,22 @@ private:
 	python::object _symbol, _lookup;
 	python::object _integer;
 	python::object _machine_real;
+    python::object _precision_real;
 	python::object _string;
+
+    python::object _decimal_string;
 
 public:
 	ParseConverter(Definitions &definitions) :
-			_definitions(definitions),
-			_expression(python::string("Expression")),
-			_symbol(python::string("Symbol")),
-			_lookup(python::string("Lookup")),
-			_integer(python::string("Integer")),
-			_machine_real(python::string("MachineReal")),
-			_string(python::string("String")) {
+        _definitions(definitions),
+        _expression(python::string("Expression")),
+        _symbol(python::string("Symbol")),
+        _lookup(python::string("Lookup")),
+        _integer(python::string("Integer")),
+        _machine_real(python::string("MachineReal")),
+        _precision_real(python::string("PrecisionReal")),
+        _decimal_string(python::string("DecimalString")),
+        _string(python::string("String")) {
 	}
 
 	BaseExpressionRef convert(const python::object &o) {
@@ -46,6 +51,18 @@ public:
 			return from_primitive(x);
 		} else if (kind == _machine_real) {
 			return from_primitive(o[1].as_float());
+        } else if (kind == _precision_real) {
+            if (o[1][0] == _decimal_string) {
+                const std::string decimals = o[1][1].as_string();
+                const double prec_10 = o[2].as_float();
+                arb_t x;
+                arb_init(x);
+                const Precision prec(prec_10);
+                arb_set_str(x, decimals.c_str(), prec.bits);
+                return Pool::BigReal(x, prec);
+            } else {
+                throw std::runtime_error("unsupported PrecisionReal");
+            }
 		} else if (kind == _expression) {
 			auto head = convert(o[1]);
 			std::vector<BaseExpressionRef> leaves;
@@ -59,7 +76,7 @@ public:
 			return from_primitive(o[1].as_string());
 		} else {
 			throw std::runtime_error(std::string(
-					"unsupported parsed item of type " + kind.as_string()));
+				"unsupported parsed item of type " + kind.as_string()));
 		}
 	}
 };

@@ -11,12 +11,7 @@ using TestList = std::initializer_list<const char*[2]>;
 
 class Runtime {
 private:
-	struct Test {
-		const char *name;
-		const char *tests;
-	};
-
-	std::list<Test> m_tests;
+	std::map<std::string, const char*> m_docs;
 
     python::Context _python_context;
 	Definitions _definitions;
@@ -59,20 +54,25 @@ public:
 		const SymbolRef symbol = _definitions.lookup(full_down.c_str());
 		symbol->set_attributes(T::attributes);
 
-		ConstSharedPtr<T> command(new T(*this, symbol, _definitions));
-		command->build(*this);
+        Runtime &runtime_ref = *this;
+        const SymbolRef &symbol_ref = symbol;
+        Definitions &definitions_ref = _definitions;
+
+		ConstSharedPtr<T> command(new T(
+            runtime_ref, symbol_ref, definitions_ref));
+		command->build(runtime_ref);
 
 #if MAKE_UNIT_TEST
-		add_test(T::name, T::tests);
+		add_docs(T::name, T::docs);
 #endif
     }
 
 #if MAKE_UNIT_TEST
-	void add_test(
+	void add_docs(
 		const char *name,
-		const char *tests) {
+		const char *docs) {
 
-		m_tests.emplace_back(Test{name, tests});
+        m_docs[name] = docs;
 	}
 
 	void run_tests();
@@ -111,6 +111,14 @@ protected:
 		BaseExpressionPtr,
 		BaseExpressionPtr,
 		BaseExpressionPtr,
+        const Evaluation &);
+
+    template<typename T>
+    using F4 = BaseExpressionRef (T::*) (
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        BaseExpressionPtr,
         const Evaluation &);
 
 	template<typename T>
@@ -213,6 +221,27 @@ protected:
             func));
     }
 
+    template<typename T>
+    inline void builtin(F4<T> fptr) {
+        const auto self = shared_from_this<T>();
+
+        auto func = [self, fptr] (
+            BaseExpressionPtr a,
+            BaseExpressionPtr b,
+            BaseExpressionPtr c,
+            BaseExpressionPtr d,
+            const Evaluation &evaluation) {
+
+            auto p = self.get();
+            return (p->*fptr)(a, b, c, d, evaluation);
+        };
+
+        m_symbol->add_rule(new BuiltinRule<4, decltype(func)>(
+            m_symbol,
+            m_runtime.definitions(),
+            func));
+    }
+
 	template<typename T>
 	inline void builtin(FN<T> fptr) {
 		const auto self = shared_from_this<T>();
@@ -288,7 +317,7 @@ public:
     static constexpr auto attributes = Attributes::None;
 
 #if MAKE_UNIT_TEST
-	static const char *tests;
+	static const char *docs;
 #endif
 
     Builtin(Runtime &runtime, const SymbolRef &symbol, Definitions &definitions) :
@@ -301,20 +330,17 @@ typedef ConstSharedPtr<Builtin> BuiltinRef;
 class Unit {
 private:
 	Runtime &m_runtime;
-#if MAKE_UNIT_TEST
-	std::vector<std::tuple<const char*, const char*>> m_tests;
-#endif
 
 protected:
 	inline void add(
 		const char *name,
 		Attributes attributes,
 		const std::initializer_list<NewRuleRef> &rules,
-		const char *tests = "") const {
+		const char *docs = "") const {
 
 		m_runtime.add(name, attributes, rules);
 #if MAKE_UNIT_TEST
-		m_runtime.add_test(name, tests);
+		m_runtime.add_docs(name, docs);
 #endif
 	}
 

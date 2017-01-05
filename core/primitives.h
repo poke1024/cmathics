@@ -3,6 +3,7 @@
 
 #include "integer.h"
 #include "real.h"
+#include "complex.h"
 #include "rational.h"
 #include "numeric.h"
 

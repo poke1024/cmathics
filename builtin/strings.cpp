@@ -5,12 +5,12 @@ class StringMatchQ : public Builtin {
 public:
 	static constexpr const char *name = "StringMatchQ";
 
-	static constexpr const char *tests = R"(
-	    >> StringMatchQ["abc", "abc"]
-	     = True
+	static constexpr const char *docs = R"(
+    >> StringMatchQ["abc", "abc"]
+     = True
 
-	    >> StringMatchQ["abc", "abd"]
-	     = False
+    >> StringMatchQ["abc", "abd"]
+     = False
 	)";
 
 public:

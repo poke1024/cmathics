@@ -7,6 +7,8 @@
 #include "real.h"
 #include "expression.h"
 
+const std::hash<machine_real_t> MachineReal::hash_function = std::hash<machine_real_t>();
+
 BaseExpressionPtr MachineReal::head(const Evaluation &evaluation) const {
     return evaluation.Real;
 }

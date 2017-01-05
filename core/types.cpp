@@ -229,6 +229,20 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
             break;
 		}
 
+        /*case SymEngine::COMPLEX: {
+            const auto *complex = static_cast<const SymEngine::Complex*>(form.get());
+            const mpq_class real(complex->real_.get_mpq_t());
+            const mpq_class imag(complex->imaginary_.get_mpq_t());
+            expr = Pool::MachineReal(0.); // FIXME
+            break;
+        }*/
+
+        case SymEngine::COMPLEX_DOUBLE: {
+            const auto *complex = static_cast<const SymEngine::ComplexDouble*>(form.get());
+            expr = Pool::MachineComplex(complex->i.real(), complex->i.imag());
+            break;
+        }
+
 		case SymEngine::SYMBOL: {
 			const std::string &name = static_cast<const SymEngine::Symbol*>(form.get())->get_name();
 			const Symbol *addr;
@@ -287,7 +301,7 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 
 		default: {
 			std::ostringstream s;
-			s << "unexpected SymEngine type code " << form->get_type_code();
+			s << "unsupported SymEngine type code " << form->get_type_code();
 			throw std::runtime_error(s.str());
 		}
 	}
