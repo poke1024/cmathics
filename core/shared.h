@@ -419,3 +419,34 @@ public:
 	}
 };
 
+template<typename T>
+class Spinlocked {
+private:
+	mutable std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
+	T m_data;
+
+public:
+	template<typename F>
+	inline void store(const F &f)  {
+		std::atomic_flag &lock = m_lock;
+		while (true) {
+			if (lock.test_and_set(std::memory_order_acq_rel)) {
+				f(m_data);
+				lock.clear(std::memory_order_release);
+				return;
+			}
+		}
+	}
+
+	template<typename F>
+	inline auto load(const F &f) const  {
+		std::atomic_flag &lock = m_lock;
+		while (true) {
+			if (lock.test_and_set(std::memory_order_acq_rel)) {
+				return f(m_data, [&lock] () {
+					lock.clear(std::memory_order_release);
+				});
+			}
+		}
+	}
+};

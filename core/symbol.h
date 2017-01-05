@@ -98,12 +98,15 @@ class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
 
+	struct AttributesData {
+		Attributes attributes;
+		const Evaluate *dispatch;
+	};
+
 	char _short_name[32];
 	char *_name;
 
-    mutable std::atomic_flag _attributes_lock = ATOMIC_FLAG_INIT;
-	Attributes _attributes;
-	const Evaluate *_evaluate_with_head;
+	Spinlocked<AttributesData> m_attributes_data;
 
 	SymbolRulesRef _rules;
 

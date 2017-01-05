@@ -415,8 +415,6 @@ class EvaluateDispatch {
 private:
 	static EvaluateDispatch *s_instance;
 
-public:
-
 private:
 	Evaluate _hold_none;
 	Evaluate _hold_first;
