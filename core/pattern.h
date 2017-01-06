@@ -1,6 +1,8 @@
 #ifndef PATTERN_H
 #define PATTERN_H
 
+#include <list>
+
 struct SlotDirective {
     enum Action {
         Slot,

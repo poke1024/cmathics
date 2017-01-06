@@ -1,11 +1,8 @@
 #ifndef CMATHICS_HEAP_H
 #define CMATHICS_HEAP_H
 
-#include <boost/pool/object_pool.hpp>
 #include <static_if/static_if.hpp>
 
-#include <boost/pool/pool_alloc.hpp>
-#include <boost/unordered/unordered_map.hpp>
 #include <forward_list>
 
 #include "gmpxx.h"

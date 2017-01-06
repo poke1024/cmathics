@@ -11,7 +11,6 @@
 #include <experimental/optional>
 using std::experimental::optional;
 
-#include <boost/intrusive_ptr.hpp>
 #include "shared.h"
 
 struct nothing {
