@@ -383,7 +383,7 @@ inline RefsExtentRef Pool::RefsExtent(const std::initializer_list<BaseExpression
 }
 
 inline void Pool::release(class RefsExtent *extent) {
-	_s_instance->_refs_extents.free(extent);
+	_s_instance->_refs_extents.destroy(extent);
 }
 
 

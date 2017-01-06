@@ -574,7 +574,7 @@ inline CacheRef Pool::new_cache() {
 }
 
 inline void Pool::release(Cache *cache) {
-	_s_instance->_caches.free(cache);
+	_s_instance->_caches.destroy(cache);
 }
 
 class Expression : public BaseExpression {

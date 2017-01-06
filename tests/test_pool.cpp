@@ -65,7 +65,7 @@ public:
 	void remove() {
 		if (!m_data.empty()) {
 			size_t i = rand() % m_data.size();
-			m_pool.free(m_data[i].item);
+			m_pool.destroy(m_data[i].item);
 			if (m_verify) {
 				m_data.erase(m_data.begin() + i);
 			}

@@ -80,39 +80,39 @@ inline StringRef Pool::String(const StringExtentRef &extent, size_t offset, size
 inline void Pool::release(BaseExpression *expr) {
 	switch (expr->type()) {
 		case SymbolType:
-			_s_instance->_symbols.free(static_cast<class Symbol*>(expr));
+			_s_instance->_symbols.destroy(static_cast<class Symbol*>(expr));
 			break;
 
 		case MachineIntegerType:
-			_s_instance->_machine_integers.free(static_cast<class MachineInteger*>(expr));
+			_s_instance->_machine_integers.destroy(static_cast<class MachineInteger*>(expr));
 			break;
 
 		case BigIntegerType:
-			_s_instance->_big_integers.free(static_cast<class BigInteger*>(expr));
+			_s_instance->_big_integers.destroy(static_cast<class BigInteger*>(expr));
 			break;
 
 		case BigRationalType:
-			_s_instance->_big_rationals.free(static_cast<class BigRational*>(expr));
+			_s_instance->_big_rationals.destroy(static_cast<class BigRational*>(expr));
 			break;
 
 		case MachineRealType:
-			_s_instance->_machine_reals.free(static_cast<class MachineReal*>(expr));
+			_s_instance->_machine_reals.destroy(static_cast<class MachineReal*>(expr));
 			break;
 
         case MachineComplexType:
-            _s_instance->_machine_complexs.free(static_cast<class MachineComplex*>(expr));
+            _s_instance->_machine_complexs.destroy(static_cast<class MachineComplex*>(expr));
             break;
 
         case BigRealType:
-			_s_instance->_big_reals.free(static_cast<class BigReal*>(expr));
+			_s_instance->_big_reals.destroy(static_cast<class BigReal*>(expr));
 			break;
 
 		case ExpressionType: {
 			const SliceCode code = static_cast<const class Expression*>(expr)->slice_code();
 			if (is_static_slice(code)) {
-				_s_instance->_static_expression_heap.free(expr, code);
+				_s_instance->_static_expression_heap.destroy(expr, code);
 			} else if (code == SliceCode::DynamicSliceCode) {
-				_s_instance->_dynamic_expressions.free(
+				_s_instance->_dynamic_expressions.destroy(
 					static_cast<ExpressionImplementation<DynamicSlice>*>(expr));
 			} else if (is_packed_slice(code)) {
 				delete expr;
@@ -123,7 +123,7 @@ inline void Pool::release(BaseExpression *expr) {
 		}
 
 		case StringType: {
-			_s_instance->_strings.free(static_cast<class String*>(expr));
+			_s_instance->_strings.destroy(static_cast<class String*>(expr));
 			break;
 		}
 

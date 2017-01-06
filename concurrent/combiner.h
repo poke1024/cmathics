@@ -30,30 +30,66 @@ private:
 
 	class AsynchronousArguments {
 	private:
-		static constexpr int N = 1;
+		static constexpr int N = 64;
+		static constexpr int K = 16;
+
+		AsynchronousArgument m_arguments[N]; // accessed concurrently
 
 		uint8_t m_index;
-		AsynchronousArgument m_arguments[N];
 
-	public:
-		AsynchronousArguments() : m_index(0) {
+		AsynchronousArgument *m_head;
+		AsynchronousArgument *m_prev; // invalid if m_head == nullptr
+		uint8_t m_size; // invalid if m_head == nullptr
+
+		inline void flush() {
+			AsynchronousArgument * const head = m_head;
+			if (head) {
+				m_head = nullptr;
+				Concurrent * const concurrent = head->concurrent;
+				concurrent->serve<false, false>(head, m_prev);
+			}
 		}
 
-		AsynchronousArgument *fetch() {
-			AsynchronousArgument *argument = &m_arguments[(m_index++) % N];
+	public:
+		AsynchronousArguments() : m_index(0), m_head(nullptr) {
+		}
 
-			Argument *next = argument->next.load(std::memory_order_acquire);
-			if (next == nullptr) {
-				return argument;
+		~AsynchronousArguments() {
+			flush();
+		}
+
+		template<typename Configure>
+		inline bool enqueue(Concurrent *concurrent, const Configure &configure) {
+			AsynchronousArgument * const argument = &m_arguments[(m_index++) % N];
+
+			Argument * const next = argument->next.load(std::memory_order_acquire);
+			if (next == nullptr) { // is available?
+				argument->concurrent = concurrent;
+				configure(*argument);
+
+				if (m_head == nullptr) {
+					m_head = argument;
+					m_prev = argument;
+					m_size = 1;
+				} else {
+					m_prev->next = argument;
+					m_prev = argument;
+					if (++m_size == K) {
+						flush();
+					}
+				}
+
+				return true;
 			} else {
-				return nullptr;
+				flush();
+				return false;
 			}
 		}
 	};
 
 	static constexpr uintptr_t locked = 1;
 	static constexpr uintptr_t handoff = 2;
-	static constexpr int limit = 16;
+	static constexpr int limit = 64;
 
 	inline bool is_locked(Argument *node) const {
 		return uintptr_t(node) == locked;
@@ -167,8 +203,8 @@ private:
 
 	static thread_local AsynchronousArguments s_asynchronous;
 
-	template<bool Asynchronous>
-	void serve(Argument *argument) {
+	template<bool WaitForCompletion, bool IgnoreTail>
+	inline void serve(Argument *head, Argument *tail) {
 		// 1. If m_head == 0, exchange it to LOCKED and become the combiner.
 		// Otherwise, enqueue own node into the m_head lock­free list.
 
@@ -178,8 +214,8 @@ private:
 			Argument *xchg = (Argument*)locked;
 			if (cmp) {
 				// There is already a combiner, enqueue itself.
-				xchg = argument;
-				argument->next.store(cmp, std::memory_order_release);
+				xchg = head;
+				tail->next.store(cmp, std::memory_order_release);
 			}
 
 			if (m_head.compare_exchange_strong(cmp, xchg, std::memory_order_acq_rel)) {
@@ -191,11 +227,13 @@ private:
 			// 2. If we are not the combiner, wait for arg­>next to become nullptr
 			// (which means the operation is finished).
 
-			if (Asynchronous) {
+			if (!WaitForCompletion) {
 				return;
 			}
 
-			wait_for_argument(argument);
+			assert(IgnoreTail || head == tail);
+
+			wait_for_argument(head);
 
 			// we got node.next through std::memory_order_acquire from a combiner who
 			// stored it using std::memory_order_release, so we can be safe that our
@@ -204,10 +242,23 @@ private:
 			// 3. We are the combiner.
 
 			// First, execute own operation.
-			m_data(*argument);
+			while (true) {
+				m_data(*head);
 
-			// Mark as released.
-			argument->next.store(nullptr, std::memory_order_release);
+				if (IgnoreTail || head == tail) {
+					// Mark as released.
+					head->next.store(nullptr, std::memory_order_release);
+
+					break;
+				} else {
+					Argument * const next = head->next.load(std::memory_order_acquire);
+
+					// Mark as released.
+					head->next.store(nullptr, std::memory_order_release);
+
+					head = next;
+				}
+			}
 
 			// Then, look for combining opportunities.
 			combine_all(1);
@@ -225,23 +276,17 @@ public:
 		m_head.store(nullptr, std::memory_order_release);
 	}
 
-	template<typename F>
-	void asynchronous(const F &f) {
-		AsynchronousArgument *arg = s_asynchronous.fetch();
-
-		if (arg) {
-			arg->concurrent = this;
-			f(*arg);
-			serve<true>(arg);
-		} else {
+	template<typename Configure>
+	inline void asynchronous(const Configure &configure) {
+		if (!s_asynchronous.enqueue(this, configure)) { // fallback into sync mode?
 			Argument argument;
-			f(argument);
-			serve<false>(&argument);
+			configure(argument);
+			(*this)(argument);
 		}
 	}
 
-	void operator()(Argument &argument) {
-		serve<false>(&argument);
+	inline void operator()(Argument &argument) {
+		serve<true, true>(&argument, &argument);
 	}
 };
 

@@ -106,9 +106,10 @@ public:
 
 		const size_t n = ++pool->n;
 
-		pool->free[n - 1] = node - pool->node;
+		const size_t k = n - 1;
+		pool->free[k] = node - pool->node;
 
-		if (n == 1) { // was full and removed from list?
+		if (k == 0) { // was full and removed from list?
 			MiniPool *head = m_head;
 			pool->prev = nullptr;
 			pool->next = head;
@@ -194,7 +195,7 @@ public:
 		return instance;
 	}
 
-	void free(T* instance) {
+	void destroy(T* instance) {
 		try {
 			instance->~T();
 		} catch(...) {
@@ -242,69 +243,80 @@ public:
 	}
 };
 
-template<typename T, size_t PoolSize = 16>
+template<typename T, size_t PoolSize = 8>
 class VectorAllocator : public std::allocator<T> {
 private:
 	using Base = ObjectPoolBase<T, PoolSize>;
 	using Pool = typename Base::Pool;
 
-	using PoolMap = std::unordered_map<size_t, std::unique_ptr<Base>>;
+	static constexpr int nbits = 8 * sizeof(unsigned int);
 
-	std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
-	const std::shared_ptr<PoolMap> m_pool_map;
+	struct Node {
+		Node *next;
+		T block[0];
+	};
+
+	struct Pools {
+		std::atomic<Node*> heads[nbits];
+	};
+
+	const std::shared_ptr<Pools> m_pools;
+
+	inline static int bits(size_t n) {
+		const int k = (nbits - __builtin_clz(n)) - 1;
+		assert(k >= 0 && k < nbits);
+		assert(n <= (1LL << k));
+		return k;
+	}
 
 public:
 	using value_type = T;
 
-	VectorAllocator() : m_pool_map(std::make_shared<PoolMap>()) {
+	VectorAllocator() : m_pools(std::make_shared<Pools>()) {
+		for (int i = 0; i < nbits; i++) {
+			m_pools->heads[i].store(nullptr, std::memory_order_release);
+		}
 	}
 
-	VectorAllocator(const VectorAllocator &allocator) : m_pool_map(allocator.m_pool_map) {
+	VectorAllocator(const VectorAllocator &allocator) : m_pools(allocator.m_pools) {
 	}
 
 	T *allocate(size_t n, const void *hint = 0) {
-		Base *base;
-		while (true) {
-			if (m_lock.test_and_set(std::memory_order_acq_rel)) {
-				const auto i = m_pool_map->find(n);
-				if (i != m_pool_map->end()) {
-					base = i->second.get();
-					m_lock.clear(std::memory_order_release);
-					break;
-				} else {
-					try {
-						base = m_pool_map->emplace(n, std::make_unique<Base>()).first->second.get();
-					} catch(...) {
-						m_lock.clear(std::memory_order_release);
-						throw;
-					}
-					m_lock.clear(std::memory_order_release);
-					break;
-				}
+		if (n == 0) {
+			return nullptr;
+		}
+
+		const int k = bits(n);
+
+		std::atomic<Node*> &head = m_pools->heads[k];
+
+		Node *node = head.load(std::memory_order_acquire);
+		while (node) {
+			if (head.compare_exchange_strong(node, node->next, std::memory_order_acq_rel)) {
+				return node->block;
 			}
 		}
 
-		typename Concurrent<Pool>::Argument argument;
-		argument.command = Base::Allocate;
-		base->m_pool(argument);
-		return argument.instance;
+		node = reinterpret_cast<Node*>(
+			::operator new(sizeof(Node) + sizeof(T) * (1LL << k)));
+
+		return node->block;
 	}
 
 	void deallocate(T *p, size_t n) {
-		Base *base;
+		const int k = bits(n);
+
+		Node * const node = reinterpret_cast<Node*>(
+			reinterpret_cast<uint8_t*>(p) - offsetof(Node, block));
+
+		std::atomic<Node*> &head = m_pools->heads[k];
+
+		Node *next = head.load(std::memory_order_acquire);
 		while (true) {
-			if (m_lock.test_and_set(std::memory_order_acq_rel)) {
-				const auto i = m_pool_map->find(n);
-				assert(i != m_pool_map->end());
-				base = i->second.get();
-				m_lock.clear(std::memory_order_release);
+			node->next = next;
+			if (head.compare_exchange_strong(next, node, std::memory_order_acq_rel)) {
 				break;
 			}
 		}
-
-		base->m_pool.asynchronous([p] (auto &argument) {
-			argument.command = Base::Free;
-			argument.instance = p;
-		});
 	}
 };

@@ -137,7 +137,7 @@ private:
 		}
 
 		_free[N] = [pool] (BaseExpression *expr) {
-			pool->free(static_cast<ExpressionImplementation<StaticSlice<N>>*>(expr));
+			pool->destroy(static_cast<ExpressionImplementation<StaticSlice<N>>*>(expr));
 		};
 
 		STATIC_IF (N >= 1) {
@@ -172,7 +172,7 @@ public:
 		return _make_late_init[N](head);
 	}
 
-	inline void free(BaseExpression *expr, SliceCode slice_id) const {
+	inline void destroy(BaseExpression *expr, SliceCode slice_id) const {
 		const size_t i = static_slice_size(slice_id);
 		assert(i <= UpToSize);
 		_free[i](expr);
@@ -319,11 +319,11 @@ public:
 	static inline void release(Cache *cache);
 
 	static inline void release(class Match *match) {
-		_s_instance->_matches.free(match);
+		_s_instance->_matches.destroy(match);
 	}
 
 	static inline void release(class SymbolicForm *form) {
-		return _s_instance->_symbolic_forms.free(form);
+		return _s_instance->_symbolic_forms.destroy(form);
 	}
 };
 
