@@ -80,20 +80,58 @@ public:
 		m_gc = nullptr;
 	}
 
-	inline T *allocate() {
-		MiniPool * const pool = m_head;
+	struct Pile {
+	protected:
+		friend class MemoryPool;
 
-		const size_t r = --pool->n;
-		if (r == 0) { // pool will be empty after taking 1?
-			switch_pool(pool);
+		MiniPool *m_pool;
+		pool_size_t m_free[PoolSize];
+		int16_t m_index;
+
+	public:
+		template<typename Reallocate>
+		inline T *allocate(const Reallocate &reallocate) {
+			while (true) {
+				const int16_t i = --m_index;
+
+				if (i >= 0) {
+					MiniPool * const pool = m_pool;
+					Node * const node = &pool->node[m_free[i]];
+#if DEBUG_ALLOCATIONS
+					assert(node->magic == 0xBADC0DED);
+					assert(node->pool == pool);
+#endif
+					return &node->instance;
+				} else {
+					reallocate();
+				}
+			}
 		}
 
-#if DEBUG_ALLOCATIONS
-		assert(r >= 0 && r < PoolSize);
-		assert(pool->node[pool->free[r]].pool == pool);
-#endif
+		template<typename Free>
+		void clear(const Free &free) {
+			MiniPool * const pool = m_pool;
+			int16_t i = m_index;
+			while (--i >= 0) {
+				Node * const node = &pool->node[m_free[i]];
+				free(&node->instance);
+			}
+			m_index = 0;
+		}
+	};
 
-		return &pool->node[pool->free[r]].instance;
+	inline void allocate(Pile * const pile) {
+		MiniPool * const pool = m_head;
+
+		const size_t n = pool->n;
+
+		pile->m_pool = pool;
+		std::memcpy(pile->m_free, pool->free, n * sizeof(pool_size_t));
+		pile->m_index = n;
+
+		pool->n = 0;
+
+		switch_pool(pool);
 	}
 
 	inline void free(T *instance) {
@@ -104,12 +142,11 @@ public:
 		assert(node->magic == 0xBADC0DED);
 #endif
 
-		const size_t n = ++pool->n;
+		const size_t n = pool->n++;
 
-		const size_t k = n - 1;
-		pool->free[k] = node - pool->node;
+		pool->free[n] = node - pool->node;
 
-		if (k == 0) { // was full and removed from list?
+		if (n == 0) { // was full and removed from list?
 			MiniPool *head = m_head;
 			pool->prev = nullptr;
 			pool->next = head;
@@ -117,7 +154,7 @@ public:
 				head->prev = pool;
 			}
 			m_head = pool;
-		} else if (n == PoolSize && (pool->prev || pool->next)) {
+		} else if (n + 1 == PoolSize && (pool->prev || pool->next)) {
 			// dequeue from m_head
 			if (pool->prev) {
 				pool->prev->next = pool->next;
@@ -141,7 +178,11 @@ public:
 
 template<typename T, size_t PoolSize = 1024>
 class ObjectPoolBase {
-public:
+protected:
+	using Pile = typename MemoryPool<T, PoolSize>::Pile;
+
+	static thread_local Pile s_pile;
+
 	enum Command {
 		Allocate,
 		Free
@@ -159,9 +200,10 @@ public:
 
 		void operator()(Argument &r) {
 			switch (r.command) {
-				case Allocate:
-					r.instance = m_pool.allocate();
+				case Allocate: {
+					m_pool.allocate(&s_pile);
 					break;
+				}
 				case Free:
 					m_pool.free(r.instance);
 					break;
@@ -170,7 +212,34 @@ public:
 	};
 
 	Concurrent<Pool> m_pool;
+
+public:
+	inline T *allocate() {
+		ObjectPoolBase * const self = this;
+		return s_pile.allocate([self] () {
+			typename Concurrent<Pool>::Argument argument;
+			argument.command = Allocate;
+			self->m_pool(argument);
+		});
+	}
+
+	inline void free(T *instance) {
+		m_pool.asynchronous([instance] (auto &argument) {
+			argument.command = Free;
+			argument.instance = instance;
+		});
+	}
+
+	~ObjectPoolBase() {
+		ObjectPoolBase * const self = this;
+		s_pile.clear([self] (T *instance) {
+			self->free(instance);
+		});
+	}
 };
+
+template<typename T, size_t PoolSize>
+thread_local typename ObjectPoolBase<T, PoolSize>::Pile ObjectPoolBase<T, PoolSize>::s_pile;
 
 template<typename T, size_t PoolSize = 1024>
 class ObjectPool : protected ObjectPoolBase<T, PoolSize> {
@@ -181,15 +250,11 @@ private:
 public:
 	template<typename... Args>
 	T *construct(const Args&... args) {
-		typename Concurrent<Pool>::Argument argument;
-		argument.command = Base::Allocate;
-		Base::m_pool(argument);
-		T * const instance = argument.instance;
+		T * const instance = Base::allocate();
 		try {
 			new(instance) T(args...);
 		} catch(...) {
-			argument.command = Base::Free;
-			Base::m_pool(argument);
+			Base::free(instance);
 			throw;
 		}
 		return instance;
@@ -202,10 +267,7 @@ public:
 			std::cerr << "destructor threw an exception.";
 		}
 
-		Base::m_pool.asynchronous([instance] (auto &argument) {
-			argument.command = Base::Free;
-			argument.instance = instance;
-		});
+		Base::free(instance);
 	}
 };
 
@@ -213,7 +275,6 @@ template<typename T, size_t PoolSize = 1024>
 class ObjectAllocator : public std::allocator<T> {
 private:
 	using Base = ObjectPoolBase<T, PoolSize>;
-	using Pool = typename Base::Pool;
 
 	const std::shared_ptr<Base> m_base;
 
@@ -228,27 +289,18 @@ public:
 
 	T *allocate(size_t n, const void *hint = 0) {
 		assert(n == 1);
-		typename Concurrent<Pool>::Argument argument;
-		argument.command = Base::Allocate;
-		m_base->m_pool(argument);
-		return argument.instance;
+		return m_base->allocate();
 	}
 
 	void deallocate(T *p, size_t n) {
 		assert(n == 1);
-		m_base->m_pool.asynchronous([p] (auto &argument) {
-			argument.command = Base::Free;
-			argument.instance = p;
-		});
+		m_base->free(p);
 	}
 };
 
 template<typename T, size_t PoolSize = 8>
 class VectorAllocator : public std::allocator<T> {
 private:
-	using Base = ObjectPoolBase<T, PoolSize>;
-	using Pool = typename Base::Pool;
-
 	static constexpr int nbits = 8 * sizeof(unsigned int);
 
 	struct Node {
@@ -264,8 +316,10 @@ private:
 
 	inline static int bits(size_t n) {
 		const int k = (nbits - __builtin_clz(n)) - 1;
+#if DEBUG_ALLOCATIONS
 		assert(k >= 0 && k < nbits);
 		assert(n <= (1LL << k));
+#endif
 		return k;
 	}
 
