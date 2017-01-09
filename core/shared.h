@@ -80,7 +80,7 @@ public:
 
     operator ConstSharedPtr<T>() const {
         while (true) {
-            if (m_lock.test_and_set(std::memory_order_acq_rel)) {
+            if (m_lock.test_and_set(std::memory_order_acq_rel) == false) {
                 ConstSharedPtr<T> p(m_ptr); // must not throw
                 m_lock.clear(std::memory_order_release);
                 return p;
@@ -93,7 +93,7 @@ public:
             intrusive_ptr_add_ref(ptr);
         }
         while (true) {
-            if (m_lock.test_and_set(std::memory_order_acq_rel)) {
+            if (m_lock.test_and_set(std::memory_order_acq_rel) == false) {
                 T *old = m_ptr;
                 m_ptr = ptr;
                 m_lock.clear(std::memory_order_release);
@@ -430,7 +430,7 @@ public:
 	inline void store(const F &f)  {
 		std::atomic_flag &lock = m_lock;
 		while (true) {
-			if (lock.test_and_set(std::memory_order_acq_rel)) {
+			if (lock.test_and_set(std::memory_order_acq_rel) == false) {
 				f(m_data);
 				lock.clear(std::memory_order_release);
 				return;
@@ -442,7 +442,7 @@ public:
 	inline auto load(const F &f) const  {
 		std::atomic_flag &lock = m_lock;
 		while (true) {
-			if (lock.test_and_set(std::memory_order_acq_rel)) {
+			if (lock.test_and_set(std::memory_order_acq_rel) == false) {
 				return f(m_data, [&lock] () {
 					lock.clear(std::memory_order_release);
 				});

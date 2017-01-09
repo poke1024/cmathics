@@ -10,6 +10,8 @@
 #include "builtin/structure.h"
 #include "builtin/numbertheory.h"
 
+#include "concurrent/parallel.h"
+
 #if MAKE_UNIT_TEST
 const char *Builtin::docs = "";
 #endif
@@ -76,6 +78,7 @@ void Runtime::init() {
     Pool::init();
     EvaluateDispatch::init();
     InstantiateSymbolicForm::init();
+    Parallel::init();
 }
 
 Runtime::Runtime() : _parser(_definitions) {
@@ -104,6 +107,7 @@ Runtime::Runtime() : _parser(_definitions) {
 }
 
 Runtime::~Runtime() {
+	Parallel::shutdown();
     s_instance = nullptr;
 }
 
