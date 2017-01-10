@@ -185,6 +185,7 @@ PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt);
 class Cache : public Shared<Cache, SharedPool> {
 private:
 	CachedRewriteRef m_rewrite;
+
 	CachedPatternMatcherRef m_expression_matcher;
 	CachedPatternMatcherRef m_string_matcher;
 

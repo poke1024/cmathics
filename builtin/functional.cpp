@@ -126,7 +126,7 @@ private:
             return BaseExpressionRef();
         }
 
-        const CacheRef cache = args->ensure_cache();
+        const CacheRef cache = body->as_expression()->ensure_cache();
 
         ConstSlotFunctionRef slot_function = cache->slot_function.ensure([&body] () {
             return SlotFunction::construct(body->as_expression());
@@ -156,7 +156,7 @@ private:
             return BaseExpressionRef();
         }
 
-        const CacheRef cache = args->ensure_cache();
+        const CacheRef cache = body->as_expression()->ensure_cache();
 
         try {
             ConstRewriteExpressionRef vars_function = cache->vars_function.ensure([&vars, &body] () {

@@ -136,42 +136,64 @@ public:
 		switch_pool(pool);
 	}
 
-	inline void free(T *instance) {
-		Node * const node = reinterpret_cast<Node*>(instance);
-		MiniPool * const pool = node->pool;
+	inline void free(Node *head) {
+        do {
+            MiniPool *pool = head->pool;
 
+            size_t k = 0;
+            Node *tail = head;
+            Node *tail_next;
+            while (true) {
 #if DEBUG_ALLOCATIONS
-		assert(node->magic == 0xBADC0DED);
+                assert(node->magic == 0xBADC0DED);
 #endif
+                k += 1;
 
-		const size_t n = pool->n++;
+                if ((tail_next = tail->next) == nullptr) {
+                    break;
+                }
+                if (tail_next->pool != pool) {
+                    break;
+                }
 
-        node->next = pool->free;
-		pool->free = node;
+                tail = tail_next;
+            }
 
-		if (n == 0) { // was full and removed from list?
-			MiniPool *head = m_head;
-			pool->prev = nullptr;
-			pool->next = head;
-			if (head) {
-				head->prev = pool;
-			}
-			m_head = pool;
-		} else if (n + 1 == PoolSize && (pool->prev || pool->next)) {
-			// dequeue from m_head
-			if (pool->prev) {
-				pool->prev->next = pool->next;
-			} else {
-				m_head = pool->next;
-			}
-			if (pool->next) {
-				pool->next->prev = pool->prev;
-			}
+            Node *const next_head = tail_next;
 
-			// enqueue into m_gc
-			pool->next = m_gc;
-			m_gc = pool;
-		}
+            const size_t n = pool->n;
+            const size_t m = n + k;
+            pool->n = m;
+
+            tail->next = pool->free;
+            pool->free = head;
+
+            if (n == 0) { // was full and removed from list?
+                MiniPool *head = m_head;
+                pool->prev = nullptr;
+                pool->next = head;
+                if (head) {
+                    head->prev = pool;
+                }
+                m_head = pool;
+            } else if (m == PoolSize && (pool->prev || pool->next)) {
+                // dequeue from m_head
+                if (pool->prev) {
+                    pool->prev->next = pool->next;
+                } else {
+                    m_head = pool->next;
+                }
+                if (pool->next) {
+                    pool->next->prev = pool->prev;
+                }
+
+                // enqueue into m_gc
+                pool->next = m_gc;
+                m_gc = pool;
+            }
+
+            head = next_head;
+        } while (head != nullptr);
 	}
 
 	void gc() {
@@ -179,7 +201,7 @@ public:
 	}
 };
 
-template<typename T, size_t PoolSize = 1024>
+template<typename T, size_t PoolSize>
 class ObjectPoolBase {
 public:
     enum Command {
@@ -203,19 +225,14 @@ public:
             Node *node;
         };
 
-        void operator()(Argument &r) {
+        inline void operator()(Argument &r) {
             switch (r.command) {
-                case AllocateCommand: {
+                case AllocateCommand:
                     m_pool.allocate(&s_pile);
                     break;
-                }
+
                 case FreeCommand:
-                    Node *node = r.node;
-                    while (node) {
-                        Node * const next = node->next;
-                        m_pool.free(&node->instance);
-                        node = next;
-                    }
+                    m_pool.free(r.node);
                     break;
             }
         }
@@ -237,13 +254,13 @@ public:
             m_head = node;
 
             if (++m_size >= PoolSize) {
+                m_head = nullptr;
+                m_size = 0;
+
                 pool.asynchronous([node] (auto &argument) {
                     argument.command = FreeCommand;
                     argument.node = node;
                 });
-
-                m_head = 0;
-                m_size = 0;
             }
         }
     };
@@ -292,7 +309,7 @@ private:
 
 public:
 	template<typename... Args>
-	T *construct(const Args&... args) {
+	inline T *construct(const Args&... args) {
 		T * const instance = Base::allocate();
 		try {
 			new(instance) T(args...);
@@ -303,7 +320,7 @@ public:
 		return instance;
 	}
 
-	void destroy(T* instance) {
+	inline void destroy(T* instance) {
 		try {
 			instance->~T();
 		} catch(...) {
