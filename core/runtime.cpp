@@ -69,6 +69,24 @@ public:
                         }
                     )
             });
+
+        add("Parallelize",
+                Attributes::HoldAll, {
+                builtin<1>(
+                    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
+	                    const bool old_parallelize = evaluation.parallelize;
+	                    evaluation.parallelize = true;
+	                    try {
+		                    const auto evaluated = expr->evaluate(evaluation);
+		                    evaluation.parallelize = old_parallelize;
+		                    return evaluated;
+	                    } catch(...) {
+		                    evaluation.parallelize = old_parallelize;
+		                    throw;
+	                    }
+                    }
+                )
+        });
     }
 };
 

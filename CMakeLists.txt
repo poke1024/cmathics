@@ -25,11 +25,13 @@ if(CUSTOM_PREFIX)
     # well under OS X and homebrew. here's what works for me (needs "brew install cmake" and
     # "brew install homebrew/science/arb"):
 
+    # NOTE: you need a thread-safe symengine, i.e. one built with WITH_SYMENGINE_THREAD_SAFE.
+
     # export SYMENGINE_PREFIX="$HOME/homebrew"
     # export SYMENGINE_SOURCE="$HOME/Downloads/symengine-master"
     # export CPATH="$SYMENGINE_PREFIX/include:$SYMENGINE_SOURCE"
     # cd "$SYMENGINE_SOURCE"
-    # CXXFLAGS=-std=c++11 "$SYMENGINE_PREFIX/bin/cmake" -DCMAKE_INSTALL_PREFIX:PATH="$SYMENGINE_PREFIX" -DWITH_ARB:BOOL=ON .
+    # CXXFLAGS=-std=c++11 "$SYMENGINE_PREFIX/bin/cmake" -DCMAKE_INSTALL_PREFIX:PATH="$SYMENGINE_PREFIX" -DWITH_ARB:BOOL=ON -DWITH_SYMENGINE_THREAD_SAFE:BOOL=ON .
     # make CXX_DEFINES=-std=c++11
     # make install
 

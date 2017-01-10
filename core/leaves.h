@@ -316,6 +316,9 @@ public:
 	static inline DynamicSlice create(const F &f, size_t n, T &r);
 
 	template<typename F>
+	static inline DynamicSlice parallel_create(const F &f, size_t n);
+
+	template<typename F>
 	inline DynamicSlice map(const F &f) const;
 
 	template<typename F>
@@ -549,6 +552,15 @@ public:
 	}
 
 	template<typename F>
+	static inline DynamicSlice parallel_create(const F &f, size_t n) {
+		parallel_heap_storage storage(n);
+		parallelize([&storage, &f] (size_t i) {
+			storage.concurrent_set(i, f(i));
+		}, n);
+		return DynamicSlice(std::move(storage.m_leaves), storage.m_type_mask);
+	}
+
+	template<typename F>
 	inline DynamicSlice map(const F &f) const {
 		const size_t n = size();
 		heap_storage storage(n);
@@ -598,6 +610,16 @@ inline DynamicSlice PackedSlice<U>::create(const F &f, size_t n, T &r) {
 	heap_storage storage(n);
 	r = f(storage);
 	return DynamicSlice(std::move(storage._leaves), storage._type_mask);
+}
+
+template<typename U>
+template<typename F>
+inline DynamicSlice PackedSlice<U>::parallel_create(const F &f, size_t n) {
+	parallel_heap_storage storage(n);
+	parallelize([&storage, &f] (size_t i) {
+		storage.concurrent_set(i, f(i));
+	}, n);
+	return DynamicSlice(std::move(storage.m_leaves), storage.m_type_mask);
 }
 
 template<typename U>
@@ -676,10 +698,12 @@ auto static_slice_array(const F &f, T &r) {
 	return std::move(storage.m_array);
 }
 
-template<int N, typename F, typename T>
-auto parallel_static_slice_array(const F &f, T &r) {
+template<int N, typename F>
+auto parallel_static_slice_array(const F &f) {
 	parallel_static_slice_storage<N> storage;
-	r = f(storage);
+	for (size_t i = 0; i < N; i++) {
+		storage.concurrent_set(i, f(i));
+	}
 	return std::move(storage.m_array);
 }
 
@@ -780,10 +804,10 @@ public:
 		return StaticSlice(std::move(static_slice_array<N>(f, r)));
 	}
 
-	template<typename T, typename F>
-	static inline StaticSlice parallel_create(const F &f, size_t n, T &r) {
+	template<typename F>
+	static inline StaticSlice parallel_create(const F &f, size_t n) {
 		assert(n == N);
-		return StaticSlice(std::move(parallel_static_slice_array<N>(f, r)));
+		return StaticSlice(std::move(parallel_static_slice_array<N>(f)));
 	}
 
 	template<typename F>

@@ -75,6 +75,11 @@ struct transform_utils {
 		return expression(head, Slice::create(generate, size, state));
 	}
 
+	template<typename F>
+	static inline ExpressionRef parallel_generate(const BaseExpressionRef &head, const F &generate, size_t size) {
+		return expression(head, Slice::parallel_create(generate, size));
+	}
+
 	static inline ExpressionRef clone(const BaseExpressionRef &head, const Slice &slice) {
 		return expression(head, Slice(slice));
 	}
@@ -87,6 +92,11 @@ struct transform_utils<ArraySlice> {
 		return expression_from_generator(head, generate, size, state);
 	}
 
+	template<typename F>
+	static inline ExpressionRef parallel_generate(const BaseExpressionRef &head, const F &generate, size_t size) {
+		throw std::runtime_error("parallel_generate not implemented for ArraySlice");
+	}
+
 	static inline ExpressionRef clone(const BaseExpressionRef &head, const ArraySlice &slice) {
 		return slice.clone(head);
 	}
@@ -97,6 +107,11 @@ struct transform_utils<VCallSlice> {
 	template<typename T, typename F>
 	static inline ExpressionRef generate(const BaseExpressionRef &head, const F &generate, size_t size, T &state) {
 		return expression_from_generator(head, generate, size, state);
+	}
+
+	template<typename F>
+	static inline ExpressionRef parallel_generate(const BaseExpressionRef &head, const F &generate, size_t size) {
+		throw std::runtime_error("parallel_generate not implemented for VCallSlice");
 	}
 
 	static inline ExpressionRef clone(const BaseExpressionRef &head, const VCallSlice &slice) {
@@ -202,9 +217,10 @@ ExpressionRef parallel_transform(
 	const size_t begin,
 	const size_t end,
 	const F &f,
-	const bool apply_head) {
+	const bool apply_head,
+	const bool parallelize) {
 
-	if (end - begin < 10) {
+	if (!parallelize) {
 		return transform<Types>(head, slice, begin, end, f, apply_head);
 	}
 
@@ -223,50 +239,30 @@ ExpressionRef parallel_transform(
 			BaseExpressionRef result = f(leaf);
 
 			if (result) { // copy is needed now
-				const size_t size = slice.size();
-
-				auto parallel_generate = [i0, end, size, &slice, &f, &result] (auto &storage) {
-					for (size_t j = 0; j < i0; j++) {
-						storage << BaseExpressionRef(slice[j]);
-					}
-
-					storage << BaseExpressionRef(result); // leaves[i0]
-
-					std::vector<BaseExpressionRef> refs(end - (i0 + 1));
-					parallelize([i0, &slice, &refs, &f] (size_t i) {
-						const size_t j = i + i0;
-
-						BaseExpressionRef old_leaf = slice[j];
+				auto generate = [i0, end, &slice, &f, &result] (size_t i) {
+					if (i < i0 || i >= end) {
+						return BaseExpressionRef(slice[i]);
+					} else if (i == i0) {
+						return BaseExpressionRef(result); // leaves[i0];
+					} else {
+						BaseExpressionRef old_leaf = slice[i];
 
 						if ((old_leaf->base_type_mask() & Types) == 0) {
-							refs[j].mutate(std::move(old_leaf));
+							return old_leaf;
 						} else {
 							BaseExpressionRef inner_result = f(old_leaf);
 
 							if (inner_result) {
-								refs[j].mutate(std::move(inner_result));
+								return inner_result;
 							} else {
-								refs[j].mutate(std::move(old_leaf));
+								return old_leaf;
 							}
 						}
-
-					}, end - (i0 + 1));
-
-					for (const BaseExpressionRef &ref : refs) {
-						storage << BaseExpressionRef(ref);
 					}
-
-					for (size_t j = end; j < size; j++) {
-						storage << BaseExpressionRef(slice[j]);
-					}
-
-					return nothing();
 				};
 
-				nothing state;
-
-				return transform_utils<Slice>::generate(
-					head, parallel_generate, size, state);
+				return transform_utils<Slice>::parallel_generate(
+					head, generate, slice.size());
 			}
 		}
 	}
@@ -319,17 +315,6 @@ BaseExpressionRef evaluate(
 
 	constexpr auto mask = MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType);
 
-#if 1
-	const ExpressionRef intermediate_form = transform<mask>(
-		head,
-		slice,
-		eval_leaf.first,
-		eval_leaf.second,
-		[&evaluation] (const BaseExpressionRef &leaf) {
-			return leaf->evaluate(evaluation);
-		},
-		head != self->_head);
-#else
 	const ExpressionRef intermediate_form = parallel_transform<mask>(
 		head,
 		slice,
@@ -338,8 +323,8 @@ BaseExpressionRef evaluate(
 		[&evaluation] (const BaseExpressionRef &leaf) {
 			return leaf->evaluate(evaluation);
 		},
-		head != self->_head);
-#endif
+		head != self->_head,
+		evaluation.parallelize);
 
 	if (false) { // debug
 		std::cout

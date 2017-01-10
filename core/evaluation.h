@@ -76,6 +76,7 @@ public:
     EvaluationInterrupt interrupt;
     Out* out;
     mutable MutableBaseExpressionRef predetermined_out;
+	mutable bool parallelize = false;
 
     const BaseExpressionRef zero;
     const BaseExpressionRef one;

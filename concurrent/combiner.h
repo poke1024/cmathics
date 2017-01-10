@@ -17,7 +17,7 @@ private:
 		Concurrent *concurrent = nullptr;
 
 		AsynchronousArgument() {
-			this->next.store(nullptr, std::memory_order_release);
+			this->next.store(nullptr, std::memory_order_relaxed);
 		}
 
 		~AsynchronousArgument() {
@@ -62,7 +62,7 @@ private:
 		inline bool enqueue(Concurrent *concurrent, const Configure &configure) {
 			AsynchronousArgument * const argument = &m_arguments[(m_index++) % N];
 
-			Argument * const next = argument->next.load(std::memory_order_acquire);
+			Argument * const next = argument->next.load(std::memory_order_relaxed);
 			if (next == nullptr) { // is available?
 				argument->concurrent = concurrent;
 				configure(*argument);
@@ -114,21 +114,23 @@ private:
 		size_t index = 0;
 
 		while (true) {
-			Argument *next = argument->next.load(std::memory_order_acquire);
+			Argument *next = argument->next.load(std::memory_order_relaxed);
 			if (next == nullptr) {
 				break;
 			}
 
+#if 0
 			// If we notice that our next pointer is marked with HANDOFF bit,
 			// we have become the combiner.
 			if (test_handoff(next)) {
 				// Reset the HANDOFF bit to get the correct pointer.
-				argument->next.store(clear_handoff(next), std::memory_order_release);
+				argument->next.store(clear_handoff(next), std::memory_order_relaxed);
 				int count = 0;
 				combine(argument, count);
 				combine_all(count);
 				return;
 			}
+#endif
 
 			// we might be the last thread running, i.e. there might be no
 			// combiner left to serve us.
@@ -151,21 +153,23 @@ private:
 
 		// Execute the list of operations.
 		while (!is_locked(node)) {
-			Argument * const next = node->next.load(std::memory_order_acquire);
+			Argument * const next = node->next.load(std::memory_order_relaxed);
 
+#if 0
 			// If we’ve reached the limit,
 			// mark the current node with HANDOFF bit and return.
 			// Owner of the node will execute the rest.
 			if (count == limit) {
-				node->next.store(set_handoff(next), std::memory_order_release);
+				node->next.store(set_handoff(next), std::memory_order_relaxed);
 				return false;
 			}
+#endif
 
 			m_data(*node);
 			count++;
 
 			// Mark completion.
-			node->next.store(nullptr, std::memory_order_release);
+			node->next.store(nullptr, std::memory_order_relaxed);
 
 			node = next;
 		}
@@ -215,7 +219,7 @@ private:
 			if (cmp) {
 				// There is already a combiner, enqueue itself.
 				xchg = head;
-				tail->next.store(cmp, std::memory_order_release);
+				tail->next.store(cmp, std::memory_order_relaxed);
 			}
 
 			if (m_head.compare_exchange_strong(cmp, xchg, std::memory_order_acq_rel)) {
@@ -247,14 +251,14 @@ private:
 
 				if (IgnoreTail || head == tail) {
 					// Mark as released.
-					head->next.store(nullptr, std::memory_order_release);
+					head->next.store(nullptr, std::memory_order_relaxed);
 
 					break;
 				} else {
-					Argument * const next = head->next.load(std::memory_order_acquire);
+					Argument * const next = head->next.load(std::memory_order_relaxed);
 
 					// Mark as released.
-					head->next.store(nullptr, std::memory_order_release);
+					head->next.store(nullptr, std::memory_order_relaxed);
 
 					head = next;
 				}

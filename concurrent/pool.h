@@ -36,13 +36,13 @@ public:
 			MiniPool * const pool = reinterpret_cast<MiniPool*>(block);
 
 			pool->n = PoolSize;
-            pool->free = nullptr;
+            Node *free = nullptr;
 
 			for (size_t i = 0; i < PoolSize; i++) {
                 Node * const node = &pool->node[i];
 
-                node->next = pool->free;
-				pool->free = node;
+                node->next = free;
+				free = node;
 
 				node->pool = pool;
 
@@ -50,6 +50,8 @@ public:
 				node->magic = 0xBADC0DED;
 #endif
 			}
+
+			pool->free = free;
 
 			return pool;
 		}
