@@ -122,7 +122,7 @@ public:
 				const index_t n = m_n;
 				m_sequence = expression_from_generator(m_evaluation.Sequence, [begin, n] (auto &storage) {
 					for (index_t i = 0; i < n; i++) {
-						storage << begin[i];
+						storage << BaseExpressionRef(begin[i]);
 					}
 				}, n);
 			}

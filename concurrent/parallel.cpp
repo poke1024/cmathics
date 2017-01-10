@@ -187,6 +187,10 @@ void Parallel::Thread::work() {
 			break;
 		}
 
+#if 0
+		std::cout << "unblocking thread " << std::this_thread::get_id() << std::endl;
+#endif
+
 		// process until head == nullptr, i.e. each new add will
 		// have to trigger a set_state(run) in Parallel::enqueue.
 

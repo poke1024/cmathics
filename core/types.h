@@ -12,6 +12,7 @@
 using std::experimental::optional;
 
 #include "shared.h"
+#include "concurrent/parallel.h"
 
 struct nothing {
 };
@@ -358,7 +359,10 @@ protected:
 
 protected:
 	virtual optional<hash_t> compute_match_hash() const {
-		throw std::runtime_error("compute_match_hash not implemented");
+		std::ostringstream s;
+		s << "compute_match_hash not implemented for ";
+		s << typeid(this).name();
+		throw std::runtime_error(s.str());
 	}
 
 public:
@@ -641,6 +645,9 @@ public:
 
 	template<typename F>
 	inline auto map(const BaseExpressionRef &head, const F &f) const;
+
+	template<typename F>
+	inline auto parallel_map(const BaseExpressionRef &head, const F &f) const;
 
 	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const = 0;
 

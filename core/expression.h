@@ -509,7 +509,7 @@ ExpressionRef ExpressionImplementation<Slice>::slice(
 
 		auto generate_leaves = [begin, end, &head, &slice] (auto &storage) {
 			for (size_t i = begin; i < end; i++) {
-				storage << slice[i];
+				storage << BaseExpressionRef(slice[i]);
 			}
 		};
 

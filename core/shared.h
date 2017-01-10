@@ -333,12 +333,19 @@ public:
 		return m_ptr != nullptr;
 	}
 
-	bool operator==(const ConstSharedPtr<T> &p) const {
+	bool operator==(const ConstSharedPtr &p) const {
 		return get() == p.get();
 	}
 
-	bool operator!=(const ConstSharedPtr<T> &p) const {
+	bool operator!=(const ConstSharedPtr &p) const {
 		return get() != p.get();
+	}
+
+	void mutate(ConstSharedPtr &&p) {
+		// only use this if you know what you're doing! this is only to be used in
+		// situations where you initialize an otherwise uncontended data structure.
+		m_ptr = p.m_ptr;
+		p.m_ptr = nullptr;
 	}
 };
 

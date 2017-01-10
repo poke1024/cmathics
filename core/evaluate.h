@@ -24,8 +24,8 @@ inline ExpressionRef expression_from_generator(const BaseExpressionRef &head, co
 class direct_storage {
 protected:
 	UnsafeExpressionRef _expr;
-	UnsafeBaseExpressionRef *_addr;
-	UnsafeBaseExpressionRef *_end;
+	BaseExpressionRef *_addr;
+	BaseExpressionRef *_end;
 	TypeMask _type_mask;
 	std::atomic<TypeMask> *_type_mask_ptr;
 
@@ -35,21 +35,16 @@ public:
 		_end = _addr + n;
 	}
 
-	inline direct_storage &operator<<(const BaseExpressionRef &expr) {
-		assert(_addr < _end);
-		_type_mask |= expr->base_type_mask();
-		*_addr++ = expr;
-		return *this;
-	}
-
 	inline direct_storage &operator<<(BaseExpressionRef &&expr) {
 		assert(_addr < _end);
 		_type_mask |= expr->base_type_mask();
-		*_addr++ = expr;
+		_addr->mutate(std::move(expr));
+		_addr++;
 		return *this;
 	}
 
 	inline UnsafeExpressionRef to_expression() {
+		assert(_addr == _end);
 		*_type_mask_ptr = _type_mask;
 		return _expr;
 	}
@@ -141,17 +136,17 @@ std::tuple<ExpressionRef, T> transform(
 
 				auto generate = [i0, end, size, &slice, &f, &result, &state] (auto &storage) {
 					for (size_t j = 0; j < i0; j++) {
-						storage << slice[j];
+						storage << BaseExpressionRef(slice[j]);
 					}
 
-					storage << std::get<0>(result); // leaves[i0]
+					storage << BaseExpressionRef(std::get<0>(result)); // leaves[i0]
 
 					T inner_state = state;
 					for (size_t j = i0 + 1; j < end; j++) {
-						const auto old_leaf = slice[j];
+						BaseExpressionRef old_leaf = slice[j];
 
 						if ((old_leaf->base_type_mask() & Types) == 0) {
-							storage << old_leaf;
+							storage << std::move(old_leaf);
 						} else {
 							std::tuple<BaseExpressionRef, T> inner_result = f(j, old_leaf, inner_state);
 							inner_state = std::get<1>(inner_result);
@@ -159,13 +154,13 @@ std::tuple<ExpressionRef, T> transform(
 							if (std::get<0>(inner_result)) {
 								storage << std::move(std::get<0>(inner_result));
 							} else {
-								storage << old_leaf;
+								storage << std::move(old_leaf);
 							}
 						}
 					}
 
 					for (size_t j = end; j < size; j++) {
-						storage << slice[j];
+						storage << BaseExpressionRef(slice[j]);
 					}
 
 					return inner_state;
@@ -199,6 +194,89 @@ ExpressionRef transform(
 	}, nothing(), apply_head));
 };
 
+
+template<TypeMask Types = UnknownTypeMask, typename Slice, typename F>
+ExpressionRef parallel_transform(
+	const BaseExpressionRef &head,
+	const Slice &slice,
+	const size_t begin,
+	const size_t end,
+	const F &f,
+	const bool apply_head) {
+
+	if (end - begin < 10) {
+		return transform<Types>(head, slice, begin, end, f, apply_head);
+	}
+
+	// check against the (possibly inexact) type mask to exit early.
+	// if no decision can be made, do not compute the type mask here,
+	// as this corresponds to iterating all leaves, which we do anyway.
+	if (Types == UnknownTypeMask || (Types & slice.type_mask()) != 0) {
+
+		for (size_t i0 = begin; i0 < end; i0++) {
+			const auto leaf = slice[i0];
+
+			if ((leaf->base_type_mask() & Types) == 0) {
+				continue;
+			}
+
+			BaseExpressionRef result = f(leaf);
+
+			if (result) { // copy is needed now
+				const size_t size = slice.size();
+
+				auto parallel_generate = [i0, end, size, &slice, &f, &result] (auto &storage) {
+					for (size_t j = 0; j < i0; j++) {
+						storage << BaseExpressionRef(slice[j]);
+					}
+
+					storage << BaseExpressionRef(result); // leaves[i0]
+
+					std::vector<BaseExpressionRef> refs(end - (i0 + 1));
+					parallelize([i0, &slice, &refs, &f] (size_t i) {
+						const size_t j = i + i0;
+
+						BaseExpressionRef old_leaf = slice[j];
+
+						if ((old_leaf->base_type_mask() & Types) == 0) {
+							refs[j].mutate(std::move(old_leaf));
+						} else {
+							BaseExpressionRef inner_result = f(old_leaf);
+
+							if (inner_result) {
+								refs[j].mutate(std::move(inner_result));
+							} else {
+								refs[j].mutate(std::move(old_leaf));
+							}
+						}
+
+					}, end - (i0 + 1));
+
+					for (const BaseExpressionRef &ref : refs) {
+						storage << BaseExpressionRef(ref);
+					}
+
+					for (size_t j = end; j < size; j++) {
+						storage << BaseExpressionRef(slice[j]);
+					}
+
+					return nothing();
+				};
+
+				nothing state;
+
+				return transform_utils<Slice>::generate(
+					head, parallel_generate, size, state);
+			}
+		}
+	}
+
+	if (apply_head) {
+		return transform_utils<Slice>::clone(head, slice);
+	} else {
+		return ExpressionRef();
+	}
+}
 
 typedef Slice GenericSlice;
 
@@ -239,15 +317,29 @@ BaseExpressionRef evaluate(
 	assert(eval_leaf.first <= eval_leaf.second);
 	assert(eval_leaf.second <= slice.size());
 
-	const ExpressionRef intermediate_form = transform<MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType)>(
+	constexpr auto mask = MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType);
+
+#if 1
+	const ExpressionRef intermediate_form = transform<mask>(
 		head,
 		slice,
 		eval_leaf.first,
 		eval_leaf.second,
-		[&evaluation](const BaseExpressionRef &leaf) {
+		[&evaluation] (const BaseExpressionRef &leaf) {
 			return leaf->evaluate(evaluation);
 		},
 		head != self->_head);
+#else
+	const ExpressionRef intermediate_form = parallel_transform<mask>(
+		head,
+		slice,
+		eval_leaf.first,
+		eval_leaf.second,
+		[&evaluation] (const BaseExpressionRef &leaf) {
+			return leaf->evaluate(evaluation);
+		},
+		head != self->_head);
+#endif
 
 	if (false) { // debug
 		std::cout
@@ -281,7 +373,7 @@ BaseExpressionRef evaluate(
 		// Evaluate the head with leaves. (DownValue)
 
 		const BaseExpressionRef down_form = rules->down_rules.try_and_apply<Slice>(
-				safe_intermediate_form, evaluation);
+			safe_intermediate_form, evaluation);
 		if (down_form) {
 			return down_form;
 		}

@@ -210,6 +210,23 @@ public:
 	inline ExpressionRef to_expression(const BaseExpressionRef &head);
 };
 
+class parallel_heap_storage {
+public:
+	std::vector<BaseExpressionRef> m_leaves;
+	std::atomic<TypeMask> m_type_mask;
+
+public:
+	inline parallel_heap_storage(size_t size) : m_type_mask(0), m_leaves(size) {
+	}
+
+	inline void concurrent_set(size_t i, BaseExpressionRef &&expr) {
+		m_type_mask.fetch_or(expr->base_type_mask(), std::memory_order_relaxed);
+		m_leaves[i].mutate(std::move(expr));
+	}
+
+	inline ExpressionRef to_expression(const BaseExpressionRef &head);
+};
+
 template<typename U>
 class PackExtent : public Shared<PackExtent<U>, SharedHeap> {
 private:
@@ -301,6 +318,9 @@ public:
 	template<typename F>
 	inline DynamicSlice map(const F &f) const;
 
+	template<typename F>
+	inline DynamicSlice parallel_map(const F &f) const;
+
 	inline PackedSlice<U> slice(size_t begin, size_t end) const {
 		assert(end - begin >= MinPackedSliceSize);
 		return PackedSlice<U>(_extent, _begin + begin, end - begin);
@@ -385,7 +405,6 @@ inline RefsExtentRef Pool::RefsExtent(const std::initializer_list<BaseExpression
 inline void Pool::release(class RefsExtent *extent) {
 	_s_instance->_refs_extents.destroy(extent);
 }
-
 
 template<SliceCode _code>
 class BaseRefsSlice : public TypedSlice<_code> {
@@ -531,9 +550,24 @@ public:
 
 	template<typename F>
 	inline DynamicSlice map(const F &f) const {
-		heap_storage storage(size());
-		f(*this, storage);
+		const size_t n = size();
+		heap_storage storage(n);
+		const auto &slice = *this;
+		for (size_t i = 0; i < n; i++) {
+			storage << f(slice[i]);
+		}
 		return DynamicSlice(std::move(storage._leaves), storage._type_mask);
+	}
+
+	template<typename F>
+	inline DynamicSlice parallel_map(const F &f) const {
+		const size_t n = size();
+		parallel_heap_storage storage(n);
+		const auto &slice = *this;
+		parallelize([&storage, &f, &slice] (size_t i) {
+			storage.concurrent_set(i, f(slice[i]));
+		}, n);
+		return DynamicSlice(std::move(storage.m_leaves), storage.m_type_mask);
 	}
 
 	inline DynamicSlice slice(size_t begin, size_t end) const {
@@ -569,9 +603,25 @@ inline DynamicSlice PackedSlice<U>::create(const F &f, size_t n, T &r) {
 template<typename U>
 template<typename F>
 inline DynamicSlice PackedSlice<U>::map(const F &f) const {
-	heap_storage storage(size());
-	f(*this, storage);
+	const size_t n = size();
+	heap_storage storage(n);
+	const auto &slice = *this;
+	for (size_t i = 0; i < n; i++) {
+		storage << f(slice[i]);
+	}
 	return DynamicSlice(std::move(storage._leaves), storage._type_mask);
+}
+
+template<typename U>
+template<typename F>
+inline DynamicSlice PackedSlice<U>::parallel_map(const F &f) const {
+	const size_t n = size();
+	parallel_heap_storage storage(n);
+	const auto &slice = *this;
+	parallelize([&storage, &f, &slice] (size_t i) {
+		storage.concurrent_set(i, f(slice[i]));
+	}, n);
+	return DynamicSlice(std::move(storage.m_leaves), storage.m_type_mask);
 }
 
 template<int N, bool valid>
@@ -594,20 +644,28 @@ struct create_using_generator {
 template<int N>
 class static_slice_storage {
 public:
-	std::array<UnsafeBaseExpressionRef, N> m_array;
+	std::array<BaseExpressionRef, N> m_array;
 	int m_index;
 
 	inline static_slice_storage() : m_index(0) {
 	}
 
-	inline static_slice_storage &operator<<(const BaseExpressionRef &expr) {
-		m_array[m_index++] = expr;
+	inline static_slice_storage &operator<<(BaseExpressionRef &&expr) {
+		m_array[m_index++].mutate(std::move(expr));
 		return *this;
 	}
+};
 
-	inline static_slice_storage &operator<<(BaseExpressionRef &&expr) {
-		m_array[m_index++] = std::move(expr);
-		return *this;
+template<int N>
+class parallel_static_slice_storage {
+public:
+	std::array<BaseExpressionRef, N> m_array;
+
+	inline parallel_static_slice_storage() {
+	}
+
+	inline void concurrent_set(size_t i, BaseExpressionRef &&expr) {
+		m_array[i].mutate(std::move(expr));
 	}
 };
 
@@ -618,12 +676,19 @@ auto static_slice_array(const F &f, T &r) {
 	return std::move(storage.m_array);
 }
 
+template<int N, typename F, typename T>
+auto parallel_static_slice_array(const F &f, T &r) {
+	parallel_static_slice_storage<N> storage;
+	r = f(storage);
+	return std::move(storage.m_array);
+}
+
 template<int N>
-class StaticSlice : protected std::array<UnsafeBaseExpressionRef, N>, public BaseRefsSlice<static_slice_code(N)> {
+class StaticSlice : protected std::array<BaseExpressionRef, N>, public BaseRefsSlice<static_slice_code(N)> {
 private:
 	typedef BaseRefsSlice<static_slice_code(N)> BaseSlice;
 
-	typedef std::array<UnsafeBaseExpressionRef, N> Array;
+	typedef std::array<BaseExpressionRef, N> Array;
 
 public:
 	inline const BaseExpressionRef *begin() const {
@@ -665,7 +730,9 @@ public:
     inline StaticSlice(const StaticSlice<N> &slice) :
 		BaseSlice(Array::data(), N, slice.m_type_mask) {
         // mighty important to provide a copy iterator so that _begin won't get copied from other slice.
-        std::copy(slice.data(), slice.data() + N, Array::data());
+	    for (size_t i = 0; i < N; i++) {
+		    Array::data()[i].mutate(BaseExpressionRef(slice[i]));
+	    }
     }
 
     inline StaticSlice(
@@ -674,7 +741,9 @@ public:
 
 	    BaseSlice(Array::data(), N, type_mask) {
         assert(refs.size() == N);
-        std::copy(refs.begin(), refs.end(), Array::data());
+	    for (size_t i = 0; i < N; i++) {
+		    Array::data()[i].mutate(BaseExpressionRef(refs[i]));
+	    }
     }
 
 	inline StaticSlice(
@@ -683,7 +752,10 @@ public:
 
 		BaseSlice(Array::data(), N, type_mask) {
 		assert(refs.size() == N);
-		std::copy(refs.begin(), refs.end(), Array::data());
+		size_t i = 0;
+		for (const BaseExpressionRef &ref : refs) {
+			Array::data()[i++].mutate(BaseExpressionRef(ref));
+		}
 	}
 
     inline StaticSlice(
@@ -691,7 +763,10 @@ public:
         TypeMask type_mask = UnknownTypeMask) :
 
 	    BaseSlice(Array::data(), N, type_mask) {
-        std::copy(refs, refs + N, Array::data());
+
+	    for (size_t i = 0; i < N; i++) {
+		    Array::data()[i].mutate(BaseExpressionRef(refs[i]));
+	    }
     }
 
 	inline explicit StaticSlice(Array &&array) :
@@ -705,12 +780,33 @@ public:
 		return StaticSlice(std::move(static_slice_array<N>(f, r)));
 	}
 
+	template<typename T, typename F>
+	static inline StaticSlice parallel_create(const F &f, size_t n, T &r) {
+		assert(n == N);
+		return StaticSlice(std::move(parallel_static_slice_array<N>(f, r)));
+	}
+
 	template<typename F>
 	inline StaticSlice map(const F &f) const {
-		const auto &self = *this;
+		const auto &slice = *this;
 		nothing dummy;
-		return StaticSlice::create([&f, &self] (auto &storage) {
-			f(self, storage);
+		return StaticSlice::create([&f, &slice] (auto &storage) {
+			const size_t n = slice.size();
+			for (size_t i = 0; i < n; i++) {
+				storage << f(slice[i]);
+			}
+			return nothing();
+		}, N, dummy);
+	}
+
+	template<typename F>
+	inline StaticSlice parallel_map(const F &f) const {
+		const auto &slice = *this;
+		nothing dummy;
+		return StaticSlice::parallel_create([&f, &slice] (auto &storage) {
+			parallelize([&storage, &f, &slice] (size_t i) {
+				storage.concurrent_set(i, f(slice[i]));
+			}, slice.size());
 			return nothing();
 		}, N, dummy);
 	}

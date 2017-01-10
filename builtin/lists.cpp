@@ -854,16 +854,11 @@ public:
 						    domain_list = if_list(domain2.get());
 						    if (domain_list) {
 							    return domain_list->map(evaluation.List,
-									[iterator, &f] (const auto &slice, auto &storage) {
-									    const size_t n = slice.size();
-
-									    for (size_t i = 0; i < n; i++) {
-										    BaseExpressionRef value = slice[i];
-										    storage << scope(
-											    iterator,
-											    std::move(value),
-											    f);
-									    }
+									[iterator, &f] (const auto &value) {
+									    return scope(
+										    iterator,
+										    BaseExpressionRef(value),
+										    f);
 							        });
 						    }
 					    } else {
@@ -1034,19 +1029,14 @@ void Builtins::Lists::initialize() {
 	add("Map",
 	    Attributes::None, {
 			builtin<2>(
-				[](BaseExpressionPtr f, BaseExpressionPtr expr, const Evaluation &evaluation) {
+				[](BaseExpressionPtr func, BaseExpressionPtr expr, const Evaluation &evaluation) {
 				    if (expr->type() != ExpressionType) {
 					    return ExpressionRef();
 				    }
 					const Expression *list = expr->as_expression();
 
-					return list->map(list->head(), [&f] (const auto &slice, auto &storage) {
-						const size_t size = slice.size();
-
-						for (size_t i = 0; i < size; i++) {
-							const auto leaf = slice[i];
-							storage << expression(f, StaticSlice<1>(&leaf, leaf->base_type_mask()));
-						}
+					return list->map(list->head(), [&func] (const auto &leaf) {
+						return expression(func, StaticSlice<1>(&leaf, leaf->base_type_mask()));
 					});
 			    }
 		    )

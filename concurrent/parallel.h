@@ -1,3 +1,6 @@
+#ifndef CMATHICS_PARALLEL_H
+#define CMATHICS_PARALLEL_H
+
 #include <thread>
 #include <list>
 
@@ -112,3 +115,5 @@ public:
 inline void parallelize(const Parallel::Lambda &lambda, size_t n) {
 	Parallel::instance()->parallelize(lambda, n);
 }
+
+#endif // CMATHICS_PARALLEL_H

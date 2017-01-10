@@ -82,7 +82,7 @@ private:
 	MakeFromInitializerList;
 
 	typedef
-	std::function<std::tuple<ExpressionRef, UnsafeBaseExpressionRef*, std::atomic<TypeMask>*>(const BaseExpressionRef &head)>
+	std::function<std::tuple<ExpressionRef, BaseExpressionRef*, std::atomic<TypeMask>*>(const BaseExpressionRef &head)>
 	MakeLateInit;
 
 	void *_pool[UpToSize + 1];

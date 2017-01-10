@@ -320,6 +320,18 @@ public:
 		return instance;
 	}
 
+	template<typename X>
+	inline T *construct(X&& x) {
+		T * const instance = Base::allocate();
+		try {
+			new(instance) T(std::move(x));
+		} catch(...) {
+			Base::free(instance);
+			throw;
+		}
+		return instance;
+	}
+
 	inline void destroy(T* instance) {
 		try {
 			instance->~T();
