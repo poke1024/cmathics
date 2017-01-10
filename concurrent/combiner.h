@@ -5,7 +5,7 @@
 // largely copied from Dmitry Vyukov's original post. his original blog post can be found at:
 // https://software.intel.com/en-us/blogs/2013/02/22/combineraggregator-synchronization-primitive
 
-template<typename DataStructure>
+template<typename DataStructure, int AsyncDefer = 1>
 class Concurrent {
 public:
 	struct Argument : public DataStructure::Argument {
@@ -30,8 +30,8 @@ private:
 
 	class AsynchronousArguments {
 	private:
-		static constexpr int N = 64;
-		static constexpr int K = 16;
+		static constexpr int N = AsyncDefer * 4;
+		static constexpr int K = AsyncDefer;
 
 		AsynchronousArgument m_arguments[N]; // accessed concurrently
 
@@ -290,8 +290,9 @@ public:
 	}
 };
 
-template<typename DataStructure>
-thread_local typename Concurrent<DataStructure>::AsynchronousArguments Concurrent<DataStructure>::s_asynchronous;
+template<typename DataStructure, int AsyncDefer>
+thread_local typename Concurrent<DataStructure, AsyncDefer>::AsynchronousArguments
+    Concurrent<DataStructure, AsyncDefer>::s_asynchronous;
 
 
 /*

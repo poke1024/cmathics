@@ -6,41 +6,51 @@
 
 template<typename T, size_t PoolSize>
 class MemoryPool { // not concurrent
-private:
+public:
+    class MiniPool;
+
+    struct Node {
+        T instance;
+        MiniPool *pool;
+        Node *next;
+#if DEBUG_ALLOCATIONS
+        uint64_t magic;
+#endif
+    };
+
 	using pool_size_t = uint16_t;
 
 	static_assert(pool_size_t(PoolSize) == PoolSize, "PoolSize too large.");
-
-	class MiniPool;
-
-	struct Node {
-		T instance;
-		MiniPool *pool;
-#if DEBUG_ALLOCATIONS
-		uint64_t magic;
-#endif
-	};
 
 	class MiniPool {
 	public:
 		MiniPool *prev;
 		MiniPool *next;
 
-		pool_size_t free[PoolSize];
+        Node *free; // linked through Node.next
 		pool_size_t n;
 		Node node[PoolSize];
 
 		static MiniPool *create() {
 			void * const block = ::operator new(sizeof(MiniPool));
 			MiniPool * const pool = reinterpret_cast<MiniPool*>(block);
+
 			pool->n = PoolSize;
+            pool->free = nullptr;
+
 			for (size_t i = 0; i < PoolSize; i++) {
-				pool->free[i] = i;
-				pool->node[i].pool = pool;
+                Node * const node = &pool->node[i];
+
+                node->next = pool->free;
+				pool->free = node;
+
+				node->pool = pool;
+
 #if DEBUG_ALLOCATIONS
-				pool->node[i].magic = 0xBADC0DED;
+				node->magic = 0xBADC0DED;
 #endif
 			}
+
 			return pool;
 		}
 
@@ -49,6 +59,7 @@ private:
 		}
 	};
 
+private:
 	MiniPool *m_head;
 	MiniPool *m_gc;
 
@@ -84,22 +95,19 @@ public:
 	protected:
 		friend class MemoryPool;
 
-		MiniPool *m_pool;
-		pool_size_t m_free[PoolSize];
-		int16_t m_index;
+		Node *m_free;
 
 	public:
 		template<typename Reallocate>
 		inline T *allocate(const Reallocate &reallocate) {
 			while (true) {
-				const int16_t i = --m_index;
+				Node *node;
 
-				if (i >= 0) {
-					MiniPool * const pool = m_pool;
-					Node * const node = &pool->node[m_free[i]];
+				if ((node = m_free) != nullptr) {
+                    m_free = node->next;
 #if DEBUG_ALLOCATIONS
 					assert(node->magic == 0xBADC0DED);
-					assert(node->pool == pool);
+					//assert(node->pool == pool);
 #endif
 					return &node->instance;
 				} else {
@@ -110,32 +118,26 @@ public:
 
 		template<typename Free>
 		void clear(const Free &free) {
-			MiniPool * const pool = m_pool;
-			int16_t i = m_index;
-			while (--i >= 0) {
-				Node * const node = &pool->node[m_free[i]];
-				free(&node->instance);
+			while (m_free) {
+				Node * const next = m_free->next;
+				free(&m_free->instance);
+                m_free = next;
 			}
-			m_index = 0;
 		}
 	};
 
 	inline void allocate(Pile * const pile) {
 		MiniPool * const pool = m_head;
 
-		const size_t n = pool->n;
-
-		pile->m_pool = pool;
-		std::memcpy(pile->m_free, pool->free, n * sizeof(pool_size_t));
-		pile->m_index = n;
-
+        pile->m_free = pool->free;
+        pool->free = nullptr;
 		pool->n = 0;
 
 		switch_pool(pool);
 	}
 
 	inline void free(T *instance) {
-		const Node * const node = reinterpret_cast<const Node*>(instance);
+		Node * const node = reinterpret_cast<Node*>(instance);
 		MiniPool * const pool = node->pool;
 
 #if DEBUG_ALLOCATIONS
@@ -144,7 +146,8 @@ public:
 
 		const size_t n = pool->n++;
 
-		pool->free[n] = node - pool->node;
+        node->next = pool->free;
+		pool->free = node;
 
 		if (n == 0) { // was full and removed from list?
 			MiniPool *head = m_head;
@@ -178,38 +181,78 @@ public:
 
 template<typename T, size_t PoolSize = 1024>
 class ObjectPoolBase {
+public:
+    enum Command {
+        AllocateCommand,
+        FreeCommand
+    };
+
+    using Node = typename MemoryPool<T, PoolSize>::Node;
+
+    using MiniPool = typename MemoryPool<T, PoolSize>::MiniPool;
+
+    using pool_size_t = typename MemoryPool<T, PoolSize>::pool_size_t;
+
+    class Pool {
+    private:
+        MemoryPool<T, PoolSize> m_pool;
+
+    public:
+        struct Argument {
+            Command command;
+            Node *node;
+        };
+
+        void operator()(Argument &r) {
+            switch (r.command) {
+                case AllocateCommand: {
+                    m_pool.allocate(&s_pile);
+                    break;
+                }
+                case FreeCommand:
+                    Node *node = r.node;
+                    while (node) {
+                        Node * const next = node->next;
+                        m_pool.free(&node->instance);
+                        node = next;
+                    }
+                    break;
+            }
+        }
+    };
+
+    class Free {
+    private:
+        Node *m_head;
+        pool_size_t m_size;
+
+    public:
+        Free() : m_head(nullptr), m_size(0) {
+        }
+
+        inline void operator()(T *instance, Concurrent<Pool> &pool) {
+            Node * const node = reinterpret_cast<Node*>(instance);
+
+            node->next = m_head;
+            m_head = node;
+
+            if (++m_size >= PoolSize) {
+                pool.asynchronous([node] (auto &argument) {
+                    argument.command = FreeCommand;
+                    argument.node = node;
+                });
+
+                m_head = 0;
+                m_size = 0;
+            }
+        }
+    };
+
 protected:
 	using Pile = typename MemoryPool<T, PoolSize>::Pile;
 
 	static thread_local Pile s_pile;
-
-	enum Command {
-		Allocate,
-		Free
-	};
-
-	class Pool {
-	private:
-		MemoryPool<T, PoolSize> m_pool;
-
-	public:
-		struct Argument {
-			Command command;
-			T *instance;
-		};
-
-		void operator()(Argument &r) {
-			switch (r.command) {
-				case Allocate: {
-					m_pool.allocate(&s_pile);
-					break;
-				}
-				case Free:
-					m_pool.free(r.instance);
-					break;
-			}
-		}
-	};
+    static thread_local Free s_free;
 
 	Concurrent<Pool> m_pool;
 
@@ -218,16 +261,13 @@ public:
 		ObjectPoolBase * const self = this;
 		return s_pile.allocate([self] () {
 			typename Concurrent<Pool>::Argument argument;
-			argument.command = Allocate;
+			argument.command = AllocateCommand;
 			self->m_pool(argument);
 		});
 	}
 
 	inline void free(T *instance) {
-		m_pool.asynchronous([instance] (auto &argument) {
-			argument.command = Free;
-			argument.instance = instance;
-		});
+        s_free(instance, m_pool);
 	}
 
 	~ObjectPoolBase() {
@@ -240,6 +280,9 @@ public:
 
 template<typename T, size_t PoolSize>
 thread_local typename ObjectPoolBase<T, PoolSize>::Pile ObjectPoolBase<T, PoolSize>::s_pile;
+
+template<typename T, size_t PoolSize>
+thread_local typename ObjectPoolBase<T, PoolSize>::Free ObjectPoolBase<T, PoolSize>::s_free;
 
 template<typename T, size_t PoolSize = 1024>
 class ObjectPool : protected ObjectPoolBase<T, PoolSize> {
