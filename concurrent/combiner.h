@@ -129,7 +129,7 @@ private:
 				int count = 0;
 				combine(argument, count);
 				combine_all(count);
-				return;
+				break;
 			}
 #endif
 
@@ -147,6 +147,8 @@ private:
 				std::this_thread::yield();
 			}
 		}
+
+        // std::cout << "waited " << index << std::endl;
 	}
 
 	inline bool combine(Argument *node, int &count) {

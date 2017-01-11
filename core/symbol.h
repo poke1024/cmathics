@@ -96,6 +96,8 @@ typedef std::unique_ptr<SymbolRules> SymbolRulesRef;
 
 class Evaluate;
 
+typedef uint64_t DispatchableAttributes;
+
 class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
@@ -108,7 +110,7 @@ protected:
 	char _short_name[32];
 	char *_name;
 
-	Spinlocked<AttributesData> m_attributes_data;
+	std::atomic<DispatchableAttributes> m_attributes;
 
 	SymbolRulesRef _rules;
 

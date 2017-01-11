@@ -264,7 +264,7 @@ public:
             node->next = m_head;
             m_head = node;
 
-            if (++m_size >= PoolSize) {
+            if (++m_size >= 64) {
                 m_head = nullptr;
                 m_size = 0;
 

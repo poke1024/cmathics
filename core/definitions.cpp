@@ -64,12 +64,7 @@ BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
 }
 
 void Symbol::set_attributes(Attributes attributes) {
-    const auto * const evaluate = EvaluateDispatch::pick(attributes);
-
-	m_attributes_data.store([attributes, evaluate] (auto &data) {
-		data.attributes = attributes;
-		data.evaluate = evaluate;
-	});
+    m_attributes.store(EvaluateDispatch::pick(attributes), std::memory_order_relaxed);
 }
 
 void Symbol::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {

@@ -477,21 +477,46 @@ private:
 	};
 
 private:
-	Precompiled<FixedAttributes<Attributes::None>> m_none;
+    enum {
+        PrecompiledNone = 0,
+        PrecompiledHoldFirst,
+        PrecompiledHoldRest,
+        PrecompiledHoldAll,
+        PrecompiledHoldAllComplete,
+        PrecompiledListableNumericFunction,
+        PrecompiledDynamic,
+        NumPrecompiledVariants
+    };
 
-	Precompiled<FixedAttributes<Attributes::HoldFirst>> m_hold_first;
-	Precompiled<FixedAttributes<Attributes::HoldRest>> m_hold_rest;
-	Precompiled<FixedAttributes<Attributes::HoldAll>> m_hold_all;
-	Precompiled<FixedAttributes<Attributes::HoldAllComplete>> m_hold_all_complete;
+    const Evaluate *m_evaluate[NumPrecompiledVariants];
 
-	Precompiled<FixedAttributes<Attributes::Listable + Attributes::NumericFunction>> m_listable_numeric_function;
-
-	Precompiled<Attributes> m_dynamic;
+protected:
+    EvaluateDispatch();
 
 public:
 	static void init();
 
-	static const Evaluate *pick(Attributes attributes);
+	static DispatchableAttributes pick(Attributes attributes);
+
+    static inline BaseExpressionRef call(
+        DispatchableAttributes id,
+        const Symbol *symbol,
+        const Expression *expr,
+        SliceCode slice_code,
+        const Slice &slice,
+        const Evaluation &evaluation) {
+
+        const Evaluate *evaluate = s_instance->m_evaluate[id & 0xff];
+
+        return (*evaluate)(
+            expr,
+            BaseExpressionRef(symbol),
+            slice_code,
+            slice,
+            Attributes(id >> 8),
+            evaluation);
+
+    }
 };
 
 inline BaseExpressionRef Symbol::dispatch(
@@ -500,21 +525,9 @@ inline BaseExpressionRef Symbol::dispatch(
 	const Slice &slice,
 	const Evaluation &evaluation) const {
 
-	const Symbol * const self = this;
-
-	return m_attributes_data.load([self, expr, slice_code, &slice, &evaluation] (auto &data, auto release) {
-		const Attributes attributes = data.attributes;
-		const Evaluate *const evaluate = data.evaluate;
-		release();
-
-		return (*evaluate)(
-			expr,
-			BaseExpressionRef(self),
-			slice_code,
-			slice,
-			attributes,
-			evaluation);
-	});
+    return EvaluateDispatch::call(
+        m_attributes.load(std::memory_order_relaxed),
+        this, expr, slice_code, slice, evaluation);
 }
 
 #endif //CMATHICS_EVALUATE_H
