@@ -22,6 +22,8 @@ public:
 
 	static_assert(pool_size_t(PoolSize) == PoolSize, "PoolSize too large.");
 
+    class Pile;
+
 	class MiniPool {
 	public:
 		MiniPool *prev;
@@ -59,37 +61,36 @@ public:
 		static void destroy(MiniPool *pool) {
 			::operator delete(pool);
 		}
+
+        inline void transfer(Pile *pile) {
+            pile->m_free = free;
+            free = nullptr;
+            n = 0;
+        }
 	};
 
 private:
 	MiniPool *m_head;
 	MiniPool *m_gc;
 
-	inline void switch_pool(MiniPool *pool) {
-		// dequeue current pool from m_head and install
-		// the next or a new usable pool
-		MiniPool * const next_pool = pool->next;
+	inline MiniPool *acquire_pool() {
+        MiniPool *pool;
 
-		if ((pool = next_pool) == nullptr) {
-			if ((pool = m_gc) != nullptr) {
-				m_gc = pool->next;
-			} else {
-				pool = MiniPool::create();
-			}
-			pool->next = nullptr;
-			pool->prev = nullptr;
-		} else {
-			pool->prev = nullptr;
-		}
+        if ((pool = m_gc) != nullptr) {
+            m_gc = pool->next;
+        } else {
+            return nullptr;
+        }
 
-		m_head = pool;
+        pool->next = nullptr;
+        pool->prev = nullptr;
+
+        return pool;
 	}
 
 public:
 	MemoryPool() {
-		m_head = MiniPool::create();
-		m_head->next = nullptr;
-		m_head->prev = nullptr;
+		m_head = nullptr;
 		m_gc = nullptr;
 	}
 
@@ -128,14 +129,21 @@ public:
 		}
 	};
 
-	inline void allocate(Pile * const pile) {
-		MiniPool * const pool = m_head;
+	inline bool allocate(Pile * const pile) {
+		MiniPool *pool;
 
-        pile->m_free = pool->free;
-        pool->free = nullptr;
-		pool->n = 0;
+        if ((pool = m_head) == nullptr) {
+            if ((pool = acquire_pool()) == nullptr) {
+                return false;
+            }
+        }
 
-		switch_pool(pool);
+        pool->transfer(pile);
+
+        m_head = pool->next;
+
+        return true;
+
 	}
 
 	inline void free(Node *head) {
@@ -225,12 +233,13 @@ public:
         struct Argument {
             Command command;
             Node *node;
+            bool success;
         };
 
         inline void operator()(Argument &r) {
             switch (r.command) {
                 case AllocateCommand:
-                    m_pool.allocate(&s_pile);
+                    r.success = m_pool.allocate(&s_pile);
                     break;
 
                 case FreeCommand:
@@ -278,10 +287,16 @@ protected:
 public:
 	inline T *allocate() {
 		ObjectPoolBase * const self = this;
-		return s_pile.allocate([self] () {
+        Pile *pile = &s_pile;
+
+		return pile->allocate([self, pile] () {
 			typename Concurrent<Pool>::Argument argument;
 			argument.command = AllocateCommand;
 			self->m_pool(argument);
+            if (!argument.success) {
+                MiniPool *pool = MiniPool::create();
+                pool->transfer(pile);
+            }
 		});
 	}
 
