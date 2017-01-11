@@ -720,19 +720,38 @@ inline BaseExpressionRef RewriteExpression::rewrite_or_copy(
 
 template<typename Slice>
 std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(const Evaluation &evaluation) const {
+	const size_t size = this->size();
+	const auto &leaves = this->leaves();
+
+    const auto is_threadable = [] (const BaseExpressionRef &leaf) {
+		return (leaf->type() == ExpressionType &&
+            leaf->as_expression()->head()->extended_type() == SymbolList);
+    };
+
+    // preflight.
+
+    bool can_thread = false;
+    for (size_t i = 0; i < size; i++) {
+		if (is_threadable(leaves[i])) {
+            can_thread = true;
+            break;
+        }
+    }
+
+    if (!can_thread) {
+		return std::make_tuple(false, UnsafeExpressionRef(this));
+    }
+
+    // actual threading.
+
 	index_t dim = -1;
 
 	std::vector<BaseExpressionRef> items;
 	std::vector<std::vector<BaseExpressionRef>> dim_items;
 
-	const size_t size = this->size();
-	const auto &leaves = this->leaves();
-
 	for (size_t i = 0; i < size; i++) {
 		const BaseExpressionRef &leaf = leaves[i];
-		if (leaf->type() == ExpressionType &&
-		    leaf->as_expression()->head()->extended_type() == SymbolList) {
-
+		if (is_threadable(leaf)) {
 			const Expression * const expr = leaf->as_expression();
 
 			if (dim < 0) {
@@ -748,16 +767,16 @@ std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(co
 				});
 
 			} else if (dim != expr->size()) {
-					// evaluation.message("Thread", "tdlen");
-					return std::make_tuple(true, UnsafeExpressionRef(this));
-				} else {
-					expr->with_slice([&dim_items] (const auto &slice) {
-						const size_t size = slice.size();
-						for (index_t j = 0; j < size; j++) {
-							dim_items[j].push_back(slice[j]);
-						}
-					});
-				}
+                // evaluation.message("Thread", "tdlen");
+                return std::make_tuple(true, UnsafeExpressionRef(this));
+            } else {
+                expr->with_slice([&dim_items] (const auto &slice) {
+                    const size_t size = slice.size();
+                    for (index_t j = 0; j < size; j++) {
+                        dim_items[j].push_back(slice[j]);
+                    }
+                });
+            }
 		} else {
 			if (dim < 0) {
 				items.push_back(leaf);
