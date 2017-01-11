@@ -4,6 +4,57 @@
 
 #define DEBUG_ALLOCATIONS 0
 
+template<typename T>
+class Queue {
+private:
+    std::atomic<T*> m_head;
+
+public:
+    Queue() : m_head(nullptr) {
+    }
+
+    inline bool enqueue(T *item) {
+        return enqueue(item, item);
+    }
+
+    inline bool enqueue(T *head, T *tail) {
+        T *link = m_head.load(std::memory_order_acquire);
+        while (true) {
+            tail->next = link;
+            if (m_head.compare_exchange_weak(link, head, std::memory_order_acq_rel, std::memory_order_acquire)) {
+                return link == nullptr;
+            }
+        }
+    }
+
+    inline T *dequeue() {
+        T *item = m_head.load(std::memory_order_acquire);
+        while (true) {
+            if (item == nullptr) {
+                return nullptr;
+            }
+            if (m_head.compare_exchange_weak(item, item->next, std::memory_order_acq_rel, std::memory_order_acquire)) {
+                return item;
+            }
+        }
+    }
+
+    inline T *steal() {
+        T *head = m_head.load(std::memory_order_acquire);
+        while (true) {
+            if (m_head.compare_exchange_weak(head, nullptr, std::memory_order_acq_rel, std::memory_order_acquire)) {
+                return head;
+            }
+        }
+    }
+
+#if DEBUG_ALLOCATIONS
+    inline T* front() {
+        return m_head.load(std::memory_order_acquire);
+    }
+#endif
+};
+
 template<typename T, size_t PoolSize>
 class MemoryPool { // not concurrent
 public:
@@ -26,74 +77,53 @@ public:
 
 	class MiniPool {
 	public:
-		MiniPool *prev;
-		MiniPool *next;
+        uint8_t nodes[sizeof(Node[PoolSize])]; // must ensure 8 byte alignment
 
-        Node *free; // linked through Node.next
-		pool_size_t n;
-		Node node[PoolSize];
+        MiniPool *next;
 
-		static MiniPool *create() {
-			void * const block = ::operator new(sizeof(MiniPool));
-			MiniPool * const pool = reinterpret_cast<MiniPool*>(block);
+        Queue<Node> free; // linked through Node.next
+		std::atomic<pool_size_t> n;
 
-			pool->n = PoolSize;
-            Node *free = nullptr;
+        inline MiniPool() {
+			n.store(PoolSize, std::memory_order_relaxed);
+
+            Node *head = nullptr;
+            Node *tail = nullptr;
 
 			for (size_t i = 0; i < PoolSize; i++) {
-                Node * const node = &pool->node[i];
+                Node * const node = &reinterpret_cast<Node*>(nodes)[i];
 
-                node->next = free;
-				free = node;
+                if (tail == nullptr) {
+                    tail = node;
+                }
+                node->next = head;
+                head = node;
 
-				node->pool = pool;
+				node->pool = this;
 
 #if DEBUG_ALLOCATIONS
 				node->magic = 0xBADC0DED;
 #endif
 			}
 
-			pool->free = free;
+			free.enqueue(head, tail);
 
-			return pool;
+#if DEBUG_ALLOCATIONS
+            Node *node = head;
+            assert(node == free.front());
+            while (node) {
+                assert(node->magic == 0xBADC0DED);
+                node = node->next;
+            }
+#endif
 		}
-
-		static void destroy(MiniPool *pool) {
-			::operator delete(pool);
-		}
-
-        inline void transfer(Pile *pile) {
-            pile->m_free = free;
-            free = nullptr;
-            n = 0;
-        }
-	};
+    };
 
 private:
-	MiniPool *m_head;
-	MiniPool *m_gc;
-
-	inline MiniPool *acquire_pool() {
-        MiniPool *pool;
-
-        if ((pool = m_gc) != nullptr) {
-            m_gc = pool->next;
-        } else {
-            return nullptr;
-        }
-
-        pool->next = nullptr;
-        pool->prev = nullptr;
-
-        return pool;
-	}
+    Queue<MiniPool> m_pools;
+    Queue<MiniPool> m_gc;
 
 public:
-	MemoryPool() {
-		m_head = nullptr;
-		m_gc = nullptr;
-	}
-
 	struct Pile {
 	protected:
 		friend class MemoryPool;
@@ -101,6 +131,22 @@ public:
 		Node *m_free;
 
 	public:
+        inline bool initialize(MiniPool *pool) {
+            Node * const head = pool->free.steal();
+
+#if DEBUG_ALLOCATIONS
+            Node *node = head;
+            while (node) {
+                assert(node->magic == 0xBADC0DED);
+                node = node->next;
+            }
+#endif
+
+            m_free = head;
+            pool->n.store(0, std::memory_order_relaxed);
+            return head != nullptr;
+        }
+
 		template<typename Reallocate>
 		inline T *allocate(const Reallocate &reallocate) {
 			while (true) {
@@ -130,80 +176,64 @@ public:
 	};
 
 	inline bool allocate(Pile * const pile) {
-		MiniPool *pool;
+        while (true) {
+            MiniPool *pool = m_pools.dequeue();
 
-        if ((pool = m_head) == nullptr) {
-            if ((pool = acquire_pool()) == nullptr) {
+            if (pool) {
+                if (pool->n.load(std::memory_order_relaxed) == PoolSize) {
+                    m_gc.enqueue(pool);
+                    // enqueue this in gc and search for other pool
+                } else {
+                    if (pile->initialize(pool)) {
+                        return true;
+                    } else {
+                        // remove from active queue and continue
+                    }
+                }
+            } else {
+                if ((pool = m_gc.dequeue()) != nullptr) {
+                    assert(pile->initialize(pool));
+                    return true;
+                }
+
                 return false;
             }
         }
-
-        pool->transfer(pile);
-
-        m_head = pool->next;
-
-        return true;
-
 	}
 
-	inline void free(Node *head) {
-        do {
-            MiniPool *pool = head->pool;
+	inline void free(Node *head, Node *tail, size_t k) {
+        MiniPool *pool = head->pool;
 
-            size_t k = 0;
-            Node *tail = head;
-            Node *tail_next;
-            while (true) {
 #if DEBUG_ALLOCATIONS
-                assert(node->magic == 0xBADC0DED);
+        size_t n = 0;
+        Node *node = head;
+        Node *tail_next;
+        while (true) {
+            assert(node->magic == 0xBADC0DED);
+
+            n += 1;
+
+            if ((tail_next = node->next) == nullptr) {
+                break;
+            }
+            if (tail_next->pool != pool) {
+                break;
+            }
+
+            node = tail_next;
+        }
+
+        assert(n == k);
+        assert(tail_next == nullptr);
 #endif
-                k += 1;
 
-                if ((tail_next = tail->next) == nullptr) {
-                    break;
-                }
-                if (tail_next->pool != pool) {
-                    break;
-                }
+        pool->n.fetch_add(k, std::memory_order_relaxed);
 
-                tail = tail_next;
-            }
+        const bool was_empty = pool->free.enqueue(head, tail);
 
-            Node *const next_head = tail_next;
-
-            const size_t n = pool->n;
-            const size_t m = n + k;
-            pool->n = m;
-
-            tail->next = pool->free;
-            pool->free = head;
-
-            if (n == 0) { // was full and removed from list?
-                MiniPool *head = m_head;
-                pool->prev = nullptr;
-                pool->next = head;
-                if (head) {
-                    head->prev = pool;
-                }
-                m_head = pool;
-            } else if (m == PoolSize && (pool->prev || pool->next)) {
-                // dequeue from m_head
-                if (pool->prev) {
-                    pool->prev->next = pool->next;
-                } else {
-                    m_head = pool->next;
-                }
-                if (pool->next) {
-                    pool->next->prev = pool->prev;
-                }
-
-                // enqueue into m_gc
-                pool->next = m_gc;
-                m_gc = pool;
-            }
-
-            head = next_head;
-        } while (head != nullptr);
+        if (was_empty) { // was removed from list?
+            m_pools.enqueue(pool);
+        }
 	}
 
 	void gc() {
@@ -219,70 +249,62 @@ public:
         FreeCommand
     };
 
-    using Node = typename MemoryPool<T, PoolSize>::Node;
+    using Pool = MemoryPool<T, PoolSize>;
 
-    using MiniPool = typename MemoryPool<T, PoolSize>::MiniPool;
+    using Node = typename Pool::Node;
 
-    using pool_size_t = typename MemoryPool<T, PoolSize>::pool_size_t;
+    using MiniPool = typename Pool::MiniPool;
 
-    class Pool {
-    private:
-        MemoryPool<T, PoolSize> m_pool;
-
-    public:
-        struct Argument {
-            Command command;
-            Node *node;
-            bool success;
-        };
-
-        inline void operator()(Argument &r) {
-            switch (r.command) {
-                case AllocateCommand:
-                    r.success = m_pool.allocate(&s_pile);
-                    break;
-
-                case FreeCommand:
-                    m_pool.free(r.node);
-                    break;
-            }
-        }
-    };
+    using pool_size_t = typename Pool::pool_size_t;
 
     class Free {
     private:
         Node *m_head;
+        Node *m_tail;
         pool_size_t m_size;
 
     public:
         Free() : m_head(nullptr), m_size(0) {
         }
 
-        inline void operator()(T *instance, Concurrent<Pool> &pool) {
+        inline void operator()(T *instance, Pool &pool) {
             Node * const node = reinterpret_cast<Node*>(instance);
 
-            node->next = m_head;
+            Node * head = m_head;
+
+            if (head) {
+                if (node->pool != head->pool) {
+                    flush(pool);
+                    head = nullptr;
+                    m_tail = node;
+                }
+            } else {
+                m_tail = node;
+            }
+
+            node->next = head;
             m_head = node;
 
-            if (++m_size >= 64) {
-                m_head = nullptr;
-                m_size = 0;
-
-                pool.asynchronous([node] (auto &argument) {
-                    argument.command = FreeCommand;
-                    argument.node = node;
-                });
+            if (++m_size >= PoolSize) {
+                flush(pool);
             }
+        }
+
+        inline void flush(Pool &pool) {
+            pool.free(m_head, m_tail, m_size);
+
+            m_head = nullptr;
+            m_size = 0;
         }
     };
 
 protected:
-	using Pile = typename MemoryPool<T, PoolSize>::Pile;
+	using Pile = typename Pool::Pile;
 
 	static thread_local Pile s_pile;
     static thread_local Free s_free;
 
-	Concurrent<Pool> m_pool;
+    Pool m_pool;
 
 public:
 	inline T *allocate() {
@@ -290,12 +312,9 @@ public:
         Pile *pile = &s_pile;
 
 		return pile->allocate([self, pile] () {
-			typename Concurrent<Pool>::Argument argument;
-			argument.command = AllocateCommand;
-			self->m_pool(argument);
-            if (!argument.success) {
-                MiniPool *pool = MiniPool::create();
-                pool->transfer(pile);
+            if (!self->m_pool.allocate(pile)) {
+                MiniPool * const pool = new MiniPool;
+                assert(pile->initialize(pool));
             }
 		});
 	}
@@ -309,6 +328,7 @@ public:
 		s_pile.clear([self] (T *instance) {
 			self->free(instance);
 		});
+        s_free.flush(m_pool);
 	}
 };
 
