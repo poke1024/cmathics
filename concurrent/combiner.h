@@ -5,6 +5,8 @@
 // largely copied from Dmitry Vyukov's original post. his original blog post can be found at:
 // https://software.intel.com/en-us/blogs/2013/02/22/combineraggregator-synchronization-primitive
 
+#define HANDOFF_LIMIT 64
+
 template<typename DataStructure, int AsyncDefer = 1>
 class Concurrent {
 public:
@@ -17,7 +19,7 @@ private:
 		Concurrent *concurrent = nullptr;
 
 		AsynchronousArgument() {
-			this->next.store(nullptr, std::memory_order_relaxed);
+			this->next.store(nullptr, std::memory_order_release);
 		}
 
 		~AsynchronousArgument() {
@@ -62,7 +64,7 @@ private:
 		inline bool enqueue(Concurrent *concurrent, const Configure &configure) {
 			AsynchronousArgument * const argument = &m_arguments[(m_index++) % N];
 
-			Argument * const next = argument->next.load(std::memory_order_relaxed);
+			Argument * const next = argument->next.load(std::memory_order_acquire);
 			if (next == nullptr) { // is available?
 				argument->concurrent = concurrent;
 				configure(*argument);
@@ -89,7 +91,6 @@ private:
 
 	static constexpr uintptr_t locked = 1;
 	static constexpr uintptr_t handoff = 2;
-	static constexpr int limit = 64;
 
 	inline bool is_locked(Argument *node) const {
 		return uintptr_t(node) == locked;
@@ -114,17 +115,17 @@ private:
 		size_t index = 0;
 
 		while (true) {
-			Argument *next = argument->next.load(std::memory_order_relaxed);
+			Argument *next = argument->next.load(std::memory_order_acquire);
 			if (next == nullptr) {
 				break;
 			}
 
-#if 0
+#if HANDOFF_LIMIT > 0
 			// If we notice that our next pointer is marked with HANDOFF bit,
 			// we have become the combiner.
 			if (test_handoff(next)) {
 				// Reset the HANDOFF bit to get the correct pointer.
-				argument->next.store(clear_handoff(next), std::memory_order_relaxed);
+				argument->next.store(clear_handoff(next), std::memory_order_release);
 				int count = 0;
 				combine(argument, count);
 				combine_all(count);
@@ -153,14 +154,14 @@ private:
 
 		// Execute the list of operations.
 		while (!is_locked(node)) {
-			Argument * const next = node->next.load(std::memory_order_relaxed);
+			Argument * const next = node->next.load(std::memory_order_acquire);
 
-#if 0
+#if HANDOFF_LIMIT > 0
 			// If we’ve reached the limit,
 			// mark the current node with HANDOFF bit and return.
 			// Owner of the node will execute the rest.
-			if (count == limit) {
-				node->next.store(set_handoff(next), std::memory_order_relaxed);
+			if (count == HANDOFF_LIMIT) {
+				node->next.store(set_handoff(next), std::memory_order_release);
 				return false;
 			}
 #endif
@@ -169,7 +170,7 @@ private:
 			count++;
 
 			// Mark completion.
-			node->next.store(nullptr, std::memory_order_relaxed);
+			node->next.store(nullptr, std::memory_order_release);
 
 			node = next;
 		}
@@ -219,7 +220,7 @@ private:
 			if (cmp) {
 				// There is already a combiner, enqueue itself.
 				xchg = head;
-				tail->next.store(cmp, std::memory_order_relaxed);
+				tail->next.store(cmp, std::memory_order_release);
 			}
 
 			if (m_head.compare_exchange_strong(cmp, xchg, std::memory_order_acq_rel)) {
@@ -251,14 +252,14 @@ private:
 
 				if (IgnoreTail || head == tail) {
 					// Mark as released.
-					head->next.store(nullptr, std::memory_order_relaxed);
+					head->next.store(nullptr, std::memory_order_release);
 
 					break;
 				} else {
-					Argument * const next = head->next.load(std::memory_order_relaxed);
+					Argument * const next = head->next.load(std::memory_order_acquire);
 
 					// Mark as released.
-					head->next.store(nullptr, std::memory_order_relaxed);
+					head->next.store(nullptr, std::memory_order_release);
 
 					head = next;
 				}
