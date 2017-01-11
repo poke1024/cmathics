@@ -6,17 +6,24 @@ Parallel *Parallel::s_instance = nullptr;
 
 constexpr int queue_size = 32;
 
-inline Parallel::Spinlock::Spinlock(Parallel *parallel) : m_parallel(parallel), m_acquired(true) {
-	while (parallel->m_lock.test_and_set(std::memory_order_acq_rel) == true) {
-		// retry
-	}
+inline Parallel::Spinlock::Spinlock(Parallel *parallel) : m_parallel(parallel), m_acquired(false) {
+    acquire();
 }
 
 inline Parallel::Spinlock::~Spinlock() {
-	clear();
+	release();
 }
 
-inline void Parallel::Spinlock::clear() {
+inline void Parallel::Spinlock::acquire() {
+    if (!m_acquired) {
+        while (m_parallel->m_lock.test_and_set(std::memory_order_acq_rel) == true) {
+            // retry
+        }
+        m_acquired = true;
+    }
+}
+
+inline void Parallel::Spinlock::release() {
 	if (m_acquired) {
 		m_parallel->m_lock.clear(std::memory_order_release);
 		m_acquired = false;
@@ -69,17 +76,21 @@ Parallel::~Parallel() {
 bool Parallel::enqueue(Task *task) {
 	assert(task->busy == 1);
 
+    if (m_size.load(std::memory_order_relaxed) >= queue_size) {
+        return false;
+    }
+
 	if (m_lock.test_and_set(std::memory_order_acq_rel) == true) {
 		return false;
 	}
 
-	const size_t size = m_size;
+	const size_t size = m_size.load(std::memory_order_relaxed);
 	if (size >= queue_size) {
 		m_lock.clear(std::memory_order_release);
 		return false;
 	}
 
-	m_size = size + 1;
+    m_size.store(size + 1, std::memory_order_relaxed);
 
 	Task * const head = m_head;
 
@@ -117,22 +128,31 @@ void Parallel::release(Task *task, bool owner) {
 			task->next->prev = task->prev;
 		}
 		task->enqueued = false;
-		m_size -= 1;
+		m_size.fetch_add(-1, std::memory_order_relaxed);
 	}
 
 	const int16_t busy = --task->busy;
 
 	if (owner && busy > 0) {
+        task->barrier = nullptr;
+        spinlock.release();
+
 		Barrier barrier;
-		task->barrier = &barrier;
-		spinlock.clear();
-		barrier.wait();
+		spinlock.acquire();
+        if (task->busy > 0) {
+            task->barrier = &barrier;
+            spinlock.release();
+
+            barrier.wait();
+        }
 	} else if (!owner && busy == 0) {
-		const auto barrier = task->barrier;
-		spinlock.clear();
-		barrier->signal();
+		Barrier * const barrier = task->barrier;
+		spinlock.release();
+        if (barrier != nullptr) {
+            barrier->signal();
+        }
 	} else {
-		spinlock.clear();
+		spinlock.release();
 	}
 }
 

@@ -19,12 +19,12 @@ class Shared;
 
 template<typename T, typename Owner>
 inline void intrusive_ptr_add_ref(const Shared<T, Owner> *obj) {
-    ++obj->m_ref_count;
+    obj->m_ref_count.fetch_add(1, std::memory_order_relaxed);
 };
 
 template<typename T, typename Owner>
 inline void intrusive_ptr_release(const Shared<T, Owner> *obj) {
-    if (--obj->m_ref_count == 0) {
+    if (obj->m_ref_count.fetch_add(-1, std::memory_order_relaxed) == 1) {
         Owner::release(static_cast<const T*>(obj));
     }
 };

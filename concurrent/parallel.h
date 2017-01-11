@@ -32,7 +32,7 @@ public:
 		Task *next;
 		bool enqueued;
 
-		int16_t busy;
+		volatile int16_t busy;
 		std::atomic<size_t> index;
 
 		const Lambda &lambda;
@@ -81,7 +81,9 @@ private:
 		Spinlock(Parallel *parallel);
 		~Spinlock();
 
-		void clear();
+        void acquire();
+
+		void release();
 	};
 
 	std::list<std::unique_ptr<Thread>> m_threads;
@@ -89,7 +91,7 @@ private:
 	std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 
 	Task *m_head;
-	int16_t m_size;
+	std::atomic<int16_t> m_size;
 
 private:
 	Parallel();

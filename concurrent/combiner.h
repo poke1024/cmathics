@@ -32,7 +32,7 @@ private:
 
 	class AsynchronousArguments {
 	private:
-		static constexpr int N = AsyncDefer * 4;
+		static constexpr int N = AsyncDefer * 16;
 		static constexpr int K = AsyncDefer;
 
 		AsynchronousArgument m_arguments[N]; // accessed concurrently
