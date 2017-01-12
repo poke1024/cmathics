@@ -52,7 +52,7 @@ public:
 	void add() {
 		const std::string full_down = std::string("System`") + T::name;
 		const SymbolRef symbol = _definitions.lookup(full_down.c_str());
-		symbol->set_attributes(T::attributes);
+		symbol->state().set_attributes(T::attributes);
 
         Runtime &runtime_ref = *this;
         const SymbolRef &symbol_ref = symbol;
@@ -154,7 +154,7 @@ protected:
 			return (p->*fptr)(a, evaluation);
 		};
 
-		m_symbol->add_rule(new BuiltinRule<1, decltype(func)>(
+		m_symbol->state().add_rule(new BuiltinRule<1, decltype(func)>(
 			m_symbol,
 			m_runtime.definitions(),
 			func));
@@ -176,7 +176,7 @@ protected:
 			}
 		};
 
-		m_symbol->add_rule(new BuiltinRule<1, decltype(func)>(
+		m_symbol->state().add_rule(new BuiltinRule<1, decltype(func)>(
 			m_symbol,
 			m_runtime.definitions(),
 			func));
@@ -195,7 +195,7 @@ protected:
 		    return (p->*fptr)(a, b, evaluation);
 	    };
 
-	    m_symbol->add_rule(new BuiltinRule<2, decltype(func)>(
+	    m_symbol->state().add_rule(new BuiltinRule<2, decltype(func)>(
 		    m_symbol,
 		    m_runtime.definitions(),
 		    func));
@@ -215,7 +215,7 @@ protected:
 		    return (p->*fptr)(a, b, c, evaluation);
 	    };
 
-	    m_symbol->add_rule(new BuiltinRule<3, decltype(func)>(
+	    m_symbol->state().add_rule(new BuiltinRule<3, decltype(func)>(
 		    m_symbol,
 		    m_runtime.definitions(),
             func));
@@ -236,7 +236,7 @@ protected:
             return (p->*fptr)(a, b, c, d, evaluation);
         };
 
-        m_symbol->add_rule(new BuiltinRule<4, decltype(func)>(
+        m_symbol->state().add_rule(new BuiltinRule<4, decltype(func)>(
             m_symbol,
             m_runtime.definitions(),
             func));
@@ -255,7 +255,7 @@ protected:
 			return (p->*fptr)(leaves, n, evaluation);
 		};
 
-		m_symbol->add_rule(new VariadicBuiltinRule<0, decltype(func)>(
+		m_symbol->state().add_rule(new VariadicBuiltinRule<0, decltype(func)>(
 			m_symbol,
 			m_runtime.definitions(),
 			func));
@@ -275,7 +275,7 @@ protected:
 			return (p->*fptr)(a, b, options, evaluation);
 		};
 
-		m_symbol->add_rule(new OptionsBuiltinRule<2, Options, decltype(func)>(
+		m_symbol->state().add_rule(new OptionsBuiltinRule<2, Options, decltype(func)>(
 			m_symbol,
 			m_runtime.definitions(),
 			options,
@@ -297,7 +297,7 @@ protected:
             return (p->*fptr)(a, b, c, options, evaluation);
         };
 
-        m_symbol->add_rule(new OptionsBuiltinRule<3, Options, decltype(func)>(
+        m_symbol->state().add_rule(new OptionsBuiltinRule<3, Options, decltype(func)>(
             m_symbol,
             m_runtime.definitions(),
             options,
@@ -307,7 +307,7 @@ protected:
 	inline void rule(const char *pattern, const char *into) {
 		const BaseExpressionRef lhs = m_runtime.parse(pattern);
 		const BaseExpressionRef rhs = m_runtime.parse(into);
-		m_symbol->add_rule(lhs.get(), rhs.get());
+		m_symbol->state().add_rule(lhs.get(), rhs.get());
 	}
 
     inline void message(const char *tag, const char *text) {

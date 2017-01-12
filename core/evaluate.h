@@ -347,7 +347,7 @@ BaseExpressionRef evaluate(
 		}
 	}
 
-	const SymbolRules *rules = head_symbol->rules();
+	const SymbolRules *rules = head_symbol->state().rules();
 
 	if (rules) {
 		// Step 3
@@ -519,7 +519,7 @@ public:
     }
 };
 
-inline BaseExpressionRef Symbol::dispatch(
+inline BaseExpressionRef SymbolState::dispatch(
 	const Expression *expr,
 	SliceCode slice_code,
 	const Slice &slice,
@@ -527,7 +527,7 @@ inline BaseExpressionRef Symbol::dispatch(
 
     return EvaluateDispatch::call(
         m_attributes.load(std::memory_order_relaxed),
-        this, expr, slice_code, slice, evaluation);
+        m_symbol, expr, slice_code, slice, evaluation);
 }
 
 #endif //CMATHICS_EVALUATE_H

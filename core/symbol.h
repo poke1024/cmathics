@@ -98,28 +98,80 @@ class Evaluate;
 
 typedef uint64_t DispatchableAttributes;
 
+class SymbolState {
+	// only ever to be accessed by one single thread.
+
+private:
+	const Symbol * const m_symbol;
+
+	std::atomic<DispatchableAttributes> m_attributes;
+
+	SymbolRulesRef m_rules;
+
+	UnsafeBaseExpressionRef m_own_value;
+
+public:
+	inline SymbolState(const Symbol *symbol) : m_symbol(symbol) {
+	}
+
+	inline const UnsafeBaseExpressionRef &own_value() const {
+		return m_own_value;
+	}
+
+	inline void set_own_value(const UnsafeBaseExpressionRef &value) {
+		m_own_value = value;
+	}
+
+	inline SymbolRules *ensure_rules() {
+		if (!m_rules) {
+			m_rules = std::make_unique<SymbolRules>();
+		}
+		return m_rules.get();
+	}
+
+	inline SymbolRules *rules() const {
+		return m_rules.get();
+	}
+
+	inline void add_down_rule(const RuleRef &rule) {
+		ensure_rules()->down_rules.add(rule);
+	}
+
+	inline void add_sub_rule(const RuleRef &rule) {
+		ensure_rules()->sub_rules.add(rule);
+	}
+
+	void add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs);
+
+	void add_rule(const RuleRef &rule);
+
+	void set_attributes(Attributes attributes);
+
+	BaseExpressionRef dispatch(
+		const Expression *expr,
+		SliceCode slice_code,
+		const Slice &slice,
+		const Evaluation &evaluation) const;
+};
+
+/*class EvaluationContext {
+	EvaluationContext *m_parent;
+
+	SymbolRefMap<SymbolState> m_symbols;
+
+	inline SymbolState &operator[](const SymbolRef &symbol) {
+		return m_symbols[symbol];
+	}
+};*/
+
 class Symbol : public BaseExpression {
 protected:
 	friend class Definitions;
 
-	struct AttributesData {
-		Attributes attributes;
-		const Evaluate *evaluate;
-	};
-
 	char _short_name[32];
 	char *_name;
 
-	std::atomic<DispatchableAttributes> m_attributes;
-
-	SymbolRulesRef _rules;
-
-	inline SymbolRules *create_rules() {
-		if (!_rules) {
-			_rules = std::make_unique<SymbolRules>();
-		}
-		return _rules.get();
-	}
+	SymbolState m_master_state;
 
 protected:
     virtual SymbolicFormRef instantiate_symbolic_form() const;
@@ -129,9 +181,15 @@ public:
 
 	~Symbol();
 
-	virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+	inline SymbolState &state() {
+		return m_master_state;
+	}
 
-	MutableBaseExpressionRef own_value;
+	inline const SymbolState &state() const {
+		return m_master_state;
+	}
+
+	virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
 	virtual inline bool same(const BaseExpression &expr) const final {
 		// compare as pointers: Symbol instances are unique
@@ -140,10 +198,6 @@ public:
 
 	virtual hash_t hash() const {
 		return hash_pair(symbol_hash, (std::uintptr_t)this);
-	}
-
-	inline SymbolRules *rules() const {
-		return _rules.get();
 	}
 
 	virtual std::string fullform() const {
@@ -167,15 +221,7 @@ public:
 	}
 
 	inline BaseExpressionRef evaluate_symbol() const {
-		return own_value;
-	}
-
-	inline void add_down_rule(const RuleRef &rule) {
-		create_rules()->down_rules.add(rule);
-	}
-
-	inline void add_sub_rule(const RuleRef &rule) {
-		create_rules()->sub_rules.add(rule);
+		return state().own_value();
 	}
 
 	void add_message(
@@ -193,21 +239,9 @@ public:
 
 	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
 
-	void set_attributes(Attributes attributes);
-
-    BaseExpressionRef dispatch( // using this symbol as head
-        const Expression *expr,
-        SliceCode slice_code,
-        const Slice &slice,
-        const Evaluation &evaluation) const;
-
 	virtual const Symbol *lookup_name() const {
 		return this;
 	}
-
-	void add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs);
-
-	void add_rule(const RuleRef &rule);
 };
 
 class SymbolKey {
@@ -320,15 +354,16 @@ inline BaseExpressionRef scope(
 	const F &f) {
 
 #if 1
-	const BaseExpressionRef old_value(symbol->own_value);
-	symbol->own_value = value;
+	SymbolState &state = symbol->state();
+	const BaseExpressionRef old_value(state.own_value());
+	state.set_own_value(value);
 
 	try {
 		const BaseExpressionRef result = f();
-		symbol->own_value = old_value;
+		state.set_own_value(old_value);
 		return result;
 	} catch(...) {
-		symbol->own_value = old_value;
+		state.set_own_value(old_value);
 		throw;
 	}
 #else
@@ -364,6 +399,10 @@ constexpr size_t log2(size_t n) {
 inline std::size_t SymbolHash::operator()(const Symbol *symbol) const {
 	constexpr int bits = log2(sizeof(Symbol));
 	return uintptr_t(symbol) >> bits;
+}
+
+inline std::size_t SymbolHash::operator()(const SymbolRef &symbol) const {
+	return (*this)(symbol.get());
 }
 
 inline SlotDirective CompiledArguments::operator()(const BaseExpressionRef &item) const {

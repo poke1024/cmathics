@@ -36,7 +36,7 @@ BaseExpressionRef Expression::evaluate_expression(
 	} else {
 		const Symbol *head_symbol = static_cast<const Symbol*>(head.get());
 
-		return head_symbol->dispatch(
+		return head_symbol->state().dispatch(
 			this, slice_code(), *_slice_ptr, evaluation);
 	}
 }

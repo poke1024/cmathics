@@ -39,7 +39,7 @@ void Symbol::add_message(
     const char *text,
     const Definitions &definitions) {
 
-	SymbolRules *rules = create_rules();
+	SymbolRules *rules = state().ensure_rules();
     rules->messages.ensure([] () {
         return new Messages();
     })->add(SymbolRef(this), tag, text, definitions);
@@ -49,7 +49,7 @@ StringRef Symbol::lookup_message(
     const Expression *message,
     const Evaluation &evaluation) const {
 
-	const SymbolRulesRef &rules = _rules;
+	const SymbolRules *rules = state().rules();
     if (rules && rules->messages) {
         return rules->messages->lookup(message, evaluation);
     } else {

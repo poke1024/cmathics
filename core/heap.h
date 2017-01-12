@@ -53,14 +53,22 @@ using StaticExpressionRef = ConstSharedPtr<ExpressionImplementation<StaticSlice<
 
 struct SymbolHash {
 	inline std::size_t operator()(const Symbol *symbol) const;
+
+	inline std::size_t operator()(const SymbolRef &symbol) const;
 };
 
-template<typename Value>
-using VariableMap = std::unordered_map<const Symbol*, Value,
-	SymbolHash, std::equal_to<const Symbol* const>,
-	ObjectAllocator<std::pair<const Symbol* const, Value>>>;
+template<typename Key, typename Value>
+using SymbolMap = std::unordered_map<Key, Value,
+	SymbolHash, std::equal_to<const Key>,
+	ObjectAllocator<std::pair<const Key, Value>>>;
 
-using VariablePtrMap = VariableMap<const BaseExpressionRef*>;
+template<typename Value>
+using SymbolPtrMap = SymbolMap<const Symbol*, Value>;
+
+template<typename Value>
+using SymbolRefMap = SymbolMap<const SymbolRef, Value>;
+
+using VariableMap = SymbolPtrMap<const BaseExpressionRef*>;
 
 class Cache;
 
@@ -208,12 +216,12 @@ private:
 	ObjectPool<SymbolicForm> _symbolic_forms;
 	UnsafeSymbolicFormRef _no_symbolic_form;
 
-	ObjectAllocator<VariablePtrMap::value_type> _variable_ptr_map;
+	ObjectAllocator<VariableMap::value_type> _variable_map;
 	SlotAllocator _slots;
 
 public:
-	static inline auto &variable_ptr_map_allocator() {
-		return _s_instance->_variable_ptr_map;
+	static inline auto &variable_map_allocator() {
+		return _s_instance->_variable_map;
 	}
 
 	static inline auto &slots_allocator() {

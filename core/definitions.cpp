@@ -34,7 +34,7 @@ Symbols::Symbols(Definitions &definitions) :
 }
 
 Symbol::Symbol(const char *name, ExtendedType symbol) :
-    BaseExpression(symbol) {
+    BaseExpression(symbol), m_master_state(this) {
 
 	const size_t n = snprintf(
 		_short_name, sizeof(_short_name), "%s", name);
@@ -45,7 +45,7 @@ Symbol::Symbol(const char *name, ExtendedType symbol) :
 		_name = _short_name;
 	}
 
-	set_attributes(Attributes::None);
+	state().set_attributes(Attributes::None);
 }
 
 Symbol::~Symbol() {
@@ -63,16 +63,16 @@ BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
 	}
 }
 
-void Symbol::set_attributes(Attributes attributes) {
+void SymbolState::set_attributes(Attributes attributes) {
     m_attributes.store(EvaluateDispatch::pick(attributes), std::memory_order_relaxed);
 }
 
-void Symbol::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
-	switch (get_definitions_pos(lhs, this)) {
+void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
+	switch (get_definitions_pos(lhs, m_symbol)) {
 		case DefinitionsPos::None:
 			break;
 		case DefinitionsPos::Own:
-			own_value = rhs;
+			m_own_value = rhs;
 			break;
 		case DefinitionsPos::Down:
 			add_down_rule(new DownRule(lhs, rhs));
@@ -83,12 +83,12 @@ void Symbol::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
 	}
 }
 
-void Symbol::add_rule(const RuleRef &rule) {
-	switch (get_definitions_pos(rule->pattern.get(), this)) {
+void SymbolState::add_rule(const RuleRef &rule) {
+	switch (get_definitions_pos(rule->pattern.get(), m_symbol)) {
 		case DefinitionsPos::None:
 			break;
 		case DefinitionsPos::Own:
-			own_value = rule->rhs();
+			m_own_value = rule->rhs();
 			break;
 		case DefinitionsPos::Down:
 			add_down_rule(rule);

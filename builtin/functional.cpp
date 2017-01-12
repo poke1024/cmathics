@@ -70,7 +70,7 @@ public:
 
 class ListArguments {
 private:
-    VariableMap<size_t> m_arguments;
+    SymbolPtrMap<size_t> m_arguments;
 
 public:
     inline void add(const BaseExpressionRef &var, index_t slot) {

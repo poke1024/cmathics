@@ -134,7 +134,7 @@ public:
 			if (head_head->type() == SymbolType) {
 				const Symbol * const head_symbol = static_cast<const Symbol *>(head_head);
 
-				const SymbolRules * const rules = head_symbol->rules();
+				const SymbolRules * const rules = head_symbol->state().rules();
 
 				if (rules) {
 					const BaseExpressionRef sub_form =

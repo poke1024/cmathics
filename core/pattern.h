@@ -57,7 +57,7 @@ public:
 
 class CompiledVariables {
 private:
-    VariableMap<index_t> m_indices;
+    SymbolPtrMap<index_t> m_indices;
     std::list<UnsafeSymbolRef> m_symbols;
 
 protected:
