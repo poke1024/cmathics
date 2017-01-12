@@ -13,39 +13,42 @@ public:
     Queue() : m_head(nullptr) {
     }
 
-    inline bool enqueue(T *item) {
-        return enqueue(item, item);
-    }
-
-    inline bool enqueue(T *head, T *tail) {
+    inline void enqueue(T *item) {
         T *link = m_head.load(std::memory_order_acquire);
         while (true) {
-            tail->next = link;
-            if (m_head.compare_exchange_weak(link, head, std::memory_order_acq_rel, std::memory_order_acquire)) {
-                return link == nullptr;
+	        assert(item != link);
+	        item->next = link;
+            if (m_head.compare_exchange_weak(link, item, std::memory_order_acq_rel)) {
+                break;
             }
         }
     }
 
     inline T *dequeue() {
-        T *item = m_head.load(std::memory_order_acquire);
+	    T *item;
+	    if ((item = m_head.load(std::memory_order_acquire)) == nullptr) {
+		    return nullptr;
+	    }
+
+	    item->lock();
         while (true) {
-            if (item == nullptr) {
-                return nullptr;
-            }
-            if (m_head.compare_exchange_weak(item, item->next, std::memory_order_acq_rel, std::memory_order_acquire)) {
+	        T *stale = item;
+
+            if (m_head.compare_exchange_weak(item, item->next, std::memory_order_acq_rel)) {
+	            item->unlock();
                 return item;
             }
-        }
-    }
 
-    inline T *steal() {
-        T *head = m_head.load(std::memory_order_acquire);
-        while (true) {
-            if (m_head.compare_exchange_weak(head, nullptr, std::memory_order_acq_rel, std::memory_order_acquire)) {
-                return head;
-            }
+	        if (item != stale) {
+		        stale->unlock();
+		        if (item == nullptr) {
+			        break;
+		        }
+		        item->lock();
+	        }
         }
+
+	    return nullptr;
     }
 
 #if DEBUG_ALLOCATIONS
@@ -60,8 +63,10 @@ class MemoryPool { // not concurrent
 public:
     class MiniPool;
 
+	using pool_size_t = uint16_t;
+
     struct Node {
-        T instance;
+        uint8_t instance[sizeof(T)];
         MiniPool *pool;
         Node *next;
 #if DEBUG_ALLOCATIONS
@@ -69,33 +74,37 @@ public:
 #endif
     };
 
-	using pool_size_t = uint16_t;
-
 	static_assert(pool_size_t(PoolSize) == PoolSize, "PoolSize too large.");
 
     class Pile;
 
+	enum MiniPoolState {
+		REACTIVATE,
+		EXHAUSTED,
+		FREE,
+		GC
+	};
+
+	// NOTE: a wrong alignment of MiniPool::data quadruples the runtime of
+	// the whole system!
+
 	class MiniPool {
 	public:
-        uint8_t nodes[sizeof(Node[PoolSize])]; // must ensure 8 byte alignment
+		Node data[PoolSize];
 
         MiniPool *next;
 
-        Queue<Node> free; // linked through Node.next
-		std::atomic<pool_size_t> n;
+		MiniPoolState state;
+        Node *free;
+		pool_size_t n;
+		std::atomic_flag spinlock = ATOMIC_FLAG_INIT;
 
-        inline MiniPool() {
-			n.store(PoolSize, std::memory_order_relaxed);
-
+        inline MiniPool() : state(REACTIVATE), n(PoolSize) {
             Node *head = nullptr;
-            Node *tail = nullptr;
 
 			for (size_t i = 0; i < PoolSize; i++) {
-                Node * const node = &reinterpret_cast<Node*>(nodes)[i];
+                Node * const node = &data[i];
 
-                if (tail == nullptr) {
-                    tail = node;
-                }
                 node->next = head;
                 head = node;
 
@@ -106,16 +115,37 @@ public:
 #endif
 			}
 
-			free.enqueue(head, tail);
+	        free = head;
 
 #if DEBUG_ALLOCATIONS
             Node *node = head;
-            assert(node == free.front());
             while (node) {
                 assert(node->magic == 0xBADC0DED);
                 node = node->next;
             }
 #endif
+		}
+
+		inline Node *grab() noexcept {
+#if DEBUG_ALLOCATIONS
+			assert(free->magic == 0xBADC0DED);
+#endif
+			assert(state == REACTIVATE);
+			Node * const node = free;
+			free = nullptr;
+			n = 0;
+			state = EXHAUSTED;
+			return node;
+		}
+
+		inline void lock() noexcept {
+			while (spinlock.test_and_set(std::memory_order_acq_rel)) {
+				// wait
+			}
+		}
+
+		inline void unlock() noexcept {
+			spinlock.clear(std::memory_order_release);
 		}
     };
 
@@ -131,10 +161,10 @@ public:
 		Node *m_free;
 
 	public:
-        inline bool initialize(MiniPool *pool) {
-            Node * const head = pool->free.steal();
-
+        inline void initialize(Node *head) {
 #if DEBUG_ALLOCATIONS
+			assert(head);
+
             Node *node = head;
             while (node) {
                 assert(node->magic == 0xBADC0DED);
@@ -143,8 +173,6 @@ public:
 #endif
 
             m_free = head;
-            pool->n.store(0, std::memory_order_relaxed);
-            return head != nullptr;
         }
 
 		template<typename Reallocate>
@@ -158,7 +186,7 @@ public:
 					assert(node->magic == 0xBADC0DED);
 					//assert(node->pool == pool);
 #endif
-					return &node->instance;
+					return reinterpret_cast<T*>(node->instance);
 				} else {
 					reallocate();
 				}
@@ -169,7 +197,7 @@ public:
 		void clear(const Free &free) {
 			while (m_free) {
 				Node * const next = m_free->next;
-				free(&m_free->instance);
+				free(reinterpret_cast<T*>(m_free->instance));
                 m_free = next;
 			}
 		}
@@ -180,60 +208,83 @@ public:
             MiniPool *pool = m_pools.dequeue();
 
             if (pool) {
-                if (pool->n.load(std::memory_order_relaxed) == PoolSize) {
-                    m_gc.enqueue(pool);
-                    // enqueue this in gc and search for other pool
-                } else {
-                    if (pile->initialize(pool)) {
-                        return true;
-                    } else {
-                        // remove from active queue and continue
-                    }
-                }
+	            pool->lock();
+
+	            if (pool->state == FREE) {
+		            pool->state = GC;
+		            m_gc.enqueue(pool);
+		            pool->unlock();
+		            continue;
+	            }
+
+	            assert(pool->state == REACTIVATE);
+
+				Node * const node = pool->grab();
+				pool->unlock();
+
+				pile->initialize(node);
+				return true;
             } else {
                 if ((pool = m_gc.dequeue()) != nullptr) {
-                    assert(pile->initialize(pool));
-                    return true;
-                }
+	                Node *node = nullptr;
 
-                return false;
+	                pool->lock();
+	                assert(pool->state == GC);
+
+	                pool->state = REACTIVATE;
+	                node = pool->grab();
+
+	                pool->unlock();
+
+					if (node) {
+						pile->initialize(node);
+						return true;
+					}
+                } else {
+	                return false;
+                }
             }
         }
 	}
 
 	inline void free(Node *head, Node *tail, size_t k) {
-        MiniPool *pool = head->pool;
+        MiniPool * const pool = head->pool;
 
 #if DEBUG_ALLOCATIONS
-        size_t n = 0;
+        size_t count = 0;
         Node *node = head;
-        Node *tail_next;
-        while (true) {
+
+        while (node) {
             assert(node->magic == 0xBADC0DED);
+            assert(node->pool = pool);
 
-            n += 1;
-
-            if ((tail_next = node->next) == nullptr) {
-                break;
-            }
-            if (tail_next->pool != pool) {
-                break;
-            }
-
-            node = tail_next;
+            count += 1;
+            node = node->next;
         }
 
-        assert(n == k);
-        assert(tail_next == nullptr);
+        assert(count == k);
 #endif
 
-        pool->n.fetch_add(k, std::memory_order_relaxed);
+		pool->lock();
 
-        const bool was_empty = pool->free.enqueue(head, tail);
+		tail->next = pool->free;
+		pool->free = head;
+		const size_t n = pool->n;
+		pool->n = n + k;
 
-        if (was_empty) { // was removed from list?
-            m_pools.enqueue(pool);
-        }
+		if (n + k == PoolSize) {
+			assert(pool->state == EXHAUSTED || pool->state == REACTIVATE);
+			pool->state = FREE;
+			pool->unlock();
+		} else if (n == 0) {
+			assert(pool->state == EXHAUSTED);
+			pool->state = REACTIVATE;
+			m_pools.enqueue(pool);
+			pool->unlock();
+		} else {
+			assert(pool->state == REACTIVATE);
+			pool->unlock();
+		}
 	}
 
 	void gc() {
@@ -314,7 +365,7 @@ public:
 		return pile->allocate([self, pile] () {
             if (!self->m_pool.allocate(pile)) {
                 MiniPool * const pool = new MiniPool;
-                assert(pile->initialize(pool));
+                pile->initialize(pool->grab());
             }
 		});
 	}
