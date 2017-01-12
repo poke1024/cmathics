@@ -826,13 +826,9 @@ public:
 	template<typename F>
 	inline StaticSlice parallel_map(const F &f) const {
 		const auto &slice = *this;
-		nothing dummy;
-		return StaticSlice::parallel_create([&f, &slice] (auto &storage) {
-			parallelize([&storage, &f, &slice] (size_t i) {
-				storage.concurrent_set(i, f(slice[i]));
-			}, slice.size());
-			return nothing();
-		}, N, dummy);
+		return StaticSlice::parallel_create([&f, &slice] (size_t i) {
+			return f(slice[i]);
+		}, N);
 	}
 
 	inline StaticSlice slice(size_t begin, size_t end) const {

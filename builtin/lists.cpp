@@ -1035,7 +1035,7 @@ void Builtins::Lists::initialize() {
 				    }
 					const Expression *list = expr->as_expression();
 
-					return list->map(list->head(), [&func] (const auto &leaf) {
+					return list->parallel_map(list->head(), [&func] (const auto &leaf) {
 						return expression(func, StaticSlice<1>(&leaf, leaf->base_type_mask()));
 					});
 			    }
