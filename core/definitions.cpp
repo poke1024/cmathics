@@ -64,7 +64,7 @@ BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
 }
 
 void SymbolState::set_attributes(Attributes attributes) {
-    m_attributes.store(EvaluateDispatch::pick(attributes), std::memory_order_relaxed);
+    m_attributes = EvaluateDispatch::pick(attributes);
 }
 
 void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
@@ -109,7 +109,7 @@ SymbolRef Definitions::new_symbol(const char *name, ExtendedType type) {
     return symbol;
 }
 
-Symbol *Definitions::system_symbol(const char *name, ExtendedType type) {
+const Symbol *Definitions::system_symbol(const char *name, ExtendedType type) {
 	std::ostringstream fullname;
 	fullname << "System`";
 	if (strncmp(name, "State", 5) == 0) {

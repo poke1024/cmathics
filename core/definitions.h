@@ -18,11 +18,11 @@ public:
 		std::memcpy(this, &symbols, sizeof(symbols));
 	}
 
-	#define SYMBOL(SYMBOLNAME) Symbol *SYMBOLNAME;
+	#define SYMBOL(SYMBOLNAME) const Symbol *SYMBOLNAME;
 	#include "system_symbols.h"
 	#undef SYMBOL
 
-	inline Symbol *Boolean(bool x) const {
+	inline const Symbol *Boolean(bool x) const {
 		return x ? True : False;
 	}
 };
@@ -37,7 +37,7 @@ protected:
 
 	SymbolRef new_symbol(const char *name, ExtendedType symbol = SymbolExtendedType);
 
-	Symbol *system_symbol(const char *name, ExtendedType type);
+	const Symbol *system_symbol(const char *name, ExtendedType type);
 
 public:
     Definitions();

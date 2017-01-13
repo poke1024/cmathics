@@ -78,6 +78,16 @@ public:
 typedef QuasiConstSharedPtr<Messages> MessagesRef;
 
 struct SymbolRules {
+	inline SymbolRules() {
+	}
+
+	inline SymbolRules(const SymbolRules &rules) :
+		sub_rules(rules.sub_rules),
+		up_rules(rules.up_rules),
+		down_rules(rules.down_rules),
+		messages(rules.messages) {
+	}
+
 	Rules sub_rules;
 	Rules up_rules;
 	Rules down_rules;
@@ -92,7 +102,7 @@ struct SymbolRules {
 	*/
 };
 
-typedef std::unique_ptr<SymbolRules> SymbolRulesRef;
+typedef std::shared_ptr<SymbolRules> SymbolRulesRef;
 
 class Evaluate;
 
@@ -104,14 +114,22 @@ class SymbolState {
 private:
 	const Symbol * const m_symbol;
 
-	std::atomic<DispatchableAttributes> m_attributes;
-
-	SymbolRulesRef m_rules;
+	DispatchableAttributes m_attributes;
 
 	UnsafeBaseExpressionRef m_own_value;
 
+	SymbolRulesRef m_rules;
+	bool m_copy_on_write;
+
 public:
-	inline SymbolState(const Symbol *symbol) : m_symbol(symbol) {
+	inline SymbolState(const Symbol *symbol) : m_symbol(symbol), m_copy_on_write(false) {
+	}
+
+	inline SymbolState(const SymbolState &state) : m_symbol(state.m_symbol) {
+		m_attributes = state.m_attributes;
+		m_own_value = state.m_own_value;
+		m_rules = state.m_rules;
+		m_copy_on_write = true;
 	}
 
 	inline const UnsafeBaseExpressionRef &own_value() const {
@@ -122,9 +140,12 @@ public:
 		m_own_value = value;
 	}
 
-	inline SymbolRules *ensure_rules() {
+	inline SymbolRules *mutable_rules() {
 		if (!m_rules) {
-			m_rules = std::make_unique<SymbolRules>();
+			m_rules = std::make_shared<SymbolRules>();
+		} else if (m_copy_on_write) {
+			m_rules = std::make_shared<SymbolRules>(*m_rules.get());
+			m_copy_on_write = false;
 		}
 		return m_rules.get();
 	}
@@ -134,11 +155,11 @@ public:
 	}
 
 	inline void add_down_rule(const RuleRef &rule) {
-		ensure_rules()->down_rules.add(rule);
+		mutable_rules()->down_rules.add(rule);
 	}
 
 	inline void add_sub_rule(const RuleRef &rule) {
-		ensure_rules()->sub_rules.add(rule);
+		mutable_rules()->sub_rules.add(rule);
 	}
 
 	void add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs);
@@ -154,15 +175,35 @@ public:
 		const Evaluation &evaluation) const;
 };
 
-/*class EvaluationContext {
-	EvaluationContext *m_parent;
+class EvaluationContext {
+private:
+	EvaluationContext * const m_parent;
 
-	SymbolRefMap<SymbolState> m_symbols;
+	EvaluationContext *m_saved_context;
 
-	inline SymbolState &operator[](const SymbolRef &symbol) {
-		return m_symbols[symbol];
+	SymbolStateMap m_symbols;
+
+	static thread_local EvaluationContext *s_current;
+
+public:
+	inline EvaluationContext(EvaluationContext *parent) :
+		m_parent(parent), m_symbols(Pool::symbol_state_map_allocator()) {
+
+		EvaluationContext *&current = s_current;
+		m_saved_context = current;
+		current = this;
 	}
-};*/
+
+	inline ~EvaluationContext() {
+		s_current = m_saved_context;
+	}
+
+	static inline EvaluationContext *current() {
+		return s_current;
+	}
+
+	inline SymbolState &state(const Symbol *symbol);
+};
 
 class Symbol : public BaseExpression {
 protected:
@@ -171,7 +212,10 @@ protected:
 	char _short_name[32];
 	char *_name;
 
-	SymbolState m_master_state;
+protected:
+	friend class EvaluationContext;
+
+	mutable SymbolState m_master_state;
 
 protected:
     virtual SymbolicFormRef instantiate_symbolic_form() const;
@@ -181,12 +225,13 @@ public:
 
 	~Symbol();
 
-	inline SymbolState &state() {
-		return m_master_state;
-	}
-
-	inline const SymbolState &state() const {
-		return m_master_state;
+	inline SymbolState &state() const {
+		EvaluationContext *context = EvaluationContext::current();
+		if (context == nullptr) {
+			return m_master_state;
+		} else {
+			return context->state(this);
+		}
 	}
 
 	virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
@@ -227,7 +272,7 @@ public:
 	void add_message(
 		const char *tag,
 		const char *text,
-		const Definitions &definitions);
+		const Definitions &definitions) const;
 
 	StringRef lookup_message(
 		const Expression *message,
@@ -243,6 +288,18 @@ public:
 		return this;
 	}
 };
+
+inline SymbolState &EvaluationContext::state(const Symbol *symbol) {
+	const auto i = m_symbols.find(symbol);
+	if (i != m_symbols.end()) {
+		return i->second;
+	} else {
+		const SymbolState &state = m_parent ?
+			m_parent->state(symbol) :
+			symbol->m_master_state;
+		return m_symbols.emplace(SymbolRef(symbol), state).first->second;
+	}
+}
 
 class SymbolKey {
 private:

@@ -57,9 +57,29 @@ struct SymbolHash {
 	inline std::size_t operator()(const SymbolRef &symbol) const;
 };
 
+class SymbolState;
+
+struct SymbolEqual {
+	inline bool operator()(const Symbol* lhs, const Symbol *rhs) const {
+		return lhs == rhs;
+	}
+
+	inline bool operator()(const Symbol* lhs, const SymbolRef &rhs) const {
+		return lhs == rhs.get();
+	}
+
+	inline bool operator()(const SymbolRef &lhs, const SymbolRef &rhs) const {
+		return lhs == rhs;
+	}
+
+	inline bool operator()(const SymbolRef &lhs, const Symbol *rhs) const {
+		return lhs.get() == rhs;
+	}
+};
+
 template<typename Key, typename Value>
 using SymbolMap = std::unordered_map<Key, Value,
-	SymbolHash, std::equal_to<const Key>,
+	SymbolHash, SymbolEqual,
 	ObjectAllocator<std::pair<const Key, Value>>>;
 
 template<typename Value>
@@ -69,6 +89,8 @@ template<typename Value>
 using SymbolRefMap = SymbolMap<const SymbolRef, Value>;
 
 using VariableMap = SymbolPtrMap<const BaseExpressionRef*>;
+
+using SymbolStateMap = SymbolRefMap<SymbolState>;
 
 class Cache;
 
@@ -217,11 +239,16 @@ private:
 	UnsafeSymbolicFormRef _no_symbolic_form;
 
 	ObjectAllocator<VariableMap::value_type> _variable_map;
+	ObjectAllocator<SymbolStateMap::value_type> _symbol_state_map;
 	SlotAllocator _slots;
 
 public:
 	static inline auto &variable_map_allocator() {
 		return _s_instance->_variable_map;
+	}
+
+	static inline auto &symbol_state_map_allocator() {
+		return _s_instance->_symbol_state_map;
 	}
 
 	static inline auto &slots_allocator() {

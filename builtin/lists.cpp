@@ -601,7 +601,7 @@ public:
         const machine_integer_t imin,
         const machine_integer_t imax,
         const machine_integer_t di,
-		    const machine_integer_t n,
+	    const machine_integer_t n,
         const Evaluation &evaluation) const {
 
 	    const F &func = m_func;

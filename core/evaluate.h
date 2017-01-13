@@ -50,17 +50,37 @@ public:
 	}
 };
 
-template<typename F>
-inline ExpressionRef tiny_expression(const BaseExpressionRef &head, const F &generate, size_t N) {
-	direct_storage storage(head, N);
-	generate(storage);
-	return storage.to_expression();
-}
+/*class parallel_direct_storage {
+protected:
+	UnsafeExpressionRef _expr;
+	BaseExpressionRef *_addr;
+	BaseExpressionRef *_end;
+	std::atomic<TypeMask> _type_mask;
+	std::atomic<TypeMask> *_type_mask_ptr;
+
+public:
+	inline parallel_direct_storage(const BaseExpressionRef &head, size_t n) : _type_mask(0) {
+		std::tie(_expr, _addr, _type_mask_ptr) = Pool::StaticExpression(head, n);
+		_end = _addr + n;
+	}
+
+	inline void concurrent_set(size_t i, BaseExpressionRef &&expr) {
+		_type_mask |= expr->base_type_mask();
+		_addr[i]->mutate(std::move(expr));
+	}
+
+	inline UnsafeExpressionRef to_expression() {
+		*_type_mask_ptr = _type_mask;
+		return _expr;
+	}
+};*/
 
 template<typename F>
 inline ExpressionRef expression_from_generator(const BaseExpressionRef &head, const F &generate, size_t size) {
 	if (size <= MaxStaticSliceSize) {
-		return tiny_expression(head, generate, size);
+		direct_storage storage(head, size);
+		generate(storage);
+		return storage.to_expression();
 	} else {
 		heap_storage storage(size);
 		generate(storage);
@@ -239,7 +259,9 @@ ExpressionRef parallel_transform(
 			BaseExpressionRef result = f(leaf);
 
 			if (result) { // copy is needed now
-				auto generate = [i0, end, &slice, &f, &result] (size_t i) {
+				EvaluationContext * const context = EvaluationContext::current();
+
+				auto generate = [i0, end, context, &slice, &f, &result] (size_t i) {
 					if (i < i0 || i >= end) {
 						return BaseExpressionRef(slice[i]);
 					} else if (i == i0) {
@@ -250,6 +272,8 @@ ExpressionRef parallel_transform(
 						if ((old_leaf->base_type_mask() & Types) == 0) {
 							return old_leaf;
 						} else {
+							EvaluationContext parallel_context(context);
+
 							BaseExpressionRef inner_result = f(old_leaf);
 
 							if (inner_result) {
@@ -526,8 +550,12 @@ inline BaseExpressionRef SymbolState::dispatch(
 	const Evaluation &evaluation) const {
 
     return EvaluateDispatch::call(
-        m_attributes.load(std::memory_order_relaxed),
-        m_symbol, expr, slice_code, slice, evaluation);
+        m_attributes,
+        m_symbol,
+        expr,
+        slice_code,
+        slice,
+        evaluation);
 }
 
 #endif //CMATHICS_EVALUATE_H

@@ -4,6 +4,8 @@
 #include "builtin.h"
 #include "matcher.h"
 
+thread_local EvaluationContext *EvaluationContext::s_current = nullptr;
+
 void Messages::add(
     const SymbolRef &name,
     const char *tag,
@@ -37,9 +39,9 @@ BaseExpressionPtr Symbol::head(const Evaluation &evaluation) const {
 void Symbol::add_message(
     const char *tag,
     const char *text,
-    const Definitions &definitions) {
+    const Definitions &definitions) const {
 
-	SymbolRules *rules = state().ensure_rules();
+	SymbolRules *rules = state().mutable_rules();
     rules->messages.ensure([] () {
         return new Messages();
     })->add(SymbolRef(this), tag, text, definitions);

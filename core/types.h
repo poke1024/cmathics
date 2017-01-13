@@ -287,10 +287,10 @@ typedef ConstSharedPtr<const DynamicExpression> DynamicExpressionRef;
 
 class Symbol;
 
-typedef ConstSharedPtr<Symbol> SymbolRef;
-typedef SharedPtr<Symbol> MutableSymbolRef;
-typedef ConstSharedPtr<Symbol> ConstSymbolRef;
-typedef UnsafeSharedPtr<Symbol> UnsafeSymbolRef;
+typedef ConstSharedPtr<const Symbol> SymbolRef;
+typedef SharedPtr<const Symbol> MutableSymbolRef;
+typedef ConstSharedPtr<const Symbol> ConstSymbolRef;
+typedef UnsafeSharedPtr<const Symbol> UnsafeSymbolRef;
 
 class String;
 
