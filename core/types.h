@@ -436,6 +436,10 @@ public:
         return MatchSize::exactly(1); // default
     }
 
+    virtual MatchSize string_match_size() const {
+        return MatchSize::exactly(0);
+    }
+
     virtual BaseExpressionRef replace_all(const MatchRef &match) const {
 		return BaseExpressionRef();
     }
