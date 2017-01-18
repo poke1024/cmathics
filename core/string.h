@@ -341,6 +341,10 @@ public:
         return same(expr);
     }
 
+    virtual MatchSize string_match_size() const {
+        return MatchSize::exactly(m_length);
+    }
+
     inline size_t length() const {
         return m_length;
     }

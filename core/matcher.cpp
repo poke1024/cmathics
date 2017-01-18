@@ -359,6 +359,14 @@ public:
     }
 };
 
+class Unanchored {
+public:
+    template<typename Sequence>
+    inline index_t operator()(const Sequence &sequence, index_t begin, index_t end) const {
+        return begin;
+    }
+};
+
 template<typename PatternTest, typename Variable, typename Continue>
 class RestMatcher {
 private:
@@ -987,24 +995,30 @@ private:
 	const SymbolRef m_variable;
 	const PatternMatcherRef m_next;
 	const bool m_shortest;
+    const bool m_anchored;
 
 	PatternFactory(
 		CompiledVariables &variables,
 		const BaseExpressionRef test,
 		const SymbolRef variable,
 		const PatternMatcherRef next,
-		const bool shortest) :
+		const bool shortest,
+        const bool anchored) :
 
 		m_variables(variables),
 		m_test(test),
 		m_variable(variable),
 		m_next(next),
-		m_shortest(shortest) {
+		m_shortest(shortest),
+        m_anchored(anchored) {
 	}
 
     template<template<typename, typename> class Matcher, typename Parameter, typename Test, typename Variable>
     PatternMatcherRef create(const Parameter &parameter, const Test &test, const Variable &variable) const {
-        if (m_next) {
+        if (!m_anchored) {
+            const auto rest = RestMatcher<Test, Variable, Unanchored>(test, variable, Unanchored());
+            return new Matcher<Parameter, decltype(rest)>(parameter, rest);
+        } else if (m_next) {
             const auto rest = RestMatcher<Test, Variable, Continue>(test, variable, Continue(m_next));
             return new Matcher<Parameter, decltype(rest)>(parameter, rest);
         } else {
@@ -1026,7 +1040,8 @@ private:
 public:
 	PatternFactory(CompiledVariables &variables) :
 		m_variables(variables),
-		m_shortest(false) {
+		m_shortest(false),
+        m_anchored(true) {
 	}
 
 	inline const CompiledVariables &variables() const {
@@ -1042,27 +1057,27 @@ public:
 	}
 
 	PatternFactory for_variable(const SymbolRef &v) const {
-		return PatternFactory(m_variables, m_test, v, m_next, m_shortest);
+		return PatternFactory(m_variables, m_test, v, m_next, m_shortest, m_anchored);
 	}
 
 	PatternFactory for_test(const BaseExpressionRef &t) const {
-		return PatternFactory(m_variables, t, m_variable, m_next, m_shortest);
+		return PatternFactory(m_variables, t, m_variable, m_next, m_shortest, m_anchored);
 	}
 
 	PatternFactory for_next(const PatternMatcherRef &n) const {
-		return PatternFactory(m_variables, m_test, m_variable, n, m_shortest);
+		return PatternFactory(m_variables, m_test, m_variable, n, m_shortest, m_anchored);
 	}
 
 	PatternFactory for_shortest() const {
-		return PatternFactory(m_variables, m_test, m_variable, m_next, true);
+		return PatternFactory(m_variables, m_test, m_variable, m_next, true, m_anchored);
 	}
 
 	PatternFactory for_longest() const {
-		return PatternFactory(m_variables, m_test, m_variable, m_next, false);
+		return PatternFactory(m_variables, m_test, m_variable, m_next, false, m_anchored);
 	}
 
-	PatternFactory stripped() const {
-		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), m_next, m_shortest);
+	PatternFactory stripped(bool anchored = true) const {
+		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), m_next, m_shortest, anchored);
 	}
 
 	template<template<typename, typename> class Matcher, typename Parameter>
@@ -1076,6 +1091,9 @@ public:
 };
 
 class PatternCompiler {
+private:
+    const bool m_is_string_pattern;
+
 protected:
 	friend class RepeatedForm;
 
@@ -1096,7 +1114,8 @@ protected:
 		const PatternFactory &factory);
 
 public:
-    PatternCompiler();
+    PatternCompiler(
+        bool is_string_pattern);
 
 	PatternMatcherRef compile(
 		const BaseExpressionRef *begin,
@@ -1110,7 +1129,8 @@ public:
         const PatternFactory &factory);
 };
 
-PatternCompiler::PatternCompiler() {
+PatternCompiler::PatternCompiler(bool is_string_pattern) :
+    m_is_string_pattern(is_string_pattern) {
 }
 
 PatternMatcherRef PatternCompiler::character_intrinsic_matcher(
@@ -1265,7 +1285,7 @@ PatternMatcherRef PatternCompiler::compile(
 	MatchSize size = size_from_here;
 	matchable.push_back(size);
 	for (const BaseExpressionRef *i = end - 1; i >= begin; i--) {
-		size += (*i)->match_size();
+		size += m_is_string_pattern ? (*i)->string_match_size() : (*i)->match_size();
 		matchable.push_back(size);
 	}
 	std::reverse(matchable.begin(), matchable.end());
@@ -1359,19 +1379,23 @@ public:
 
 	template<typename Make>
 	inline PatternMatcherRef matcher(const Make &make) const {
+        UnsafePatternMatcherRef r_matcher;
 		if (m_patt_end - m_patt_begin == 1) {
 			const PatternMatcherRef matcher = m_compiler->compile(
-				*m_patt_begin, m_size_from_here, m_factory.stripped());
-
+				*m_patt_begin,
+                MatchSize::exactly(0),
+                m_factory.stripped(false));
 			const auto fixed_size = matcher->fixed_size();
 			if (fixed_size && matcher->variables().empty()) {
-				return make(TestRepeated<SimpleGreedy>(matcher, SimpleGreedy(*fixed_size)));
+                r_matcher = make(TestRepeated<SimpleGreedy>(matcher, SimpleGreedy(*fixed_size)));
 			} else {
-				return make(TestRepeated<ComplexGreedy>(matcher, ComplexGreedy()));
+                r_matcher = make(TestRepeated<ComplexGreedy>(matcher, ComplexGreedy()));
 			}
 		} else {
-			return make(TestNone());
+            r_matcher = make(TestNone());
 		}
+        r_matcher->set_size(PatternMatcherSize(m_size_from_here, m_size_from_here)); // FIXME
+        return r_matcher;
 	}
 };
 
@@ -1430,6 +1454,10 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 		case SymbolRepeated:
 			return create_blank_sequence_matcher<BlankSequenceMatcher, 1>()(
 				RepeatedForm(this, size.from_here(), factory, patt_begin, patt_end), factory);
+
+        case SymbolRepeatedNull:
+            return create_blank_sequence_matcher<BlankSequenceMatcher, 0>()(
+                RepeatedForm(this, size.from_here(), factory, patt_begin, patt_end), factory);
 
 		case SymbolAlternatives: {
 			std::vector<PatternMatcherRef> matchers;
@@ -1492,13 +1520,13 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 }
 
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt) {
-	PatternCompiler compiler;
+	PatternCompiler compiler(false);
 	CompiledVariables variables;
 	return compiler.compile(patt, MatchSize::exactly(0), PatternFactory(variables).for_shortest());
 }
 
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt) {
-	PatternCompiler compiler;
+	PatternCompiler compiler(true);
 	CompiledVariables variables;
 	return compiler.compile(patt, MatchSize::exactly(0), PatternFactory(variables).for_longest());
 }
