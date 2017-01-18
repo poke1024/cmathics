@@ -213,23 +213,13 @@ public:
   		    _pool[N])->construct(head, std::move(slice)));
 	}
 
-	inline ExpressionRef make(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
+	inline ExpressionRef construct(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
 		assert(leaves.size() <= UpToSize);
 		return _make_from_vector[leaves.size()](head, leaves);
 	}
 
-	inline ExpressionRef make(const BaseExpressionRef &head, const std::initializer_list<BaseExpressionRef> &leaves) {
-		assert(leaves.size() <= UpToSize);
-		return _make_from_initializer_list[leaves.size()](head, leaves);
-	}
-
-	inline auto make_late_init(const BaseExpressionRef &head, size_t N) {
-		assert(N <= UpToSize);
-		return _make_late_init[N](head);
-	}
-
 	template<typename Generator>
-	inline auto construct(const BaseExpressionRef& head, const Generator &generator) const {
+	inline auto construct_from_generator(const BaseExpressionRef& head, const Generator &generator) const {
 		static StaticExpressionFactory<Generator, UpToSize> factory;
 		return factory(_pool, head, generator);
 	}
@@ -325,37 +315,17 @@ public:
 		return _s_instance->_static_expression_heap.allocate<N>(head, std::move(slice));
 	}
 
-	/*static inline ExpressionRef StaticExpression(
-		const BaseExpressionRef &head,
-		const std::vector<BaseExpressionRef> &leaves) {
-
-		assert(_s_instance);
-		return _s_instance->_static_expression_heap.make(head, leaves);
-	}
-
-	static inline ExpressionRef StaticExpression(
-		const BaseExpressionRef &head,
-		const std::initializer_list<BaseExpressionRef> &leaves) {
-
-		assert(_s_instance);
-		return _s_instance->_static_expression_heap.make(head, leaves);
-	}
-
-	static inline auto StaticExpression(
-		const BaseExpressionRef &head,
-		size_t N) {
-
-		assert(_s_instance);
-		return _s_instance->_static_expression_heap.make_late_init(head, N);
-	}*/
-
 	template<typename Generator>
 	static inline auto StaticExpression(
 		const BaseExpressionRef &head,
 		const Generator &generator) {
 
 		assert(_s_instance);
-		return _s_instance->_static_expression_heap.construct(head, generator);
+#if FULL_OPTIMIZE
+		return _s_instance->_static_expression_heap.construct_from_generator(head, generator);
+#else
+		return _s_instance->_static_expression_heap.construct(head, generator.vector()._grab_internal_vector());
+#endif
 	}
 
 	static inline DynamicExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);

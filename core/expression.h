@@ -509,7 +509,11 @@ inline ExpressionRef expression(
 	const std::initializer_list<BaseExpressionRef> &leaves) {
 
 	if (leaves.size() <= MaxStaticSliceSize) {
-		return Pool::StaticExpression(head, leaves);
+		return Pool::StaticExpression(head, sequential([&leaves] (auto &store) {
+			for (const BaseExpressionRef &leaf : leaves) {
+				store(BaseExpressionRef(leaf));
+			}
+		}, leaves.size()));
 	} else {
 		return Pool::Expression(head, DynamicSlice(leaves, UnknownTypeMask));
 	}
