@@ -669,6 +669,7 @@ public:
 		// slice.
 
 		if (slice_needs_no_materialize(StaticSliceCode) || leaves) {
+            assert(leaves);
 			return f(leaves, size());
 		} else {
 			UnsafeBaseExpressionRef materialized;

@@ -108,7 +108,9 @@ bool Parallel::enqueue(Task *task) {
 
 	if (size == 0) {
 		for (const auto &thread : m_threads) {
-			thread->set_state(run);
+            if (thread->get_id() != std::this_thread::get_id()) {
+                thread->set_state(run);
+            }
 		}
 	}
 
@@ -195,17 +197,22 @@ void Parallel::Thread::set_state(ThreadState state)  {
 }
 
 void Parallel::Thread::work() {
-	std::unique_lock<std::mutex> lock(m_mutex);
-
 	Parallel * const parallel = m_parallel;
 
 	while (true) {
-		while (m_state == block) {
-			m_event.wait(lock);
-		}
-		if (m_state == quit) {
-			break;
-		}
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+
+            while (m_state == block) {
+                m_event.wait(lock);
+            }
+
+            if (m_state == quit) {
+                break;
+            }
+
+            m_state = block;
+        }
 
 #if 0
 		std::cout << "unblocking thread " << std::this_thread::get_id() << std::endl;
@@ -242,7 +249,5 @@ void Parallel::Thread::work() {
 
 			parallel->release(head, false);
 		}
-
-		m_state = block;
 	}
 }

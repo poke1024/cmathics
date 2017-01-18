@@ -118,6 +118,80 @@ public:
 	}
 };
 
+template<TypeMask type_mask, typename Slice, typename F>
+class parallel_map : public map_base<type_mask, Slice, F> {
+protected:
+    using base = map_base<type_mask, Slice, F>;
+
+public:
+    using base::map_base;
+
+    inline ExpressionRef operator()() const {
+        const Slice &slice = base::m_slice;
+
+        if (type_mask != UnknownTypeMask && (type_mask & slice.type_mask()) == 0) {
+            return base::keep();
+        }
+
+        const size_t begin = base::m_begin;
+        const size_t end = base::m_end;
+        const F &f = base::m_f;
+
+        //std::vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>> v(
+        //    Pool::ref_vector_allocator());
+
+        std::vector<BaseExpressionRef> v;
+
+        std::atomic_flag lock = ATOMIC_FLAG_INIT;
+        bool changed = false;
+        TypeMask new_type_mask = 0;
+
+        parallelize([begin, end, &slice, &f, &v, &lock, &changed, &new_type_mask] (size_t i) {
+            const size_t k = begin + i;
+            BaseExpressionRef leaf = f.lambda(k, slice[k]);
+            if (leaf) {
+                while (lock.test_and_set() == 1) {
+                    std::this_thread::yield();
+                }
+                if (!changed) {
+                    try {
+                        v.resize(end - begin);
+                    } catch(...) {
+                        lock.clear();
+                        throw;
+                    }
+                    changed = true;
+                }
+                new_type_mask |= leaf->base_type_mask();
+                v[i].mutate(std::move(leaf));
+                lock.clear();
+            }
+        }, end - begin);
+
+        if (changed) {
+            if (begin == 0 && end == slice.size()) {
+                return expression(base::m_head, parallel([&v, &slice] (size_t i) {
+                    const BaseExpressionRef &leaf = v[i];
+                    return leaf ? leaf : slice[i];
+                }, slice.size()));
+
+                //return expression(base::m_head, LeafVector(std::move(v), new_type_mask));
+            } else {
+                return expression(base::m_head, parallel([begin, end, &v, &slice] (size_t i) {
+                    if (i < begin || i >= end) {
+                        return slice[i];
+                    } else {
+                        const BaseExpressionRef &leaf = v[i - begin];
+                        return leaf ? leaf : slice[i];
+                    }
+                }, slice.size()));
+            }
+        } else {
+            return base::keep();
+        }
+    }
+};
+
 template<TypeMask T, typename F, typename Slice>
 inline ExpressionRef apply_conditional_map_indexed(
 	const BaseExpressionRef &head,
@@ -128,12 +202,14 @@ inline ExpressionRef apply_conditional_map_indexed(
 	const size_t end,
 	const Evaluation &evaluation) {
 
-	if (true) {// !evaluation.parallelize) {
+	if (!evaluation.parallelize) {
 		const sequential_map<T, Slice, F> map(
 			head, is_new_head, f, slice, begin, end);
 		return map();
 	} else {
-		return ExpressionRef(); // FIXME
+        const parallel_map<T, Slice, F> map(
+            head, is_new_head, f, slice, begin, end);
+        return map();
 	}
 }
 

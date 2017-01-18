@@ -276,6 +276,7 @@ private:
 	ObjectAllocator<VariableMap::value_type> _variable_map;
 	ObjectAllocator<SymbolStateMap::value_type> _symbol_state_map;
 	SlotAllocator _slots;
+    VectorAllocator<UnsafeBaseExpressionRef> _ref_vector_allocator;
 
 public:
 	static inline auto &variable_map_allocator() {
@@ -289,6 +290,10 @@ public:
 	static inline auto &slots_allocator() {
 		return _s_instance->_slots;
 	}
+
+    static inline auto &ref_vector_allocator() {
+        return _s_instance->_ref_vector_allocator;
+    }
 
 public:
     static void init();

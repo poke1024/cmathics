@@ -3,6 +3,7 @@
 
 #include <thread>
 #include <list>
+#include <mutex>
 
 class Parallel {
 public:
@@ -70,6 +71,10 @@ private:
 		void set_state(ThreadState state);
 
 		void work();
+
+        inline std::thread::id get_id() const {
+            return m_thread.get_id();
+        }
 	};
 
 	class Spinlock {

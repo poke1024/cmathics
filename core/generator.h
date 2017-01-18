@@ -11,7 +11,7 @@ public:
 	}
 
 	inline LeafVector(std::vector<BaseExpressionRef> &&leaves, TypeMask mask) :
-		m_leaves(leaves), m_mask(0) {
+		m_leaves(leaves), m_mask(mask) {
 	}
 
 	inline LeafVector(LeafVector &&v) :
