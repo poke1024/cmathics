@@ -714,7 +714,7 @@ template<typename Slice>
 inline BaseExpressionRef add_machine_inexact(const Expression *expr, const Slice &slice) {
 	// create an array to store all the symbolic arguments which can't be evaluated.
 
-	std::vector<BaseExpressionRef> symbolics;
+	LeafVector symbolics;
 	symbolics.reserve(slice.size());
 
 	machine_real_t sum = 0.0;
@@ -744,7 +744,7 @@ inline BaseExpressionRef add_machine_inexact(const Expression *expr, const Slice
 			case ExpressionType:
 			case SymbolType:
 			case StringType:
-				symbolics.push_back(leaf);
+				symbolics.push_back_copy(leaf);
 				break;
 
 			default:
@@ -791,12 +791,12 @@ BaseExpressionRef Plus3Rule::try_apply(
 		const TypeMask types_seen = slice.exact_type_mask();
 
 		// expression is all MachineReals
-		if (types_seen == MakeTypeMask(MachineRealType)) {
+		if (types_seen == make_type_mask(MachineRealType)) {
 			return add_only_machine_reals(slice);
 		}
 
 		constexpr TypeMask int_mask =
-			MakeTypeMask(BigIntegerType) | MakeTypeMask(MachineIntegerType);
+			make_type_mask(BigIntegerType) | make_type_mask(MachineIntegerType);
 
 		// expression is all Integers
 		if ((types_seen & int_mask) == types_seen) {
@@ -804,7 +804,7 @@ BaseExpressionRef Plus3Rule::try_apply(
 		}
 
 		// expression contains a Real
-		if (types_seen & MakeTypeMask(MachineRealType)) {
+		if (types_seen & make_type_mask(MachineRealType)) {
 			return add_machine_inexact(expr, slice);
 		}
 

@@ -65,7 +65,7 @@ public:
             }
 		} else if (kind == _expression) {
 			auto head = convert(o[1]);
-			std::vector<BaseExpressionRef> leaves;
+			LeafVector leaves;
 
 			for (auto leaf : o[2]) {
 				leaves.push_back(convert(leaf));

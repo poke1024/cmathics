@@ -68,24 +68,24 @@ public:
 		const String * const string = text->as_string();
 
 		const auto generate = [string, &options, &evaluation] (BaseExpressionPtr patt, const auto &callback) {
-			return expression_from_generator(evaluation.List, [string, &patt, &options, &evaluation, &callback] (auto &storage) {
+			return expression(evaluation.List, sequential([string, &patt, &options, &evaluation, &callback] (auto &store) {
 				const StringMatcher matcher(patt, evaluation);
-				matcher.search(string, [string, &callback, &storage] (index_t begin, index_t end, const auto &match) {
-					callback(storage, begin, end, match);
+				matcher.search(string, [string, &callback, &store] (index_t begin, index_t end, const auto &match) {
+					callback(store, begin, end, match);
 				}, options.Overlap->is_true());
-			});
+			}));
 		};
 
 		const RuleForm rule_form(patt);
 		if (rule_form.is_rule()) {
 			return generate(rule_form.left_side().get(),
-			    [&rule_form] (auto &storage, index_t begin, index_t end, const auto &match) {
-				    storage << rule_form.right_side()->replace_all_or_copy(match);
+			    [&rule_form] (auto &store, index_t begin, index_t end, const auto &match) {
+				    store(rule_form.right_side()->replace_all_or_copy(match));
 				});
 		} else {
 			return generate(patt,
-			    [string] (auto &storage, index_t begin, index_t end, const auto &match) {
-					storage << string->substr(begin, end);
+			    [string] (auto &store, index_t begin, index_t end, const auto &match) {
+					store(string->substr(begin, end));
 				});
 		}
 	}

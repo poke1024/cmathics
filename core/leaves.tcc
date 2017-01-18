@@ -31,7 +31,7 @@ private:
 	template<SliceCode slice_code>
 	void init_static_slice() {
 		m_implementations[slice_code] = [] (const F &f, const Expression *expr) {
-			return f(*static_cast<const StaticSlice<slice_code - StaticSlice0Code>*>(expr->_slice_ptr));
+			return f.lambda(*static_cast<const StaticSlice<slice_code - StaticSlice0Code>*>(expr->_slice_ptr));
 		};
 		STATIC_IF (slice_code < StaticSliceNCode) {
 			init_static_slice<SliceCode(slice_code + 1)>();
@@ -41,7 +41,7 @@ private:
 	template<SliceCode slice_code>
 	void init_packed_slice() {
 		m_implementations[slice_code] = [] (const F &f, const Expression *expr) {
-			return f(*static_cast<const PackedSlice<typename PackedSliceType<slice_code>::type>*>(expr->_slice_ptr));
+			return f.lambda(*static_cast<const PackedSlice<typename PackedSliceType<slice_code>::type>*>(expr->_slice_ptr));
 		};
 		STATIC_IF (slice_code < PackedSliceNCode) {
 			init_packed_slice<SliceCode(slice_code + 1)>();
@@ -53,7 +53,7 @@ public:
 		init_static_slice<StaticSlice0Code>();
 
 		m_implementations[DynamicSliceCode] = [] (const F &f, const Expression *expr) {
-			return f(*static_cast<const DynamicSlice*>(expr->_slice_ptr));
+			return f.lambda(*static_cast<const DynamicSlice*>(expr->_slice_ptr));
 		};
 
 		init_packed_slice<PackedSlice0Code>();
@@ -158,10 +158,10 @@ public:
 		const BaseExpressionRef * const leaves = expr->_slice_ptr->_address;
 		if (leaves) {
 			const ArraySlice slice(leaves, expr);
-			return f(slice);
+			return f.lambda(slice);
 		} else {
 			const VCallSlice slice(expr);
-			return f(slice);
+			return f.lambda(slice);
 		}
 	}
 };
@@ -171,9 +171,15 @@ inline auto Expression::with_slice(const F &f) const {
 	// we deduce F's return type by asking that F returns if we pass in DynamicSlice. note that this is
 	// just for return type deduction; we could pass any slice type in here for compile time analysis.
 	using R = typename std::result_of<F(const DynamicSlice&)>::type;
+	static const SliceMethod<Optimize, R, decltype(lambda(f))> method;
+	return method(lambda(f), this);
+}
 
-	static const SliceMethod<Optimize, R, F> method;
-	return method(f, this);
+template<SliceMethodOptimizeTarget Optimize, typename F>
+inline auto Expression::with_slice(F &f) const { // see above
+	using R = typename std::result_of<F(const DynamicSlice&)>::type;
+	static const SliceMethod<Optimize, R, decltype(lambda(f))> method;
+	return method(lambda(f), this);
 }
 
 template<typename F>

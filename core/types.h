@@ -17,6 +17,33 @@ using std::experimental::optional;
 struct nothing {
 };
 
+template<typename F>
+class const_lambda_class {
+public:
+	const F &lambda;
+
+	inline const_lambda_class(const F &l) : lambda(l) {
+	}
+};
+
+template<typename F>
+auto lambda(const F &l) {
+	return const_lambda_class<F>(l);
+}
+
+template<typename F>
+class mutable_lambda_class {
+public:
+	F &lambda;
+
+	inline mutable_lambda_class(F &l) : lambda(l) {
+	}
+};
+
+template<typename F>
+auto lambda(F &l) {
+	return mutable_lambda_class<F>(l);
+}
 
 class BaseExpression;
 typedef const BaseExpression* BaseExpressionPtr;
@@ -103,8 +130,13 @@ static_assert((TypeMaskIsInexact >> CoreTypeBits) != 0,
 static_assert(sizeof(TypeMask) * 8 >= (1 << CoreTypeBits),
 	"TypeMask is too small; needs one bit for each of the 2^TypeBits basic types");
 
-constexpr TypeMask MakeTypeMask(Type type) {
+constexpr TypeMask make_type_mask(Type type) {
     return TypeMask(1) << type;
+}
+
+template<typename... Types>
+constexpr TypeMask make_type_mask(Type type, Types... types) {
+	return make_type_mask(type) | make_type_mask(types...);
 }
 
 inline bool is_homogenous(TypeMask mask) {
@@ -642,6 +674,9 @@ public:
 
 	template<SliceMethodOptimizeTarget Optimize = DoNotCompileToSliceType, typename F>
 	inline auto with_slice(const F &f) const;
+
+	template<SliceMethodOptimizeTarget Optimize = DoNotCompileToSliceType, typename F>
+	inline auto with_slice(F &f) const;
 
 	template<typename F>
 	inline auto map(const BaseExpressionRef &head, const F &f) const;

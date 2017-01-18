@@ -32,7 +32,7 @@ public:
 	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const;
 
 public:
-	const Slice _leaves;  // other options: ropes, skip lists, ...
+	const Slice _leaves;
 
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &slice) :
         Expression(head, Slice::code(), &_leaves), _leaves(slice) {
@@ -46,6 +46,16 @@ public:
 
 	inline ExpressionImplementation(ExpressionImplementation<Slice> &&expr) :
 		Expression(expr._head, Slice::code(), &_leaves), _leaves(expr.leaves) {
+	}
+
+	template<typename F>
+	inline ExpressionImplementation(const BaseExpressionRef &head, const FSGenerator<F> &generator) :
+		Expression(head, Slice::code(), &_leaves), _leaves(generator) {
+	}
+
+	template<typename F>
+	inline ExpressionImplementation(const BaseExpressionRef &head, const FPGenerator<F> &generator) :
+		Expression(head, Slice::code(), &_leaves), _leaves(generator) {
 	}
 
 	inline auto leaves() const {
@@ -150,7 +160,7 @@ public:
 		return BaseExpressionRef();
 	}
 
-	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
+	virtual BaseExpressionRef replace_all(const MatchRef &match, const Evaluation &evaluation) const;
 
 	virtual BaseExpressionRef clone() const;
 
@@ -362,6 +372,14 @@ public:
 	}
 
 	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const;
+
+	template<enum Type... Types, typename F>
+	inline ExpressionRef conditional_map(
+		const F &f, const Evaluation &evaluation) const;
+
+	template<enum Type... Types, typename F>
+	inline ExpressionRef conditional_map(
+		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
 };
 
 #include "leaves.tcc"
@@ -396,13 +414,8 @@ inline SymbolicFormRef Expression::symbolic_2(const SymEngineBinaryFunction &f) 
     return Pool::NoSymbolicForm();
 }
 
-template<typename U>
-inline PackedExpressionRef<U> expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
-	return Pool::Expression(head, slice);
-}
-
 template<typename E, typename T>
-std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
+inline std::vector<T> collect(const LeafVector &leaves) {
 	std::vector<T> values;
 	values.reserve(leaves.size());
 	for (const auto &leaf : leaves) {
@@ -411,33 +424,63 @@ std::vector<T> collect(const std::vector<BaseExpressionRef> &leaves) {
 	return values;
 }
 
-inline ExpressionRef expression(
+inline ExpressionRef non_static_expression(
 	const BaseExpressionRef &head,
-	std::vector<BaseExpressionRef> &&leaves,
-	TypeMask some_type_mask = UnknownTypeMask) {
-	// we expect our callers to move their leaves vector to us. if you cannot move, you
-	// should really recheck your design at the site of call.
+	LeafVector &&leaves) {
 
-	const size_t size = leaves.size();
-
-	if (size <= MaxStaticSliceSize) {
-		return Pool::StaticExpression(head, leaves);
-	} else if (size < MinPackedSliceSize) {
-		return Pool::Expression(head, DynamicSlice(std::move(leaves), some_type_mask));
+	if (leaves.size() < MinPackedSliceSize) {
+		return Pool::Expression(head, DynamicSlice(std::move(leaves)));
 	} else {
-		const TypeMask type_mask = is_exact_type_mask(some_type_mask) ?
-            some_type_mask : exact_type_mask(leaves);
-		switch (type_mask) {
-			case MakeTypeMask(MachineIntegerType):
+		switch (leaves.type_mask()) {
+			case make_type_mask(MachineIntegerType):
 				return Pool::Expression(head, PackedSlice<machine_integer_t>(
 					collect<MachineInteger, machine_integer_t>(leaves)));
-			case MakeTypeMask(MachineRealType):
+			case make_type_mask(MachineRealType):
 				return Pool::Expression(head, PackedSlice<machine_real_t>(
 					collect<MachineReal, machine_real_t>(leaves)));
 			default:
-				return Pool::Expression(head, DynamicSlice(std::move(leaves), type_mask));
+				return Pool::Expression(head, DynamicSlice(std::move(leaves)));
 		}
 	}
+}
+
+template<typename G>
+typename std::enable_if<std::is_base_of<FGenerator, G>::value, ExpressionRef>::type
+expression(
+	const BaseExpressionRef &head,
+	const G &generator) {
+
+	if (generator.size() <= MaxStaticSliceSize) {
+		return Pool::StaticExpression(head, generator);
+	} else {
+		return non_static_expression(head, generator.vector());
+	}
+}
+
+inline ExpressionRef
+expression(
+	const BaseExpressionRef &head,
+	LeafVector &&leaves) {
+
+	const size_t n = leaves.size();
+	if (n <= MaxStaticSliceSize) {
+		return Pool::StaticExpression(head, sequential([&leaves, n] (auto &store) {
+			for (size_t i = 0; i < n; i++) {
+				store(leaves._grab_leaf(i));
+			}
+		}, n));
+	} else {
+		return non_static_expression(head, std::move(leaves));
+	}}
+
+
+template<typename G>
+typename std::enable_if<std::is_base_of<VGenerator, G>::value, ExpressionRef>::type
+expression(
+	const BaseExpressionRef &head,
+	const G &generator) {
+
+	return expression(head, generator.vector());
 }
 
 inline ExpressionRef expression(
@@ -472,6 +515,11 @@ inline ExpressionRef expression(
 	}
 }
 
+template<typename U>
+inline PackedExpressionRef<U> expression(const BaseExpressionRef &head, PackedSlice<U> &&slice) {
+	return Pool::Expression(head, slice);
+}
+
 inline DynamicExpressionRef expression(const BaseExpressionRef &head, DynamicSlice &&slice) {
 	return Pool::Expression(head, slice);
 }
@@ -479,6 +527,14 @@ inline DynamicExpressionRef expression(const BaseExpressionRef &head, DynamicSli
 template<int N>
 inline StaticExpressionRef<N> expression(const BaseExpressionRef &head, StaticSlice<N> &&slice) {
     return Pool::StaticExpression<N>(head, std::move(slice));
+}
+
+inline ExpressionRef expression(const BaseExpressionRef &head, const ArraySlice &slice) {
+	return slice.clone(head);
+}
+
+inline ExpressionRef expression(const BaseExpressionRef &head, const VCallSlice &slice) {
+	return slice.clone(head);
 }
 
 template<typename Slice>
@@ -507,13 +563,13 @@ ExpressionRef ExpressionImplementation<Slice>::slice(
 	} else {
 		const Slice &slice = _leaves;
 
-		auto generate_leaves = [begin, end, &head, &slice] (auto &storage) {
+		const auto generate_leaves = [begin, end, &head, &slice] (auto &store) {
 			for (size_t i = begin; i < end; i++) {
-				storage << BaseExpressionRef(slice[i]);
+				store(BaseExpressionRef(slice[i]));
 			}
 		};
 
-		return expression_from_generator(head, generate_leaves, new_size);
+		return expression(head, sequential(generate_leaves, new_size));
 	}
 }
 
@@ -522,12 +578,12 @@ DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(cons
 	if (std::is_same<Slice, DynamicSlice>()) {
 		return static_pointer_cast<DynamicExpression>(self);
 	} else {
-		std::vector<BaseExpressionRef> leaves;
+		LeafVector leaves;
 		leaves.reserve(_leaves.size());
 		for (auto leaf : _leaves.leaves()) {
-			leaves.push_back(leaf);
+			leaves.push_back(BaseExpressionRef(leaf));
 		}
-		return Pool::Expression(_head, DynamicSlice(std::move(leaves), _leaves.type_mask()));
+		return Pool::Expression(_head, DynamicSlice(std::move(leaves)));
 
 	}
 }
@@ -538,18 +594,18 @@ DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(cons
 #include "evaluate.h"
 
 template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::replace_all(const MatchRef &match) const {
+BaseExpressionRef ExpressionImplementation<Slice>::replace_all(
+	const MatchRef &match, const Evaluation &evaluation) const {
+
 	const BaseExpressionRef &old_head = _head;
 	const BaseExpressionRef new_head = old_head->replace_all(match);
-	return transform<MakeTypeMask(ExpressionType) | MakeTypeMask(SymbolType)>(
+
+	return conditional_map<ExpressionType, SymbolType>(
 		new_head ? new_head : old_head,
-		_leaves,
-		0,
-		_leaves.size(),
-		[&match](const BaseExpressionRef &leaf) {
+		[&match] (const BaseExpressionRef &leaf) {
 			return leaf->replace_all(match);
 		},
-		(bool)new_head);
+		evaluation);
 }
 
 template<typename Slice>
@@ -613,15 +669,11 @@ BaseExpressionRef ExpressionImplementation<Slice>::do_symbolic(
 			return BaseExpressionRef();
 		}
 	} else {
-		return transform<MakeTypeMask(ExpressionType)>(
-			_head,
-			_leaves,
-			0,
-			_leaves.size(),
+		return conditional_map<ExpressionType>(
 			[&recurse, &evaluation] (const BaseExpressionRef &leaf) {
 				return recurse(leaf, evaluation);
 			},
-			false);
+			evaluation);
 	}
 }
 
@@ -703,18 +755,16 @@ inline BaseExpressionRef RewriteExpression::rewrite_or_copy(
 
 	return body->with_slice<CompileToSliceType>(
 		[body, &head, &leaves, &args] (const auto &slice) {
-			const auto generate = [&slice, &leaves, &args] (auto &storage) {
+			const auto generate = [&slice, &leaves, &args] (auto &store) {
 				const size_t n = slice.size();
 				for (size_t i = 0; i < n; i++) {
-					storage << leaves[i].rewrite_or_copy(slice[i], args);
+					store(leaves[i].rewrite_or_copy(slice[i], args));
 				}
-				return nothing();
 			};
 
-			nothing state;
 			return ExpressionRef(expression(
 				head.rewrite_or_copy(body->head(), args),
-				slice.create(generate, slice.size(), state)));
+				slice.create(generate, slice.size())));
 		});
 }
 
@@ -746,8 +796,8 @@ std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(co
 
 	index_t dim = -1;
 
-	std::vector<BaseExpressionRef> items;
-	std::vector<std::vector<BaseExpressionRef>> dim_items;
+	LeafVector items;
+	std::vector<LeafVector> dim_items;
 
 	for (size_t i = 0; i < size; i++) {
 		const BaseExpressionRef &leaf = leaves[i];
@@ -760,9 +810,13 @@ std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(co
 				expr->with_slice([&items, &dim_items] (const auto &slice) {
 					const size_t size = slice.size();
 					for (index_t j = 0; j < size; j++) {
-						std::vector<BaseExpressionRef> element(items);
-						element.push_back(slice[j]);
-						dim_items.push_back(element);
+						LeafVector element;
+						element.reserve(items.size() + 1);
+						for (const auto &item : items) {
+							element.push_back_copy(item);
+						}
+						element.push_back_copy(slice[j]);
+						dim_items.push_back(std::move(element));
 					}
 				});
 
@@ -773,16 +827,16 @@ std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(co
                 expr->with_slice([&dim_items] (const auto &slice) {
                     const size_t size = slice.size();
                     for (index_t j = 0; j < size; j++) {
-                        dim_items[j].push_back(slice[j]);
+                        dim_items[j].push_back_copy(slice[j]);
                     }
                 });
             }
 		} else {
 			if (dim < 0) {
-				items.push_back(leaf);
+				items.push_back_copy(leaf);
 			} else {
 				for (auto &item : dim_items) {
-					item.push_back(leaf);
+					item.push_back_copy(leaf);
 				}
 			}
 		}
@@ -793,12 +847,12 @@ std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(co
 	} else {
 		const BaseExpressionRef &head = _head;
 
-		return std::make_tuple(true, expression_from_generator(
-			evaluation.List, [&head, &dim_items] (auto &storage) {
+		return std::make_tuple(true, expression(
+			evaluation.List, sequential([&head, &dim_items] (auto &store) {
 				for (auto &items : dim_items) {
-					storage << expression(head, std::move(items));
+					store(expression(head, std::move(items)));
 				}
-			}));
+			})));
 	}
 }
 

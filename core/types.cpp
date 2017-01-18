@@ -9,11 +9,11 @@ BaseExpressionRef exactly_n_pattern(
 	const SymbolRef &head, size_t n, const Definitions &definitions) {
 
 	const auto &Blank = definitions.symbols().Blank;
-	return expression_from_generator(head, [n, &Blank] (auto &storage) {
+	return expression(head, sequential([n, &Blank] (auto &store) {
 		for (size_t i = 0; i < n; i++) {
-			storage << expression(Blank);
+			store(expression(Blank));
 		}
-	}, n);
+	}, n));
 }
 
 BaseExpressionRef at_least_n_pattern(
@@ -23,12 +23,12 @@ BaseExpressionRef at_least_n_pattern(
 	const auto &Blank = symbols.Blank;
 	const auto &BlankNullSequence = symbols.BlankNullSequence;
 
-	return expression_from_generator(head, [n, &Blank, &BlankNullSequence] (auto &storage) {
+	return expression(head, sequential([n, &Blank, &BlankNullSequence] (auto &store) {
 		for (size_t i = 0; i < n; i++) {
-			storage << expression(Blank);
+			store(expression(Blank));
 		}
-		storage << expression(BlankNullSequence);
-	}, n + 1);
+		store(expression(BlankNullSequence));
+	}, n + 1));
 }
 
 BaseExpressionRef function_pattern(
@@ -194,14 +194,21 @@ BaseExpressionRef from_symbolic_expr(
 	const Evaluation &evaluation) {
 
 	const auto &args = ref->get_args();
-	return expression_from_generator(
+	return expression(
 		head,
-		[&args, &evaluation] (auto &storage) {
-			for (const auto &arg : args) {
-				storage << from_symbolic_form(arg, evaluation);
+#if 1
+		sequential([&args, &evaluation] (auto &store) {
+			for (size_t i = 0; i < args.size(); i++) {
+				store(from_symbolic_form(args[i], evaluation));
 			}
 		},
-		args.size());
+#else
+		parallel([&args, &evaluation] (size_t i) {
+			// FIXME ensure that arg[i] can be accessed concurrently
+			return from_symbolic_form(args[i], evaluation);
+		},
+#endif
+		args.size()));
 }
 
 BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation &evaluation) {

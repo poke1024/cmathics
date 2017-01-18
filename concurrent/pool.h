@@ -342,10 +342,12 @@ public:
         }
 
         inline void flush(Pool &pool) {
-            pool.free(m_head, m_tail, m_size);
+	        if (m_head) {
+		        pool.free(m_head, m_tail, m_size);
 
-            m_head = nullptr;
-            m_size = 0;
+		        m_head = nullptr;
+		        m_size = 0;
+	        }
         }
     };
 

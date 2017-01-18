@@ -120,11 +120,11 @@ public:
 			if (!m_sequence) {
 				const BaseExpressionRef * const begin = m_begin;
 				const index_t n = m_n;
-				m_sequence = expression_from_generator(m_evaluation.Sequence, [begin, n] (auto &storage) {
+				m_sequence = expression(m_evaluation.Sequence, sequential([begin, n] (auto &store) {
 					for (index_t i = 0; i < n; i++) {
-						storage << BaseExpressionRef(begin[i]);
+						store(BaseExpressionRef(begin[i]));
 					}
-				}, n);
+				}, n));
 			}
 			return m_sequence;
 		}

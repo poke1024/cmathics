@@ -100,6 +100,34 @@ typedef UnsafeSharedPtr<Cache> UnsafeCacheRef;
 
 #include "pattern.h"
 
+template<typename Generator, int UpToSize>
+class StaticExpressionFactory {
+public:
+	std::function<ExpressionRef(void *, const BaseExpressionRef&, const Generator&)> m_construct[UpToSize + 1];
+
+	template<int N>
+	void initialize() {
+		m_construct[N] = [] (void *pool, const BaseExpressionRef &head, const Generator &f) {
+			auto *tpool = reinterpret_cast<ObjectPool<ExpressionImplementation<StaticSlice<N>>>*>(pool);
+			return ExpressionRef(tpool->construct(head, f));
+		};
+
+		STATIC_IF (N >= 1) {
+           initialize<N-1>();
+       } STATIC_ENDIF
+	}
+
+public:
+	inline StaticExpressionFactory() {
+		initialize<UpToSize>();
+	}
+
+	inline ExpressionRef operator()(void * const *pools, const BaseExpressionRef& head, const Generator &f) const {
+		const size_t n = f.size();
+		return m_construct[n](pools[n], head, f);
+	}
+};
+
 template<int UpToSize>
 class StaticExpressionHeap {
 private:
@@ -119,6 +147,7 @@ private:
 	MakeFromVector _make_from_vector[UpToSize + 1];
 	MakeFromInitializerList _make_from_initializer_list[UpToSize + 1];
 	MakeLateInit _make_late_init[UpToSize + 1];
+
 	std::function<void(BaseExpression*)> _free[UpToSize + 1];
 
 	template<int N>
@@ -181,7 +210,7 @@ public:
 	StaticExpressionRef<N> allocate(const BaseExpressionRef &head, StaticSlice<N> &&slice) {
 		static_assert(N <= UpToSize, "N must not be be greater than UpToSize");
 		return StaticExpressionRef<N>(static_cast<ObjectPool<ExpressionImplementation<StaticSlice<N>>>*>(
-  		    _pool[N])->construct(head, slice));
+  		    _pool[N])->construct(head, std::move(slice)));
 	}
 
 	inline ExpressionRef make(const BaseExpressionRef &head, const std::vector<BaseExpressionRef> &leaves) {
@@ -197,6 +226,12 @@ public:
 	inline auto make_late_init(const BaseExpressionRef &head, size_t N) {
 		assert(N <= UpToSize);
 		return _make_late_init[N](head);
+	}
+
+	template<typename Generator>
+	inline auto construct(const BaseExpressionRef& head, const Generator &generator) const {
+		static StaticExpressionFactory<Generator, UpToSize> factory;
+		return factory(_pool, head, generator);
 	}
 
 	inline void destroy(BaseExpression *expr, SliceCode slice_id) const {
@@ -285,7 +320,7 @@ public:
 		return _s_instance->_static_expression_heap.allocate<N>(head, std::move(slice));
 	}
 
-	static inline ExpressionRef StaticExpression(
+	/*static inline ExpressionRef StaticExpression(
 		const BaseExpressionRef &head,
 		const std::vector<BaseExpressionRef> &leaves) {
 
@@ -307,6 +342,15 @@ public:
 
 		assert(_s_instance);
 		return _s_instance->_static_expression_heap.make_late_init(head, N);
+	}*/
+
+	template<typename Generator>
+	static inline auto StaticExpression(
+		const BaseExpressionRef &head,
+		const Generator &generator) {
+
+		assert(_s_instance);
+		return _s_instance->_static_expression_heap.construct(head, generator);
 	}
 
 	static inline DynamicExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);

@@ -149,13 +149,14 @@ public:
         const BaseExpressionRef &node,
         const bool heads,
         const Callback &callback,
+        const Evaluation &evaluation,
         const index_t current = 0,
         const PositionType *pos = nullptr) const {
 
 	    constexpr bool immutable = std::is_same<CallbackType, Immutable>::value;
 
 	    // CompileToSliceType comes with a certain cost (one vcall) and it's usually only worth it if
-	    // we actually construct new expressions. if we don't change anayhting, DoNotCompileToSliceType
+	    // we actually construct new expressions. if we don't change anything, DoNotCompileToSliceType
 	    // is the faster choice (no vcall except for packed slices).
 
 	    constexpr SliceMethodOptimizeTarget Optimize =
@@ -178,35 +179,37 @@ public:
 		        head_pos.set_index(0);
 
 		        new_head = std::get<0>(walk<CallbackType, PositionType>(
-			        expr->head(), heads, callback, current + 1, &head_pos));
+			        expr->head(), heads, callback, evaluation, current + 1, &head_pos));
 	        }
 
 	        PositionType new_pos;
 	        new_pos.set_up(pos);
 
-            const Levelspec * const self = this;
-            const std::tuple<ExpressionRef, size_t> result = expr->with_slice<Optimize>(
-                [self, heads, current, &callback, &head, &new_head, &new_pos, &depth]
-                (const auto &slice)  {
+	        auto apply = [this, heads, current, &callback, &head, &new_head, &new_pos, &evaluation, &depth]
+		        (const auto &slice) mutable  {
 
-                    return transform(new_head ? new_head : head, slice, 0, slice.size(),
-                        [self, heads, current, &callback, &new_pos, &depth]
-                        (size_t index0, const BaseExpressionRef &leaf, size_t depth)  {
+		        auto recurse =
+			        [this, heads, current, &callback, &new_pos, &evaluation, &depth]
+			        (size_t index0, const BaseExpressionRef &leaf) mutable {
 
-	                        new_pos.set_index(index0);
+			        new_pos.set_index(index0);
 
-                            const auto result = self->walk<CallbackType, PositionType>(
-                                leaf, heads, callback, current + 1, &new_pos);
+			        std::tuple<CallbackType, size_t> result = this->walk<CallbackType, PositionType>(
+					    leaf, heads, callback, evaluation, current + 1, &new_pos);
 
-                            depth = std::max(std::get<1>(result) + 1, depth);
+			        depth = std::max(std::get<1>(result) + 1, depth);
 
-                            return std::make_tuple(std::get<0>(result), depth);
+			        return std::get<0>(result);
+		        };
 
-                    }, depth, new_head);
-            });
+		        return conditional_map_indexed_all(
+			        new_head ? new_head : head, new_head,
+			        lambda(recurse),
+			        slice, 0, slice.size(),
+			        evaluation);
+	        };
 
-	        modified_node = std::get<0>(result);
-	        depth = std::get<1>(result);
+            modified_node = expr->with_slice<Optimize>(apply);
         }
 
         if (is_in_level(current, depth)) {
@@ -221,7 +224,8 @@ public:
 	inline walk_immutable(
 		const BaseExpressionRef &node,
 		const bool heads,
-		const Callback &callback) const {
+		const Callback &callback,
+		const Evaluation &evaluation) const {
 
 		return walk<Levelspec::Immutable, Levelspec::NoPosition>(
 			node,
@@ -229,7 +233,8 @@ public:
 			[&callback] (const BaseExpressionRef &node, Levelspec::NoPosition) {
 				callback(node);
 				return Levelspec::Immutable();
-			});
+			},
+			evaluation);
 	};
 };
 
@@ -261,13 +266,15 @@ public:
 	    try {
 		    const Levelspec levelspec(ls);
 
-		    return expression_from_generator(evaluation.List, [&options, &expr, &levelspec](auto &storage) {
-			    levelspec.walk_immutable(
-				    BaseExpressionRef(expr), options.Heads->is_true(),
-				    [&storage](const auto &node) {
-					    storage << node;
-				    });
-		    });
+		    return expression(evaluation.List, sequential(
+				[&options, &expr, &levelspec, &evaluation] (auto &store) {
+				    levelspec.walk_immutable(
+					    BaseExpressionRef(expr), options.Heads->is_true(),
+					    [&store] (const auto &node) {
+						    store(BaseExpressionRef(node));
+					    },
+					    evaluation);
+				}));
 	    } catch (const Levelspec::InvalidError&) {
 		    evaluation.message(m_symbol, "level", ls);
 		    return BaseExpressionRef();
@@ -412,13 +419,13 @@ public:
 
 		            const size_t size = slice.size();
 
-			        std::vector<BaseExpressionRef> remaining;
+					LeafVector remaining;
 			        remaining.reserve(size);
 
 			        for (size_t i = 0; i < size; i++) {
 				        const auto leaf = slice[i];
 				        if (expression(cond, leaf)->evaluate(evaluation)->is_true()) {
-					        remaining.push_back(leaf);
+					        remaining.push_back_copy(leaf);
 				        }
 			        }
 
@@ -482,18 +489,19 @@ public:
 	        const RuleForm rule_form(patt);
 
 	        const auto generate = [&list, &evaluation, &options, &levelspec] (const auto &match) {
-		        return expression_from_generator(
-			        evaluation.List, [&list, &options, &levelspec, &match] (auto &storage) {
+		        return expression(
+			        evaluation.List, sequential([&list, &evaluation, &options, &levelspec, &match] (auto &store) {
 				        levelspec.walk_immutable(
 						    BaseExpressionRef(list),
 						    options.Heads->is_true(),
-				            [&storage, &match] (const BaseExpressionRef &node) {
-                                const BaseExpressionRef result = match(node);
+				            [&store, &match] (const BaseExpressionRef &node) {
+                                BaseExpressionRef result = match(node);
                                 if (result) {
-                                    storage << result;
+                                    store(std::move(result));
                                 }
-				            });
-			        });
+				            },
+					        evaluation);
+			        }));
 	        };
 
 	        if (rule_form.is_rule()) {
@@ -576,15 +584,13 @@ inline ExpressionRef machine_integer_range(
             evaluation.List,
             PackedSlice<machine_integer_t>(std::move(leaves)));
     } else {
-        return expression_from_generator(
+        return expression(
             evaluation.List,
-            [imin, imax, di] (auto &storage) {
+            sequential([imin, imax, di] (auto &store) {
                 for (machine_integer_t x = imin; x <= imax; x += di) {
-                    storage << Pool::MachineInteger(x);
+                    store(Pool::MachineInteger(x));
                 }
-            },
-            n
-        );
+            }, n));
     }
 }
 
@@ -606,13 +612,13 @@ public:
 
 	    const F &func = m_func;
 
-	    return expression_from_generator(evaluation.List, [imin, imax, di, func] (auto &storage) {
+	    return expression(evaluation.List, sequential([imin, imax, di, func] (auto &store) {
 		    machine_integer_t index = imin;
 		    while (index <= imax) {
-			    storage << func(Pool::MachineInteger(index));
+			    store(func(Pool::MachineInteger(index)));
 			    index += di;
 		    }
-	    }, n);
+	    }, n));
     }
 };
 
@@ -660,14 +666,14 @@ protected:
 				evaluation.List,
 				PackedSlice<machine_real_t>(std::move(leaves)));
 		} else {
-			return expression_from_generator(
+			return expression(
 				evaluation.List,
-				[&leaves] (auto &storage) {
+				sequential([&leaves] (auto &store) {
 					for (machine_real_t x : leaves) {
-						storage << Pool::MachineReal(x);
+						store(Pool::MachineReal(x));
 					}
 				},
-				leaves.size()
+				leaves.size())
 			);
 		}
 	}
@@ -681,8 +687,7 @@ protected:
 		const BaseExpressionRef &LessEqual = evaluation.LessEqual;
 		const BaseExpressionRef &Plus = evaluation.Plus;
 
-		std::vector<BaseExpressionRef> result;
-		TypeMask type_mask = 0;
+		LeafVector result;
 
 		UnsafeBaseExpressionRef index = imin;
 		while (true) {
@@ -697,13 +702,12 @@ protected:
 				return BaseExpressionRef();
 			}
 
-			type_mask |= index->base_type_mask();
-			result.push_back(index);
+			result.push_back(BaseExpressionRef(index));
 
 			index = expression(Plus, index, di)->evaluate_or_copy(evaluation);
 		}
 
-		return expression(evaluation.List, std::move(result), type_mask);
+		return expression(evaluation.List, std::move(result));
 	}
 
 public:
@@ -718,11 +722,11 @@ public:
 			imax->base_type_mask() |
 			di->base_type_mask();
 
-		if (type_mask & MakeTypeMask(MachineRealType)) { // expression contains a MachineReal
+		if (type_mask & make_type_mask(MachineRealType)) { // expression contains a MachineReal
 			return MachineReal(imin, imax, di, evaluation);
 		}
 
-		constexpr TypeMask machine_int_mask = MakeTypeMask(MachineIntegerType);
+		constexpr TypeMask machine_int_mask = make_type_mask(MachineIntegerType);
 
 		if ((type_mask & machine_int_mask) == type_mask) { // expression is all MachineIntegers
 			UnsafeExpressionRef result;
@@ -750,8 +754,7 @@ protected:
         const BaseExpressionRef &LessEqual = evaluation.LessEqual;
         const BaseExpressionRef &Plus = evaluation.Plus;
 
-        std::vector<BaseExpressionRef> result;
-        TypeMask type_mask = 0;
+        LeafVector result;
 
         UnsafeBaseExpressionRef index = imin;
         while (true) {
@@ -769,13 +772,12 @@ protected:
             BaseExpressionRef index_copy(index);
             BaseExpressionRef leaf = f(std::move(index_copy));
 
-            type_mask |= leaf->base_type_mask();
-            result.emplace_back(std::move(leaf));
+            result.push_back(std::move(leaf));
 
             index = expression(Plus, index, di)->evaluate_or_copy(evaluation);
         }
 
-        return expression(evaluation.List, std::move(result), type_mask);
+        return expression(evaluation.List, std::move(result));
     }
 
     template<typename F>
