@@ -126,24 +126,44 @@ struct VSGenerator : public VGenerator { // [v]ariable size [s]equential
 	}
 };
 
+#if FASTER_COMPILE
+using GenericSGeneratorCallback = std::function<void(const std::function<void(BaseExpressionRef&&)>&)>;
+#endif
+
 template<typename F>
 inline auto sequential(const F &f, size_t n) {
+#if FASTER_COMPILE
+	return FSGenerator<GenericSGeneratorCallback>(f, n);
+#else
 	return FSGenerator<const F&>(f, n);
+#endif
 }
 
 template<typename F>
 inline auto sequential(F &f, size_t n) {
+#if FASTER_COMPILE
+	return FSGenerator<GenericSGeneratorCallback>(f, n);
+#else
 	return FSGenerator<F&>(f, n);
+#endif
 }
 
 template<typename F>
 inline auto sequential(const F &f) {
+#if FASTER_COMPILE
+	return VSGenerator<GenericSGeneratorCallback>(f);
+#else
 	return VSGenerator<const F&>(f);
+#endif
 }
 
 template<typename F>
 inline auto sequential(F &f) {
+#if FASTER_COMPILE
+	return VSGenerator<GenericSGeneratorCallback>(f);
+#else
 	return VSGenerator<F&>(f);
+#endif
 }
 
 template<typename F>
@@ -215,9 +235,17 @@ public:
 	}
 };
 
+#if FASTER_COMPILE
+using GenericPGeneratorCallback = std::function<BaseExpressionRef(size_t)>;
+#endif
+
 template<typename F>
 inline auto parallel(const F &f, size_t n) {
+#if FASTER_COMPILE
+	return FPGenerator<GenericPGeneratorCallback>(f, n);
+#else
 	return FPGenerator<F>(f, n);
+#endif
 }
 
 class up_to {
@@ -235,7 +263,11 @@ public:
 
 template<typename F>
 inline auto parallel(const F &f, up_to n) {
+#if FASTER_COMPILE
+	return VPGenerator<GenericPGeneratorCallback>(f, *n);
+#else
 	return VPGenerator<F>(f, *n);
+#endif
 }
 
 #endif //CMATHICS_GENERATOR_H

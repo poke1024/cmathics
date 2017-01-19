@@ -321,11 +321,7 @@ public:
 		const Generator &generator) {
 
 		assert(_s_instance);
-#if FULL_OPTIMIZE
 		return _s_instance->_static_expression_heap.construct_from_generator(head, generator);
-#else
-		return _s_instance->_static_expression_heap.construct(head, generator.vector()._grab_internal_vector());
-#endif
 	}
 
 	static inline DynamicExpressionRef Expression(const BaseExpressionRef &head, const DynamicSlice &slice);

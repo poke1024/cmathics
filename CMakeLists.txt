@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 14)
 
 if("$ENV{OPTIMIZE}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+else()
+    add_definitions(-DFASTER_COMPILE=1)
 endif()
 
 include_directories(${cmathics_SOURCE_DIR})
