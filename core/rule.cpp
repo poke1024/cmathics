@@ -3,7 +3,7 @@
 #include "rule.h"
 
 static struct {
-	inline bool operator()(const Rules::Entry &entry, const SortKey &key) const {
+	inline bool operator()(const Rules::Entry &entry, const PatternSortKey &key) const {
 		return entry.rule->key.compare(key) < 0;
 	}
 } CompareSortKey;
@@ -11,7 +11,7 @@ static struct {
 inline void insert_rule(std::vector<Rules::Entry> &entries, const Rules::Entry &entry) {
     // FIXME lock.
 
-	const SortKey key = entry.rule->key;
+	const PatternSortKey key = entry.rule->key;
 	const auto i = std::lower_bound(
 		entries.begin(), entries.end(), key, CompareSortKey);
 	if (i != entries.end() && (*i).rule->pattern->same(entry.rule->pattern)) {

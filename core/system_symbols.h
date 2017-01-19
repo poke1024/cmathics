@@ -58,6 +58,9 @@ SYMBOL(Sin)
 SYMBOL(Tan)
 
 SYMBOL(DirectedInfinity)
+SYMBOL(GoldenRatio)
+SYMBOL(MachinePrecision)
+SYMBOL(Catalan)
 
 SYMBOL(StartOfString)
 SYMBOL(EndOfString)

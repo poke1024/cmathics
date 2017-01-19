@@ -407,6 +407,10 @@ public:
 		}
 		ConstSharedPtr<T>::m_ptr = nullptr;
 	}
+
+	friend inline void swap(UnsafeSharedPtr& x, UnsafeSharedPtr& y) {
+		std::swap(x.m_ptr, y.m_ptr);
+	}
 };
 
 static_assert(sizeof(UnsafeSharedPtr<int>) == sizeof(ConstSharedPtr<int>),

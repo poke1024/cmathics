@@ -332,6 +332,7 @@ typedef UnsafeSharedPtr<const String> UnsafeStringRef;
 class Evaluation;
 
 class SortKey;
+class PatternSortKey;
 
 /*#if defined(WITH_SYMENGINE_THREAD_SAFE)
 #else
@@ -522,8 +523,11 @@ public:
 	template<ExtendedType HeadType, int NLeaves>
 	inline bool has_form(const Evaluation &evaluation) const;
 
+	virtual bool is_numeric() const;
+
 	virtual SortKey sort_key() const;
-	virtual SortKey pattern_key() const;
+
+	virtual PatternSortKey pattern_key() const;
 };
 
 inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressionRef &b) {

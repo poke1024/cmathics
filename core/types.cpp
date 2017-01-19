@@ -50,12 +50,16 @@ MatchSize Rule::leaf_match_size() const {
 	}
 }
 
-SortKey BaseExpression::sort_key() const {
-	throw std::runtime_error("not implemented");
+bool BaseExpression::is_numeric() const {
+	throw std::runtime_error("is_numeric not implemented");
 }
 
-SortKey BaseExpression::pattern_key() const {
-	return SortKey(0, 0, 1, 1, 0, nullptr, 1);
+SortKey BaseExpression::sort_key() const {
+	return SortKey(); // FIXME
+}
+
+PatternSortKey BaseExpression::pattern_key() const {
+	return PatternSortKey(0, 0, 1, 1, 0, nullptr, 1);
 }
 
 const char *type_name(Type type) {
@@ -211,6 +215,29 @@ BaseExpressionRef from_symbolic_expr(
 		args.size()));
 }
 
+BaseExpressionRef from_symbolic_expr_with_sort(
+	const SymEngineRef &ref,
+	const BaseExpressionRef &head,
+	const Evaluation &evaluation) {
+
+	const auto &args = ref->get_args();
+
+	std::vector<UnsafeBaseExpressionRef> sorted_args;
+	sorted_args.reserve(args.size());
+	for (size_t i = 0; i < args.size(); i++) {
+		sorted_args.emplace_back(from_symbolic_form(args[i], evaluation));
+	}
+
+	std::sort(
+		sorted_args.begin(),
+		sorted_args.end(),
+		[] (const BaseExpressionRef &x, const BaseExpressionRef &y) {
+			return x->sort_key().compare(y->sort_key()) < 0;
+		});
+
+	return expression(head, LeafVector(std::move(sorted_args)));
+}
+
 BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation &evaluation) {
     UnsafeBaseExpressionRef expr;
 
@@ -276,11 +303,11 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 		}
 
 		case SymEngine::ADD:
-			expr = from_symbolic_expr(form, evaluation.Plus, evaluation);
+			expr = from_symbolic_expr_with_sort(form, evaluation.Plus, evaluation);
             break;
 
 		case SymEngine::MUL:
-			expr = from_symbolic_expr(form, evaluation.Times, evaluation);
+			expr = from_symbolic_expr_with_sort(form, evaluation.Times, evaluation);
             break;
 
 		case SymEngine::POW:

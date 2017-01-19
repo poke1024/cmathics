@@ -1,7 +1,7 @@
 #include "types.h"
 #include "expression.h"
 
-int SortKey::compare(const SortKey &key) const {
+int PatternSortKey::compare(const PatternSortKey &key) const {
 	int cmp;
 
 	const prefix_t p1 = prefix();
@@ -21,8 +21,8 @@ int SortKey::compare(const SortKey &key) const {
 
 	if (a && b) {
 		// compare the heads.
-		cmp = sort_key(a->head(), head_pattern_sort).compare(
-			sort_key(b->head(), key.head_pattern_sort));
+		assert(head_pattern_sort == key.head_pattern_sort);
+		cmp = compare_sort_keys(a->head(), b->head(), head_pattern_sort);
 		if (cmp) {
 			return cmp;
 		}
@@ -30,6 +30,7 @@ int SortKey::compare(const SortKey &key) const {
 		// now compare the leaves.
 		const bool pa = leaf_pattern_sort;
 		const bool pb = key.leaf_pattern_sort;
+		assert(pa == pb);
 
 		const bool precedence = leaf_precedence;
 
@@ -40,7 +41,7 @@ int SortKey::compare(const SortKey &key) const {
 			const size_t size = std::min(na, nb);
 
 			for (size_t i = 0; i < size; i++) {
-				const int cmp = sort_key(slice_a[i], pa).compare(sort_key(slice_b[i], pb));
+				const int cmp = compare_sort_keys(slice_a[i], slice_b[i], pa);
 				if (cmp) {
 					return cmp;
 				}

@@ -287,6 +287,24 @@ public:
 	virtual const Symbol *lookup_name() const {
 		return this;
 	}
+
+	virtual SortKey sort_key() const final {
+		return SortKey(); // FIXME
+	}
+
+	virtual bool is_numeric() const final {
+		switch (extended_type()) {
+			case SymbolPi:
+			case SymbolE:
+			case SymbolEulerGamma:
+			case SymbolGoldenRatio:
+			case SymbolMachinePrecision:
+			case SymbolCatalan:
+				return true;
+			default:
+				return false;
+		}
+	}
 };
 
 inline SymbolState &EvaluationContext::state(const Symbol *symbol) {

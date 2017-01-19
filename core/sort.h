@@ -2,6 +2,13 @@
 #define CMATHICS_SORT_H
 
 class SortKey {
+public:
+	inline int compare(const SortKey &key) const {
+		return 0;
+	}
+};
+
+class PatternSortKey {
 private:
 	typedef uint16_t prefix_t;
 
@@ -14,14 +21,6 @@ private:
 			(prefix_t(optional) << 0);
 	}
 
-	inline static SortKey sort_key(const BaseExpressionRef &ref, int pattern_sort) {
-		if (pattern_sort) {
-			return ref->pattern_key();
-		} else {
-			return ref->sort_key();
-		}
-	}
-
 public:
 	unsigned atom_expression: 2;
 	unsigned mode: 6;
@@ -32,11 +31,11 @@ public:
 	const Expression *expression;
 	unsigned head_pattern_sort: 1;
 	unsigned leaf_pattern_sort: 1;
-	unsigned leaf_precedence : 1;
+	unsigned leaf_precedence: 1;
 
 	unsigned condition: 1;
 
-	inline SortKey(
+	inline PatternSortKey(
 		int in_atom_expression,
 	    int in_mode,
 	    int in_pattern_test,
@@ -57,15 +56,27 @@ public:
 		condition(in_condition) {
 	}
 
-	static inline SortKey Blank(int pattern, bool leaves, const Expression *expression) {
-		return SortKey(2, pattern, 1, 1, 0, expression, 1);
+	static inline PatternSortKey Blank(int pattern, bool leaves, const Expression *expression) {
+		return PatternSortKey(2, pattern, 1, 1, 0, expression, 1);
 	}
 
-	static inline SortKey NotAPattern(const Expression *expression) {
-		return SortKey(3, 0, 0, 0, 0, expression, 1);
+	static inline PatternSortKey NotAPattern(const Expression *expression) {
+		return PatternSortKey(3, 0, 0, 0, 0, expression, 1);
 	}
 
-	int compare(const SortKey &key) const;
+	int compare(const PatternSortKey &key) const;
 };
+
+inline int compare_sort_keys(
+	const BaseExpressionRef &x,
+	const BaseExpressionRef &y,
+	int pattern_sort) {
+
+	if (pattern_sort) {
+		return x->pattern_key().compare(y->pattern_key());
+	} else {
+		return x->sort_key().compare(y->sort_key());
+	}
+}
 
 #endif //CMATHICS_SORT_H

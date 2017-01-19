@@ -14,6 +14,15 @@ public:
 		m_leaves(leaves), m_mask(mask) {
 	}
 
+	inline LeafVector(std::vector<UnsafeBaseExpressionRef> &&leaves) : m_mask(0) {
+		m_leaves.reserve(leaves.size());
+		for (size_t i = 0; i < leaves.size(); i++) {
+			BaseExpressionRef &&leaf = std::move(leaves[i]);
+			m_mask |= leaf->base_type_mask();
+			m_leaves.emplace_back(std::move(leaf));
+		}
+	}
+
 	inline LeafVector(LeafVector &&v) :
 		m_leaves(std::move(v.m_leaves)), m_mask(v.m_mask) {
 	}
