@@ -289,7 +289,9 @@ public:
 	}
 
 	virtual SortKey sort_key() const final {
-		return SortKey(); // FIXME
+        MonomialMap map(Pool::monomial_map_allocator());
+        map[SymbolKey(SymbolRef(this))] = 1;
+		return SortKey(is_numeric() ? 1 : 2, 2, std::move(map));
 	}
 
 	virtual bool is_numeric() const final {
@@ -319,56 +321,40 @@ inline SymbolState &EvaluationContext::state(const Symbol *symbol) {
 	}
 }
 
-class SymbolKey {
-private:
-	const SymbolRef _symbol;
-	const char * const _name;
+inline int SymbolKey::compare(const SymbolKey &key) const {
+    if (_symbol) {
+        if (key._symbol) {
+            return strcmp(_symbol->name(), key._symbol->name());
+        } else {
+            return strcmp(_symbol->name(), key._name);
+        }
+    } else {
+        if (key._symbol) {
+            return strcmp(_name, key._symbol->name());
+        } else {
+            return strcmp(_name, key._name);
+        }
+    }
+}
 
-public:
-	inline SymbolKey(SymbolRef symbol) : _symbol(symbol), _name(nullptr) {
-	}
+inline bool SymbolKey::operator==(const SymbolKey &key) const {
+    if (_symbol) {
+        if (key._symbol) {
+            return _symbol == key._symbol;
+        } else {
+            return strcmp(_symbol->name(), key._name) == 0;
+        }
+    } else {
+        if (key._symbol) {
+            return strcmp(_name, key._symbol->name()) == 0;
+        } else {
+            return strcmp(_name, key._name) == 0;
+        }
+    }
+}
 
-	inline SymbolKey(const char *name) : _name(name) {
-	}
-
-	inline bool operator==(const SymbolKey &key) const {
-		if (_symbol) {
-			if (key._symbol) {
-				return _symbol == key._symbol;
-			} else {
-				return strcmp(_symbol->name(), key._name) == 0;
-			}
-		} else {
-			if (key._symbol) {
-				return strcmp(_name, key._symbol->name()) == 0;
-			} else {
-				return strcmp(_name, key._name) == 0;
-			}
-		}
-	}
-
-	inline const char *c_str() const {
-		return _name ? _name : _symbol->name();
-	}
-};
-
-namespace std {
-	// for the following hash, also see http://stackoverflow.com/questions/98153/
-	// whats-the-best-hashing-algorithm-to-use-on-a-stl-string-when-using-hash-map
-
-	template<>
-	struct hash<SymbolKey> {
-		inline size_t operator()(const SymbolKey &key) const {
-			const char *s = key.c_str();
-
-			size_t hash = 0;
-			while (*s) {
-				hash = hash * 101 + *s++;
-			}
-
-			return hash;
-		}
-	};
+inline const char *SymbolKey::c_str() const {
+    return _name ? _name : _symbol->name();
 }
 
 inline BaseExpressionRef BaseExpression::evaluate(

@@ -1,9 +1,134 @@
 #ifndef CMATHICS_SORT_H
 #define CMATHICS_SORT_H
 
+class Monomial {
+private:
+    MonomialMap m_expressions;
+
+public:
+    int compare(const Monomial &other) const {
+        MonomialMap self_expressions(
+            m_expressions, Pool::monomial_map_allocator());
+        MonomialMap other_expressions(
+            other.m_expressions, Pool::monomial_map_allocator());
+
+        auto i = self_expressions.begin();
+        while (i != self_expressions.end()) {
+            auto j = other_expressions.find(i->first);
+            if (j != other_expressions.end()) {
+                size_t decrement = std::min(i->second, j->second);
+
+                if ((i->second -= decrement) == 0) {
+                    i = self_expressions.erase(i);
+                } else {
+                    i++;
+                }
+
+                if ((j->second -= decrement) == 0) {
+                    other_expressions.erase(j);
+                }
+            } else {
+                i++;
+            }
+        }
+
+        i = self_expressions.begin();
+        auto j = other_expressions.begin();
+
+        while (true) {
+            if (i == self_expressions.end() && j == other_expressions.end()) {
+                return 0;
+            } else if (i == self_expressions.end()) {
+                return -1; // this < other
+            } else if (j == other_expressions.end()) {
+                return 1; // this > other
+            }
+
+            const int z = i->first.compare(j->first);
+            if (z) {
+                return z;
+            }
+
+            auto next_i = i;
+            next_i++;
+            auto next_j = j;
+            next_j++;
+
+            if (i->second != j->second) {
+                if (next_i == self_expressions.end() || next_j == other_expressions.end()) {
+                    // smaller exponents first
+                    if (i->second < j->second) {
+                        return -1;
+                    } else {
+                        return 1;
+                    }
+                } else {
+                    // bigger exponents first
+                    if (i->second < j->second) {
+                        return 1;
+                    } else {
+                        return -1;
+                    }
+                }
+            }
+
+            i = next_i;
+            j = next_j;
+        }
+
+        return 0;
+    }
+
+public:
+    inline Monomial(MonomialMap &&expressions) :
+        m_expressions(std::move(expressions)) {
+    }
+
+    inline Monomial(Monomial &&monomial) :
+        m_expressions(std::move(monomial.m_expressions)) {
+    }
+};
+
 class SortKey {
 public:
+    unsigned index1: 2;
+    unsigned index2: 2;
+    Monomial monomial;
+    /*const Expression *expression;
+    unsigned index3: 1;*/
+
+    inline SortKey(
+        int in_index1,
+        int in_index2,
+        MonomialMap &&in_monomial) :
+
+        index1(in_index1),
+        index2(in_index2),
+        monomial(std::move(in_monomial)) {
+    }
+
+    inline SortKey(SortKey &&key) :
+        index1(key.index1),
+        index2(key.index2),
+        monomial(std::move(key.monomial)) {
+    }
+
 	inline int compare(const SortKey &key) const {
+        int cmp1 = int(index1) - int(key.index1);
+        if (cmp1) {
+            return cmp1;
+        }
+
+        int cmp2 = int(index2) - int(key.index2);
+        if (cmp2) {
+            return cmp2;
+        }
+
+        int cmp3 = monomial.compare(key.monomial);
+        if (cmp3) {
+            return cmp3;
+        }
+
 		return 0;
 	}
 };

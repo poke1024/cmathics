@@ -77,6 +77,48 @@ struct SymbolEqual {
 	}
 };
 
+class SymbolKey {
+private:
+    const SymbolRef _symbol;
+    const char * const _name;
+
+public:
+    inline SymbolKey(SymbolRef symbol) : _symbol(symbol), _name(nullptr) {
+    }
+
+    inline SymbolKey(const char *name) : _name(name) {
+    }
+
+    inline int compare(const SymbolKey &key) const;
+
+    inline bool operator==(const SymbolKey &key) const;
+
+    inline bool operator<(const SymbolKey &key) const {
+        return compare(key) < 0;
+    }
+
+    inline const char *c_str() const;
+};
+
+namespace std {
+    // for the following hash, also see http://stackoverflow.com/questions/98153/
+    // whats-the-best-hashing-algorithm-to-use-on-a-stl-string-when-using-hash-map
+
+    template<>
+    struct hash<SymbolKey> {
+        inline size_t operator()(const SymbolKey &key) const {
+            const char *s = key.c_str();
+
+            size_t hash = 0;
+            while (*s) {
+                hash = hash * 101 + *s++;
+            }
+
+            return hash;
+        }
+    };
+}
+
 template<typename Key, typename Value>
 using SymbolMap = std::unordered_map<Key, Value,
 	SymbolHash, SymbolEqual,
@@ -91,6 +133,8 @@ using SymbolRefMap = SymbolMap<const SymbolRef, Value>;
 using VariableMap = SymbolPtrMap<const BaseExpressionRef*>;
 
 using SymbolStateMap = SymbolRefMap<SymbolState>;
+
+using MonomialMap = std::map<SymbolKey, size_t>;
 
 class Cache;
 
@@ -267,6 +311,7 @@ private:
 	ObjectAllocator<SymbolStateMap::value_type> _symbol_state_map;
 	SlotAllocator _slots;
     VectorAllocator<UnsafeBaseExpressionRef> _ref_vector_allocator;
+    ObjectAllocator<MonomialMap::value_type> _monomial_map;
 
 public:
 	static inline auto &variable_map_allocator() {
@@ -276,6 +321,10 @@ public:
 	static inline auto &symbol_state_map_allocator() {
 		return _s_instance->_symbol_state_map;
 	}
+
+    static inline auto &monomial_map_allocator() {
+        return _s_instance->_monomial_map;
+    }
 
 	static inline auto &slots_allocator() {
 		return _s_instance->_slots;

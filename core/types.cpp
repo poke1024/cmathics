@@ -55,7 +55,7 @@ bool BaseExpression::is_numeric() const {
 }
 
 SortKey BaseExpression::sort_key() const {
-	return SortKey(); // FIXME
+	return SortKey(0, 0, MonomialMap()); // FIXME
 }
 
 PatternSortKey BaseExpression::pattern_key() const {
