@@ -8,6 +8,7 @@ if("$ENV{OPTIMIZE}")
 else()
     add_definitions(-DFASTER_COMPILE=1)
 endif()
+add_definitions(-DCOMPILE_TO_SLICE=1)
 
 include_directories(${cmathics_SOURCE_DIR})
 

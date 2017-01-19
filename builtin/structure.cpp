@@ -20,5 +20,5 @@ public:
 };
 
 void Builtins::Structure::initialize() {
-    add<Head>();
+    Unit::add<Head>();
 }

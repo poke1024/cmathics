@@ -28,6 +28,10 @@ protected:
 		return type_mask();
 	}
 
+	virtual TypeMask materialize_exact_type_mask() const {
+		return _leaves.exact_type_mask();
+	}
+
 public:
 	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const;
 

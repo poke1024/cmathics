@@ -291,7 +291,7 @@ public:
 	virtual SortKey sort_key() const final {
         MonomialMap map(Pool::monomial_map_allocator());
         map[SymbolKey(SymbolRef(this))] = 1;
-		return SortKey(is_numeric() ? 1 : 2, 2, std::move(map));
+		return SortKey(is_numeric() ? 1 : 2, 2, std::move(map), 0, name(), 1);
 	}
 
 	virtual bool is_numeric() const final {

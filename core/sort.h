@@ -1,6 +1,11 @@
 #ifndef CMATHICS_SORT_H
 #define CMATHICS_SORT_H
 
+inline int compare_sort_keys(
+    const BaseExpressionRef &x,
+    const BaseExpressionRef &y,
+    int pattern_sort);
+
 class Monomial {
 private:
     MonomialMap m_expressions;
@@ -89,49 +94,114 @@ public:
     }
 };
 
-class SortKey {
-public:
-    unsigned index1: 2;
-    unsigned index2: 2;
-    Monomial monomial;
-    /*const Expression *expression;
-    unsigned index3: 1;*/
+struct SortKey {
+    enum Type {
+        IntegerType = 0,
+        StringType = 1,
+        HeadType = 2,
+        LeavesType = 3,
+        MonomialType = 4,
 
-    inline SortKey(
-        int in_index1,
-        int in_index2,
-        MonomialMap &&in_monomial) :
+        TypeBits = 3,
+        TypeMask = (1L << TypeBits) - 1L
+    };
 
-        index1(in_index1),
-        index2(in_index2),
-        monomial(std::move(in_monomial)) {
+    using TypeArray = uint64_t;
+
+    TypeArray mask;
+    int size;
+
+    struct Element {
+        int8_t integer;
+        const char *string;
+        Expression *expression;
+        optional<Monomial> monomial;
+    };
+
+    Element elements[8];
+
+    template<typename... Args>
+    SortKey(Args&&... args);
+
+    int compare(const SortKey &key) const {
+        int min_size = std::min(size, key.size);
+
+        for (int i = 0; i < min_size; i++) {
+            const int t = (mask >> (SortKey::TypeBits * i)) & SortKey::TypeMask;
+            assert (t == ((key.mask >> (SortKey::TypeBits * i)) & SortKey::TypeMask));
+
+            int cmp = 0;
+            switch (t) {
+                case IntegerType:
+                    cmp = int(elements[i].integer) - int(key.elements[i].integer);
+                    break;
+
+                case StringType:
+                    cmp = strcmp(elements[i].string, key.elements[i].string);
+                    break;
+
+                case HeadType:
+                    cmp = compare_sort_keys(
+                        elements[i].expression->head(),
+                        key.elements[i].expression->head(),
+                        true /* head_pattern_sort */);
+                    break;
+
+                case MonomialType:
+                    cmp = elements[i].monomial->compare(*key.elements[i].monomial);
+                    break;
+            }
+
+            if (cmp) {
+                return cmp;
+            }
+        }
+
+        if (size > key.size) {
+            return 1;
+        } else if (size < key.size) {
+            return -1;
+        }
+
+        return 0;
     }
-
-    inline SortKey(SortKey &&key) :
-        index1(key.index1),
-        index2(key.index2),
-        monomial(std::move(key.monomial)) {
-    }
-
-	inline int compare(const SortKey &key) const {
-        int cmp1 = int(index1) - int(key.index1);
-        if (cmp1) {
-            return cmp1;
-        }
-
-        int cmp2 = int(index2) - int(key.index2);
-        if (cmp2) {
-            return cmp2;
-        }
-
-        int cmp3 = monomial.compare(key.monomial);
-        if (cmp3) {
-            return cmp3;
-        }
-
-		return 0;
-	}
 };
+
+constexpr SortKey::TypeArray add(SortKey::TypeArray mask, SortKey::Type type, int pos) {
+    return mask | (SortKey::TypeArray(type) << (SortKey::TypeBits * pos));
+}
+
+template<int Position, SortKey::TypeArray mask>
+void make_sort_key(SortKey &data) {
+    data.mask = mask;
+    data.size = Position;
+}
+
+template<int Position, SortKey::TypeArray mask, typename... Args>
+void make_sort_key(SortKey &data, MonomialMap &&m, Args&&... args) {
+    static_assert(Position < sizeof(data.elements) / sizeof(SortKey::Element), "Position too large");
+    data.elements[Position].monomial.emplace(Monomial(std::move(m)));
+    return make_sort_key<Position + 1, add(mask, SortKey::MonomialType, Position)>(data, std::move(args)...);
+}
+
+template<int Position, SortKey::TypeArray mask, typename... Args>
+void make_sort_key(SortKey &data, const char *s, Args&&... args) {
+    static_assert(Position < sizeof(data.elements) / sizeof(SortKey::Element), "Position too large");
+    data.elements[Position].string = s;
+    return make_sort_key<Position + 1, add(mask, SortKey::StringType, Position)>(data, std::move(args)...);
+}
+
+template<int Position, SortKey::TypeArray mask, typename... Args>
+void make_sort_key(SortKey &data, int x, Args&&... args) {
+    static_assert(Position < sizeof(data.elements) / sizeof(SortKey::Element), "Position too large");
+    data.elements[Position].integer = x;
+    return make_sort_key<Position + 1, add(mask, SortKey::IntegerType, Position)>(data, std::move(args)...);
+}
+
+template<typename... Args>
+SortKey::SortKey(Args&&... args) {
+    make_sort_key<0, 0>(*this, std::move(args)...);
+}
 
 class PatternSortKey {
 private:
@@ -193,15 +263,15 @@ public:
 };
 
 inline int compare_sort_keys(
-	const BaseExpressionRef &x,
-	const BaseExpressionRef &y,
-	int pattern_sort) {
+    const BaseExpressionRef &x,
+    const BaseExpressionRef &y,
+    int pattern_sort) {
 
-	if (pattern_sort) {
-		return x->pattern_key().compare(y->pattern_key());
-	} else {
-		return x->sort_key().compare(y->sort_key());
-	}
+    if (pattern_sort) {
+        return x->pattern_key().compare(y->pattern_key());
+    } else {
+        return x->sort_key().compare(y->sort_key());
+    }
 }
 
 #endif //CMATHICS_SORT_H

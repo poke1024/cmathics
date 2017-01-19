@@ -601,8 +601,13 @@ public:
 
 enum SliceMethodOptimizeTarget {
 	DoNotCompileToSliceType,
-	CompileToSliceType,
+#if COMPILE_TO_SLICE
+    CompileToSliceType,
 	CompileToPackedSliceType
+#else
+    CompileToSliceType = DoNotCompileToSliceType,
+    CompileToPackedSliceType = DoNotCompileToSliceType
+#endif
 };
 
 template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
@@ -639,7 +644,9 @@ protected:
 
 	virtual TypeMask materialize_type_mask() const = 0;
 
-public:
+    virtual TypeMask materialize_exact_type_mask() const = 0;
+
+ public:
     static constexpr Type Type = ExpressionType;
 
 	const BaseExpressionRef _head;
