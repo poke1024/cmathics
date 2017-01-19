@@ -3,7 +3,7 @@
 
 #include "leaves.h"
 
-template<TypeMask type_mask, typename Slice, typename F>
+template<TypeMask type_mask, typename Slice, typename FReference>
 class map_base {
 protected:
 	const BaseExpressionRef &m_head;
@@ -11,7 +11,7 @@ protected:
 	const Slice &m_slice;
 	const size_t m_begin;
 	const size_t m_end;
-	const F &m_f;
+	const FReference m_f;
 
 	inline ExpressionRef keep() const {
 		if (m_is_new_head) {
@@ -25,7 +25,7 @@ public:
 	inline map_base(
 		const BaseExpressionRef &head,
 		const bool is_new_head,
-		const F &f,
+		const FReference f,
 		const Slice &slice,
 		const size_t begin,
 		const size_t end) :
@@ -39,10 +39,10 @@ public:
 	}
 };
 
-template<TypeMask type_mask, typename Slice, typename F>
-class sequential_map : public map_base<type_mask, Slice, F> {
+template<TypeMask type_mask, typename Slice, typename FReference>
+class sequential_map : public map_base<type_mask, Slice, FReference> {
 protected:
-	using base = map_base<type_mask, Slice, F>;
+	using base = map_base<type_mask, Slice, FReference>;
 
 public:
 	using base::map_base;
@@ -59,7 +59,7 @@ public:
 				const size_t begin = first_index;
 				const size_t end = base::m_end;
 
-				const F &f = base::m_f;
+				const FReference f = base::m_f;
 
 				for (size_t j = 0; j < begin; j++) {
 					store(BaseExpressionRef(slice[j]));
@@ -73,7 +73,7 @@ public:
 					if ((old_leaf->base_type_mask() & type_mask) == 0) {
 						store(std::move(old_leaf));
 					} else {
-						BaseExpressionRef new_leaf = f.lambda(j, old_leaf);
+						BaseExpressionRef new_leaf = f(j, old_leaf);
 
 						if (new_leaf) {
 							store(std::move(new_leaf));
@@ -98,7 +98,7 @@ public:
 
 		const size_t begin = base::m_begin;
 		const size_t end = base::m_end;
-		const F &f = base::m_f;
+		const FReference f = base::m_f;
 
 		for (size_t i = begin; i < end; i++) {
 			const auto leaf = slice[i];
@@ -107,7 +107,7 @@ public:
 				continue;
 			}
 
-			const BaseExpressionRef result = f.lambda(i, leaf);
+			const BaseExpressionRef result = f(i, leaf);
 
 			if (result) {
 				return copy(i, result);
@@ -118,10 +118,10 @@ public:
 	}
 };
 
-template<TypeMask type_mask, typename Slice, typename F>
-class parallel_map : public map_base<type_mask, Slice, F> {
+template<TypeMask type_mask, typename Slice, typename FReference>
+class parallel_map : public map_base<type_mask, Slice, FReference> {
 protected:
-    using base = map_base<type_mask, Slice, F>;
+    using base = map_base<type_mask, Slice, FReference>;
 
 public:
     using base::map_base;
@@ -135,12 +135,10 @@ public:
 
         const size_t begin = base::m_begin;
         const size_t end = base::m_end;
-        const F &f = base::m_f;
+        const FReference f = base::m_f;
 
-        //std::vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>> v(
-        //    Pool::ref_vector_allocator());
-
-        std::vector<BaseExpressionRef> v;
+        std::vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>> v(
+            Pool::ref_vector_allocator());
 
         std::atomic_flag lock = ATOMIC_FLAG_INIT;
         bool changed = false;
@@ -148,7 +146,7 @@ public:
 
         parallelize([begin, end, &slice, &f, &v, &lock, &changed, &new_type_mask] (size_t i) {
             const size_t k = begin + i;
-            BaseExpressionRef leaf = f.lambda(k, slice[k]);
+            BaseExpressionRef leaf = f(k, slice[k]);
             if (leaf) {
                 while (lock.test_and_set() == 1) {
                     std::this_thread::yield();
@@ -174,8 +172,6 @@ public:
                     const BaseExpressionRef &leaf = v[i];
                     return leaf ? leaf : slice[i];
                 }, slice.size()));
-
-                //return expression(base::m_head, LeafVector(std::move(v), new_type_mask));
             } else {
                 return expression(base::m_head, parallel([begin, end, &v, &slice] (size_t i) {
                     if (i < begin || i >= end) {
@@ -202,15 +198,29 @@ inline ExpressionRef apply_conditional_map_indexed(
 	const size_t end,
 	const Evaluation &evaluation) {
 
+#if FASTER_COMPILE
+	const std::function<BaseExpressionRef(size_t, const BaseExpressionRef&)> generic_f = f.lambda;
+
 	if (!evaluation.parallelize) {
-		const sequential_map<T, Slice, F> map(
-			head, is_new_head, f, slice, begin, end);
+		const sequential_map<T, Slice, decltype(generic_f)> map(
+			head, is_new_head, generic_f, slice, begin, end);
 		return map();
 	} else {
-        const parallel_map<T, Slice, F> map(
-            head, is_new_head, f, slice, begin, end);
+		const parallel_map<T, Slice, decltype(generic_f)> map(
+			head, is_new_head, generic_f, slice, begin, end);
+		return map();
+	}
+#else
+	if (!evaluation.parallelize) {
+		const sequential_map<T, Slice, typename std::add_lvalue_reference<decltype(f.lambda)>::type> map(
+			head, is_new_head, f.lambda, slice, begin, end);
+		return map();
+	} else {
+        const parallel_map<T, Slice, typename std::add_lvalue_reference<decltype(f.lambda)>::type> map(
+            head, is_new_head, f.lambda, slice, begin, end);
         return map();
 	}
+#endif
 }
 
 template<TypeMask T, typename F, typename Slice>
@@ -225,7 +235,7 @@ inline ExpressionRef apply_conditional_map(
 
 	return apply_conditional_map_indexed<T>(
 		head, is_new_head,
-		lambda([&f] (size_t i, const BaseExpressionRef &leaf) {
+		lambda([&f] (size_t i, const BaseExpressionRef &leaf) -> BaseExpressionRef {
 			return f.lambda(leaf);
 		}), slice, begin, end, evaluation);
 }
