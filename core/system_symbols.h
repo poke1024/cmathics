@@ -48,6 +48,7 @@ SYMBOL(Times)
 SYMBOL(Power)
 SYMBOL(Log)
 SYMBOL(Factorial)
+SYMBOL(Gamma)
 
 SYMBOL(E)
 SYMBOL(Pi)

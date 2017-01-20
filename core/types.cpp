@@ -201,6 +201,16 @@ void InstantiateSymbolicForm::init() {
             return Pool::NoSymbolicForm();
         }
     });*/
+
+    add(SymbolGamma, [] (const Expression *expr) {
+        if (expr->size() == 1) {
+            return expr->symbolic_1(SymEngine::gamma);
+        } else if (expr->size() == 2) {
+            return expr->symbolic_2(SymEngine::uppergamma);
+        } else {
+            return Pool::NoSymbolicForm();
+        }
+    });
 }
 
 BaseExpressionRef from_symbolic_expr(
@@ -335,6 +345,12 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 
         case SymEngine::TAN:
             expr = from_symbolic_expr(form, evaluation.Tan, evaluation);
+            break;
+
+        case SymEngine::GAMMA:
+        case SymEngine::LOWERGAMMA:
+        case SymEngine::UPPERGAMMA:
+            expr = from_symbolic_expr(form, evaluation.Gamma, evaluation);
             break;
 
 		case SymEngine::INFTY: {
