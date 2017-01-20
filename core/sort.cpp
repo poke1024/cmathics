@@ -2,11 +2,11 @@
 #include "expression.h"
 
 int SortKey::compare(const SortKey &key) const {
-	int min_size = std::min(size, key.size);
+	int min_size = std::min(m_size, key.m_size);
 
 	for (int i = 0; i < min_size; i++) {
-		const Element &x = elements[i];
-		const Element &y = key.elements[i];
+		const Element &x = m_elements[i];
+		const Element &y = key.m_elements[i];
 
 		const int t = x.type;
 		assert(t == y.type);
@@ -18,13 +18,13 @@ int SortKey::compare(const SortKey &key) const {
 				break;
 
 			case StringType:
-				cmp = strcmp(x.string, y.string);
+				cmp = strcmp(m_data[x.integer].string, key.m_data[y.integer].string);
 				break;
 
 			case HeadType:
 				cmp = compare_sort_keys(
-					x.expression->head(),
-					y.expression->head(),
+					m_data[x.integer].expression->head(),
+					key.m_data[y.integer].expression->head(),
 					x.pattern_sort);
 				break;
 
@@ -33,8 +33,8 @@ int SortKey::compare(const SortKey &key) const {
 				const bool precedence = x.precedence;
 
 				cmp = with_slices(
-					x.expression,
-					y.expression,
+					m_data[x.integer].expression,
+					key.m_data[y.integer].expression,
 					[pattern_sort, precedence] (const auto &slice_a, const auto &slice_b) {
 						const size_t na = slice_a.size();
 						const size_t nb = slice_b.size();
@@ -62,7 +62,7 @@ int SortKey::compare(const SortKey &key) const {
 			}
 
 			case MonomialType:
-				cmp = monomial->compare(*key.monomial);
+				cmp = m_monomial->compare(*key.m_monomial);
 				break;
 		}
 
@@ -71,11 +71,11 @@ int SortKey::compare(const SortKey &key) const {
 		}
 	}
 
-	if (size > key.size) {
+	if (m_size > key.m_size) {
 		return 1;
-	} else if (size < key.size) {
-			return -1;
-		}
+	} else if (m_size < key.m_size) {
+		return -1;
+	}
 
 	return 0;
 }

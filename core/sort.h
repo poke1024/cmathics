@@ -124,58 +124,39 @@ struct SortKey {
         MonomialType = 4
     };
 
+	struct Data {
+		union {
+			const char *string;
+			const Expression *expression;
+		};
+	};
+
     struct Element {
-	    union {
-		    int8_t integer;
-		    const char *string;
-		    const Expression *expression;
-	    };
 	    unsigned type: 3;
 		unsigned pattern_sort: 1;
 	    unsigned precedence: 1;
+	    unsigned integer: 8;
+    } __attribute__ ((__packed__));
 
-	    inline void set(SortKey &key, int x) {
-		    integer = x;
-		    type = IntegerType;
-	    }
-
-        inline void set(SortKey &key, const char *s) {
-			string = s;
-	        type = StringType;
-        }
-
-	    inline void set(SortKey &key, const SortByHead &x) {
-		    expression = x.m_expression;
-		    pattern_sort = x.m_pattern_sort;
-		    type = HeadType;
-	    }
-
-	    inline void set(SortKey &key, const SortByLeaves &x) {
-		    expression = x.m_expression;
-		    pattern_sort = x.m_pattern_sort;
-		    precedence = x.m_precedence;
-		    type = LeavesType;
-	    }
-
-	    inline void set(SortKey &key, MonomialMap &&m) {
-		    assert(!bool(key.monomial));
-		    key.monomial.emplace(Monomial(std::move(m)));
-		    type = MonomialType;
-	    }
-    };
-
-    Element elements[10];
-	optional<Monomial> monomial;
-	int size;
+    Element m_elements[10];
+	Data m_data[3];
+	optional<Monomial> m_monomial;
+	int8_t m_size;
 
     template<typename... Args>
     SortKey(Args&&... args);
 
     int compare(const SortKey &key) const;
 
+	template<int index>
+	Data &data() {
+		static_assert(index < sizeof(m_data) / sizeof(Data), "too many data elements");
+		return m_data[index];
+	}
+
 	void set_integer(int index, int value) {
-		assert(elements[index].type == IntegerType);
-		elements[index].integer = value;
+		assert(m_elements[index].type == IntegerType);
+		m_elements[index].integer = value;
 	}
 
 	void set_pattern_test(int value) {
@@ -191,21 +172,100 @@ struct SortKey {
 	}
 };
 
-template<int Position>
+template<typename T, int ElementPosition, int DataPosition>
+struct BuildSortKey {
+};
+
+template<int ElementPosition, int DataPosition>
+struct BuildSortKey<int, ElementPosition, DataPosition> {
+	constexpr int next_data_position() const {
+		return DataPosition;
+	}
+
+	inline void store(SortKey &key, int x) {
+		auto &element = key.m_elements[ElementPosition];
+		element.type = SortKey::IntegerType;
+		element.integer = x;
+		assert(int(element.integer) == x);
+	}
+};
+
+template<int ElementPosition, int DataPosition>
+struct BuildSortKey<const char*, ElementPosition, DataPosition> {
+	constexpr int next_data_position() const {
+		return DataPosition + 1;
+	}
+
+	inline void store(SortKey &key, const char *x) {
+		auto &element = key.m_elements[ElementPosition];
+		element.type = SortKey::StringType;
+		element.integer = DataPosition;
+		key.data<DataPosition>().string = x;
+
+	}
+};
+
+template<int ElementPosition, int DataPosition>
+struct BuildSortKey<SortByHead, ElementPosition, DataPosition> {
+	constexpr int next_data_position() const {
+		return DataPosition + 1;
+	}
+
+	inline void store(SortKey &key, const SortByHead &x) {
+		auto &element = key.m_elements[ElementPosition];
+		element.type = SortKey::HeadType;
+		element.integer = DataPosition;
+		element.pattern_sort = x.m_pattern_sort;
+		key.data<DataPosition>().expression = x.m_expression;
+
+	}
+};
+
+template<int ElementPosition, int DataPosition>
+struct BuildSortKey<SortByLeaves, ElementPosition, DataPosition> {
+	constexpr int next_data_position() const {
+		return DataPosition + 1;
+	}
+
+	inline void store(SortKey &key, const SortByLeaves &x) {
+		auto &element = key.m_elements[ElementPosition];
+		element.type = SortKey::LeavesType;
+		element.integer = DataPosition;
+		element.pattern_sort = x.m_pattern_sort;
+		element.precedence = x.m_precedence;
+		key.data<DataPosition>().expression = x.m_expression;
+	}
+};
+
+template<int ElementPosition, int DataPosition>
+struct BuildSortKey<MonomialMap, ElementPosition, DataPosition> {
+	constexpr int next_data_position() const {
+		return DataPosition;
+	}
+
+	inline void store(SortKey &key, MonomialMap &&m) {
+		key.m_elements[ElementPosition].type = SortKey::MonomialType;
+		assert(!bool(key.m_monomial));
+		key.m_monomial.emplace(Monomial(std::move(m)));
+	}
+};
+
+template<int ElementPosition, int DataPosition>
 void make_sort_key(SortKey &data) {
-    data.size = Position;
+    data.m_size = ElementPosition;
 }
 
-template<int Position, typename T, typename... Args>
+template<int ElementPosition, int DataPosition, typename T, typename... Args>
 void make_sort_key(SortKey &data, T &&x, Args&&... args) {
-    static_assert(Position < sizeof(data.elements) / sizeof(SortKey::Element), "Position too large");
-    data.elements[Position].set(data, std::move(x));
-    return make_sort_key<Position + 1>(data, std::move(args)...);
+    static_assert(ElementPosition < sizeof(data.m_elements) / sizeof(SortKey::Element), "too many elements");
+	BuildSortKey<T, ElementPosition, DataPosition> build;
+	build.store(data, std::move(x));
+    return make_sort_key<ElementPosition + 1, build.next_data_position()>(data, std::move(args)...);
 }
 
 template<typename... Args>
 SortKey::SortKey(Args&&... args) {
-    make_sort_key<0>(*this, 0, std::move(args)...);
+    make_sort_key<0, 0>(*this, 0, std::move(args)...);
 }
 
 /*
