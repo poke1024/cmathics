@@ -1,67 +1,81 @@
 #include "types.h"
 #include "expression.h"
 
-int PatternSortKey::compare(const PatternSortKey &key) const {
-	int cmp;
+int SortKey::compare(const SortKey &key) const {
+	int min_size = std::min(size, key.size);
 
-	const prefix_t p1 = prefix();
-	const prefix_t p2 = key.prefix();
+	for (int i = 0; i < min_size; i++) {
+		const Element &x = elements[i];
+		const Element &y = key.elements[i];
 
-	if (p1 < p2) {
-		return -1;
-	} else if (p1 > p2) {
+		const int t = x.type;
+		assert(t == y.type);
+
+		int cmp = 0;
+		switch (t) {
+			case IntegerType:
+				cmp = int(x.integer) - int(y.integer);
+				break;
+
+			case StringType:
+				cmp = strcmp(x.string, y.string);
+				break;
+
+			case HeadType:
+				cmp = compare_sort_keys(
+					x.expression->head(),
+					y.expression->head(),
+					x.pattern_sort);
+				break;
+
+			case LeavesType: {
+				const bool pattern_sort = x.pattern_sort;
+				const bool precedence = x.precedence;
+
+				cmp = with_slices(
+					x.expression,
+					y.expression,
+					[pattern_sort, precedence] (const auto &slice_a, const auto &slice_b) {
+						const size_t na = slice_a.size();
+						const size_t nb = slice_b.size();
+
+						const size_t size = std::min(na, nb);
+
+						for (size_t i = 0; i < size; i++) {
+							const int cmp = compare_sort_keys(slice_a[i], slice_b[i], pattern_sort);
+							if (cmp) {
+								return cmp;
+							}
+						}
+
+						if (precedence) {
+							return 1;
+						} else if (na < nb) {
+							return -1;
+						} else if (na > nb) {
+							return 1;
+						} else {
+							return 0;
+						}
+					});
+				break;
+			}
+
+			case MonomialType:
+				cmp = monomial->compare(*key.monomial);
+				break;
+		}
+
+		if (cmp) {
+			return cmp;
+		}
+	}
+
+	if (size > key.size) {
 		return 1;
-	}
-
-	// if we're here, both "this" and "key" are
-	// Expressions or both are not.
-
-	const Expression *a = expression;
-	const Expression *b = key.expression;
-
-	if (a && b) {
-		// compare the heads.
-		assert(head_pattern_sort == key.head_pattern_sort);
-		cmp = compare_sort_keys(a->head(), b->head(), head_pattern_sort);
-		if (cmp) {
-			return cmp;
+	} else if (size < key.size) {
+			return -1;
 		}
 
-		// now compare the leaves.
-		const bool pa = leaf_pattern_sort;
-		const bool pb = key.leaf_pattern_sort;
-		assert(pa == pb);
-
-		const bool precedence = leaf_precedence;
-
-		cmp = with_slices(a, b, [pa, pb, precedence] (const auto &slice_a, const auto &slice_b) {
-			const size_t na = slice_a.size();
-			const size_t nb = slice_b.size();
-
-			const size_t size = std::min(na, nb);
-
-			for (size_t i = 0; i < size; i++) {
-				const int cmp = compare_sort_keys(slice_a[i], slice_b[i], pa);
-				if (cmp) {
-					return cmp;
-				}
-			}
-
-			if (precedence) {
-				return 1;
-			} else if (na < nb) {
-				return -1;
-			} else if (na > nb) {
-				return 1;
-			} else {
-				return 0;
-			}
-		});
-
-		if (cmp) {
-			return cmp;
-		}
-	}
-
-	return condition - key.condition;
+	return 0;
 }

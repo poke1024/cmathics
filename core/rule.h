@@ -15,7 +15,7 @@ enum class DefinitionsPos : int {
 class Rule : public Shared<Rule, SharedHeap> {
 public:
 	const BaseExpressionRef pattern;
-	const PatternSortKey key;
+	const SortKey key;
 
 	Rule(const BaseExpressionRef &patt) : pattern(patt), key(patt->pattern_key()) {
 	}

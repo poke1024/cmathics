@@ -527,7 +527,7 @@ public:
 
 	virtual SortKey sort_key() const;
 
-	virtual PatternSortKey pattern_key() const;
+	virtual SortKey pattern_key() const;
 };
 
 inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressionRef &b) {

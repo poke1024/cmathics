@@ -94,173 +94,139 @@ public:
     }
 };
 
+class SortByHead {
+public:
+	const Expression * const m_expression;
+	const bool m_pattern_sort;
+
+	inline SortByHead(const Expression *expression, bool pattern_sort = false) :
+		m_expression(expression), m_pattern_sort(pattern_sort) {
+	}
+};
+
+class SortByLeaves {
+public:
+	const Expression * const m_expression;
+	const bool m_pattern_sort;
+	const bool m_precedence;
+
+	inline SortByLeaves(const Expression *expression, bool pattern_sort = false, bool precedence = false) :
+		m_expression(expression), m_pattern_sort(pattern_sort), m_precedence(precedence) {
+	}
+};
+
 struct SortKey {
     enum Type {
         IntegerType = 0,
         StringType = 1,
         HeadType = 2,
         LeavesType = 3,
-        MonomialType = 4,
-
-        TypeBits = 3,
-        TypeMask = (1L << TypeBits) - 1L
+        MonomialType = 4
     };
-
-    using TypeArray = uint64_t;
-
-    TypeArray mask;
-    int size;
 
     struct Element {
-        int8_t integer;
-        const char *string;
-        Expression *expression;
-        optional<Monomial> monomial;
+	    union {
+		    int8_t integer;
+		    const char *string;
+		    const Expression *expression;
+	    };
+	    unsigned type: 3;
+		unsigned pattern_sort: 1;
+	    unsigned precedence: 1;
+
+	    inline void set(SortKey &key, int x) {
+		    integer = x;
+		    type = IntegerType;
+	    }
+
+        inline void set(SortKey &key, const char *s) {
+			string = s;
+	        type = StringType;
+        }
+
+	    inline void set(SortKey &key, const SortByHead &x) {
+		    expression = x.m_expression;
+		    pattern_sort = x.m_pattern_sort;
+		    type = HeadType;
+	    }
+
+	    inline void set(SortKey &key, const SortByLeaves &x) {
+		    expression = x.m_expression;
+		    pattern_sort = x.m_pattern_sort;
+		    precedence = x.m_precedence;
+		    type = LeavesType;
+	    }
+
+	    inline void set(SortKey &key, MonomialMap &&m) {
+		    assert(!bool(key.monomial));
+		    key.monomial.emplace(Monomial(std::move(m)));
+		    type = MonomialType;
+	    }
     };
 
-    Element elements[8];
+    Element elements[10];
+	optional<Monomial> monomial;
+	int size;
 
     template<typename... Args>
     SortKey(Args&&... args);
 
-    int compare(const SortKey &key) const {
-        int min_size = std::min(size, key.size);
+    int compare(const SortKey &key) const;
 
-        for (int i = 0; i < min_size; i++) {
-            const int t = (mask >> (SortKey::TypeBits * i)) & SortKey::TypeMask;
-            assert (t == ((key.mask >> (SortKey::TypeBits * i)) & SortKey::TypeMask));
+	void set_integer(int index, int value) {
+		assert(elements[index].type == IntegerType);
+		elements[index].integer = value;
+	}
 
-            int cmp = 0;
-            switch (t) {
-                case IntegerType:
-                    cmp = int(elements[i].integer) - int(key.elements[i].integer);
-                    break;
+	void set_pattern_test(int value) {
+		set_integer(2, value); // see Pattern sort key structure
+	}
 
-                case StringType:
-                    cmp = strcmp(elements[i].string, key.elements[i].string);
-                    break;
+	void set_condition(int value) {
+		set_integer(7, value); // see Pattern sort key structure
+	}
 
-                case HeadType:
-                    cmp = compare_sort_keys(
-                        elements[i].expression->head(),
-                        key.elements[i].expression->head(),
-                        true /* head_pattern_sort */);
-                    break;
-
-                case MonomialType:
-                    cmp = elements[i].monomial->compare(*key.elements[i].monomial);
-                    break;
-            }
-
-            if (cmp) {
-                return cmp;
-            }
-        }
-
-        if (size > key.size) {
-            return 1;
-        } else if (size < key.size) {
-            return -1;
-        }
-
-        return 0;
-    }
+	void set_optional(int value) {
+		set_integer(4, value); // see Pattern sort key structure
+	}
 };
 
-constexpr SortKey::TypeArray add(SortKey::TypeArray mask, SortKey::Type type, int pos) {
-    return mask | (SortKey::TypeArray(type) << (SortKey::TypeBits * pos));
-}
-
-template<int Position, SortKey::TypeArray mask>
+template<int Position>
 void make_sort_key(SortKey &data) {
-    data.mask = mask;
     data.size = Position;
 }
 
-template<int Position, SortKey::TypeArray mask, typename... Args>
-void make_sort_key(SortKey &data, MonomialMap &&m, Args&&... args) {
+template<int Position, typename T, typename... Args>
+void make_sort_key(SortKey &data, T &&x, Args&&... args) {
     static_assert(Position < sizeof(data.elements) / sizeof(SortKey::Element), "Position too large");
-    data.elements[Position].monomial.emplace(Monomial(std::move(m)));
-    return make_sort_key<Position + 1, add(mask, SortKey::MonomialType, Position)>(data, std::move(args)...);
-}
-
-template<int Position, SortKey::TypeArray mask, typename... Args>
-void make_sort_key(SortKey &data, const char *s, Args&&... args) {
-    static_assert(Position < sizeof(data.elements) / sizeof(SortKey::Element), "Position too large");
-    data.elements[Position].string = s;
-    return make_sort_key<Position + 1, add(mask, SortKey::StringType, Position)>(data, std::move(args)...);
-}
-
-template<int Position, SortKey::TypeArray mask, typename... Args>
-void make_sort_key(SortKey &data, int x, Args&&... args) {
-    static_assert(Position < sizeof(data.elements) / sizeof(SortKey::Element), "Position too large");
-    data.elements[Position].integer = x;
-    return make_sort_key<Position + 1, add(mask, SortKey::IntegerType, Position)>(data, std::move(args)...);
+    data.elements[Position].set(data, std::move(x));
+    return make_sort_key<Position + 1>(data, std::move(args)...);
 }
 
 template<typename... Args>
 SortKey::SortKey(Args&&... args) {
-    make_sort_key<0, 0>(*this, std::move(args)...);
+    make_sort_key<0>(*this, 0, std::move(args)...);
 }
 
-class PatternSortKey {
-private:
-	typedef uint16_t prefix_t;
+/*
+Pattern sort key structure:
+0: 0/2:        Atom / Expression
+1: pattern:    0 / 11-31 for blanks / 1 for empty Alternatives / 40 for OptionsPattern
+2: 0/1:        0 for PatternTest
+3: 0/1:        0 for Pattern
+4: 0/1:        1 for Optional
+5: head / 0 for atoms
+6: leaves / 0 for atoms
+7: 0/1:        0 for Condition
+*/
 
-	inline prefix_t prefix() const {
-		return
-			(prefix_t(atom_expression) << 9) |
-			(prefix_t(mode) << 3) |
-			(prefix_t(pattern_test) << 2) |
-			(prefix_t(pattern) << 1) |
-			(prefix_t(optional) << 0);
-	}
+inline SortKey blank_sort_key(int pattern, bool leaves, const Expression *expression) {
+	return SortKey(2, pattern, 1, 1, 0, SortByHead(expression, true), SortByLeaves(expression, true), 1);
+}
 
-public:
-	unsigned atom_expression: 2;
-	unsigned mode: 6;
-	unsigned pattern_test: 1;
-	unsigned pattern: 1;
-	unsigned optional: 1;
-
-	const Expression *expression;
-	unsigned head_pattern_sort: 1;
-	unsigned leaf_pattern_sort: 1;
-	unsigned leaf_precedence: 1;
-
-	unsigned condition: 1;
-
-	inline PatternSortKey(
-		int in_atom_expression,
-	    int in_mode,
-	    int in_pattern_test,
-	    int in_pattern,
-	    int in_optional,
-		const Expression *in_expression,
-	    int in_condition) :
-
-		atom_expression(in_atom_expression),
-		mode(in_mode),
-		pattern_test(in_pattern_test),
-		pattern(in_pattern),
-		optional(in_optional),
-		expression(in_expression),
-		head_pattern_sort(1),
-		leaf_pattern_sort(1),
-		leaf_precedence(0),
-		condition(in_condition) {
-	}
-
-	static inline PatternSortKey Blank(int pattern, bool leaves, const Expression *expression) {
-		return PatternSortKey(2, pattern, 1, 1, 0, expression, 1);
-	}
-
-	static inline PatternSortKey NotAPattern(const Expression *expression) {
-		return PatternSortKey(3, 0, 0, 0, 0, expression, 1);
-	}
-
-	int compare(const PatternSortKey &key) const;
-};
+inline SortKey not_a_pattern_sort_key(const Expression *expression) {
+	return SortKey(3, 0, 0, 0, 0, SortByHead(expression, true), SortByLeaves(expression, true), 1);
+}
 
 inline int compare_sort_keys(
     const BaseExpressionRef &x,

@@ -55,11 +55,11 @@ bool BaseExpression::is_numeric() const {
 }
 
 SortKey BaseExpression::sort_key() const {
-	return SortKey(0, 0, MonomialMap()); // FIXME
+	return SortKey(0, 0); // FIXME
 }
 
-PatternSortKey BaseExpression::pattern_key() const {
-	return PatternSortKey(0, 0, 1, 1, 0, nullptr, 1);
+SortKey BaseExpression::pattern_key() const {
+	return SortKey(0, 0, 1, 1, 0, 0, 0, 1);
 }
 
 const char *type_name(Type type) {
