@@ -60,20 +60,42 @@ protected:
     }
 };
 
-/*
 class BigComplex : public BaseExpression {
 public:
     static constexpr Type Type = BigComplexType;
 
-    acb_t value;
-    const Precision prec;
+    //acb_t value;
+    //const Precision prec;
 
-    explicit inline BigComplex(acb_t value_, const Precision &prec_) :
-        BaseExpression(BigRealExtendedType), prec(prec_) {
+    SymEngineComplexRef m_value;
 
-        arb_swap(value, value_);
+    explicit inline BigComplex(const SymEngineComplexRef &value) :
+        BaseExpression(BigComplexExtendedType), m_value(value) {
     }
+
+    virtual bool same(const BaseExpression &expr) const {
+        if (expr.type() == BigComplexType) {
+            return m_value->__eq__(*static_cast<const BigComplex*>(&expr)->m_value.get());
+        } else {
+            return false;
+        }
+    }
+
+    virtual bool equals(const BaseExpression &expr) const {
+        return same(expr);
+    }
+
+    virtual hash_t hash() const {
+        return m_value->__hash__();
+    }
+
+    virtual std::string fullform() const {
+        // m_value->real_part();
+        // m_value->imaginary_part();
+        return m_value->__str__();
+    }
+
+    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 };
-*/
 
 #endif //CMATHICS_COMPLEX_H

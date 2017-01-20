@@ -383,9 +383,15 @@ BaseExpressionRef evaluate(
 	// Simplify symbolic form, if possible. We guarantee that no vcall
     // happens unless a symbolic resolution is really necessary.
 
-	SymbolicFormRef form = fast_symbolic_form(safe_intermediate_form);
+    UnsafeSymbolicFormRef form;
 
-	if (!form->is_none() && !form->is_simplified()) {
+    try {
+        form = fast_symbolic_form(safe_intermediate_form);
+    } catch (const SymEngine::SymEngineException &e) {
+        evaluation.sym_engine_exception(e);
+    }
+
+	if (form && !form->is_none() && !form->is_simplified()) {
 		if (false) { // debug
 			std::cout << "inspecting " << safe_intermediate_form->fullform() << std::endl;
 		}

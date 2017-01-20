@@ -17,9 +17,12 @@ TEST_CASE("Plus") {
     // construct expression
     ExpressionRef plus_expr = expression(plus_head, {a, b});
 
-    Evaluation evaluation(definitions, false);
+    const auto output = std::make_shared<TestOutput>();
+
+    Evaluation evaluation(output, definitions, false);
     BaseExpressionRef result_expr = plus_expr->evaluate_or_copy(evaluation);
 
     CHECK(result_expr->type() == MachineIntegerType);
     CHECK(static_pointer_cast<const MachineInteger>(result_expr)->value == 3);
+    CHECK(output->test_empty() == true);
 }

@@ -29,7 +29,7 @@ void python_test(const char *input) {
 
     auto expr = runtime.parse(input);
 
-    Evaluation evaluation(runtime.definitions(), true);
+    Evaluation evaluation(std::make_shared<DefaultOutput>(), runtime.definitions(), true);
     std::cout << expr << std::endl;
     std::cout << "evaluating...\n";
     BaseExpressionRef evaluated = evaluation.evaluate(expr);
@@ -64,6 +64,7 @@ void mini_console() {
     Runtime runtime;
 
 	const SymbolRef Line = runtime.definitions().symbols().StateLine;
+    const OutputRef output = std::make_shared<DefaultOutput>();
 
 	Line->state().set_own_value(Pool::MachineInteger(1));
     std::cout << "In[" << 1 << "]:= ";
@@ -75,7 +76,7 @@ void mini_console() {
 	    try {
 		    const auto expr = runtime.parse(line.c_str());
 
-		    Evaluation evaluation(runtime.definitions(), true);
+		    Evaluation evaluation(output, runtime.definitions(), true);
 		    BaseExpressionRef evaluated = evaluation.evaluate(expr);
 
             const BaseExpressionRef line_number = Line->state().own_value();

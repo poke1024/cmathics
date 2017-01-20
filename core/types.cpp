@@ -74,8 +74,10 @@ const char *type_name(Type type) {
 		    return "BigReal";
 	    case BigRationalType:
 		    return "BigRational";
-	    case ComplexType:
-		    return "Complex";
+	    case MachineComplexType:
+		    return "MachineComplex";
+        case BigComplexType:
+            return "BigComplex";
 	    case ExpressionType:
 		    return "Expression";
 	    case SymbolType:
@@ -190,6 +192,15 @@ void InstantiateSymbolicForm::init() {
 			return Pool::NoSymbolicForm();
 		}
 	});
+
+    /*add(SymbolFactorial, [] (const Expression *expr) {
+        if (expr->size() == 1) {
+            // currently always expects SymEngine::Integer
+            return expr->symbolic_1(SymEngine::factorial);
+        } else {
+            return Pool::NoSymbolicForm();
+        }
+    });*/
 }
 
 BaseExpressionRef from_symbolic_expr(
@@ -279,13 +290,9 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
             break;
 		}
 
-        /*case SymEngine::COMPLEX: {
-            const auto *complex = static_cast<const SymEngine::Complex*>(form.get());
-            const mpq_class real(complex->real_.get_mpq_t());
-            const mpq_class imag(complex->imaginary_.get_mpq_t());
-            expr = Pool::MachineReal(0.); // FIXME
+        case SymEngine::COMPLEX:
+            expr = Pool::BigComplex(SymEngineComplexRef(static_cast<const SymEngine::Complex*>(form.get())));
             break;
-        }*/
 
         case SymEngine::COMPLEX_DOUBLE: {
             const auto *complex = static_cast<const SymEngine::ComplexDouble*>(form.get());

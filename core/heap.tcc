@@ -18,6 +18,11 @@ inline BaseExpressionRef Pool::MachineComplex(machine_real_t real, machine_real_
     return BaseExpressionRef(_s_instance->_machine_complexs.construct(real, imag));
 }
 
+inline BaseExpressionRef Pool::BigComplex(const SymEngineComplexRef &value) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_big_complexs.construct(value));
+}
+
 inline BaseExpressionRef Pool::BigInteger(const mpz_class &value) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_integers.construct(value));
@@ -91,6 +96,9 @@ inline void Pool::release(BaseExpression *expr) {
 			_s_instance->_big_integers.destroy(static_cast<class BigInteger*>(expr));
 			break;
 
+        case MachineRationalType:
+            assert(false);
+
 		case BigRationalType:
 			_s_instance->_big_rationals.destroy(static_cast<class BigRational*>(expr));
 			break;
@@ -99,13 +107,17 @@ inline void Pool::release(BaseExpression *expr) {
 			_s_instance->_machine_reals.destroy(static_cast<class MachineReal*>(expr));
 			break;
 
+        case BigRealType:
+            _s_instance->_big_reals.destroy(static_cast<class BigReal*>(expr));
+            break;
+
         case MachineComplexType:
             _s_instance->_machine_complexs.destroy(static_cast<class MachineComplex*>(expr));
             break;
 
-        case BigRealType:
-			_s_instance->_big_reals.destroy(static_cast<class BigReal*>(expr));
-			break;
+        case BigComplexType:
+            _s_instance->_big_complexs.destroy(static_cast<class BigComplex*>(expr));
+            break;
 
 		case ExpressionType: {
 			const SliceCode code = static_cast<const class Expression*>(expr)->slice_code();

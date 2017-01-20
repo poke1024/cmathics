@@ -286,6 +286,23 @@ class First : public Builtin {
 public:
     static constexpr const char *name = "First";
 
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'First[$expr$]'
+        <dd>returns the first element in $expr$.
+    </dl>
+
+    'First[$expr$]' is equivalent to '$expr$[[1]]'.
+
+    >> First[{a, b, c}]
+     = a
+    >> First[a + b + c]
+     = a
+    >> First[x]
+     : Nonatomic expression expected.
+     = First[x]
+	)";
+
 public:
     using Builtin::Builtin;
 
@@ -313,6 +330,21 @@ public:
 class Last : public Builtin {
 public:
     static constexpr const char *name = "Last";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Last[$expr$]'
+        <dd>returns the last element in $expr$.
+    </dl>
+
+    'Last[$expr$]' is equivalent to '$expr$[[-1]]'.
+
+    >> Last[{a, b, c}]
+     = c
+    >> Last[x]
+     : Nonatomic expression expected.
+     = Last[x]
+	)";
 
 public:
     using Builtin::Builtin;
@@ -343,6 +375,28 @@ class Most : public Builtin {
 public:
     static constexpr const char *name = "Most";
 
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Most[$expr$]'
+        <dd>returns $expr$ with the last element removed.
+    </dl>
+
+    'Most[$expr$]' is equivalent to '$expr$[[;;-2]]'.
+
+    >> Most[{a, b, c}]
+     = {a, b}
+    >> Most[a + b + c]
+     = a + b
+    >> Most[x]
+     : Nonatomic expression expected.
+     = Most[x]
+
+    #> A[x__] := 7 /; Length[{x}] == 3;
+    #> Most[A[1, 2, 3, 4]]
+     = 7
+    #> ClearAll[A];
+	)";
+
 public:
     using Builtin::Builtin;
 
@@ -360,7 +414,7 @@ public:
             if (expr->size() < 1) {
                 evaluation.message(m_symbol, "nomost", expr);
             } else {
-                return expr->slice(0, -1);
+                return expr->slice(expr->head(), 0, -1);
             }
         }
         return BaseExpressionRef();
@@ -370,6 +424,23 @@ public:
 class Rest : public Builtin {
 public:
     static constexpr const char *name = "Rest";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Rest[$expr$]'
+        <dd>returns $expr$ with the first element removed.
+    </dl>
+
+    'Rest[$expr$]' is equivalent to '$expr$[[2;;]]'.
+
+    >> Rest[{a, b, c}]
+     = {b, c}
+    >> Rest[a + b + c]
+     = b + c
+    >> Rest[x]
+     : Nonatomic expression expected.
+     = Rest[x]
+	)";
 
 public:
     using Builtin::Builtin;
@@ -399,6 +470,33 @@ class Select : public Builtin {
 public:
     static constexpr const char *name = "Select";
 
+    static constexpr const char *docs = R"(
+    """
+    <dl>
+    <dt>'Select[{$e1$, $e2$, ...}, $f$]'
+        <dd>returns a list of the elements $ei$ for which $f$[$ei$]
+        returns 'True'.
+    </dl>
+
+    Find numbers greater than zero:
+    >> Select[{-3, 0, 1, 3, a}, #>0&]
+     = {1, 3}
+
+    'Select' works on an expression with any head:
+    >> Select[f[a, 2, 3], NumberQ]
+     = f[2, 3]
+
+    >> Select[a, True]
+     : Nonatomic expression expected.
+     = Select[a, True]
+
+    #> A[x__] := 31415 /; Length[{x}] == 3;
+    #> Select[A[5, 2, 7, 1], OddQ]
+     = 31415
+    #> ClearAll[A];
+    """
+	)";
+
 public:
     using Builtin::Builtin;
 
@@ -424,7 +522,7 @@ public:
 
 			        for (size_t i = 0; i < size; i++) {
 				        const auto leaf = slice[i];
-				        if (expression(cond, leaf)->evaluate(evaluation)->is_true()) {
+				        if (expression(cond, leaf)->evaluate_or_copy(evaluation)->is_true()) {
 					        remaining.push_back_copy(leaf);
 				        }
 			        }

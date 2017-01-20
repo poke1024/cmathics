@@ -33,7 +33,7 @@ public:
                         return BaseExpressionRef();
                     }
 
-                    const SymbolicFormRef form = symbolic_form(expr);
+                    const SymbolicFormRef form = safe_symbolic_form(expr, evaluation);
                     if (!form || form->is_none()) {
                         return BaseExpressionRef();
                     }
@@ -107,6 +107,7 @@ Runtime::Runtime() : _parser(_definitions) {
 	General->add_message("level", "Level specification `1` is not of the form n, {n}, or {m, n}.", _definitions);
     General->add_message("optx", "Unknown option `1` in `2`.", _definitions);
     General->add_message("string", "String expected.", _definitions);
+    General->add_message("indet", "Indeterminate expression `1` encountered.", _definitions);
 
     Experimental(*this).initialize();
 
@@ -173,8 +174,12 @@ void Runtime::run_tests() {
 	size_t index = 1;
 	size_t fail_count = 0;
 
+    const auto output = std::make_shared<TestOutput>();
+    const auto no_output = std::make_shared<NoOutput>();
+
 	for (const auto &record : m_docs) {
-		Evaluation evaluation(_definitions, false);
+		Evaluation evaluation(output, _definitions, false);
+        Evaluation dummy_evaluation(no_output, _definitions, false);
 
 		std::stringstream stream(record.second);
 		UnsafeBaseExpressionRef result;
@@ -186,30 +191,49 @@ void Runtime::run_tests() {
 			if (line.compare(0, 2, ">>") == 0 || line.compare(0, 2, "#>") == 0) {
 				const std::string command_str(trim(line.substr(2)));
 				std::cout << std::setw(n_digits) << index++ << ". TEST " << command_str << std::endl;
+
+                if (!output->test_empty()) {
+                    fail_count += 1;
+                }
 				result = _parser.parse(command_str.c_str())->evaluate_or_copy(evaluation);
+
 				fail_expected = line.compare(0, 2, "#>") == 0;
 			} else if (line.compare(0, 1, "=") == 0) {
-				const std::string result_str(trim(line.substr(1)));
+                const std::string result_str(trim(line.substr(1)));
 
-				if (result_str.length() > 2 &&
+                if (result_str.length() > 2 &&
                     result_str[0] == '-' &&
                     result_str[result_str.length() - 1] == '-') {
                     // ignore stuff like -Graphics- for now
                 } else {
-                    auto parsed = _parser.parse(result_str.c_str());
-                    if (parsed->evaluate_or_copy(evaluation)->fullform() != result->fullform()) {
-                        if (!fail_expected) {
-                            std::cout << "FAIL" << std::endl;
-                            std::cout << parsed->fullform() << " != " << result->fullform() << std::endl;
-                            fail_count++;
+                    if (result) {
+                        auto parsed = _parser.parse(result_str.c_str());
+                        if (parsed->evaluate_or_copy(dummy_evaluation)->fullform() != result->fullform()) {
+                            if (!fail_expected) {
+                                std::cout << "FAIL" << std::endl;
+                                std::cout << parsed->fullform() << " != " << result->fullform() << std::endl;
+                                fail_count++;
+                            }
                         }
+                    } else {
+                        std::cout << "FAIL" << std::endl;
+                        std::cout << "undefined result" << std::endl;
+                        fail_count++;
                     }
+                }
+            } else if (line.compare(0, 1, ":") == 0) {
+                if (!output->test_line(trim(line.substr(1)))) {
+                    fail_count++;
                 }
 			} else {
 				// ignore
 			}
 		}
 	}
+
+    if (!output->test_empty()) {
+        fail_count += 1;
+    }
 
 	if (fail_count == 0) {
 	    std::cout << "TESTS OK" << std::endl;

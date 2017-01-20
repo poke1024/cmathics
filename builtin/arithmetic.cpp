@@ -738,7 +738,8 @@ inline BaseExpressionRef add_machine_inexact(const Expression *expr, const Slice
 			case BigRationalType:
 				sum += static_cast<const BigRational*>(leaf_ptr)->value.get_d();
 				break;
-			case ComplexType:
+			case MachineComplexType:
+			case BigComplexType:
 				assert(false);
 				break;
 			case ExpressionType:
@@ -891,6 +892,181 @@ public:
 	}
 };
 
+class NumberQ : public Builtin {
+public:
+	static constexpr const char *name = "NumberQ";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'NumberQ[$expr$]'
+        <dd>returns 'True' if $expr$ is an explicit number, and 'False' otherwise.
+    </dl>
+
+    >> NumberQ[3+I]
+     = True
+    >> NumberQ[5!]
+     = True
+    >> NumberQ[Pi]
+     = False
+    )";
+
+public:
+    using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&NumberQ::test);
+	}
+
+    inline bool test(
+        BaseExpressionPtr expr,
+        const Evaluation &evaluation) {
+
+        switch (expr->type()) {
+            case MachineIntegerType:
+            case BigIntegerType:
+            case MachineRealType:
+            case BigRealType:
+            case MachineRationalType:
+            case BigRationalType:
+            case MachineComplexType:
+            case BigComplexType:
+                return true;
+            default:
+                return false;
+        }
+    }
+};
+
+class RealNumberQ : public Builtin {
+public:
+	static constexpr const char *name = "RealNumberQ";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'RealNumberQ[$expr$]'
+        <dd>returns 'True' if $expr$ is an explicit number with no imaginary component.
+    </dl>
+
+    >> RealNumberQ[10]
+     = True
+    >> RealNumberQ[4.0]
+     = True
+    >> RealNumberQ[1+I]
+     = False
+    >> RealNumberQ[0 * I]
+     = True
+    >> RealNumberQ[0.0 * I]
+     = False
+    )";
+
+public:
+    using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&RealNumberQ::test);
+	}
+
+    inline bool test(
+        BaseExpressionPtr expr,
+        const Evaluation &evaluation) {
+
+        switch (expr->type()) {
+            case MachineIntegerType:
+            case BigIntegerType:
+            case MachineRealType:
+            case BigRealType:
+            case MachineRationalType:
+            case BigRationalType:
+                return true;
+            default:
+                return false;
+        }
+    }
+};
+
+class MachineNumberQ : public Builtin {
+public:
+	static constexpr const char *name = "MachineNumberQ";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'MachineNumberQ[$expr$]'
+        <dd>returns 'True' if $expr$ is a machine-precision real or complex number.
+    </dl>
+
+    >> MachineNumberQ[3.14159265358979324]
+     = False
+    >> MachineNumberQ[1.5 + 2.3 I]
+     = True
+    >> MachineNumberQ[2.71828182845904524 + 3.14159265358979324 I]
+     = False
+    #> MachineNumberQ[1.5 + 3.14159265358979324 I]
+     = True
+    #> MachineNumberQ[1.5 + 5 I]
+     = True
+    )";
+
+public:
+    using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&MachineNumberQ::test);
+	}
+
+    inline bool test(
+        BaseExpressionPtr expr,
+        const Evaluation &evaluation) {
+
+        switch (expr->type()) {
+            case MachineRealType:
+            case MachineComplexType:
+                return true;
+            default:
+                return false;
+        }
+    }
+};
+
+class Factorial : public Builtin {
+public:
+	static constexpr const char *name = "Factorial";
+
+public:
+    using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&Factorial::apply);
+	}
+
+    inline BaseExpressionRef apply(
+        BaseExpressionPtr expr,
+        const Evaluation &evaluation) {
+
+        switch (expr->type()) {
+            case MachineIntegerType: {
+                mpz_t x;
+                mpz_init(x);
+
+                try {
+                    const auto n = static_cast<const MachineInteger*>(expr)->value;
+                    mpz_fac_ui(x, n);
+                    const BaseExpressionRef result = from_primitive(mpz_class(x));
+                    mpz_clear(x);
+                    return result;
+                } catch(...) {
+                    mpz_clear(x);
+                    throw;
+                }
+            }
+
+            default:
+                break; // nothing
+        }
+
+        return BaseExpressionRef();
+    }
+};
+
 void Builtins::Arithmetic::initialize() {
 
 	add("Plus",
@@ -949,4 +1125,10 @@ void Builtins::Arithmetic::initialize() {
 	    });
 
 	add<Infinity>();
+
+	add<NumberQ>();
+    add<RealNumberQ>();
+    add<MachineNumberQ>();
+
+	add<Factorial>();
 }

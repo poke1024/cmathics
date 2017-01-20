@@ -291,6 +291,7 @@ private:
 	ObjectPool<BigReal> _big_reals;
 
 	ObjectPool<MachineComplex> _machine_complexs;
+    ObjectPool<BigComplex> _big_complexs;
 
 	StaticExpressionHeap<MaxStaticSliceSize> _static_expression_heap;
 	ObjectPool<ExpressionImplementation<DynamicSlice>> _dynamic_expressions;
@@ -352,6 +353,7 @@ public:
 	static inline BaseExpressionRef BigReal(arb_t value, const Precision &prec);
 
     static inline BaseExpressionRef MachineComplex(machine_real_t real, machine_real_t imag);
+    static inline BaseExpressionRef BigComplex(const SymEngineComplexRef &value);
 
     static inline StaticExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
 

@@ -11,6 +11,7 @@
 
 #include <sstream>
 #include <vector>
+#include <mutex>
 
 #include <symengine/add.h>
 #include <symengine/mul.h>
@@ -651,10 +652,8 @@ void Evaluation::message(const SymbolRef &name, const char *tag, const Args&... 
 
 	if (text_template) {
 		std::string text(text_template->utf8());
-		const std::string full_text = message_text(std::move(text), 1, args...);
-		std::cout <<
-			name->short_name() << "::" << tag << ": " <<
-		    full_text.c_str() << std::endl;
+        std::unique_lock<std::mutex> lock(m_output_mutex);
+        m_output->write(name->short_name(), tag, message_text(std::move(text), 1, args...));
 	}
 }
 

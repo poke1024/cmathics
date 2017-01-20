@@ -6,7 +6,9 @@
 #include <functional>
 #include <vector>
 #include <cstdlib>
+
 #include <symengine/basic.h>
+#include <symengine/complex.h>
 
 #include <experimental/optional>
 using std::experimental::optional;
@@ -61,11 +63,10 @@ enum Type : uint8_t { // values represented as bits in TypeMasks
 	BigRealType = 4,
 	MachineRationalType = 5,
     BigRationalType = 6,
-	ComplexType = 7,
-	ExpressionType = 8,
-	StringType = 9,
-    MachineComplexType = 10,
-    BigComplexType = 11
+	MachineComplexType = 7,
+    BigComplexType = 8,
+	ExpressionType = 9,
+	StringType = 10
 };
 
 // CoreTypeBits is the number of bits needed to represent every value in
@@ -101,11 +102,10 @@ enum ExtendedType : uint16_t {
 	BigRealExtendedType = BigRealType << CoreTypeShift,
     MachineRationalExtendedType = MachineRationalType << CoreTypeShift,
 	BigRationalExtendedType = BigRationalType << CoreTypeShift,
-	ComplexExtendedType = ComplexType << CoreTypeShift,
+	MachineComplexExtendedType = MachineComplexType << CoreTypeShift,
+    BigComplexExtendedType = BigComplexType << CoreTypeShift,
 	ExpressionExtendedType = ExpressionType << CoreTypeShift,
-	StringExtendedType = StringType << CoreTypeShift,
-    MachineComplexExtendedType = MachineComplexType << CoreTypeShift,
-    BigComplexExtendedType = BigComplexType << CoreTypeShift
+	StringExtendedType = StringType << CoreTypeShift
 };
 
 typedef uint32_t TypeMask;
@@ -340,6 +340,8 @@ static_assert(false, "need WITH_SYMENGINE_THREAD_SAFE");
 #endif*/
 
 typedef SymEngine::RCP<const SymEngine::Basic> SymEngineRef;
+
+typedef SymEngine::RCP<const SymEngine::Complex> SymEngineComplexRef;
 
 class SymbolicForm : public Shared<SymbolicForm, SharedPool> {
 private:
@@ -758,32 +760,48 @@ protected:
 	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const = 0;
 };
 
-template<typename T>
-inline SymbolicFormRef symbolic_form(const T &item) {
-    return SymbolicFormRef(item->m_symbolic_form.ensure([&item] () {
-        return item->instantiate_symbolic_form();
-    }));
-}
-
 inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
-	return SymbolicFormRef(expr->m_symbolic_form.ensure([expr] () {
+    // IMPORTANT: caller must handle SymEngine::SymEngineException
+
+    optional<SymEngine::SymEngineException> exception;
+
+	SymbolicFormRef form = (expr->m_symbolic_form.ensure([expr, &exception] () {
         const auto &f = InstantiateSymbolicForm::lookup(
             expr->_head->extended_type());
         if (f) {
             try {
                 return f(expr);
-            } catch(const SymEngine::SymEngineException &e) {
-                std::cerr << "SymEngine error: " << e.what() << std::endl;
+            } catch (const SymEngine::SymEngineException &e) {
+                exception = e;
                 return Pool::NoSymbolicForm();
             }
         } else {
             return Pool::NoSymbolicForm();
         }
     }));
+
+    if (exception) {
+        throw *exception;
+    }
+
+    return form;
+}
+
+template<typename T>
+inline SymbolicFormRef symbolic_form(const T &item) {
+    // caller must handle SymEngine::SymEngineException; non-core code should always
+    // call symbolic_form(item, evaluation).
+
+    return SymbolicFormRef(item->m_symbolic_form.ensure([&item] () {
+        return item->instantiate_symbolic_form();
+    }));
 }
 
 template<>
 inline SymbolicFormRef symbolic_form<const ExpressionPtr&>(const ExpressionPtr& expr) {
+    // caller must handle SymEngine::SymEngineException; non-core code should always
+    // call symbolic_form(item, evaluation).
+
 	return fast_symbolic_form(expr);
 }
 

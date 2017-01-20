@@ -74,7 +74,7 @@ public:
 				unpack_leaves<N, 0>()(leaves, t);
 				return apply_from_tuple(
 					func,
-					std::tuple_cat(t, std::make_tuple(evaluation)));
+					std::tuple_cat(t, std::forward_as_tuple(evaluation)));
 			});
 	}
 };
@@ -225,7 +225,7 @@ public:
 				unpack_leaves<N, 0>()(leaves, t);
 				return apply_from_tuple(
 					func,
-					std::tuple_cat(t, std::make_tuple(options, evaluation)));
+					std::tuple_cat(t, std::forward_as_tuple(options, evaluation)));
 			});
 	}
 };
@@ -257,7 +257,8 @@ public:
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		const MatchRef m = match(_patt, expr, evaluation.definitions);
 		if (m) {
-			return apply_from_tuple(_func, std::tuple_cat(m->unpack<N>(), std::make_tuple(evaluation)));
+			return apply_from_tuple(_func, std::tuple_cat(
+                m->unpack<N>(), std::forward_as_tuple(evaluation)));
 		} else {
 			return BaseExpressionRef();
 		}

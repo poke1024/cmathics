@@ -8,8 +8,14 @@
 #include "evaluation.h"
 #include "pattern.h"
 
-Evaluation::Evaluation(Definitions &new_definitions, bool new_catch_interrupts) :
+Evaluation::Evaluation(
+    const OutputRef &output,
+    Definitions &new_definitions,
+    bool new_catch_interrupts) :
+
 	Symbols(new_definitions.symbols()),
+
+    m_output(output),
 	definitions(new_definitions),
 	zero(Pool::MachineInteger(0)),
 	one(Pool::MachineInteger(1)) {
@@ -52,4 +58,14 @@ BaseExpressionRef Evaluation::evaluate(BaseExpressionRef expr) {
     // TODO clear aborts
 
     return evaluated;
+}
+
+void Evaluation::sym_engine_exception(const SymEngine::SymEngineException &e) const {
+    const std::string what(e.what());
+
+    if (what == "Indeterminate Expression: `0 * Infty` encountered") {
+        message(definitions.lookup("General"), "indet", Pool::String(std::string("0 Infinity")));
+    } else {
+        std::cerr << "SymEngine error: " << what << std::endl;
+    }
 }

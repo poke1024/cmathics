@@ -12,3 +12,7 @@ const std::hash<machine_real_t> MachineComplex::hash_function = std::hash<machin
 BaseExpressionPtr MachineComplex::head(const Evaluation &evaluation) const {
     return evaluation.Complex;
 }
+
+BaseExpressionPtr BigComplex::head(const Evaluation &evaluation) const {
+    return evaluation.Complex;
+}
