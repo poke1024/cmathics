@@ -5,6 +5,7 @@
 #include "builtin/control.h"
 #include "builtin/exptrig.h"
 #include "builtin/functional.h"
+#include "builtin/inout.h"
 #include "builtin/lists.h"
 #include "builtin/strings.h"
 #include "builtin/structure.h"
@@ -116,6 +117,7 @@ Runtime::Runtime() : _parser(_definitions) {
     Builtins::Control(*this).initialize();
     Builtins::ExpTrig(*this).initialize();
     Builtins::Functional(*this).initialize();
+	Builtins::InOut(*this).initialize();
     Builtins::Lists(*this).initialize();
     Builtins::Strings(*this).initialize();
     Builtins::Structure(*this).initialize();

@@ -18,7 +18,8 @@ Evaluation::Evaluation(
     m_output(output),
 	definitions(new_definitions),
 	zero(Pool::MachineInteger(0)),
-	one(Pool::MachineInteger(1)) {
+	one(Pool::MachineInteger(1)),
+	minus_one(Pool::MachineInteger(-1)) {
 
     recursion_depth = 0;
     timeout = false;

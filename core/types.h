@@ -423,6 +423,22 @@ public:
 		return ((TypeMask)1) << type();
 	}
 
+	inline bool is_number() const {
+		switch (type()) {
+			case MachineIntegerType:
+			case BigIntegerType:
+			case MachineRealType:
+			case BigRealType:
+			case MachineRationalType:
+			case BigRationalType:
+			case MachineComplexType:
+			case BigComplexType:
+				return true;
+			default:
+				return false;
+		}
+	}
+
 	inline optional<hash_t> match_hash() const {
 		if (type() == ExpressionType) {
 			return compute_match_hash();

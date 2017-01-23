@@ -174,6 +174,7 @@ public:
 
     const BaseExpressionRef zero;
     const BaseExpressionRef one;
+    const BaseExpressionRef minus_one;
 
     Evaluation(
         const OutputRef &output,

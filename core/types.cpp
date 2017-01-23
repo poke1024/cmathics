@@ -116,6 +116,27 @@ void InstantiateSymbolicForm::add(ExtendedType type, const Function &f) {
     s_functions[index(type)] = f;
 }
 
+inline SymbolicFormRef times_2(const Expression *expr) {
+	const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+
+	for (int i = 0; i < 2; i++) {
+		const BaseExpressionRef &operand = leaves[i];
+
+		if (operand->type() == MachineIntegerType &&
+		    static_cast<const MachineInteger*>(operand.get())->value == -1) {
+
+			const SymbolicFormRef form = symbolic_form(leaves[1 - i]);
+			if (!form->is_none()) {
+				return Pool::SymbolicForm(SymEngine::neg(form->get()));
+			} else {
+				return Pool::NoSymbolicForm();
+			}
+		}
+	}
+
+	return expr->symbolic_2(SymEngine::mul);
+}
+
 void InstantiateSymbolicForm::init() {
     std::memset(s_functions, 0, sizeof(s_functions));
 
@@ -145,7 +166,7 @@ void InstantiateSymbolicForm::init() {
 
     add(SymbolTimes, [] (const Expression *expr) {
         if (expr->size() == 2) {
-            return expr->symbolic_2(SymEngine::mul);
+            return times_2(expr);
         } else {
             return expr->symbolic_n(SymEngine::mul);
         }

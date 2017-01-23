@@ -2,6 +2,8 @@
 
 #include "arithmetic.h"
 #include "../core/definitions.h"
+#include "../arithmetic/add.h"
+#include "../arithmetic/mul.h"
 
 static_assert(sizeof(machine_integer_t) == sizeof(long),
 	"machine integer type must equivalent to long");
@@ -402,8 +404,18 @@ struct Comparison<BigReal, BigRational> {
 	}
 };
 
-template<typename F>
+class no_binary_fallback {
+public:
+	inline BaseExpressionRef operator()(const Expression*, const Evaluation&) const {
+		return BaseExpressionRef();
+	}
+};
+
+template<typename F, typename Fallback = no_binary_fallback>
 class BinaryOperator {
+private:
+	const Fallback m_fallback;
+
 protected:
 	typedef decltype(F::calculate(nullptr, nullptr)) IntermediateType;
 
@@ -432,55 +444,65 @@ protected:
 	}
 
 public:
-	BinaryOperator() {
+	BinaryOperator(const Fallback &fallback = Fallback()) : m_fallback(fallback) {
 		std::memset(_functions, 0, sizeof(_functions));
 	}
 
-	inline BaseExpressionRef operator()(const Definitions &definitions, const BaseExpressionRef *leaves) const {
+	inline BaseExpressionRef operator()(
+		const Definitions &definitions,
+		const Expression *expr,
+		const Evaluation &evaluation) const {
+
+		const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+
 		const BaseExpression * const a = leaves[0].get();
 		const BaseExpression * const b = leaves[1].get();
 		const Function f = _functions[a->type() | (size_t(b->type()) << CoreTypeBits)];
+
 		if (f) {
 			return result(definitions, f(a, b));
 		} else {
-			return BaseExpressionRef();
+			return m_fallback(expr, evaluation);
 		}
 	}
 };
 
-template<typename F>
-class BinaryArithmetic : public BinaryOperator<F> {
+template<typename F, typename Fallback = no_binary_fallback>
+class BinaryArithmetic : public BinaryOperator<F, Fallback> {
 public:
-	BinaryArithmetic() {
-		BinaryOperator<F>::template init<MachineInteger, MachineInteger>();
-		BinaryOperator<F>::template init<MachineInteger, BigInteger>();
-		BinaryOperator<F>::template init<MachineInteger, BigRational>();
-		BinaryOperator<F>::template init<MachineInteger, MachineReal>();
-		BinaryOperator<F>::template init<MachineInteger, BigReal>();
+	using Base = BinaryOperator<F, Fallback>;
 
-		BinaryOperator<F>::template init<BigInteger, MachineInteger>();
-		BinaryOperator<F>::template init<BigInteger, BigInteger>();
-		BinaryOperator<F>::template init<BigInteger, BigRational>();
-		BinaryOperator<F>::template init<BigInteger, MachineReal>();
-		BinaryOperator<F>::template init<BigInteger, BigReal>();
+	BinaryArithmetic(const Fallback &fallback = Fallback()) : Base(fallback) {
 
-		BinaryOperator<F>::template init<BigRational, MachineInteger>();
-		BinaryOperator<F>::template init<BigRational, BigInteger>();
-		BinaryOperator<F>::template init<BigRational, MachineReal>();
-		BinaryOperator<F>::template init<BigRational, BigReal>();
-		BinaryOperator<F>::template init<BigRational, BigRational>();
+		Base::template init<MachineInteger, MachineInteger>();
+		Base::template init<MachineInteger, BigInteger>();
+		Base::template init<MachineInteger, BigRational>();
+		Base::template init<MachineInteger, MachineReal>();
+		Base::template init<MachineInteger, BigReal>();
 
-		BinaryOperator<F>::template init<MachineReal, MachineInteger>();
-		BinaryOperator<F>::template init<MachineReal, BigInteger>();
-		BinaryOperator<F>::template init<MachineReal, BigRational>();
-		BinaryOperator<F>::template init<MachineReal, MachineReal>();
-		BinaryOperator<F>::template init<MachineReal, BigReal>();
+		Base::template init<BigInteger, MachineInteger>();
+		Base::template init<BigInteger, BigInteger>();
+		Base::template init<BigInteger, BigRational>();
+		Base::template init<BigInteger, MachineReal>();
+		Base::template init<BigInteger, BigReal>();
 
-		BinaryOperator<F>::template init<BigReal, MachineInteger>();
-		BinaryOperator<F>::template init<BigReal, BigInteger>();
-		BinaryOperator<F>::template init<BigReal, BigRational>();
-		BinaryOperator<F>::template init<BigReal, MachineReal>();
-		BinaryOperator<F>::template init<BigReal, BigReal>();
+		Base::template init<BigRational, MachineInteger>();
+		Base::template init<BigRational, BigInteger>();
+		Base::template init<BigRational, MachineReal>();
+		Base::template init<BigRational, BigReal>();
+		Base::template init<BigRational, BigRational>();
+
+		Base::template init<MachineReal, MachineInteger>();
+		Base::template init<MachineReal, BigInteger>();
+		Base::template init<MachineReal, BigRational>();
+		Base::template init<MachineReal, MachineReal>();
+		Base::template init<MachineReal, BigReal>();
+
+		Base::template init<BigReal, MachineInteger>();
+		Base::template init<BigReal, BigInteger>();
+		Base::template init<BigReal, BigRational>();
+		Base::template init<BigReal, MachineReal>();
+		Base::template init<BigReal, BigReal>();
 	}
 };
 
@@ -534,14 +556,6 @@ struct times {
 	}
 };
 
-inline bool is_minus_1(const BaseExpressionRef &expr) {
-	if (expr->type() == MachineIntegerType) {
-		return static_cast<const MachineInteger*>(expr.get())->value == -1;
-	} else {
-		return false;
-	}
-}
-
 inline const BaseExpression *if_divisor(const BaseExpression *b_base) {
 	const Expression *b = static_cast<const Expression*>(b_base);
 	if (b->_head->extended_type() != SymbolPower || b->size() != 2) {
@@ -556,12 +570,19 @@ inline const BaseExpression *if_divisor(const BaseExpression *b_base) {
 	return args[0].get();
 }
 
-class TimesArithmetic : public BinaryArithmetic<times> {
+class binary_times_fallback {
+public:
+	inline BaseExpressionRef operator()(const Expression *expr, const Evaluation &evaluation) const {
+		return mul(expr, evaluation);
+	}
+};
+
+class TimesArithmetic : public BinaryArithmetic<times, binary_times_fallback> {
 public:
 	TimesArithmetic() {
 		// detect Times[x, Power[y, -1]] and use fast divide if possible.
 
-		BinaryOperator<times>::template init<MachineInteger, Expression>(
+		/*BinaryOperator<times>::template init<MachineInteger, Expression>(
 			[] (const BaseExpression *a, const BaseExpression *b) {
 
 				const BaseExpression *divisor = if_divisor(b);
@@ -630,7 +651,7 @@ public:
 
 				return BaseExpressionRef(); // leave this for SymEngine to evaluate
 			}
-		);
+		);*/
 	}
 };
 
@@ -664,166 +685,36 @@ public:
 template<typename Operator>
 class BinaryOperatorRule : public ExactlyNRule<2> {
 private:
-	const Operator _operator;
+	const Operator m_operator;
 
 public:
 	BinaryOperatorRule(const SymbolRef &head, const Definitions &definitions) :
-        ExactlyNRule<2>(head, definitions), _operator() {
+        ExactlyNRule<2>(head, definitions), m_operator() {
 	}
 
 	virtual BaseExpressionRef try_apply(
         const Expression *expr, const Evaluation &evaluation) const {
 
-		return _operator(evaluation.definitions, expr->static_leaves<2>());
+		return m_operator(evaluation.definitions, expr, evaluation);
+	}
+};
+
+class binary_plus_fallback {
+public:
+	inline BaseExpressionRef operator()(const Expression *expr, const Evaluation &evaluation) const {
+		return add(expr, evaluation);
 	}
 };
 
 constexpr auto Plus0 = NewRule<EmptyConstantRule<0>>;
 constexpr auto Plus1 = NewRule<IdentityRule>;
-constexpr auto Plus2 = NewRule<BinaryOperatorRule<BinaryArithmetic<plus>>>;
+constexpr auto Plus2 = NewRule<BinaryOperatorRule<BinaryArithmetic<plus, binary_plus_fallback>>>;
+constexpr auto PlusN = NewRule<PlusNRule>;
 
+constexpr auto Times0 = NewRule<EmptyConstantRule<1>>;
+constexpr auto Times1 = NewRule<IdentityRule>;
 constexpr auto Times2 = NewRule<BinaryOperatorRule<TimesArithmetic>>;
-
-template<typename Slice>
-inline BaseExpressionRef add_only_integers(const Slice &slice) {
-	// sums an all MachineInteger/BigInteger expression
-
-	Numeric::Z result(0);
-
-	for (auto value : slice.template primitives<Numeric::Z>()) {
-		result += value;
-	}
-
-	return result.to_expression();
-}
-
-template<typename Slice>
-inline BaseExpressionRef add_only_machine_reals(const Slice &slice) {
-	// sums an all MachineReal expression
-
-	machine_real_t result = 0.;
-
-	for (machine_real_t value : slice.template primitives<machine_real_t>()) {
-		result += value;
-	}
-
-	return Pool::MachineReal(result);
-}
-
-template<typename Slice>
-inline BaseExpressionRef add_machine_inexact(const Expression *expr, const Slice &slice) {
-	// create an array to store all the symbolic arguments which can't be evaluated.
-
-	LeafVector symbolics;
-	symbolics.reserve(slice.size());
-
-	machine_real_t sum = 0.0;
-	for (const BaseExpressionRef leaf : slice.leaves()) {
-		const BaseExpression *leaf_ptr = leaf.get();
-
-		const auto type = leaf_ptr->type();
-		switch(type) {
-			case MachineIntegerType:
-				sum += machine_real_t(static_cast<const MachineInteger*>(leaf_ptr)->value);
-				break;
-			case BigIntegerType:
-				sum += static_cast<const BigInteger*>(leaf_ptr)->value.get_d();
-				break;
-			case MachineRealType:
-				sum += static_cast<const MachineReal*>(leaf_ptr)->value;
-				break;
-			case BigRealType:
-				sum += static_cast<const BigReal*>(leaf_ptr)->as_double();
-				break;
-			case BigRationalType:
-				sum += static_cast<const BigRational*>(leaf_ptr)->value.get_d();
-				break;
-			case MachineComplexType:
-			case BigComplexType:
-				assert(false);
-				break;
-			case ExpressionType:
-			case SymbolType:
-			case StringType:
-				symbolics.push_back_copy(leaf);
-				break;
-
-			default:
-				throw std::runtime_error("unsupported types"); // FIXME
-		}
-	}
-
-	// at least one non-symbolic
-	assert(symbolics.size() != slice.size());
-
-	UnsafeBaseExpressionRef result;
-
-	if (symbolics.size() == slice.size() - 1) {
-		// one non-symbolic: nothing to do
-		// result = NULL;
-	} else if (!symbolics.empty()) {
-		// at least one symbolic
-		symbolics.push_back(from_primitive(sum));
-		result = expression(expr->head(), std::move(symbolics));
-	} else {
-		// no symbolics
-		result = from_primitive(sum);
-	}
-
-	return result;
-}
-
-class Plus3Rule : public AtLeastNRule<3> {
-public:
-	using AtLeastNRule<3>::AtLeastNRule;
-
-	virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const;
-};
-
-BaseExpressionRef Plus3Rule::try_apply(
-	const Expression *expr, const Evaluation &evaluation) const {
-
-	// we guarantee that expr.size() >= 3 through the given match_size()
-	// in the corresponding Rule.
-
-	return expr->with_slice<CompileToSliceType>([&expr] (const auto &slice) {
-		// bit field to determine which types are present
-		const TypeMask types_seen = slice.exact_type_mask();
-
-		// expression is all MachineReals
-		if (types_seen == make_type_mask(MachineRealType)) {
-			return add_only_machine_reals(slice);
-		}
-
-		constexpr TypeMask int_mask =
-			make_type_mask(BigIntegerType) | make_type_mask(MachineIntegerType);
-
-		// expression is all Integers
-		if ((types_seen & int_mask) == types_seen) {
-			return add_only_integers(slice);
-		}
-
-		// expression contains a Real
-		if (types_seen & make_type_mask(MachineRealType)) {
-			return add_machine_inexact(expr, slice);
-		}
-
-		// expression contains an Integer
-		/*if (types_seen & int_mask) {
-            auto integer_result = expr->operations().add_integers();
-            // FIXME return Plus[symbolics__, integer_result]
-            return integer_result;
-        }*/
-
-		// TODO rational and complex
-
-		// expression is symbolic
-		return BaseExpressionRef();
-	});
-}
-
-constexpr auto Plus3 = NewRule<Plus3Rule>;
+constexpr auto TimesN = NewRule<TimesNRule>;
 
 class PowerRule : public ExactlyNRule<2> {
 public:
@@ -921,19 +812,7 @@ public:
         BaseExpressionPtr expr,
         const Evaluation &evaluation) {
 
-        switch (expr->type()) {
-            case MachineIntegerType:
-            case BigIntegerType:
-            case MachineRealType:
-            case BigRealType:
-            case MachineRationalType:
-            case BigRationalType:
-            case MachineComplexType:
-            case BigComplexType:
-                return true;
-            default:
-                return false;
-        }
+	    return expr->is_number();
     }
 };
 
@@ -1067,6 +946,71 @@ public:
     }
 };
 
+class Subtract : public Builtin {
+public:
+	static constexpr const char *name = "Subtract";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Subtract[$a$, $b$]'</dt>
+    <dt>$a$ - $b$</dt>
+        <dd>represents the subtraction of $b$ from $a$.</dd>
+    </dl>
+
+    >> 5 - 3
+     = 2
+    >> a - b // FullForm
+     = Plus[a, Times[-1, b]]
+    >> a - b - c
+     = a - b - c
+    #> a - (b - c)
+     = a - b + c
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	static constexpr auto attributes =
+		Attributes::Listable + Attributes::NumericFunction;
+
+	void build(Runtime &runtime) {
+		rule("Subtract[x_, y_]", "Plus[x, Times[-1, y]]");
+	}
+};
+
+class Minus : public Builtin {
+public:
+	static constexpr const char *name = "Minus";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Minus[$expr$]'
+        <dd> is the negation of $expr$.
+    </dl>
+
+    >> -a //FullForm
+     = Times[-1, a]
+
+    'Minus' automatically distributes:
+    >> -(x - 2/3)
+     = 2 / 3 - x
+
+    'Minus' threads over lists:
+    >> -Range[10]
+    = {-1, -2, -3, -4, -5, -6, -7, -8, -9, -10}
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	static constexpr auto attributes =
+		Attributes::Listable + Attributes::NumericFunction;
+
+	void build(Runtime &runtime) {
+		rule("Minus[x_]", "Times[-1, x]");
+	}
+};
+
 void Builtins::Arithmetic::initialize() {
 
 	add("Plus",
@@ -1075,22 +1019,23 @@ void Builtins::Arithmetic::initialize() {
 			Plus0,
 		    Plus1,
 		    Plus2,
-		    Plus3
+		    PlusN
 	    }, R"(
 			>> 1 + 2
 			 = 3
 		)");
 
-	add("Subtract",
-		Attributes::Listable + Attributes::NumericFunction, {
-			down("Subtract[x_, y_]", "Plus[x, Times[-1, y]]")
-	    }
-	);
+	add<Subtract>();
+
+	add<Minus>();
 
 	add("Times",
 		Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +
 			Attributes::OneIdentity + Attributes::Orderless + Attributes::Protected, {
-			Times2
+		    Times0,
+		    Times1,
+			Times2,
+			TimesN
 	    });
 
 	add("Power",

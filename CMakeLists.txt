@@ -121,7 +121,19 @@ set(SOURCE_FILES
     builtin/numbertheory.cpp
     builtin/numbertheory.h
     builtin/structure.cpp
-    builtin/structure.h core/complex.cpp core/complex.h concurrent/parallel.h concurrent/parallel.cpp core/generator.h)
+    builtin/structure.h
+    core/complex.cpp
+    core/complex.h
+    concurrent/parallel.h
+    concurrent/parallel.cpp
+    core/generator.h
+    builtin/inout.cpp
+    builtin/inout.h
+    core/generator.h
+    arithmetic/add.cpp
+    arithmetic/add.h
+    arithmetic/mul.cpp
+    arithmetic/mul.h)
 
 add_custom_target(standalone)
 
@@ -138,7 +150,9 @@ set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test_rational.cpp
     tests/test_real.cpp
     tests/test_string.cpp
-    tests/test.cpp core/complex.cpp core/complex.h tests/test_pool.cpp concurrent/parallel.h concurrent/parallel.cpp tests/test_parallel.cpp core/generator.h)
+    tests/test.cpp
+    tests/test_pool.cpp
+    tests/test_parallel.cpp)
 
 add_executable(cmathicstest ${TESTS_SOURCE_FILES})
 target_compile_definitions(cmathicstest PRIVATE MAKE_UNIT_TEST=1)
