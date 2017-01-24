@@ -39,36 +39,6 @@ public:
     const long bits;
 };
 
-inline bool is_almost_equal(const arb_t &x, const Precision &px, const arb_t &y, const Precision &py) {
-    // considers numbers equal that differ in their last 7 binary digits
-    if (px.bits != py.bits) {
-        return false;
-    }
-    arb_t tx, ty;
-    arb_init(tx);
-    arb_init(ty);
-    arb_set_round(tx, x, px.bits - 7);
-    arb_set_round(ty, y, py.bits - 7);
-    bool eq = arb_overlaps(tx, ty);
-    arb_clear(tx);
-    arb_clear(ty);
-    return eq;
-}
-
-inline bool is_almost_equal(machine_real_t s, machine_real_t t, machine_real_t rel_eps) {
-    // adapted from mpmath.almosteq()
-    const machine_real_t diff = std::abs(s - t);
-    const machine_real_t abss = std::abs(s);
-    const machine_real_t abst = std::abs(t);
-    machine_real_t err;
-    if (abss < abst) {
-        err = diff / abst;
-    } else {
-        err = diff / abss;
-    }
-    return err <= rel_eps;
-}
-
 class MachineReal : public BaseExpression {
 private:
     static const std::hash<machine_real_t> hash_function;
@@ -92,22 +62,7 @@ public:
         }
     }
 
-    virtual bool equals(const BaseExpression &expr) const final {
-        switch (expr.type()) {
-            case MachineRealType: {
-                const machine_real_t s = value;
-                const machine_real_t t = static_cast<const MachineReal*>(&expr)->value;
-
-                constexpr int prec = std::numeric_limits<machine_real_t>::digits;
-                static const machine_real_t rel_eps = std::pow(0.5, prec - 7);
-
-                return is_almost_equal(s, t, rel_eps);
-            }
-
-            default:
-                return false;
-        }
-    }
+    virtual bool equals(const BaseExpression &expr) const final;
 
     virtual hash_t hash() const {
         // TODO better hash see CPython _Py_HashDouble
@@ -175,19 +130,7 @@ public:
         }
     }
 
-    virtual bool equals(const BaseExpression &expr) const final {
-        const BigReal &s = *this;
-
-        switch (expr.type()) {
-            case BigRealType: {
-                const BigReal &t = *static_cast<const BigReal*>(&expr);
-                return is_almost_equal(s.value, s.prec, t.value, t.prec);
-            }
-
-            default:
-                return false;
-        }
-    }
+    virtual bool equals(const BaseExpression &expr) const final;
 
     virtual hash_t hash() const {
         // TODO hash
