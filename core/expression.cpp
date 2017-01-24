@@ -44,3 +44,4 @@ BaseExpressionRef Expression::evaluate_expression(
 SymbolicFormRef Expression::instantiate_symbolic_form() const {
     return fast_symbolic_form(this);
 }
+

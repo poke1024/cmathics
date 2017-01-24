@@ -133,7 +133,7 @@ set(SOURCE_FILES
     arithmetic/add.cpp
     arithmetic/add.h
     arithmetic/mul.cpp
-    arithmetic/mul.h)
+    arithmetic/mul.h builtin/comparison.cpp builtin/comparison.h arithmetic/binary.h)
 
 add_custom_target(standalone)
 

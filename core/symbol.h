@@ -221,6 +221,8 @@ protected:
     virtual SymbolicFormRef instantiate_symbolic_form() const;
 
 public:
+    static constexpr Type Type = SymbolType;
+
 	Symbol(const char *name, ExtendedType symbol = SymbolExtendedType);
 
 	~Symbol();
@@ -245,7 +247,7 @@ public:
 		return hash_pair(symbol_hash, (std::uintptr_t)this);
 	}
 
-    virtual std::string format(const SymbolRef &form) const {
+    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const {
 		return name();
 	}
 

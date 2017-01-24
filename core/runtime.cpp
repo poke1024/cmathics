@@ -2,6 +2,7 @@
 
 #include "builtin/arithmetic.h"
 #include "builtin/assignment.h"
+#include "builtin/comparison.h"
 #include "builtin/control.h"
 #include "builtin/exptrig.h"
 #include "builtin/functional.h"
@@ -114,6 +115,7 @@ Runtime::Runtime() : _parser(_definitions) {
 
     Builtins::Arithmetic(*this).initialize();
     Builtins::Assignment(*this).initialize();
+    Builtins::Comparison(*this).initialize();
     Builtins::Control(*this).initialize();
     Builtins::ExpTrig(*this).initialize();
     Builtins::Functional(*this).initialize();
@@ -211,11 +213,11 @@ void Runtime::run_tests() {
                 } else {
                     if (result) {
                         auto parsed = _parser.parse(result_str.c_str());
-                        const std::string result_str = result->format(fullform);
-                        if (parsed->evaluate_or_copy(dummy_evaluation)->format(fullform) != result_str) {
+                        const std::string result_str = result->format(fullform, evaluation);
+                        if (parsed->evaluate_or_copy(dummy_evaluation)->format(fullform, evaluation) != result_str) {
                             if (!fail_expected) {
                                 std::cout << "FAIL" << std::endl;
-                                std::cout << parsed->format(fullform) <<" != " << result_str << std::endl;
+                                std::cout << parsed->format(fullform, evaluation) <<" != " << result_str << std::endl;
                                 fail_count++;
                             }
                         }

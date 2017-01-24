@@ -72,6 +72,8 @@ SYMBOL(TraditionalForm)
 SYMBOL(TeXForm)
 SYMBOL(MathMLForm)
 
+SYMBOL(HoldForm)
+
 SYMBOL(StartOfString)
 SYMBOL(EndOfString)
 SYMBOL(StartOfLine)

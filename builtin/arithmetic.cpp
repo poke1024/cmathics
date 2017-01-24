@@ -4,49 +4,10 @@
 #include "../core/definitions.h"
 #include "../arithmetic/add.h"
 #include "../arithmetic/mul.h"
+#include "../arithmetic/binary.h"
 
 static_assert(sizeof(machine_integer_t) == sizeof(long),
 	"machine integer type must equivalent to long");
-
-template<typename U, typename V>
-struct Comparison {
-	template<typename F>
-	inline static bool compare(const U &u, const V &v, const F &f) {
-		return f(u.value, v.value);
-	}
-};
-
-template<>
-struct Comparison<BigInteger, MachineInteger> {
-	template<typename F>
-	inline static bool compare(const BigInteger &u, const MachineInteger &v, const F &f) {
-		return f(u.value, long(v.value));
-	}
-};
-
-template<>
-struct Comparison<MachineInteger, BigInteger> {
-	template<typename F>
-	inline static bool compare(const MachineInteger &u, const BigInteger &v, const F &f) {
-		return f(long(u.value), v.value);
-	}
-};
-
-template<>
-struct Comparison<BigRational, MachineInteger> {
-	template<typename F>
-	inline static bool compare(const BigRational &u, const MachineInteger &v, const F &f) {
-		return f(u.value, long(v.value));
-	}
-};
-
-template<>
-struct Comparison<MachineInteger, BigRational> {
-	template<typename F>
-	inline static bool compare(const MachineInteger &u, const BigRational &v, const F &f) {
-		return f(long(u.value), v.value);
-	}
-};
 
 inline BaseExpressionRef operator+(const MachineInteger &x, const MachineInteger &y) {
 	long r;
@@ -340,208 +301,6 @@ inline BaseExpressionRef operator*(const BigRational &x, const BigRational &y) {
 	return Pool::BigRational(x.value * y.value);
 }
 
-template<>
-struct Comparison<MachineInteger, BigReal> {
-	template<typename F>
-	inline static bool compare(const MachineInteger &u, const BigReal &v, const F &f) {
-		return f(Numeric::R(u.value), Numeric::R(v.value));
-	}
-};
-
-template<>
-struct Comparison<BigReal, MachineInteger> {
-	template<typename F>
-	inline static bool compare(const BigReal &u, const MachineInteger &v, const F &f) {
-		return f(Numeric::R(u.value), Numeric::R(v.value));
-	}
-};
-
-template<>
-struct Comparison<MachineReal, BigReal> {
-	template<typename F>
-	inline static bool compare(const MachineReal &u, const BigReal &v, const F &f) {
-		return f(Numeric::R(u.value), Numeric::R(v.value));
-	}
-};
-
-template<>
-struct Comparison<BigReal, MachineReal> {
-	template<typename F>
-	inline static bool compare(const BigReal &u, const MachineReal &v, const F &f) {
-		return f(Numeric::R(u.value), Numeric::R(v.value));
-	}
-};
-
-template<>
-struct Comparison<BigInteger, BigReal> {
-	template<typename F>
-	inline static bool compare(const BigInteger &u, const BigReal &v, const F &f) {
-		return f(Numeric::R(u.value), Numeric::R(v.value));
-	}
-};
-
-template<>
-struct Comparison<BigReal, BigInteger> {
-	template<typename F>
-	inline static bool compare(const BigReal &u, const BigInteger &v, const F &f) {
-		return f(Numeric::R(u.value), Numeric::R(v.value));
-	}
-};
-
-template<>
-struct Comparison<BigRational, BigReal> {
-	template<typename F>
-	inline static bool compare(const BigRational &u, const BigReal &v, const F &f) {
-		return f(Numeric::R(u.value, v.prec), Numeric::R(v.value));
-	}
-};
-
-template<>
-struct Comparison<BigReal, BigRational> {
-	template<typename F>
-	inline static bool compare(const BigReal &u, const BigRational &v, const F &f) {
-		return f(Numeric::R(u.value), Numeric::R(v.value, u.prec));
-	}
-};
-
-class no_binary_fallback {
-public:
-	inline BaseExpressionRef operator()(const Expression*, const Evaluation&) const {
-		return BaseExpressionRef();
-	}
-};
-
-template<typename F, typename Fallback = no_binary_fallback>
-class BinaryOperator {
-private:
-	const Fallback m_fallback;
-
-protected:
-	typedef decltype(F::calculate(nullptr, nullptr)) IntermediateType;
-
-	typedef std::function<IntermediateType(const BaseExpression *a, const BaseExpression *b)> Function;
-
-	Function _functions[1LL << (2 * CoreTypeBits)];
-
-	template<typename U, typename V>
-	void init(const Function &f) {
-		_functions[size_t(U::Type) | (size_t(V::Type) << CoreTypeBits)] = f;
-	}
-
-	template<typename U, typename V>
-	void init() {
-		init<U, V>([] (const BaseExpression *a, const BaseExpression *b) {
-			return F::calculate(*static_cast<const U*>(a), *static_cast<const V*>(b));
-		});
-	};
-
-	static inline BaseExpressionRef result(const Definitions &definitions, const BaseExpressionRef &result) {
-		return result;
-	}
-
-	static inline BaseExpressionRef result(const Definitions &definitions, bool result) {
-		return definitions.symbols().Boolean(result);
-	}
-
-public:
-	BinaryOperator(const Fallback &fallback = Fallback()) : m_fallback(fallback) {
-		std::memset(_functions, 0, sizeof(_functions));
-	}
-
-	inline BaseExpressionRef operator()(
-		const Definitions &definitions,
-		const Expression *expr,
-		const Evaluation &evaluation) const {
-
-		const BaseExpressionRef * const leaves = expr->static_leaves<2>();
-
-		const BaseExpression * const a = leaves[0].get();
-		const BaseExpression * const b = leaves[1].get();
-		const Function f = _functions[a->type() | (size_t(b->type()) << CoreTypeBits)];
-
-		if (f) {
-			return result(definitions, f(a, b));
-		} else {
-			return m_fallback(expr, evaluation);
-		}
-	}
-};
-
-template<typename F, typename Fallback = no_binary_fallback>
-class BinaryArithmetic : public BinaryOperator<F, Fallback> {
-public:
-	using Base = BinaryOperator<F, Fallback>;
-
-	BinaryArithmetic(const Fallback &fallback = Fallback()) : Base(fallback) {
-
-		Base::template init<MachineInteger, MachineInteger>();
-		Base::template init<MachineInteger, BigInteger>();
-		Base::template init<MachineInteger, BigRational>();
-		Base::template init<MachineInteger, MachineReal>();
-		Base::template init<MachineInteger, BigReal>();
-
-		Base::template init<BigInteger, MachineInteger>();
-		Base::template init<BigInteger, BigInteger>();
-		Base::template init<BigInteger, BigRational>();
-		Base::template init<BigInteger, MachineReal>();
-		Base::template init<BigInteger, BigReal>();
-
-		Base::template init<BigRational, MachineInteger>();
-		Base::template init<BigRational, BigInteger>();
-		Base::template init<BigRational, MachineReal>();
-		Base::template init<BigRational, BigReal>();
-		Base::template init<BigRational, BigRational>();
-
-		Base::template init<MachineReal, MachineInteger>();
-		Base::template init<MachineReal, BigInteger>();
-		Base::template init<MachineReal, BigRational>();
-		Base::template init<MachineReal, MachineReal>();
-		Base::template init<MachineReal, BigReal>();
-
-		Base::template init<BigReal, MachineInteger>();
-		Base::template init<BigReal, BigInteger>();
-		Base::template init<BigReal, BigRational>();
-		Base::template init<BigReal, MachineReal>();
-		Base::template init<BigReal, BigReal>();
-	}
-};
-
-struct less {
-	template<typename U, typename V>
-	static bool calculate(const U &u, const V &v) {
-		return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
-			return x < y;
-		});
-	}
-};
-
-struct less_equal {
-	template<typename U, typename V>
-	static bool calculate(const U &u, const V &v) {
-		return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
-			return x <= y;
-		});
-	}
-};
-
-struct greater {
-	template<typename U, typename V>
-	static bool calculate(const U &u, const V &v) {
-		return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
-			return x > y;
-		});
-	}
-};
-
-struct greater_equal {
-	template<typename U, typename V>
-	static bool calculate(const U &u, const V &v) {
-		return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
-			return x >= y;
-		});
-	}
-};
-
 struct plus {
 	template<typename U, typename V>
 	static BaseExpressionRef calculate(const U &u, const V &v) {
@@ -579,7 +338,9 @@ public:
 
 class TimesArithmetic : public BinaryArithmetic<times, binary_times_fallback> {
 public:
-	TimesArithmetic() {
+    using Base = BinaryArithmetic<times, binary_times_fallback>;
+
+	TimesArithmetic(const Definitions& definitions) : Base(definitions) {
 		// detect Times[x, Power[y, -1]] and use fast divide if possible.
 
 		/*BinaryOperator<times>::template init<MachineInteger, Expression>(
@@ -655,49 +416,7 @@ public:
 	}
 };
 
-template<machine_integer_t Value>
-class EmptyConstantRule : public ExactlyNRule<0> {
-public:
-	EmptyConstantRule(const SymbolRef &head, const Definitions &definitions) :
-        ExactlyNRule<0>(head, definitions) {
-	}
 
-	virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
-
-		return Pool::MachineInteger(Value);
-	}
-};
-
-class IdentityRule : public ExactlyNRule<1> {
-public:
-	IdentityRule(const SymbolRef &head, const Definitions &definitions) :
-        ExactlyNRule<1>(head, definitions) {
-	}
-
-	virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
-
-		return expr->static_leaves<1>()[0];
-	}
-};
-
-template<typename Operator>
-class BinaryOperatorRule : public ExactlyNRule<2> {
-private:
-	const Operator m_operator;
-
-public:
-	BinaryOperatorRule(const SymbolRef &head, const Definitions &definitions) :
-        ExactlyNRule<2>(head, definitions), m_operator() {
-	}
-
-	virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
-
-		return m_operator(evaluation.definitions, expr, evaluation);
-	}
-};
 
 class binary_plus_fallback {
 public:
@@ -738,10 +457,112 @@ public:
 
 constexpr auto Power = NewRule<PowerRule>;
 
-constexpr auto Less = NewRule<BinaryOperatorRule<BinaryArithmetic<less>>>;
-constexpr auto LessEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<less_equal>>>;
-constexpr auto Greater = NewRule<BinaryOperatorRule<BinaryArithmetic<greater>>>;
-constexpr auto GreaterEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<greater_equal>>>;
+class Subtract : public Builtin {
+public:
+	static constexpr const char *name = "Subtract";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Subtract[$a$, $b$]'</dt>
+    <dt>$a$ - $b$</dt>
+        <dd>represents the subtraction of $b$ from $a$.</dd>
+    </dl>
+
+    >> 5 - 3
+     = 2
+    >> a - b // FullForm
+     = Plus[a, Times[-1, b]]
+    >> a - b - c
+     = a - b - c
+    #> a - (b - c)
+     = a - b + c
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	static constexpr auto attributes =
+		Attributes::Listable + Attributes::NumericFunction;
+
+	void build(Runtime &runtime) {
+		rule("Subtract[x_, y_]", "Plus[x, Times[-1, y]]");
+	}
+};
+
+class Minus : public Builtin {
+public:
+	static constexpr const char *name = "Minus";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Minus[$expr$]'
+        <dd> is the negation of $expr$.
+    </dl>
+
+    >> -a //FullForm
+     = Times[-1, a]
+
+    'Minus' automatically distributes:
+    >> -(x - 2/3)
+     = 2 / 3 - x
+
+    'Minus' threads over lists:
+    >> -Range[10]
+    = {-1, -2, -3, -4, -5, -6, -7, -8, -9, -10}
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	static constexpr auto attributes =
+		Attributes::Listable + Attributes::NumericFunction;
+
+	void build(Runtime &runtime) {
+		rule("Minus[x_]", "Times[-1, x]");
+	}
+};
+
+class Sqrt : public Builtin {
+public:
+	static constexpr const char *name = "Sqrt";
+
+	static constexpr auto attributes =
+		Attributes::Listable + Attributes::NumericFunction;
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Sqrt[$expr$]'
+        <dd>returns the square root of $expr$.
+    </dl>
+
+    >> Sqrt[4]
+     = 2
+    >> Sqrt[5]
+     = Sqrt[5]
+    >> Sqrt[5] // N
+     = 2.23607
+    >> Sqrt[a]^2
+     = a
+
+    Complex numbers:
+    >> Sqrt[-4]
+     = 2 I
+    >> I == Sqrt[-1]
+     = True
+
+    >> Plot[Sqrt[a^2], {a, -2, 2}]
+     = -Graphics-
+
+    #> N[Sqrt[2], 50]
+     = 1.4142135623730950488016887242096980785696718753769
+    )";
+
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+        rule("Sqrt[x_]", "x ^ (1 / 2)");
+	}
+};
 
 class Infinity : public Builtin {
 public:
@@ -906,6 +727,119 @@ public:
     }
 };
 
+class ExactNumberQ : public Builtin {
+public:
+	static constexpr const char *name = "ExactNumberQ";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'ExactNumberQ[$expr$]'
+        <dd>returns 'True' if $expr$ is an exact number, and 'False' otherwise.
+    </dl>
+
+    >> ExactNumberQ[10]
+     = True
+    >> ExactNumberQ[4.0]
+     = False
+    >> ExactNumberQ[n]
+     = False
+
+    'ExactNumberQ' can be applied to complex numbers:
+    >> ExactNumberQ[1 + I]
+     = True
+    >> ExactNumberQ[1 + 1. I]
+     = False
+    )";
+
+public:
+    using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&ExactNumberQ::test);
+	}
+
+    inline bool test(
+        BaseExpressionPtr expr,
+        const Evaluation &evaluation) {
+
+        return expr->is_number() && !expr->is_inexact();
+    }
+};
+
+class InexactNumberQ : public Builtin {
+public:
+	static constexpr const char *name = "InexactNumberQ";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'InexactNumberQ[$expr$]'
+        <dd>returns 'True' if $expr$ is not an exact number, and 'False' otherwise.
+    </dl>
+
+    >> InexactNumberQ[a]
+     = False
+    >> InexactNumberQ[3.0]
+     = True
+    >> InexactNumberQ[2/3]
+     = False
+
+    'InexactNumberQ' can be applied to complex numbers:
+    >> InexactNumberQ[4.0+I]
+     = True
+    )";
+
+public:
+    using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&InexactNumberQ::test);
+	}
+
+    inline bool test(
+        BaseExpressionPtr expr,
+        const Evaluation &evaluation) {
+
+        return expr->is_number() && expr->is_inexact();
+    }
+};
+
+class IntegerQ : public Builtin {
+public:
+	static constexpr const char *name = "IntegerQ";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'IntegerQ[$expr$]'
+        <dd>returns 'True' if $expr$ is an integer, and 'False' otherwise.
+    </dl>
+
+    >> IntegerQ[3]
+     = True
+    >> IntegerQ[Pi]
+     = False
+    )";
+
+public:
+    using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&InexactNumberQ::test);
+	}
+
+    inline bool test(
+        BaseExpressionPtr expr,
+        const Evaluation &evaluation) {
+
+        switch (expr->type()) {
+            case MachineIntegerType:
+            case BigIntegerType:
+                return true;
+            default:
+                return false;
+        }
+    }
+};
+
 class Factorial : public Builtin {
 public:
 	static constexpr const char *name = "Factorial";
@@ -946,69 +880,171 @@ public:
     }
 };
 
-class Subtract : public Builtin {
+class Gamma : public Builtin {
 public:
-	static constexpr const char *name = "Subtract";
+	static constexpr const char *name = "Gamma";
 
 	static constexpr const char *docs = R"(
     <dl>
-    <dt>'Subtract[$a$, $b$]'</dt>
-    <dt>$a$ - $b$</dt>
-        <dd>represents the subtraction of $b$ from $a$.</dd>
+    <dt>'Gamma[$z$]'
+        <dd>is the gamma function on the complex number $z$.
+    <dt>'Gamma[$z$, $x$]'
+        <dd>is the upper incomplete gamma function.
+    <dt>'Gamma[$z$, $x0$, $x1$]'
+        <dd>is equivalent to 'Gamma[$z$, $x0$] - Gamma[$z$, $x1$]'.
     </dl>
 
-    >> 5 - 3
-     = 2
-    >> a - b // FullForm
-     = Plus[a, Times[-1, b]]
-    >> a - b - c
-     = a - b - c
-    #> a - (b - c)
-     = a - b + c
-	)";
+    'Gamma[$z$]' is equivalent to '($z$ - 1)!':
+    #> Simplify[Gamma[z] - (z - 1)!]
+     = 0
+
+    Exact arguments:
+    >> Gamma[8]
+     = 5040
+    >> Gamma[1/2]
+     = Sqrt[Pi]
+    >> Gamma[1, x]
+     = E ^ (-x)
+    #> Gamma[0, x]
+     = ExpIntegralE[1, x]
+
+    Numeric arguments:
+    >> Gamma[123.78]
+     = 4.21078*^204
+    #> Gamma[1. + I]
+     = 0.498016 - 0.15495 I
+
+    Both 'Gamma' and 'Factorial' functions are continuous:
+    >> Plot[{Gamma[x], x!}, {x, 0, 4}]
+     = -Graphics-
+
+    ## Issue 203
+    #> N[Gamma[24/10], 100]
+     = 1.242169344504305404913070252268300492431517240992022966055507541481863694148882652446155342679460339
+    #> N[N[Gamma[24/10],100]/N[Gamma[14/10],100],100]
+     = 1.400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    #> % // Precision
+     = 100.
+
+    #> Gamma[1.*^20]
+     : Overflow occurred in computation.
+     = Overflow[]
+
+    ## Needs mpmath support for lowergamma
+    #> Gamma[1., 2.]
+     = Gamma[1., 2.]
+    )";
 
 public:
-	using Builtin::Builtin;
-
-	static constexpr auto attributes =
-		Attributes::Listable + Attributes::NumericFunction;
+    using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		rule("Subtract[x_, y_]", "Plus[x, Times[-1, y]]");
 	}
 };
 
-class Minus : public Builtin {
+class Pochhammer : public Builtin {
 public:
-	static constexpr const char *name = "Minus";
+	static constexpr const char *name = "Pochhammer";
 
 	static constexpr const char *docs = R"(
     <dl>
-    <dt>'Minus[$expr$]'
-        <dd> is the negation of $expr$.
+    <dt>'Pochhammer[$a$, $n$]'
+        <dd>is the Pochhammer symbol (a)_n.
     </dl>
 
-    >> -a //FullForm
-     = Times[-1, a]
-
-    'Minus' automatically distributes:
-    >> -(x - 2/3)
-     = 2 / 3 - x
-
-    'Minus' threads over lists:
-    >> -Range[10]
-    = {-1, -2, -3, -4, -5, -6, -7, -8, -9, -10}
-	)";
+    >> Pochhammer[4, 8]
+     = 6652800
+    )";
 
 public:
-	using Builtin::Builtin;
-
-	static constexpr auto attributes =
-		Attributes::Listable + Attributes::NumericFunction;
+    using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		rule("Minus[x_]", "Times[-1, x]");
+        rule("Pochhammer[a_, n_]", "Gamma[a + n] / Gamma[a]");
 	}
+};
+
+class HarmonicNumber : public Builtin {
+public:
+	static constexpr const char *name = "HarmonicNumber";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'HarmonicNumber[n]'
+      <dd>returns the $n$th harmonic number.
+    </dl>
+
+    >> Table[HarmonicNumber[n], {n, 8}]
+     = {1, 3 / 2, 11 / 6, 25 / 12, 137 / 60, 49 / 20, 363 / 140, 761 / 280}
+
+    #> HarmonicNumber[3.8]
+     = 2.03806
+
+    #> HarmonicNumber[-1.5]
+     = 0.613706
+    )";
+
+public:
+    using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+        rule("HarmonicNumber[-1]", "ComplexInfinity");
+        builtin(&HarmonicNumber::apply);
+	}
+
+    inline BaseExpressionRef apply(
+        BaseExpressionPtr expr,
+        const Evaluation &evaluation) {
+
+        if (expr->type() == MachineIntegerType) {
+            return from_symbolic_form(SymEngine::harmonic(
+                static_cast<const MachineInteger*>(expr)->value), evaluation);
+        } else {
+            return BaseExpressionRef();
+        }
+    }
+};
+
+class Boole : public Builtin {
+public:
+	static constexpr const char *name = "Boole";
+
+	static constexpr auto attributes = Attributes::Listable;
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Boole[expr]'
+      <dd>returns 1 if expr is True and 0 if expr is False.
+    </dl>
+
+    >> Boole[2 == 2]
+     = 1
+    >> Boole[7 < 5]
+     = 0
+    >> Boole[a == 7]
+     = Boole[a == 7]
+    )";
+
+public:
+    using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+        builtin(&Boole::apply);
+	}
+
+    inline BaseExpressionRef apply(
+        BaseExpressionPtr expr,
+        const Evaluation &evaluation) {
+
+        switch (expr->extended_type()) {
+            case SymbolTrue:
+                return evaluation.one;
+            case SymbolFalse:
+                return evaluation.zero;
+            default:
+                return BaseExpressionRef();
+        }
+    }
 };
 
 void Builtins::Arithmetic::initialize() {
@@ -1043,37 +1079,20 @@ void Builtins::Arithmetic::initialize() {
 			Power
 	    });
 
-	add("Sqrt",
-		Attributes::Listable + Attributes::NumericFunction, {
-			down("Sqrt[x_]", "x ^ (1 / 2)")
-	    }
-	);
-
-	add("Less",
-	    Attributes::None, {
-			Less
-	    });
-
-	add("LessEqual",
-	    Attributes::None, {
-			LessEqual
-	    });
-
-	add("Greater",
-	    Attributes::None, {
-			Greater
-	    });
-
-	add("GreaterEqual",
-	    Attributes::None, {
-			GreaterEqual
-	    });
-
+    add<Sqrt>();
 	add<Infinity>();
 
 	add<NumberQ>();
     add<RealNumberQ>();
     add<MachineNumberQ>();
+    add<ExactNumberQ>();
+    add<InexactNumberQ>();
+    add<IntegerQ>();
 
 	add<Factorial>();
+	add<Gamma>();
+	add<Pochhammer>();
+    add<HarmonicNumber>();
+
+    add<Boole>();
 }

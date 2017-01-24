@@ -82,8 +82,8 @@ void mini_console() {
 
             const BaseExpressionRef line_number = Line->state().own_value();
 			assert(line_number);
-		    std::cout << "Out[" << line_number->format(evaluation.StandardForm) << "]= " <<
-                evaluated->format(evaluation.StandardForm) << std::endl;
+		    std::cout << "Out[" << line_number->format(evaluation.StandardForm, evaluation) << "]= " <<
+                evaluated->format(evaluation.StandardForm, evaluation) << std::endl;
 	    } catch (parse_exception) {
 		    std::cout << ": " << line << " could not be parsed." << std::endl;
 	    }
@@ -96,7 +96,7 @@ void mini_console() {
         Line->state().set_own_value(new_line_number);
 
 		std::cout << std::endl;
-		std::cout << "In[" << new_line_number->format(evaluation.StandardForm) << "]:= ";
+		std::cout << "In[" << new_line_number->format(evaluation.StandardForm, evaluation) << "]:= ";
 	    std::cout.flush();
     }
 }

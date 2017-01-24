@@ -13,8 +13,21 @@ BaseExpressionPtr MachineReal::head(const Evaluation &evaluation) const {
     return evaluation.Real;
 }
 
+
+std::string MachineReal::format(const SymbolRef &form, const Evaluation &evaluation) const {
+    std::ostringstream s;
+    s << std::showpoint << std::setprecision(6) << value;
+    return s.str();
+}
+
 BaseExpressionPtr BigReal::head(const Evaluation &evaluation) const {
     return evaluation.Real;
+}
+
+std::string BigReal::format(const SymbolRef &form, const Evaluation &evaluation) const {
+    std::ostringstream s;
+    s << arb_get_str(value, long(floor(prec.decimals)), ARB_STR_NO_RADIUS);
+    return s.str();
 }
 
 // determine precision of an expression

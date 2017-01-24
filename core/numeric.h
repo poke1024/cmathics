@@ -207,7 +207,6 @@ namespace Numeric {
 			m_owned = true;
 
 			arf_clear(temp);
-
 		}
 
 		inline R(const mpq_class &value, const Precision &prec) {
@@ -237,6 +236,14 @@ namespace Numeric {
                 arb_clear(m_value);
             }
 		}
+
+        inline bool operator==(const R &r) const {
+            return arb_eq(m_value, r.m_value);
+        }
+
+        inline bool operator!=(const R &r) const {
+            return arb_ne(m_value, r.m_value);
+        }
 
         inline bool operator<(const R &r) const {
             return arb_lt(m_value, r.m_value);

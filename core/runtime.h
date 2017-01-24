@@ -310,6 +310,11 @@ protected:
 		m_symbol->state().add_rule(lhs.get(), rhs.get());
 	}
 
+    template<typename T>
+    inline void rule() {
+        m_symbol->state().add_rule(RuleRef(new T(m_symbol, m_runtime.definitions())));
+    }
+
     inline void message(const char *tag, const char *text) {
         m_symbol->add_message(tag, text, m_runtime.definitions());
     }

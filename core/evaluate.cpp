@@ -108,13 +108,13 @@ BaseExpressionRef evaluate(
 
     if (form && !form->is_none() && !form->is_simplified()) {
         if (false) { // debug
-            std::cout << "inspecting " << safe_intermediate_form->format(evaluation.FullForm) << std::endl;
+            std::cout << "inspecting " << safe_intermediate_form->format(evaluation.FullForm, evaluation) << std::endl;
         }
 
         const BaseExpressionRef simplified = from_symbolic_form(form->get(), evaluation);
 
         if (false) { // debug
-            std::cout << "simplified into " << simplified->format(evaluation.FullForm) << std::endl;
+            std::cout << "simplified into " << simplified->format(evaluation.FullForm, evaluation) << std::endl;
         }
 
         assert(symbolic_form(simplified)->is_simplified());

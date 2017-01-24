@@ -47,18 +47,7 @@ public:
         }
     }
 
-    virtual std::string format(const SymbolRef &form) const {
-        std::ostringstream s;
-        switch (form->extended_type()) {
-            case SymbolFullForm:
-                s << "System`Rational[" << value.get_num().get_str() << ", " << value.get_den().get_str() << "]";
-                break;
-            default:
-                s << value.get_num().get_str() << " / " << value.get_den().get_str();
-                break;
-        }
-        return s.str();
-    }
+    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     /*// copies denominator to a new Integer
     inline BaseExpressionRef numer() const {

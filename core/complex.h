@@ -43,15 +43,14 @@ public:
         return hash_pair(machine_complex_hash, value_hash);
     }
 
-    virtual std::string format(const SymbolRef &form) const {
-        std::ostringstream s;
-        const machine_real_t imag = value.imag();
-        s << std::showpoint << std::setprecision(6) << value.real() << (imag >= 0. ? " + " : " - ") << imag << " I";
-        return s.str();
-    }
+    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual bool match(const BaseExpression &expr) const {
         return same(expr);
+    }
+
+    virtual bool is_inexact() const final {
+        return true;
     }
 
 protected:
@@ -89,13 +88,13 @@ public:
         return m_value->__hash__();
     }
 
-    virtual std::string format(const SymbolRef &form) const {
-        // m_value->real_part();
-        // m_value->imaginary_part();
-        return m_value->__str__();
-    }
+    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+
+    virtual bool is_inexact() const final {
+        return false; // SymEngine's complex uses rationals
+    }
 };
 
 #endif //CMATHICS_COMPLEX_H

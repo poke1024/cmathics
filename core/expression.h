@@ -115,38 +115,46 @@ public:
 		});
 	}
 
-    virtual std::string format(const SymbolRef &form) const {
+    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final {
         switch (_head->extended_type()) {
             case SymbolFullForm:
             case SymbolStandardForm:
                 if (_leaves.size() == 1) {
                     return static_leaves<1>()[0]->format(
-                        SymbolRef(_head->as_symbol()));
+                        SymbolRef(_head->as_symbol()), evaluation);
                 }
+                break;
+
+            case SymbolHoldForm:
+                if (_leaves.size() == 1) {
+                    return static_leaves<1>()[0]->format(form, evaluation);
+                }
+                break;
+
             default:
                 break; // ignore
         }
 
-		std::stringstream result;
+        std::stringstream result;
 
-		// format head
-		result << _head->format(form);
-		result << "[";
+        // format head
+        result << _head->format(form, evaluation);
+        result << "[";
 
-		// format leaves
-		const size_t argc = _leaves.size();
+        // format leaves
+        const size_t argc = _leaves.size();
 
-		for (size_t i = 0; i < argc; i++) {
-			result << _leaves[i]->format(form);
+        for (size_t i = 0; i < argc; i++) {
+            result << _leaves[i]->format(form, evaluation);
 
-			if (i < argc - 1) {
-				result << ", ";
-			}
-		}
-		result << "]";
+            if (i < argc - 1) {
+                result << ", ";
+            }
+        }
+        result << "]";
 
-		return result.str();
-	}
+        return result.str();
+    }
 
 	virtual BaseExpressionRef evaluate_expression_with_non_symbol_head(
 		const Evaluation &evaluation) const {
@@ -182,7 +190,7 @@ public:
 
 	virtual ExpressionRef clone(const BaseExpressionRef &head) const;
 
-	virtual hash_t hash() const {
+	virtual hash_t hash() const final {
 		hash_t result = hash_combine(_leaves.size(), _head->hash());
 		for (const auto &leaf : _leaves.leaves()) {
 			result = hash_combine(result, leaf->hash());
@@ -190,7 +198,7 @@ public:
 		return result;
 	}
 
-	virtual optional<hash_t> compute_match_hash() const {
+	virtual optional<hash_t> compute_match_hash() const final {
 		switch (_head->extended_type()) {
 			case SymbolBlank:
 			case SymbolBlankSequence:
@@ -223,7 +231,7 @@ public:
 		}
 	}
 
-	virtual MatchSize match_size() const {
+	virtual MatchSize match_size() const final {
 		switch (_head->extended_type()) {
 			case SymbolBlank:
 				return MatchSize::exactly(1);
@@ -281,7 +289,7 @@ public:
 		}
 	}
 
-	virtual MatchSize leaf_match_size() const {
+	virtual MatchSize leaf_match_size() const final {
 		MatchSize size = MatchSize::exactly(0);
 		for (const auto &leaf : _leaves.leaves()) {
 			size += leaf->match_size();
@@ -291,13 +299,13 @@ public:
 
 	virtual DynamicExpressionRef to_dynamic_expression(const BaseExpressionRef &self) const;
 
-	virtual const Symbol *lookup_name() const {
+	virtual const Symbol *lookup_name() const final {
 		return _head->lookup_name();
 	}
 
 	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
 
-	virtual SortKey pattern_key() const {
+	virtual SortKey pattern_key() const final {
 		switch (_head->extended_type()) {
 			case SymbolBlank:
 				return blank_sort_key(1, size() > 0, this);
@@ -355,7 +363,7 @@ public:
         const Recurse &recurse,
         const Evaluation &evaluation) const;
 
-	virtual BaseExpressionRef expand(const Evaluation &evaluation) const {
+	virtual BaseExpressionRef expand(const Evaluation &evaluation) const final {
         return do_symbolic(
             [] (const SymbolicFormRef &form) {
                 const SymEngineRef new_form = SymEngine::expand(form->get());
@@ -371,7 +379,7 @@ public:
             evaluation);
 	}
 
-	virtual optional<SymEngine::vec_basic> symbolic_operands() const {
+	virtual optional<SymEngine::vec_basic> symbolic_operands() const final {
 		SymEngine::vec_basic operands;
         operands.reserve(size());
 		for (const auto &leaf : _leaves.leaves()) {
@@ -664,7 +672,7 @@ std::string message_text(
 
     const auto pos = new_text.find(placeholder);
     if (pos != std::string::npos) {
-        new_text = new_text.replace(pos, placeholder.length(), arg->format(evaluation.FullForm));
+        new_text = new_text.replace(pos, placeholder.length(), arg->format(evaluation.FullForm, evaluation));
     }
 
     return message_text(evaluation, std::move(new_text), index + 1, args...);

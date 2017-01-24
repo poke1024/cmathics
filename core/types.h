@@ -439,6 +439,10 @@ public:
 		}
 	}
 
+    virtual bool is_inexact() const {
+        return false;
+    }
+
 	inline optional<hash_t> match_hash() const {
 		if (type() == ExpressionType) {
 			return compute_match_hash();
@@ -463,7 +467,7 @@ public:
 
     virtual hash_t hash() const = 0;
 
-    virtual std::string format(const SymbolRef &form) const = 0;
+    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const = 0;
 
 	inline BaseExpressionRef evaluate(const Evaluation &evaluation) const;
 

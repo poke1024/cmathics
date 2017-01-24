@@ -333,9 +333,7 @@ public:
 		}
 	}
 
-    virtual std::string format(const SymbolRef &form) const {
-        return utf8();
-    }
+    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual bool match(const BaseExpression &expr) const {
         return same(expr);

@@ -38,9 +38,7 @@ public:
 	    return hash_pair(machine_integer_hash, value);
     }
 
-    virtual std::string format(const SymbolRef &form) const {
-        return std::to_string(value);
-    }
+    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual inline bool match(const BaseExpression &expr) const final {
         return same(expr);
@@ -85,9 +83,7 @@ public:
         return 0;
     }
 
-    virtual std::string format(const SymbolRef &form) const {
-        return value.get_str();
-    }
+    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual double round_to_float() const {
         return value.get_d();
