@@ -43,7 +43,7 @@ public:
         return hash_pair(machine_complex_hash, value_hash);
     }
 
-    virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
         std::ostringstream s;
         const machine_real_t imag = value.imag();
         s << std::showpoint << std::setprecision(6) << value.real() << (imag >= 0. ? " + " : " - ") << imag << " I";
@@ -56,7 +56,7 @@ public:
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::complex_double(value));
+        return Pool::SymbolicForm(SymEngine::complex_double(value), true);
     }
 };
 
@@ -89,7 +89,7 @@ public:
         return m_value->__hash__();
     }
 
-    virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
         // m_value->real_part();
         // m_value->imaginary_part();
         return m_value->__str__();

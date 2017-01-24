@@ -47,9 +47,16 @@ public:
         }
     }
 
-    virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
         std::ostringstream s;
-        s << value.get_num().get_str() << " / " << value.get_den().get_str();
+        switch (form->extended_type()) {
+            case SymbolFullForm:
+                s << "System`Rational[" << value.get_num().get_str() << ", " << value.get_den().get_str() << "]";
+                break;
+            default:
+                s << value.get_num().get_str() << " / " << value.get_den().get_str();
+                break;
+        }
         return s.str();
     }
 
@@ -69,7 +76,7 @@ public:
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::Rational::from_mpq(value.get_mpq_t()));
+        return Pool::SymbolicForm(SymEngine::Rational::from_mpq(value.get_mpq_t()), true);
     }
 };
 

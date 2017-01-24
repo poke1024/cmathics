@@ -245,7 +245,7 @@ public:
 		return hash_pair(symbol_hash, (std::uintptr_t)this);
 	}
 
-	virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
 		return name();
 	}
 

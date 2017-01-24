@@ -6,6 +6,174 @@
 
 EvaluateDispatch *EvaluateDispatch::s_instance = nullptr;
 
+typedef std::pair<size_t, size_t> eval_range;
+
+typedef Slice GenericSlice;
+
+template<typename Slice, typename ReducedAttributes>
+BaseExpressionRef evaluate(
+    const Expression *self,
+    const BaseExpressionRef &head,
+    const GenericSlice &generic_slice,
+    const Attributes full_attributes,
+    const Evaluation &evaluation) {
+
+    const Slice &slice = static_cast<const Slice&>(generic_slice);
+    eval_range eval_leaf;
+
+    const ReducedAttributes attributes(full_attributes);
+
+    if (attributes & Attributes::HoldAllComplete) {
+        // no more evaluation is applied
+        return BaseExpressionRef();
+    } else if (attributes & Attributes::HoldFirst) {
+        if (attributes & Attributes::HoldRest) { // i.e. HoldAll
+            // TODO flatten sequences
+            eval_leaf = eval_range(0, 0);
+        } else {
+            eval_leaf = eval_range(1, slice.size());
+        }
+    } else if (attributes & Attributes::HoldRest) {
+        eval_leaf = eval_range(0, 1);
+    } else {
+        eval_leaf = eval_range(0, slice.size());
+    }
+
+    const Symbol * const head_symbol = static_cast<const Symbol*>(head.get());
+
+    assert(0 <= eval_leaf.first);
+    assert(eval_leaf.first <= eval_leaf.second);
+    assert(eval_leaf.second <= slice.size());
+
+    const ExpressionRef intermediate_form =
+        conditional_map<ExpressionType,SymbolType>(
+            head,
+            head != self->_head,
+            lambda([&evaluation] (const BaseExpressionRef &leaf) {
+                return leaf->evaluate(evaluation);
+            }),
+            slice,
+            eval_leaf.first,
+            eval_leaf.second,
+            evaluation);
+
+#if 0
+    std::cout
+        << "EVALUATED " << self
+        << " AT [" << eval_leaf.first << ", " << eval_leaf.second << "]"
+        << " TO " << intermediate_form << std::endl;
+#endif
+
+    const Expression * const safe_intermediate_form =
+            intermediate_form ?
+            intermediate_form.get() :
+            self;
+
+    if (attributes & Attributes::Listable) {
+        bool done;
+        UnsafeExpressionRef threaded;
+        std::tie(done, threaded) = safe_intermediate_form->thread(evaluation);
+        if (done) {
+            return threaded;
+        }
+    }
+
+    const SymbolRules *rules = head_symbol->state().rules();
+
+    if (rules) {
+        // Step 3
+        // Apply UpValues for leaves
+        // TODO
+
+        // Step 4
+        // Evaluate the head with leaves. (DownValue)
+
+        const BaseExpressionRef down_form = rules->down_rules.try_and_apply<Slice>(
+                safe_intermediate_form, evaluation);
+        if (down_form) {
+            return down_form;
+        }
+    }
+
+    // Simplify symbolic form, if possible. We guarantee that no vcall
+    // happens unless a symbolic resolution is really necessary.
+
+    UnsafeSymbolicFormRef form;
+
+    try {
+        form = fast_symbolic_form(safe_intermediate_form);
+    } catch (const SymEngine::SymEngineException &e) {
+        evaluation.sym_engine_exception(e);
+    }
+
+    if (form && !form->is_none() && !form->is_simplified()) {
+        if (false) { // debug
+            std::cout << "inspecting " << safe_intermediate_form->format(evaluation.FullForm) << std::endl;
+        }
+
+        const BaseExpressionRef simplified = from_symbolic_form(form->get(), evaluation);
+
+        if (false) { // debug
+            std::cout << "simplified into " << simplified->format(evaluation.FullForm) << std::endl;
+        }
+
+        assert(symbolic_form(simplified)->is_simplified());
+
+        return simplified;
+    }
+
+    /*if (!form) {
+        // if this expression already has a symbolic form attached, then
+        // we already simplified it earlier and we must not recheck here;
+        // note that we end up in an infinite loop otherwise.
+
+        form = ::instantiate_symbolic_form(safe_intermediate_form);
+
+        } else {
+            safe_intermediate_form->set_no_symbolic_form();
+        }
+    }*/
+
+    return intermediate_form;
+}
+
+template<Attributes fixed_attributes>
+class FixedAttributes {
+public:
+    inline FixedAttributes(Attributes attributes) {
+    }
+
+    inline constexpr bool
+    operator&(Attributes y) const {
+        return (attributes_bitmask_t(fixed_attributes) & attributes_bitmask_t(y)) != 0;
+    }
+};
+
+template<typename ReducedAttributes>
+template<int N>
+void EvaluateDispatch::Precompiled<ReducedAttributes>::initialize_static_slice() {
+    m_vtable.entry[StaticSlice0Code + N] = ::evaluate<StaticSlice<N>, ReducedAttributes>;
+
+    STATIC_IF (N >= 1) {
+        initialize_static_slice<N - 1>();
+    } STATIC_ENDIF
+}
+
+template<typename ReducedAttributes>
+EvaluateDispatch::Precompiled<ReducedAttributes>::Precompiled() {
+    static_assert(1 + PackedSliceMachineRealCode - StaticSlice0Code ==
+        NumberOfSliceCodes, "slice code ids error");
+
+    m_vtable.entry[DynamicSliceCode] = ::evaluate<DynamicSlice, ReducedAttributes>;
+
+    m_vtable.entry[PackedSliceMachineIntegerCode] =
+        ::evaluate<PackedSlice<machine_integer_t>, ReducedAttributes>;
+    m_vtable.entry[PackedSliceMachineRealCode] =
+        ::evaluate<PackedSlice<machine_real_t>, ReducedAttributes>;
+
+    initialize_static_slice<MaxStaticSliceSize>();
+}
+
 EvaluateDispatch::EvaluateDispatch() {
     static Precompiled<FixedAttributes<Attributes::None>> none;
     static Precompiled<FixedAttributes<Attributes::HoldFirst>> hold_first;

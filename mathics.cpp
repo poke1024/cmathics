@@ -24,7 +24,7 @@
 #include "core/runtime.h"
 
 
-void python_test(const char *input) {
+/*void python_test(const char *input) {
     Runtime runtime;
 
     auto expr = runtime.parse(input);
@@ -35,7 +35,7 @@ void python_test(const char *input) {
     BaseExpressionRef evaluated = evaluation.evaluate(expr);
     std::cout << "done\n";
     std::cout << evaluated << std::endl;
-}
+}*/
 
 /*void pattern_test() {
     Definitions definitions;
@@ -73,15 +73,17 @@ void mini_console() {
 		    break;
 	    }
 
+        Evaluation evaluation(output, runtime.definitions(), true);
+
 	    try {
 		    const auto expr = runtime.parse(line.c_str());
 
-		    Evaluation evaluation(output, runtime.definitions(), true);
 		    BaseExpressionRef evaluated = evaluation.evaluate(expr);
 
             const BaseExpressionRef line_number = Line->state().own_value();
 			assert(line_number);
-		    std::cout << "Out[" << line_number->fullform() << "]= " << evaluated << std::endl;
+		    std::cout << "Out[" << line_number->format(evaluation.StandardForm) << "]= " <<
+                evaluated->format(evaluation.StandardForm) << std::endl;
 	    } catch (parse_exception) {
 		    std::cout << ": " << line << " could not be parsed." << std::endl;
 	    }
@@ -94,7 +96,7 @@ void mini_console() {
         Line->state().set_own_value(new_line_number);
 
 		std::cout << std::endl;
-		std::cout << "In[" << new_line_number->fullform() << "]:= ";
+		std::cout << "In[" << new_line_number->format(evaluation.StandardForm) << "]:= ";
 	    std::cout.flush();
     }
 }

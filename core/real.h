@@ -67,7 +67,7 @@ public:
         return hash_pair(machine_real_hash, hash_function(value));
     }
 
-    virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
         std::ostringstream s;
         s << std::showpoint << std::setprecision(6) << value;
         return s.str();
@@ -83,7 +83,7 @@ public:
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::real_double(value));
+        return Pool::SymbolicForm(SymEngine::real_double(value), true);
     }
 };
 
@@ -159,7 +159,7 @@ public:
         return 0;
     }
 
-    virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
 	    std::ostringstream s;
         s << arb_get_str(value, long(floor(prec.decimals)), ARB_STR_NO_RADIUS);
         return s.str();
@@ -179,7 +179,7 @@ protected:
 
         SymEngine::mpfr_class x;
         arf_get_mpfr(x.get_mpfr_t(), arb_midref(value), MPFR_RNDN);
-        return Pool::SymbolicForm(SymEngine::real_mpfr(x));
+        return Pool::SymbolicForm(SymEngine::real_mpfr(x), true);
     }
 };
 

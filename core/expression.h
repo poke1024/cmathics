@@ -115,18 +115,29 @@ public:
 		});
 	}
 
-	virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
+        switch (_head->extended_type()) {
+            case SymbolFullForm:
+            case SymbolStandardForm:
+                if (_leaves.size() == 1) {
+                    return static_leaves<1>()[0]->format(
+                        SymbolRef(_head->as_symbol()));
+                }
+            default:
+                break; // ignore
+        }
+
 		std::stringstream result;
 
 		// format head
-		result << _head->fullform();
+		result << _head->format(form);
 		result << "[";
 
 		// format leaves
 		const size_t argc = _leaves.size();
 
 		for (size_t i = 0; i < argc; i++) {
-			result << _leaves[i]->fullform();
+			result << _leaves[i]->format(form);
 
 			if (i < argc - 1) {
 				result << ", ";
@@ -632,6 +643,33 @@ const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(UnsafeBase
 	return expr->_leaves.refs();
 }
 
+inline std::string message_text(
+    const Evaluation &evaluation,
+    std::string &&text,
+    size_t index) {
+
+    return text;
+}
+
+template<typename... Args>
+std::string message_text(
+    const Evaluation &evaluation,
+    std::string &&text,
+    size_t index,
+    const BaseExpressionRef &arg,
+    Args... args) {
+
+    std::string new_text(text);
+    const std::string placeholder(message_placeholder(index));
+
+    const auto pos = new_text.find(placeholder);
+    if (pos != std::string::npos) {
+        new_text = new_text.replace(pos, placeholder.length(), arg->format(evaluation.FullForm));
+    }
+
+    return message_text(evaluation, std::move(new_text), index + 1, args...);
+}
+
 template<typename... Args>
 void Evaluation::message(const SymbolRef &name, const char *tag, const Args&... args) const {
 	const auto &symbols = definitions.symbols();
@@ -653,7 +691,7 @@ void Evaluation::message(const SymbolRef &name, const char *tag, const Args&... 
 	if (text_template) {
 		std::string text(text_template->utf8());
         std::unique_lock<std::mutex> lock(m_output_mutex);
-        m_output->write(name->short_name(), tag, message_text(std::move(text), 1, args...));
+        m_output->write(name->short_name(), tag, message_text(*this, std::move(text), 1, args...));
 	}
 }
 

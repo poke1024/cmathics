@@ -463,7 +463,7 @@ public:
 
     virtual hash_t hash() const = 0;
 
-    virtual std::string fullform() const = 0;
+    virtual std::string format(const SymbolRef &form) const = 0;
 
 	inline BaseExpressionRef evaluate(const Evaluation &evaluation) const;
 
@@ -563,17 +563,19 @@ template<typename T>
 inline void BaseExpression::set_simplified_form(const SymEngine::RCP<const T> &ref) const {
 	m_symbolic_form.ensure([&ref] () {
         return Pool::SymbolicForm(SymEngine::rcp_static_cast<const SymEngine::Basic>(ref), true);
+    }, [] (const SymbolicForm *form) {
+        return form->is_simplified();
     });
 }
 
-inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
+/*inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
     if (expr) {
-        s << expr->fullform();
+        s << expr->format(evaluation.StandardForm);
     } else {
         s << "IDENTITY";
     }
     return s;
-}
+}*/
 
 class Slice {
 public:
@@ -821,10 +823,10 @@ inline SymbolicFormRef symbolic_form<const ExpressionPtr&>(const ExpressionPtr& 
 	return fast_symbolic_form(expr);
 }
 
-inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
+/*inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
 	s << static_pointer_cast<const BaseExpression>(expr);
 	return s;
-}
+}*/
 
 #include "rule.h"
 

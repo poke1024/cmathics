@@ -22,8 +22,6 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		// FIXME. currently a noop.
-		rule("FullForm[x_]", "x");
 	}
 };
 

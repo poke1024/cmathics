@@ -769,7 +769,7 @@ public:
      = DirectedInfinity[1]
     #> (2 + 3.5*I) / Infinity
      = 0. + 0. I
-    #> Infinity + Infinity
+    >> Infinity + Infinity
      = Infinity
     #> Infinity / Infinity
      : Indeterminate expression 0 Infinity encountered.

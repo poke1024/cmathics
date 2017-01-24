@@ -333,7 +333,7 @@ public:
 		}
 	}
 
-    virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
         return utf8();
     }
 

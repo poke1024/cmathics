@@ -182,6 +182,7 @@ void Runtime::run_tests() {
 	for (const auto &record : m_docs) {
 		Evaluation evaluation(output, _definitions, false);
         Evaluation dummy_evaluation(no_output, _definitions, false);
+        const auto fullform = evaluation.FullForm;
 
 		std::stringstream stream(record.second);
 		UnsafeBaseExpressionRef result;
@@ -210,10 +211,11 @@ void Runtime::run_tests() {
                 } else {
                     if (result) {
                         auto parsed = _parser.parse(result_str.c_str());
-                        if (parsed->evaluate_or_copy(dummy_evaluation)->fullform() != result->fullform()) {
+                        const std::string result_str = result->format(fullform);
+                        if (parsed->evaluate_or_copy(dummy_evaluation)->format(fullform) != result_str) {
                             if (!fail_expected) {
                                 std::cout << "FAIL" << std::endl;
-                                std::cout << parsed->fullform() << " != " << result->fullform() << std::endl;
+                                std::cout << parsed->format(fullform) <<" != " << result_str << std::endl;
                                 fail_count++;
                             }
                         }
@@ -225,7 +227,9 @@ void Runtime::run_tests() {
                 }
             } else if (line.compare(0, 1, ":") == 0) {
                 if (!output->test_line(trim(line.substr(1)))) {
-                    fail_count++;
+                    if (!fail_expected) {
+                        fail_count++;
+                    }
                 }
 			} else {
 				// ignore

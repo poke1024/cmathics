@@ -38,7 +38,7 @@ public:
 	    return hash_pair(machine_integer_hash, value);
     }
 
-    virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
         return std::to_string(value);
     }
 
@@ -52,7 +52,7 @@ public:
 
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::integer(value));
+        return Pool::SymbolicForm(SymEngine::integer(value), true);
 	}
 };
 
@@ -85,7 +85,7 @@ public:
         return 0;
     }
 
-    virtual std::string fullform() const {
+    virtual std::string format(const SymbolRef &form) const {
         return value.get_str();
     }
 
@@ -95,7 +95,7 @@ public:
 
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-		return Pool::SymbolicForm(SymEngine::integer(value.get_mpz_t()));
+		return Pool::SymbolicForm(SymEngine::integer(value.get_mpz_t()), true);
 	}
 };
 

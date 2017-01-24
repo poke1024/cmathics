@@ -201,26 +201,37 @@ public:
 		}
 	}
 
-    template<typename F>
-    T *ensure(const F &f) { // ensure that this QuasiConstSharedPtr is not a nullptr
+    template<typename F, typename C>
+    T *ensure(const F &f, const C &cond) {
         T *ptr = get();
-        if (ptr) {
+        if (ptr && cond(ptr)) {
             return ptr;
         }
 
+        T *actual = ptr;
+
         ConstSharedPtr<T> p = f();
         ptr = p.get();
+        intrusive_ptr_add_ref(ptr);
 
         while (true) {
-            T *actual = nullptr;
             if (m_ptr.compare_exchange_strong(actual, ptr, std::memory_order_acq_rel)) {
-                intrusive_ptr_add_ref(ptr);
+                if (actual) {
+                    intrusive_ptr_release(actual);
+                }
                 return ptr;
             }
-            if (actual) {
+            if (actual && cond(actual)) {
                 return actual;
             }
         }
+    }
+
+    template<typename F>
+    T *ensure(const F &f) {
+        return ensure(f, [] (T *ptr) {
+            return true;
+        });
     }
 
     QuasiConstSharedPtr &initialize(T *ptr) {
