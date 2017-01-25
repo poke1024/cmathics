@@ -18,33 +18,59 @@
 const char *Builtin::docs = "";
 #endif
 
+class N : public Builtin {
+public:
+    static constexpr const char *name = "N";
+
+    static constexpr const char *docs = R"(
+    )";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        rule("N[expr_]", "N[expr, MachinePrecision]");
+        builtin(&N::apply);
+    }
+
+    inline BaseExpressionRef apply(
+        const BaseExpressionPtr expr,
+        const BaseExpressionPtr n,
+        const Evaluation &evaluation) {
+
+        const SymbolicFormRef form = symbolic_form(expr, evaluation);
+        if (!form || form->is_none()) {
+            return BaseExpressionRef();
+        }
+
+        if (n->extended_type() == SymbolMachinePrecision) {
+            return Pool::BigReal(
+                form,
+                Precision::machine_precision);
+        } else {
+            switch (n->type()) {
+                case MachineIntegerType:
+                    return Pool::BigReal(
+                        form,
+                        Precision(double(static_cast<const MachineInteger*>(n)->value)));
+                case MachineRealType:
+                    return Pool::BigReal(
+                        form,
+                        Precision(double(static_cast<const MachineReal*>(n)->value)));
+                default:
+                    return BaseExpressionRef();
+            }
+        }
+    }
+};
+
 class Experimental : public Unit {
 public:
     Experimental(Runtime &runtime) : Unit(runtime) {
     }
 
     void initialize() {
-        add("N",
-            Attributes::None, {
-                builtin<2>([] (
-                    const BaseExpressionRef &expr,
-                    const BaseExpressionRef &n,
-                    const Evaluation &evaluation) {
-
-                    if (n->type() != MachineIntegerType) {
-                        return BaseExpressionRef();
-                    }
-
-                    const SymbolicFormRef form = symbolic_form(expr, evaluation);
-                    if (!form || form->is_none()) {
-                        return BaseExpressionRef();
-                    }
-
-                    return Pool::BigReal(
-                        form,
-                        Precision(double(static_cast<const MachineInteger*>(n.get())->value)));
-                    })
-            });
+        add<N>();
 
         add("Expand",
             Attributes::None, {

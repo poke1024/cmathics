@@ -120,18 +120,9 @@ struct Comparison<BigReal, BigRational> {
     }
 };
 
-struct equal {
-    template<typename U, typename V>
-    static bool calculate(const U &u, const V &v) {
-        return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
-            return x == y;
-        });
-    }
-};
-
 struct less {
     template<typename U, typename V>
-    static bool calculate(const U &u, const V &v) {
+    static optional<bool> calculate(const U &u, const V &v) {
         return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
             return x < y;
         });
@@ -140,31 +131,56 @@ struct less {
 
 struct less_equal {
     template<typename U, typename V>
-    static bool calculate(const U &u, const V &v) {
+    static optional<bool> calculate(const U &u, const V &v) {
         return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
             return x <= y;
         });
     }
 };
 
-struct less_fallback {
+template<bool Less, bool Equal, bool Greater>
+struct inequality_fallback {
 public:
-	inline BaseExpressionRef operator()(const Expression *expr, const Evaluation &evaluation) const {
-		const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+	inline BaseExpressionRef operator()(
+        const BaseExpressionPtr head,
+        const BaseExpressionPtr a,
+        const BaseExpressionPtr b,
+        const Evaluation &evaluation) const {
 
-		const BaseExpressionRef &a = leaves[0];
-		const BaseExpressionRef &b = leaves[1];
-
-		// FIXME perform symbolic comparisons, e.g. 5 < E
 		const SymbolicFormRef sym_a = symbolic_form(a, evaluation);
 		if (!sym_a->is_none()) {
 			const SymbolicFormRef sym_b = symbolic_form(b, evaluation);
 			if (!sym_b->is_none()) {
-				const int prec = 53; // FIXME
+                if (sym_a->get()->__eq__(*sym_b->get())) {
+                    return evaluation.Boolean(Equal);
+                }
+
+                const Precision pa = precision(a);
+                const Precision pb = precision(b);
+
+                const Precision p = std::max(pa, pb);
+                const Precision p0 = std::min(pa, pb);
+
+                unsigned long prec = p.bits;
 				const auto diff = SymEngine::sub(sym_a->get(), sym_b->get());
-				auto sign = SymEngine::evalf(*diff, prec, true);
-				bool lt = sign->is_negative();
-				return evaluation.Boolean(lt);
+
+                while (true) {
+                    const auto ndiff = SymEngine::evalf(*diff, prec, true);
+
+                    if (ndiff->is_negative()) {
+                        return evaluation.Boolean(Less);
+                    } else if (ndiff->is_positive()) {
+                        return evaluation.Boolean(Greater);
+                    } else {
+                        if (p0.is_none()) {
+                            // we're probably dealing with an irrational as
+                            // in x < Pi. increase precision, try again.
+                            assert(!__builtin_umull_overflow(prec, 2, &prec));
+                        } else {
+                            return evaluation.Boolean(Equal);
+                        }
+                    }
+                }
 			}
 		}
 
@@ -174,7 +190,7 @@ public:
 
 struct greater {
     template<typename U, typename V>
-    static bool calculate(const U &u, const V &v) {
+    static optional<bool> calculate(const U &u, const V &v) {
         return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
             return x > y;
         });
@@ -183,38 +199,90 @@ struct greater {
 
 struct greater_equal {
     template<typename U, typename V>
-    static bool calculate(const U &u, const V &v) {
+    static optional<bool> calculate(const U &u, const V &v) {
         return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
             return x >= y;
         });
     }
 };
 
-class equal_fallback {
+template<typename Operator>
+class CompareNRule : public AtLeastNRule<3> {
+private:
+    const SymbolRef m_head;
+    const Operator m_operator;
+
 public:
-    inline BaseExpressionRef operator()(const Expression *expr, const Evaluation &evaluation) const {
-        const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+    inline CompareNRule(const SymbolRef &head, const Definitions &definitions) :
+        AtLeastNRule<3>(head, definitions), m_head(head), m_operator(definitions) {
+    }
 
-        const BaseExpressionRef &a = leaves[0];
-        const BaseExpressionRef &b = leaves[1];
+    virtual BaseExpressionRef try_apply(
+        const Expression *expr, const Evaluation &evaluation) const {
 
-        return evaluation.Boolean(a->equals(*b));
+        return expr->with_slice([this, &evaluation] (const auto &slice) {
+            const size_t n = slice.size();
+
+            for (size_t i = 0; i < n - 1; i++) {
+                const BaseExpressionRef result = m_operator(
+                    evaluation.definitions,
+                    expression(m_head, slice[i], slice[i + 1]).get(),
+                    evaluation);
+
+                if (!result) { // undefined?
+                    return BaseExpressionRef();
+                }
+
+                if (!result->is_true()) {
+                    return BaseExpressionRef(evaluation.False);
+                }
+            }
+
+            return BaseExpressionRef(evaluation.True);
+        });
     }
 };
 
-class EqualComparison : public BinaryArithmetic<equal, equal_fallback> {
+template<bool Negate>
+inline bool negate(bool f) {
+    return Negate ? !f : f;
+}
+
+template<bool Unequal>
+struct equal {
+    template<typename U, typename V>
+    static optional<bool> calculate(const U &u, const V &v) {
+        return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+            return negate<Unequal>(x == y);
+        });
+    }
+};
+
+template<bool Unequal>
+class equal_fallback {
 public:
-    using Base = BinaryArithmetic<equal, equal_fallback>;
+    inline BaseExpressionRef operator()(
+        const BaseExpressionPtr head,
+        const BaseExpressionPtr a,
+        const BaseExpressionPtr b,
+        const Evaluation &evaluation) const {
+
+        return evaluation.Boolean(negate<Unequal>(a->equals(*b)));
+    }
+};
+
+template<bool Unequal>
+class EqualComparison : public BinaryArithmetic<equal<Unequal>, equal_fallback<Unequal>> {
+public:
+    using Base = BinaryArithmetic<equal<Unequal>, equal_fallback<Unequal>>;
 
     EqualComparison(const Definitions &definitions) : Base(definitions) {
-        const BaseExpressionRef True = definitions.symbols().True;
-
         Base::template init<Symbol, Symbol>(
-            [True] (const BaseExpression *a, const BaseExpression *b) {
+            [] (const BaseExpression *a, const BaseExpression *b) -> optional<bool> {
                 if (a == b) {
-                    return True;
+                    return Unequal ? false : true;
                 } else {
-                    return BaseExpressionRef();
+                    return optional<bool>();
                 }
             }
         );
@@ -223,6 +291,19 @@ public:
         Base::template clear<MachineReal, BigReal>();
         Base::template clear<BigReal, MachineReal>();
         Base::template clear<BigReal, BigReal>();
+    }
+};
+
+template<typename T>
+class ComparisonBuiltin : public Builtin {
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        rule<ConstantTrueRule<0>>();
+        rule<ConstantTrueRule<1>>();
+        rule<BinaryOperatorRule<T>>();
+        rule<CompareNRule<T>>();
     }
 };
 
@@ -265,9 +346,9 @@ public:
     ## >> 0.1 ^ 10000 == 0.1 ^ 10000 + 0.1 ^ 10013
     ##  = True
 
-    #> 0.1111111111111111 ==  0.1111111111111126
+    >> 0.1111111111111111 ==  0.1111111111111126
      = True
-    #> 0.1111111111111111 ==  0.1111111111111127
+    >> 0.1111111111111111 ==  0.1111111111111127
      = False
 
     ## TODO needs better precision tracking
@@ -286,28 +367,28 @@ public:
     >> Pi == 3.14
      = False
 
-    #> Pi ^ E == E ^ Pi
+    >> Pi ^ E == E ^ Pi
      = False
 
-    #> N[E, 3] == N[E]
+    >> N[E, 3] == N[E]
      = True
 
-    #> {1, 2, 3} < {1, 2, 3}
+    >> {1, 2, 3} < {1, 2, 3}
      = {1, 2, 3} < {1, 2, 3}
 
     #> E == N[E]
      = True
 
     ## Issue260
-    #> {Equal[Equal[0, 0], True], Equal[0, 0] == True}
+    >> {Equal[Equal[0, 0], True], Equal[0, 0] == True}
      = {True, True}
     #> {Mod[6, 2] == 0, Mod[6, 4] == 0, (Mod[6, 2] == 0) == (Mod[6, 4] == 0), (Mod[6, 2] == 0) != (Mod[6, 4] == 0)}
      = {True, False, False, True}
 
-    #> a == a == a
+    >> a == a == a
      = True
 
-    #> {Equal[], Equal[x], Equal[1]}
+    >> {Equal[], Equal[x], Equal[1]}
      = {True, True, True}
     )";
 
@@ -317,11 +398,75 @@ public:
     void build(Runtime &runtime) {
         rule<ConstantTrueRule<0>>();
         rule<ConstantTrueRule<1>>();
-        rule<BinaryOperatorRule<EqualComparison>>();
+        rule<BinaryOperatorRule<EqualComparison<false>>>();
+        rule<CompareNRule<EqualComparison<false>>>();
     }
 };
 
-class Less : public Builtin {
+class Unequal : public Builtin {
+public:
+    static constexpr const char *name = "Unequal";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Unequal[$x$, $y$]'
+    <dt>'$x$ != $y$'
+        <dd>yields 'False' if $x$ and $y$ are known to be equal, or
+        'True' if $x$ and $y$ are known to be unequal.
+    <dt>'$lhs$ == $rhs$'
+        <dd>represents the inequality $lhs$ ≠ $rhs$.
+    </dl>
+
+    >> 1 != 1.
+     = False
+
+    Lists are compared based on their elements:
+    >> {1} != {2}
+     = True
+    >> {1, 2} != {1, 2}
+     = False
+    >> {a} != {a}
+     = False
+    >> "a" != "b"
+     = True
+    >> "a" != "a"
+     = False
+
+    #> Pi != N[Pi]
+     = False
+
+    #> a_ != b_
+     = a_ != b_
+
+    >> a != a != a
+     = False
+    #> "abc" != "def" != "abc"
+     = False
+
+    ## Reproduce strange MMA behaviour
+    >> a != a != b
+     = False
+    >> a != b != a
+     = a != b != a
+
+    >> {Unequal[], Unequal[x], Unequal[1]}
+     = {True, True, True}
+    )";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        rule<ConstantTrueRule<0>>();
+        rule<ConstantTrueRule<1>>();
+        rule<BinaryOperatorRule<EqualComparison<true>>>();
+        rule<CompareNRule<EqualComparison<true>>>();
+    }
+};
+
+using LessBase = ComparisonBuiltin<BinaryArithmetic<less, inequality_fallback<true, false, false>>>;
+
+class Less : public LessBase {
 public:
     static constexpr const char *name = "Less";
 
@@ -334,40 +479,84 @@ public:
         <dd>represents the inequality $lhs$ < $rhs$.
     </dl>
 
-    #> {Less[], Less[x], Less[1]}
+    >> {Less[], Less[x], Less[1]}
      = {True, True, True}
     )";
 
 public:
-    using Builtin::Builtin;
-
-    void build(Runtime &runtime) {
-        rule<ConstantTrueRule<0>>();
-        rule<ConstantTrueRule<1>>();
-        rule<BinaryOperatorRule<BinaryArithmetic<less, less_fallback>>>();
-    }
+    using LessBase::LessBase;
 };
 
-constexpr auto LessEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<less_equal>>>;
-constexpr auto Greater = NewRule<BinaryOperatorRule<BinaryArithmetic<greater>>>;
-constexpr auto GreaterEqual = NewRule<BinaryOperatorRule<BinaryArithmetic<greater_equal>>>;
+using LessEqualBase = ComparisonBuiltin<BinaryArithmetic<less_equal, inequality_fallback<true, true, false>>>;
+
+class LessEqual : public LessEqualBase {
+public:
+    static constexpr const char *name = "LessEqual";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'LessEqual[$x$, $y$]'
+    <dt>'$x$ <= $y$'
+        <dd>yields 'True' if $x$ is known to be less than or equal to $y$.
+    <dt>'$lhs$ <= $rhs$'
+        <dd>represents the inequality $lhs$ ≤ $rhs$.
+    </dl>
+    )";
+
+public:
+    using LessEqualBase::LessEqualBase;
+};
+
+using GreaterBase = ComparisonBuiltin<BinaryArithmetic<greater, inequality_fallback<false, false, true>>>;
+
+class Greater : public GreaterBase {
+public:
+    static constexpr const char *name = "Greater";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Greater[$x$, $y$]'
+    <dt>'$x$ > $y$'
+        <dd>yields 'True' if $x$ is known to be greater than $y$.
+    <dt>'$lhs$ > $rhs$'
+        <dd>represents the inequality $lhs$ > $rhs$.
+    </dl>
+    >> a > b > c //FullForm
+     = Greater[a, b, c]
+    >> Greater[3, 2, 1]
+     = True
+    )";
+
+public:
+    using GreaterBase::GreaterBase;
+};
+
+using GreaterEqualBase = ComparisonBuiltin<BinaryArithmetic<greater_equal, inequality_fallback<false, true, true>>>;
+
+class GreaterEqual : public GreaterEqualBase {
+public:
+    static constexpr const char *name = "GreaterEqual";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'GreaterEqual[$x$, $y$]'
+    <dt>'$x$ >= $y$'
+        <dd>yields 'True' if $x$ is known to be greater than or equal
+        to $y$.
+    <dt>'$lhs$ >= $rhs$'
+        <dd>represents the inequality $lhs$ ≥ $rhs$.
+    </dl>
+    )";
+
+public:
+    using GreaterEqualBase::GreaterEqualBase;
+};
 
 void Builtins::Comparison::initialize() {
     add<Equal>();
+    add<Unequal>();
     add<Less>();
-
-    add("LessEqual",
-        Attributes::None, {
-                LessEqual
-        });
-
-    add("Greater",
-        Attributes::None, {
-                Greater
-        });
-
-    add("GreaterEqual",
-        Attributes::None, {
-                GreaterEqual
-        });
+    add<LessEqual>();
+    add<Greater>();
+    add<GreaterEqual>();
 }

@@ -331,8 +331,14 @@ inline const BaseExpression *if_divisor(const BaseExpression *b_base) {
 
 class binary_times_fallback {
 public:
-	inline BaseExpressionRef operator()(const Expression *expr, const Evaluation &evaluation) const {
-		return mul(expr, evaluation);
+	inline BaseExpressionRef operator()(
+        const BaseExpressionPtr head,
+        const BaseExpressionPtr a,
+        const BaseExpressionPtr b,
+        const Evaluation &evaluation) const {
+
+        const ExpressionRef expr = expression(head, a, b);
+		return mul(expr.get(), evaluation);
 	}
 };
 
@@ -420,8 +426,14 @@ public:
 
 class binary_plus_fallback {
 public:
-	inline BaseExpressionRef operator()(const Expression *expr, const Evaluation &evaluation) const {
-		return add(expr, evaluation);
+	inline BaseExpressionRef operator()(
+        const BaseExpressionPtr head,
+        const BaseExpressionPtr a,
+        const BaseExpressionPtr b,
+        const Evaluation &evaluation) const {
+
+        const ExpressionRef expr = expression(head, a, b);
+		return add(expr.get(), evaluation);
 	}
 };
 

@@ -5,7 +5,12 @@
 
 class no_binary_fallback {
 public:
-    inline BaseExpressionRef operator()(const Expression*, const Evaluation&) const {
+    inline BaseExpressionRef operator()(
+        const BaseExpressionPtr head,
+        const BaseExpressionPtr a,
+        const BaseExpressionPtr b,
+        const Evaluation &evaluation) const {
+
         return BaseExpressionRef();
     }
 };
@@ -47,9 +52,29 @@ protected:
         return definitions.symbols().Boolean(result);
     }
 
+    static inline BaseExpressionRef result(const Definitions &definitions, const optional<bool> &result) {
+        return result ? definitions.symbols().Boolean(*result) : BaseExpressionRef();
+    }
+
 public:
     BinaryOperator(const Fallback &fallback = Fallback()) : m_fallback(fallback) {
         std::memset(_functions, 0, sizeof(_functions));
+    }
+
+    inline BaseExpressionRef operator()(
+        const Definitions &definitions,
+        const BaseExpressionPtr head,
+        const BaseExpressionPtr a,
+        const BaseExpressionPtr b,
+        const Evaluation &evaluation) const {
+
+        const Function &f = _functions[a->type() | (size_t(b->type()) << CoreTypeBits)];
+
+        if (f) {
+            return result(definitions, f(a, b));
+        } else {
+            return m_fallback(head, a, b, evaluation);
+        }
     }
 
     inline BaseExpressionRef operator()(
@@ -61,13 +86,8 @@ public:
 
         const BaseExpression * const a = leaves[0].get();
         const BaseExpression * const b = leaves[1].get();
-        const Function f = _functions[a->type() | (size_t(b->type()) << CoreTypeBits)];
 
-        if (f) {
-            return result(definitions, f(a, b));
-        } else {
-            return m_fallback(expr, evaluation);
-        }
+        return (*this)(definitions, expr->head(), a, b, evaluation);
     }
 };
 

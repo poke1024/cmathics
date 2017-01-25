@@ -5,6 +5,11 @@
 
 #include <symengine/cwrapper.h>
 
+constexpr mp_prec_t machine_precision_bits = mp_prec_t(std::numeric_limits<machine_real_t>::digits);
+
+const Precision Precision::none(0L);
+const Precision Precision::machine_precision(machine_precision_bits);
+
 BaseExpressionRef exactly_n_pattern(
 	const SymbolRef &head, size_t n, const Definitions &definitions) {
 
@@ -422,4 +427,55 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 
     expr->set_simplified_form(form);
     return expr;
+}
+
+Precision precision(const BaseExpressionRef &item) {
+    switch (item->type()) {
+        case MachineRealType:
+            return Precision(mp_prec_t(std::numeric_limits<machine_real_t>::digits));
+
+        case BigRealType:
+            return static_cast<const BigReal*>(item.get())->prec;
+
+        case MachineIntegerType:
+            return Precision(mp_prec_t(std::numeric_limits<machine_integer_t>::digits));
+
+        case BigIntegerType:
+            return Precision(mp_prec_t(static_cast<const BigInteger*>(item.get())->value.get_prec()));
+
+        case ExpressionType: {
+            const Expression * const expr = static_cast<const Expression*>(item.get());
+
+            return expr->with_slice([] (const auto &slice) {
+                bool first_big = false;
+                mp_prec_t bits = 0;
+
+                const size_t n = slice.size();
+
+                for (size_t i = 0; i < n; i++) {
+                    const Precision r = precision(slice[i]);
+
+                    if (r.is_machine_precision()) {
+                        return r;
+                    } else if (!r.is_none()) {
+                        if (first_big) {
+                            bits = r.bits;
+                            first_big = false;
+                        } else if (r.bits < bits) {
+                            bits = r.bits;
+                        }
+                    }
+                }
+
+                return Precision(bits);
+            });
+        }
+
+        case MachineComplexType:
+        case BigComplexType:
+            // TODO
+
+        default:
+            return Precision::none;
+    }
 }

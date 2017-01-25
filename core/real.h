@@ -13,32 +13,6 @@
 #include "types.h"
 #include "hash.h"
 
-class Precision {
-private:
-    static inline mp_prec_t to_bits_prec(double prec) {
-        constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
-        return static_cast<mp_prec_t>(ceil(LOG_2_10 * prec));
-    }
-
-    static inline mp_prec_t from_bits_prec(mp_prec_t bits_prec) {
-        constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
-        return bits_prec / LOG_2_10;
-    }
-
-public:
-    inline explicit Precision(double decimals_) : decimals(decimals_), bits(to_bits_prec(decimals_)) {
-    }
-
-    inline explicit Precision(long bits_) : bits(bits_), decimals(from_bits_prec(bits_)) {
-    }
-
-    inline Precision(const Precision &p) : decimals(p.decimals), bits(p.bits) {
-    }
-
-    const double decimals;
-    const long bits;
-};
-
 class MachineReal : public BaseExpression {
 private:
     static const std::hash<machine_real_t> hash_function;
@@ -160,7 +134,5 @@ protected:
         return Pool::SymbolicForm(SymEngine::real_mpfr(x), true);
     }
 };
-
-std::pair<int32_t,double> precision_of(const BaseExpressionRef&);
 
 #endif
