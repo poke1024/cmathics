@@ -1,5 +1,6 @@
 #include "comparison.h"
 #include "../arithmetic/binary.h"
+#include <symengine/eval.h>
 
 template<int N>
 class ConstantTrueRule : public ExactlyNRule<N> {
@@ -144,6 +145,31 @@ struct less_equal {
             return x <= y;
         });
     }
+};
+
+struct less_fallback {
+public:
+	inline BaseExpressionRef operator()(const Expression *expr, const Evaluation &evaluation) const {
+		const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+
+		const BaseExpressionRef &a = leaves[0];
+		const BaseExpressionRef &b = leaves[1];
+
+		// FIXME perform symbolic comparisons, e.g. 5 < E
+		const SymbolicFormRef sym_a = symbolic_form(a, evaluation);
+		if (!sym_a->is_none()) {
+			const SymbolicFormRef sym_b = symbolic_form(b, evaluation);
+			if (!sym_b->is_none()) {
+				const int prec = 53; // FIXME
+				const auto diff = SymEngine::sub(sym_a->get(), sym_b->get());
+				auto sign = SymEngine::evalf(*diff, prec, true);
+				bool lt = sign->is_negative();
+				return evaluation.Boolean(lt);
+			}
+		}
+
+		return BaseExpressionRef();
+	}
 };
 
 struct greater {
@@ -318,7 +344,7 @@ public:
     void build(Runtime &runtime) {
         rule<ConstantTrueRule<0>>();
         rule<ConstantTrueRule<1>>();
-        rule<BinaryOperatorRule<BinaryArithmetic<less>>>();
+        rule<BinaryOperatorRule<BinaryArithmetic<less, less_fallback>>>();
     }
 };
 

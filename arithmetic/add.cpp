@@ -65,7 +65,7 @@ inline BaseExpressionRef add_machine_inexact(
 			case MachineRationalType:
 			case MachineComplexType:
 			case BigComplexType:
-				symengine.push_back(symbolic_form(leaf)->get());
+				symengine.push_back(symbolic_form(leaf, evaluation)->get());
 				break;
 
 			default:
@@ -116,7 +116,7 @@ inline BaseExpressionRef add_slow(
 
 	for (const BaseExpressionRef leaf : slice.leaves()) {
 		if (leaf->is_number()) {
-			const auto form = symbolic_form(leaf);
+			const auto form = symbolic_form(leaf, evaluation);
 			numbers.push_back(form->get());
 		} else {
 			symbolics.push_back_copy(leaf);

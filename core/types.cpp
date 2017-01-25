@@ -125,7 +125,7 @@ inline SymbolicFormRef times_2(const Expression *expr) {
 		if (operand->type() == MachineIntegerType &&
 		    static_cast<const MachineInteger*>(operand.get())->value == -1) {
 
-			const SymbolicFormRef form = symbolic_form(leaves[1 - i]);
+			const SymbolicFormRef form = unsafe_symbolic_form(leaves[1 - i]);
 			if (!form->is_none()) {
 				return Pool::SymbolicForm(SymEngine::neg(form->get()));
 			} else {

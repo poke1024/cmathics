@@ -383,7 +383,7 @@ public:
 		SymEngine::vec_basic operands;
         operands.reserve(size());
 		for (const auto &leaf : _leaves.leaves()) {
-            const SymbolicFormRef form = symbolic_form(leaf);
+            const SymbolicFormRef form = unsafe_symbolic_form(leaf);
             if (form->is_none()) {
                 return optional<SymEngine::vec_basic>();
             }
@@ -413,7 +413,7 @@ inline const BaseExpressionRef *Expression::static_leaves() const {
 }
 
 inline SymbolicFormRef Expression::symbolic_1(const SymEngineUnaryFunction &f) const {
-    const SymbolicFormRef symbolic_a = symbolic_form(static_leaves<1>()[0]);
+    const SymbolicFormRef symbolic_a = unsafe_symbolic_form(static_leaves<1>()[0]);
     if (!symbolic_a->is_none()) {
 	    return Pool::SymbolicForm(f(symbolic_a->get()));
     } else {
@@ -426,9 +426,9 @@ inline SymbolicFormRef Expression::symbolic_2(const SymEngineBinaryFunction &f) 
 	const BaseExpressionRef &a = leaves[0];
 	const BaseExpressionRef &b = leaves[1];
 
-    const SymbolicFormRef symbolic_a = symbolic_form(a);
+    const SymbolicFormRef symbolic_a = unsafe_symbolic_form(a);
     if (!symbolic_a->is_none()) {
-        const SymbolicFormRef symbolic_b = symbolic_form(b);
+        const SymbolicFormRef symbolic_b = unsafe_symbolic_form(b);
         if (!symbolic_b->is_none()) {
 	        return Pool::SymbolicForm(f(symbolic_a->get(), symbolic_b->get()));
         }
@@ -710,7 +710,7 @@ BaseExpressionRef ExpressionImplementation<Slice>::do_symbolic(
 	const Recurse &recurse,
 	const Evaluation &evaluation) const {
 
-	const SymbolicFormRef form = symbolic_form(this);
+	const SymbolicFormRef form = unsafe_symbolic_form(this);
 
 	if (form && !form->is_none()) {
 		const SymbolicFormRef new_form = compute(form);

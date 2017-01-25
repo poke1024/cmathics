@@ -177,9 +177,9 @@ inline SymbolRef String::option_symbol(const Evaluation &evaluation) const {
 }
 
 template<typename T>
-inline SymbolicFormRef safe_symbolic_form(const T &item, const Evaluation &evaluation) {
+inline SymbolicFormRef symbolic_form(const T &item, const Evaluation &evaluation) {
     try {
-        return symbolic_form(item);
+        return unsafe_symbolic_form(item);
     } catch (const SymEngine::SymEngineException &e) {
         evaluation.sym_engine_exception(e);
         return SymbolicFormRef();

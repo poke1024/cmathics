@@ -382,7 +382,7 @@ protected:
 
 protected:
 	template<typename T>
-	friend inline SymbolicFormRef symbolic_form(const T &item);
+	friend inline SymbolicFormRef unsafe_symbolic_form(const T &item);
 
 	friend inline SymbolicFormRef fast_symbolic_form(const Expression *expr);
 
@@ -810,7 +810,7 @@ inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
 }
 
 template<typename T>
-inline SymbolicFormRef symbolic_form(const T &item) {
+inline SymbolicFormRef unsafe_symbolic_form(const T &item) {
     // caller must handle SymEngine::SymEngineException; non-core code should always
     // call symbolic_form(item, evaluation).
 
@@ -820,7 +820,7 @@ inline SymbolicFormRef symbolic_form(const T &item) {
 }
 
 template<>
-inline SymbolicFormRef symbolic_form<const ExpressionPtr&>(const ExpressionPtr& expr) {
+inline SymbolicFormRef unsafe_symbolic_form<const ExpressionPtr&>(const ExpressionPtr& expr) {
     // caller must handle SymEngine::SymEngineException; non-core code should always
     // call symbolic_form(item, evaluation).
 

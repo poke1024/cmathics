@@ -117,7 +117,7 @@ BaseExpressionRef evaluate(
             std::cout << "simplified into " << simplified->format(evaluation.FullForm, evaluation) << std::endl;
         }
 
-        assert(symbolic_form(simplified)->is_simplified());
+        assert(unsafe_symbolic_form(simplified)->is_simplified());
 
         return simplified;
     }

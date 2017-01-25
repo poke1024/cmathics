@@ -35,7 +35,7 @@ public:
                         return BaseExpressionRef();
                     }
 
-                    const SymbolicFormRef form = safe_symbolic_form(expr, evaluation);
+                    const SymbolicFormRef form = symbolic_form(expr, evaluation);
                     if (!form || form->is_none()) {
                         return BaseExpressionRef();
                     }
