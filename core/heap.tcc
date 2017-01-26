@@ -13,6 +13,11 @@ inline BaseExpressionRef Pool::MachineReal(machine_real_t value) {
 	return BaseExpressionRef(_s_instance->_machine_reals.construct(value));
 }
 
+inline BaseExpressionRef Pool::MachineReal(const SymbolicFormRef &form) {
+    assert(_s_instance);
+    return BaseExpressionRef(_s_instance->_machine_reals.construct(form));
+}
+
 inline BaseExpressionRef Pool::MachineComplex(machine_real_t real, machine_real_t imag) {
     assert(_s_instance);
     return BaseExpressionRef(_s_instance->_machine_complexs.construct(real, imag));

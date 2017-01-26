@@ -559,7 +559,7 @@ public:
     Complex numbers:
     >> Sqrt[-4]
      = 2 I
-    >> I == Sqrt[-1]
+    #> I == Sqrt[-1]
      = True
 
     >> Plot[Sqrt[a^2], {a, -2, 2}]
@@ -835,7 +835,7 @@ public:
     using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		builtin(&InexactNumberQ::test);
+		builtin(&IntegerQ::test);
 	}
 
     inline bool test(

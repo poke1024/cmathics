@@ -1,6 +1,8 @@
 #ifndef HASH_H
 #define HASH_H
 
+#include <gmpxx.h>
+
 typedef size_t hash_t;
 
 inline hash_t djb2(const char* str) {
@@ -23,6 +25,17 @@ inline hash_t hash_combine(hash_t seed, const hash_t x) {
 inline hash_t hash_pair(const hash_t x, const hash_t y) {
     // combines 2 hash values
 	return hash_combine(hash_combine(0, x), y);
+}
+
+inline hash_t hash_mpz(const mpz_class &value) {
+    std::hash<mp_limb_t> limb_hash;
+    const mpz_srcptr x = value.get_mpz_t();
+    const size_t n = std::abs(x->_mp_size);
+    hash_t h = 0;
+    for (size_t i = 0; i < n; i++) {
+        h = hash_combine(h, limb_hash(x->_mp_d[i]));
+    }
+    return h;
 }
 
 constexpr hash_t symbol_hash = 0x652d2463adb; // djb2("Symbol")

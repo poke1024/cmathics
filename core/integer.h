@@ -59,6 +59,7 @@ public:
 	static constexpr Type Type = BigIntegerType;
 
 	mpz_class value;
+    mutable optional<hash_t> m_hash;
 
 	inline BigInteger(const mpz_class &new_value) :
 		Integer(BigIntegerExtendedType), value(new_value) {
@@ -79,8 +80,10 @@ public:
     }
 
     virtual hash_t hash() const {
-        //  TODO hash
-        return 0;
+        if (!m_hash) {
+            m_hash = hash_mpz(value);
+        }
+        return *m_hash;
     }
 
     virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;

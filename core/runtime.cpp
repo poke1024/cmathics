@@ -43,23 +43,32 @@ public:
             return BaseExpressionRef();
         }
 
-        if (n->extended_type() == SymbolMachinePrecision) {
-            return Pool::BigReal(
-                form,
-                Precision::machine_precision);
-        } else {
-            switch (n->type()) {
-                case MachineIntegerType:
-                    return Pool::BigReal(
-                        form,
-                        Precision(double(static_cast<const MachineInteger*>(n)->value)));
-                case MachineRealType:
-                    return Pool::BigReal(
-                        form,
-                        Precision(double(static_cast<const MachineReal*>(n)->value)));
-                default:
-                    return BaseExpressionRef();
+        try {
+            if (n->extended_type() == SymbolMachinePrecision) {
+                return Pool::MachineReal(form);
+            } else {
+                double p;
+
+                switch (n->type()) {
+                    case MachineIntegerType:
+                        p = static_cast<const MachineInteger*>(n)->value;
+                        break;
+                    case MachineRealType:
+                        p = static_cast<const MachineReal*>(n)->value;
+                        break;
+                    default:
+                        return BaseExpressionRef();
+                }
+
+                if (p <= Precision::machine_precision.decimals) {
+                    return Pool::MachineReal(form);
+                } else {
+                    return Pool::BigReal(form, Precision(p));
+                }
             }
+        } catch (const SymEngine::SymEngineException &e) {
+            evaluation.sym_engine_exception(e);
+            return BaseExpressionRef();
         }
     }
 };
@@ -254,10 +263,8 @@ void Runtime::run_tests() {
                     }
                 }
             } else if (line.compare(0, 1, ":") == 0) {
-                if (!output->test_line(trim(line.substr(1)))) {
-                    if (!fail_expected) {
-                        fail_count++;
-                    }
+                if (!output->test_line(trim(line.substr(1)), fail_expected)) {
+                    fail_count++;
                 }
 			} else {
 				// ignore

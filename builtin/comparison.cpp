@@ -161,25 +161,30 @@ public:
                 const Precision p = std::max(pa, pb);
                 const Precision p0 = std::min(pa, pb);
 
-                unsigned long prec = p.bits;
-				const auto diff = SymEngine::sub(sym_a->get(), sym_b->get());
+                try {
+                    unsigned long prec = p.bits;
+                    const auto diff = SymEngine::sub(sym_a->get(), sym_b->get());
 
-                while (true) {
-                    const auto ndiff = SymEngine::evalf(*diff, prec, true);
+                    while (true) {
+                        const auto ndiff = SymEngine::evalf(*diff, prec, true);
 
-                    if (ndiff->is_negative()) {
-                        return evaluation.Boolean(Less);
-                    } else if (ndiff->is_positive()) {
-                        return evaluation.Boolean(Greater);
-                    } else {
-                        if (p0.is_none()) {
-                            // we're probably dealing with an irrational as
-                            // in x < Pi. increase precision, try again.
-                            assert(!__builtin_umull_overflow(prec, 2, &prec));
+                        if (ndiff->is_negative()) {
+                            return evaluation.Boolean(Less);
+                        } else if (ndiff->is_positive()) {
+                            return evaluation.Boolean(Greater);
                         } else {
-                            return evaluation.Boolean(Equal);
+                            if (p0.is_none()) {
+                                // we're probably dealing with an irrational as
+                                // in x < Pi. increase precision, try again.
+                                assert(!__builtin_umull_overflow(prec, 2, &prec));
+                            } else {
+                                return evaluation.Boolean(Equal);
+                            }
                         }
                     }
+                } catch (const SymEngine::SymEngineException &e) {
+                    evaluation.sym_engine_exception(e);
+                    return BaseExpressionRef();
                 }
 			}
 		}
@@ -202,43 +207,6 @@ struct greater_equal {
     static optional<bool> calculate(const U &u, const V &v) {
         return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
             return x >= y;
-        });
-    }
-};
-
-template<typename Operator>
-class CompareNRule : public AtLeastNRule<3> {
-private:
-    const SymbolRef m_head;
-    const Operator m_operator;
-
-public:
-    inline CompareNRule(const SymbolRef &head, const Definitions &definitions) :
-        AtLeastNRule<3>(head, definitions), m_head(head), m_operator(definitions) {
-    }
-
-    virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
-
-        return expr->with_slice([this, &evaluation] (const auto &slice) {
-            const size_t n = slice.size();
-
-            for (size_t i = 0; i < n - 1; i++) {
-                const BaseExpressionRef result = m_operator(
-                    evaluation.definitions,
-                    expression(m_head, slice[i], slice[i + 1]).get(),
-                    evaluation);
-
-                if (!result) { // undefined?
-                    return BaseExpressionRef();
-                }
-
-                if (!result->is_true()) {
-                    return BaseExpressionRef(evaluation.False);
-                }
-            }
-
-            return BaseExpressionRef(evaluation.True);
         });
     }
 };
@@ -267,7 +235,16 @@ public:
         const BaseExpressionPtr b,
         const Evaluation &evaluation) const {
 
-        return evaluation.Boolean(negate<Unequal>(a->equals(*b)));
+        switch (a->equals(*b)) {
+            case true:
+                return evaluation.Boolean(negate<Unequal>(true));
+            case false:
+                return evaluation.Boolean(negate<Unequal>(false));
+            case undecided:
+                return BaseExpressionRef();
+            default:
+                throw std::runtime_error("illegal equals result");
+        }
     }
 };
 
@@ -291,6 +268,87 @@ public:
         Base::template clear<MachineReal, BigReal>();
         Base::template clear<BigReal, MachineReal>();
         Base::template clear<BigReal, BigReal>();
+    }
+};
+
+template<typename Operator>
+class CompareNRule : public AtLeastNRule<3> {
+private:
+    const SymbolRef m_head;
+    const Operator m_operator;
+
+public:
+    inline CompareNRule(const SymbolRef &head, const Definitions &definitions) :
+        AtLeastNRule<3>(head, definitions), m_head(head), m_operator(definitions) {
+    }
+
+    virtual BaseExpressionRef try_apply(
+        const Expression *expr, const Evaluation &evaluation) const {
+
+        return expr->with_slice([this, &evaluation] (const auto &slice) {
+            const size_t n = slice.size();
+
+            for (size_t i = 0; i < n - 1; i++) {
+                const BaseExpressionRef result = m_operator(
+                    evaluation.definitions,
+                    m_head.get(),
+                    slice[i].get(),
+                    slice[i + 1].get(),
+                    evaluation);
+
+                if (!result) { // undefined?
+                    return BaseExpressionRef();
+                }
+
+                if (!result->is_true()) {
+                    return BaseExpressionRef(evaluation.False);
+                }
+            }
+
+            return BaseExpressionRef(evaluation.True);
+        });
+    }
+};
+
+class CompareUnequalNRule : public AtLeastNRule<3> {
+private:
+    const SymbolRef m_head;
+    const EqualComparison<false> m_is_equal;
+
+public:
+    inline CompareUnequalNRule(const SymbolRef &head, const Definitions &definitions) :
+        AtLeastNRule<3>(head, definitions), m_head(head), m_is_equal(definitions) {
+    }
+
+    virtual BaseExpressionRef try_apply(
+        const Expression *expr, const Evaluation &evaluation) const {
+
+        return expr->with_slice([this, &evaluation] (const auto &slice) {
+            const size_t n = slice.size();
+
+            for (size_t i = 0; i < n; i++) {
+                const BaseExpressionRef leaf = slice[i];
+
+                for (size_t j = i + 1; j < n; j++) {
+                    const BaseExpressionRef is_equal = m_is_equal(
+                        evaluation.definitions,
+                        m_head.get(),
+                        leaf.get(),
+                        slice[j].get(),
+                        evaluation);
+
+                    if (!is_equal) { // undefined?
+                        return BaseExpressionRef();
+                    }
+
+                    if (is_equal->is_true()) {
+                        return BaseExpressionRef(evaluation.False);
+                    }
+                }
+            }
+
+            return BaseExpressionRef(evaluation.True);
+        });
     }
 };
 
@@ -364,7 +422,7 @@ public:
     Symbolic constants are compared numerically:
     >> E > 1
      = True
-    >> Pi == 3.14
+    #> Pi == 3.14
      = False
 
     >> Pi ^ E == E ^ Pi
@@ -440,7 +498,7 @@ public:
 
     >> a != a != a
      = False
-    #> "abc" != "def" != "abc"
+    >> "abc" != "def" != "abc"
      = False
 
     ## Reproduce strange MMA behaviour
@@ -460,7 +518,7 @@ public:
         rule<ConstantTrueRule<0>>();
         rule<ConstantTrueRule<1>>();
         rule<BinaryOperatorRule<EqualComparison<true>>>();
-        rule<CompareNRule<EqualComparison<true>>>();
+        rule<CompareUnequalNRule>();
     }
 };
 

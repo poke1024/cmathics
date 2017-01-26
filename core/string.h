@@ -230,6 +230,7 @@ class CharacterSequence;
 class String : public BaseExpression {
 private:
 	mutable MutableSymbolRef m_option_symbol; // "System`" + value
+    mutable optional<hash_t> m_hash;
 
     const StringExtentRef m_extent;
     const index_t m_offset;
@@ -314,7 +315,10 @@ public:
     }
 
     virtual hash_t hash() const {
-        return hash_pair(string_hash, m_extent->hash(m_offset, m_length));
+        if (!m_hash) {
+            m_hash = m_extent->hash(m_offset, m_length);
+        }
+        return hash_pair(string_hash, *m_hash);
     }
 
 	inline UnicodeString unicode() const {

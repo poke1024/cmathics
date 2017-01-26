@@ -100,7 +100,7 @@ std::string MachineReal::format(const SymbolRef &form, const Evaluation &evaluat
 	return s.str();
 }
 
-bool MachineReal::equals(const BaseExpression &expr) const {
+tribool MachineReal::equals(const BaseExpression &expr) const {
 	switch (expr.type()) {
 		case MachineRealType: {
 			const machine_real_t s = value;
@@ -132,7 +132,7 @@ std::string BigReal::format(const SymbolRef &form, const Evaluation &evaluation)
 	return s.str();
 }
 
-bool BigReal::equals(const BaseExpression &expr) const {
+tribool BigReal::equals(const BaseExpression &expr) const {
 	const BigReal &s = *this;
 
 	switch (expr.type()) {

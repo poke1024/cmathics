@@ -37,7 +37,6 @@ public:
     }
 
     virtual hash_t hash() const {
-        // TODO better hash see CPython _Py_HashDouble
         const hash_t value_hash = hash_pair(
             hash_function(value.real()), hash_function(value.imag()));
         return hash_pair(machine_complex_hash, value_hash);
@@ -80,7 +79,7 @@ public:
         }
     }
 
-    virtual bool equals(const BaseExpression &expr) const {
+    virtual tribool equals(const BaseExpression &expr) const {
         return same(expr);
     }
 

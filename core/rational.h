@@ -13,6 +13,7 @@ public:
     static constexpr Type Type = BigRationalType;
 
     mpq_class value;
+    mutable optional<hash_t> m_hash;
 
     inline BigRational(machine_integer_t x, machine_integer_t y) :
         BaseExpression(BigRationalExtendedType),
@@ -26,16 +27,10 @@ public:
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
     virtual hash_t hash() const {
-        /*uint64_t seed = 0;
-
-        numer = (BaseExpression*) Rational_numer(expression);
-        denom = (BaseExpression*) Rational_denom(expression);
-
-        seed = hash_combine(seed, rational_hash);
-        seed = hash_combine(seed, Hash(numer));
-        seed = hash_combine(seed, Hash(denom));*/
-
-        return 0;
+        if (!m_hash) {
+            m_hash = hash_combine(hash_mpz(value.get_num()), hash_mpz(value.get_den()));
+        }
+        return *m_hash;
     }
 
     virtual inline bool same(const BaseExpression &expr) const final {

@@ -104,7 +104,7 @@ public:
         }
     }
 
-    bool test_line(const std::string &expected) {
+    bool test_line(const std::string &expected, bool fail_expected) {
         bool fail = false;
         std::string actual;
 
@@ -120,7 +120,7 @@ public:
             actual = "(nothing)";
         }
 
-        if (fail) {
+        if (fail && !fail_expected) {
             std::cout << "output mismatch: " << std::endl;
             std::cout << "expected: " << expected << std::endl;
             std::cout << "actual: " << actual << std::endl;

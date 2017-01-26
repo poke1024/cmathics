@@ -348,6 +348,8 @@ public:
 	static inline BaseExpressionRef BigRational(const mpq_class &value);
 
 	static inline BaseExpressionRef MachineReal(machine_real_t value);
+    static inline BaseExpressionRef MachineReal(const SymbolicFormRef &form);
+
     static inline BaseExpressionRef BigReal(machine_real_t value, const Precision &prec);
 	static inline BaseExpressionRef BigReal(const SymbolicFormRef &form, const Precision &prec);
 	static inline BaseExpressionRef BigReal(arb_t value, const Precision &prec);

@@ -19,6 +19,23 @@ using std::experimental::optional;
 struct nothing {
 };
 
+enum {
+    undecided = 2
+};
+
+typedef int tribool;
+
+/*class tribool {
+private:
+    int m_state;
+
+public:
+    explicit inline tribool(bool f) : m_state(f) {
+    }
+
+
+};*/
+
 template<typename F>
 class const_lambda_class {
 public:
@@ -461,7 +478,7 @@ public:
 
     virtual bool same(const BaseExpression &expr) const = 0;
 
-    virtual bool equals(const BaseExpression &expr) const {
+    virtual tribool equals(const BaseExpression &expr) const {
         return same(expr);
     }
 

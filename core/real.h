@@ -7,11 +7,43 @@
 
 #include <arb.h>
 #include <symengine/eval_arb.h>
+#include <symengine/eval_double.h>
 #include <symengine/real_double.h>
 #include <symengine/real_mpfr.h>
 
 #include "types.h"
 #include "hash.h"
+
+inline machine_real_t chop(machine_real_t x) {
+    // chop off the last 8 bits of the mantissa to make this safe for hashing
+    // and using equals() later on.
+
+    constexpr int mantissa_size = std::numeric_limits<machine_real_t>::digits;
+
+    int exp;
+    machine_real_t mantissa_flt = std::frexp(x, &exp);
+
+    constexpr double ignore = 1L << 8;
+
+    mantissa_flt = std::scalbn(mantissa_flt, mantissa_size);
+    mantissa_flt = std::floor(mantissa_flt / ignore) * ignore;
+    mantissa_flt = std::scalbn(mantissa_flt, -mantissa_size);
+
+    return std::ldexp(mantissa_flt, exp);
+}
+
+inline machine_real_t eval_to_machine_real(const SymbolicFormRef &form) {
+    if (sizeof(machine_real_t) == sizeof(double)) {
+        return SymEngine::eval_double(*form->get().get());
+    } else {
+        arb_t value;
+        arb_init(value);
+        SymEngine::eval_arb(value, *form->get().get(), std::numeric_limits<machine_real_t>::digits);
+        const machine_real_t real = arf_get_d(arb_midref(value), ARF_RND_NEAR);
+        arb_clear(value);
+        return real;
+    }
+}
 
 class MachineReal : public BaseExpression {
 private:
@@ -22,8 +54,12 @@ public:
 
     const machine_real_t value;
 
-    explicit MachineReal(machine_real_t new_value) :
+    explicit inline MachineReal(machine_real_t new_value) :
 	    BaseExpression(MachineRealExtendedType), value(new_value) {
+    }
+
+    explicit inline MachineReal(const SymbolicFormRef &form) :
+        BaseExpression(MachineRealExtendedType), value(eval_to_machine_real(form)) {
     }
 
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
@@ -36,11 +72,10 @@ public:
         }
     }
 
-    virtual bool equals(const BaseExpression &expr) const final;
+    virtual tribool equals(const BaseExpression &expr) const final;
 
     virtual hash_t hash() const {
-        // TODO better hash see CPython _Py_HashDouble
-        return hash_pair(machine_real_hash, hash_function(value));
+        return hash_pair(machine_real_hash, hash_function(chop(value)));
     }
 
     virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
@@ -104,11 +139,10 @@ public:
         }
     }
 
-    virtual bool equals(const BaseExpression &expr) const final;
+    virtual tribool equals(const BaseExpression &expr) const final;
 
     virtual hash_t hash() const {
-        // TODO hash
-        return 0;
+        return 0; // FIXME
     }
 
     virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;

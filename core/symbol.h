@@ -243,6 +243,14 @@ public:
 		return &expr == this;
 	}
 
+    virtual inline tribool equals(const BaseExpression &expr) const final {
+        if (&expr == this) {
+            return true;
+        } else {
+            return undecided;
+        }
+    }
+
 	virtual hash_t hash() const {
 		return hash_pair(symbol_hash, (std::uintptr_t)this);
 	}

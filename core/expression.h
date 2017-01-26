@@ -115,6 +115,39 @@ public:
 		});
 	}
 
+    virtual inline tribool equals(const BaseExpression &item) const final {
+		if (this == &item) {
+			return true;
+		}
+		if (item.type() != ExpressionType) {
+			return false;
+		}
+		const Expression *expr = item.as_expression();
+
+		const size_t size = _leaves.size();
+		if (size != expr->size()) {
+			return false;
+		}
+
+		const tribool head = _head->equals(*expr->head());
+        if (head != true) {
+            return head;
+        }
+
+		const auto &self = _leaves;
+		return expr->with_slice([&self, size] (const auto &slice) {
+
+			for (size_t i = 0; i < size; i++) {
+                const tribool leaf = self[i]->same(slice[i]);
+				if (leaf != true) {
+					return leaf;
+				}
+			}
+
+			return tribool(true);
+		});
+	}
+
     virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final {
         switch (_head->extended_type()) {
             case SymbolFullForm:
