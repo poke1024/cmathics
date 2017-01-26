@@ -38,6 +38,8 @@ if(CUSTOM_PREFIX)
     # make CXX_DEFINES=-std=c++11
     # make install
 
+    # it might also be useful to use -DCMAKE_BUILD_TYPE:STRING="Debug"
+
     include_directories("${CUSTOM_PREFIX}/include" "${CUSTOM_PREFIX}/include/flint" "${CUSTOM_PREFIX}/opt/icu4c/include")
     link_directories("${CUSTOM_PREFIX}/lib" "${CUSTOM_PREFIX}/opt/icu4c/lib")
 elseif(APPLE)

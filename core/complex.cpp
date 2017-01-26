@@ -51,10 +51,23 @@ std::string BigComplex::format(const SymbolRef &form, const Evaluation &evaluati
             const auto imag = m_value->imaginary_part();
             if (!real->is_zero()) {
                 s << real->__str__();
-                s << (imag->is_negative() ? " - " : " + ");
-                s << SymEngine::abs(imag)->__str__() << " I";
+
+	            if (imag->is_one()) {
+		            s << " + I";
+	            } else if (imag->is_minus_one()) {
+		            s << " - I";
+	            } else {
+		            s << (imag->is_negative() ? " - " : " + ");
+		            s << imag->__str__() << " I";
+	            }
             } else {
-                s << imag->__str__() << " I";
+                if (imag->is_one()) {
+	                s << "I";
+                } else if (imag->is_minus_one()) {
+	                s << "-I";
+                } else {
+	                s << imag->__str__() << " I";
+                }
             }
             return s.str();
         }

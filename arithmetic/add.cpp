@@ -111,36 +111,39 @@ inline BaseExpressionRef add_slow(
 	const Slice &slice,
 	const Evaluation &evaluation) {
 
-	LeafVector symbolics;
-	SymEngine::vec_basic numbers;
+	try {
+		LeafVector symbolics;
+		SymEngine::vec_basic numbers;
 
-	for (const BaseExpressionRef leaf : slice.leaves()) {
-		if (leaf->is_number()) {
-			const auto form = symbolic_form(leaf, evaluation);
-			numbers.push_back(form->get());
+		for (const BaseExpressionRef leaf : slice.leaves()) {
+			if (leaf->is_number()) {
+				const auto form = symbolic_form(leaf, evaluation);
+				numbers.push_back(form->get());
+			} else {
+				symbolics.push_back_copy(leaf);
+			}
+		}
+
+		// it's important to check if a change happens. if we keep
+		// returning non-null BaseExpressionRef here, "a + b" will
+		// produce an infinite loop.
+
+		if (numbers.size() >= 2) {
+			UnsafeBaseExpressionRef result;
+
+			result = from_symbolic_form(SymEngine::add(numbers), evaluation);
+
+			if (!symbolics.empty()) {
+				symbolics.push_back(BaseExpressionRef(result));
+				result = expression(expr->head(), std::move(symbolics));
+			}
+
+			return result;
 		} else {
-			symbolics.push_back_copy(leaf);
+			return BaseExpressionRef();
 		}
-	}
-
-	// it's important to check if a change happens. if we keep
-	// returning non-null BaseExpressionRef here, "a + b" will
-	// produce an infinite loop.
-
-	if (numbers.size() >= 2) {
-		UnsafeBaseExpressionRef result;
-
-		result = from_symbolic_form(
-			SymEngine::add(numbers),
-			evaluation);
-
-		if (!symbolics.empty()) {
-			symbolics.push_back(BaseExpressionRef(result));
-			result = expression(expr->head(), std::move(symbolics));
-		}
-
-		return result;
-	} else {
+	} catch (const SymEngine::SymEngineException &e) {
+		evaluation.sym_engine_exception(e);
 		return BaseExpressionRef();
 	}
 }

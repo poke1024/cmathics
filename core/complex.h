@@ -94,6 +94,11 @@ public:
     virtual bool is_inexact() const final {
         return false; // SymEngine's complex uses rationals
     }
+
+protected:
+    virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
+        return Pool::SymbolicForm(m_value, true);
+    }
 };
 
 #endif //CMATHICS_COMPLEX_H

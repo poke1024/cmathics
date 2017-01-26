@@ -239,20 +239,23 @@ void Runtime::run_tests() {
 
 				fail_expected = line.compare(0, 2, "#>") == 0;
 			} else if (line.compare(0, 1, "=") == 0) {
-                const std::string result_str(trim(line.substr(1)));
+                const std::string trimmed_line(trim(line.substr(1)));
 
-                if (result_str.length() > 2 &&
-                    result_str[0] == '-' &&
-                    result_str[result_str.length() - 1] == '-') {
+                if (trimmed_line.length() > 2 &&
+	                trimmed_line[0] == '-' &&
+	                trimmed_line[trimmed_line.length() - 1] == '-') {
                     // ignore stuff like -Graphics- for now
                 } else {
                     if (result) {
-                        auto parsed = _parser.parse(result_str.c_str());
+                        auto parsed = _parser.parse(trimmed_line.c_str());
+
+	                    const std::string expected_str = parsed->evaluate_or_copy(dummy_evaluation)->format(fullform, evaluation);
                         const std::string result_str = result->format(fullform, evaluation);
-                        if (parsed->evaluate_or_copy(dummy_evaluation)->format(fullform, evaluation) != result_str) {
+
+                        if (expected_str != result_str) {
                             if (!fail_expected) {
                                 std::cout << "FAIL" << std::endl;
-                                std::cout << parsed->format(fullform, evaluation) <<" != " << result_str << std::endl;
+                                std::cout << expected_str <<" != " << result_str << std::endl;
                                 fail_count++;
                             }
                         }

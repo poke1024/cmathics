@@ -237,6 +237,14 @@ void InstantiateSymbolicForm::init() {
             return Pool::NoSymbolicForm();
         }
     });
+
+	add(SymbolAbs, [] (const Expression *expr) {
+		if (expr->size() == 1) {
+			return expr->symbolic_1(SymEngine::abs);
+		} else {
+			return Pool::NoSymbolicForm();
+		}
+	});
 }
 
 BaseExpressionRef from_symbolic_expr(
@@ -290,7 +298,7 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 
 	switch (form->get_type_code()) {
 		case SymEngine::INTEGER: {
-			const mpz_class value(static_cast<const SymEngine::Integer*>(form.get())->i.get_mpz_t());
+			const mpz_class value(static_cast<const SymEngine::Integer*>(form.get())->as_integer_class().get_mpz_t());
 			expr = from_primitive(value); // will instantiate a MachineInteger or a BigInteger
             break;
 		}
@@ -321,7 +329,7 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 		}
 
 		case SymEngine::RATIONAL: {
-			const mpq_class value(static_cast<const SymEngine::Rational*>(form.get())->i.get_mpq_t());
+			const mpq_class value(static_cast<const SymEngine::Rational*>(form.get())->as_rational_class().get_mpq_t());
 			expr = Pool::BigRational(value);
             break;
 		}
@@ -379,14 +387,20 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
             expr = from_symbolic_expr(form, evaluation.Gamma, evaluation);
             break;
 
+		case SymEngine::ABS:
+			expr = from_symbolic_expr(form, evaluation.Abs, evaluation);
+			break;
+
 		case SymEngine::INFTY: {
 			const auto * const infty = static_cast<const SymEngine::Infty*>(form.get());
 			if (infty->is_positive()) {
 				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(1));
 			} else if (infty->is_negative()) {
 				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(-1));
+			} else if (infty->is_complex()) {
+				expr = evaluation.ComplexInfinity;
 			} else {
-				throw std::runtime_error("cannot handle unsigned infinity from SymEngine");
+				throw std::runtime_error("cannot handle infinity from SymEngine");
 			}
 			break;
 		}

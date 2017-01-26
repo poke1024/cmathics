@@ -559,7 +559,7 @@ public:
     Complex numbers:
     >> Sqrt[-4]
      = 2 I
-    #> I == Sqrt[-1]
+    >> I == Sqrt[-1]
      = True
 
     >> Plot[Sqrt[a^2], {a, -2, 2}]
@@ -613,6 +613,205 @@ public:
 
 	void build(Runtime &runtime) {
 		rule("Infinity", "DirectedInfinity[1]");
+	}
+};
+
+class Re : public Builtin {
+public:
+	static constexpr const char *name = "Re";
+
+	static constexpr auto attributes = Attributes::Listable;
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Re[$z$]'
+        <dd>returns the real component of the complex number $z$.
+    </dl>
+
+    >> Re[3+4I]
+     = 3
+
+    >> Plot[{Cos[a], Re[E^(I a)]}, {a, 0, 2 Pi}]
+     = -Graphics-
+
+    >> Im[0.5 + 2.3 I]
+     = 2.3
+    #> % // Precision
+     = MachinePrecision
+    )";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&Re::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		BaseExpressionPtr expr,
+		const Evaluation &evaluation) {
+
+		switch (expr->type()) {
+			case MachineComplexType:
+				return Pool::MachineReal(static_cast<const MachineComplex*>(expr)->value.real());
+
+			case BigComplexType:
+				return from_symbolic_form(
+					static_cast<const BigComplex*>(expr)->m_value.get()->real_part(), evaluation);
+
+			default:
+				return BaseExpressionRef();
+		}
+	}
+};
+
+class Im : public Builtin {
+public:
+	static constexpr const char *name = "Im";
+
+	static constexpr auto attributes = Attributes::Listable;
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Im[$z$]'
+        <dd>returns the imaginary component of the complex number $z$.
+    </dl>
+
+    >> Im[3+4I]
+     = 4
+
+    >> Plot[{Sin[a], Im[E^(I a)]}, {a, 0, 2 Pi}]
+     = -Graphics-
+
+    >> Re[0.5 + 2.3 I]
+     = 0.5
+    #> % // Precision
+     = MachinePrecision
+    )";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&Im::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		BaseExpressionPtr expr,
+		const Evaluation &evaluation) {
+
+		switch (expr->type()) {
+			case MachineComplexType:
+				return Pool::MachineReal(static_cast<const MachineComplex*>(expr)->value.imag());
+
+			case BigComplexType:
+				return from_symbolic_form(
+					static_cast<const BigComplex*>(expr)->m_value.get()->imaginary_part(), evaluation);
+
+			default:
+				return BaseExpressionRef();
+		}
+	}
+};
+
+class Conjugate : public Builtin {
+public:
+	static constexpr const char *name = "Conjugate";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Conjugate[$z$]'
+        <dd>returns the complex conjugate of the complex number $z$.
+    </dl>
+
+    >> Conjugate[3 + 4 I]
+     = 3 - 4 I
+
+    >> Conjugate[3]
+     = 3
+
+    >> Conjugate[a + b * I]
+     = Conjugate[a] - I Conjugate[b]
+
+    >> Conjugate[{{1, 2 + I 4, a + I b}, {I}}]
+     = {{1, 2 - 4 I, Conjugate[a] - I Conjugate[b]}, {-I}}
+
+    ## Issue #272
+    #> {Conjugate[Pi], Conjugate[E]}
+     = {Pi, E}
+
+    >> Conjugate[1.5 + 2.5 I]
+     = 1.5 - 2.5 I
+    )";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+	}
+};
+
+class Abs : public Builtin {
+public:
+	static constexpr const char *name = "Abs";
+
+	static constexpr auto attributes = Attributes::Listable;
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Abs[$x$]'
+        <dd>returns the absolute value of $x$.
+    </dl>
+    >> Abs[-3]
+     = 3
+
+    'Abs' returns the magnitude of complex numbers:
+    >> Abs[3 + I]
+     = Sqrt[10]
+    >> Abs[3.0 + I]
+     = 3.16228
+    >> Plot[Abs[x], {x, -4, 4}]
+     = -Graphics-
+
+    >> Abs[I]
+     = 1
+    >> Abs[a - b]
+     = Abs[a - b]
+
+    #> Abs[Sqrt[3]]
+     = Sqrt[3]
+    )";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+	}
+};
+
+class I : public Builtin {
+public:
+	static constexpr const char *name = "I";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'I'
+        <dd>represents the imaginary number 'Sqrt[-1]'.
+    </dl>
+
+    >> I^2
+     = -1
+    >> (3+I)*(3-I)
+     = 10
+    )";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		SymEngineComplexRef value = SymEngineComplexRef(
+			new SymEngine::Complex(SymEngine::rational_class(0, 1), SymEngine::rational_class(1, 1)));
+		runtime.definitions().lookup("System`I")->state().set_own_value(Pool::BigComplex(value));
 	}
 };
 
@@ -1093,6 +1292,12 @@ void Builtins::Arithmetic::initialize() {
 
     add<Sqrt>();
 	add<Infinity>();
+
+	add<Re>();
+	add<Im>();
+	// add<Conjugate>();
+	// add<Abs>();
+	add<I>();
 
 	add<NumberQ>();
     add<RealNumberQ>();

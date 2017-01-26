@@ -59,50 +59,51 @@ inline BaseExpressionRef mul_slow(
 	const Slice &slice,
 	const Evaluation &evaluation) {
 
-	std::vector<UnsafeBaseExpressionRef> symbolics;
-	SymEngine::vec_basic numbers;
+	try {
+		std::vector<UnsafeBaseExpressionRef> symbolics;
+		SymEngine::vec_basic numbers;
 
-	for (const BaseExpressionRef leaf : slice.leaves()) {
-		if (leaf->is_number()) {
-			const auto form = symbolic_form(leaf, evaluation);
-			numbers.push_back(form->get());
-		} else {
-			symbolics.push_back(leaf);
+		for (const BaseExpressionRef leaf : slice.leaves()) {
+			if (leaf->is_number()) {
+				const auto form = symbolic_form(leaf, evaluation);
+				numbers.push_back(form->get());
+			} else {
+				symbolics.push_back(leaf);
+			}
 		}
-	}
 
-	// it's important to check if a change happens. if we keep
-	// returning non-null BaseExpressionRef here, "a * b" will
-	// produce an infinite loop.
+		// it's important to check if a change happens. if we keep
+		// returning non-null BaseExpressionRef here, "a * b" will
+		// produce an infinite loop.
 
-	if (symbolics.empty()) {
-		if (numbers.size() >= 2) {
-			return from_symbolic_form(
-				SymEngine::mul(numbers),
-				evaluation);
-		} else {
-			return BaseExpressionRef();
-		}
-	} else if (!numbers.empty()) {
-		UnsafeBaseExpressionRef number;
-
-		number = from_symbolic_form(
-			SymEngine::mul(numbers),
-			evaluation);
-
-		UnsafeBaseExpressionRef result;
-
-		if (times_number(number, symbolics, result, evaluation)) {
-			return result;
-		} else {
+		if (symbolics.empty()) {
 			if (numbers.size() >= 2) {
-				symbolics.push_back(BaseExpressionRef(number));
-				return expression(evaluation.Times, LeafVector(std::move(symbolics)));
+				return from_symbolic_form(SymEngine::mul(numbers), evaluation);
 			} else {
 				return BaseExpressionRef();
 			}
+		} else if (!numbers.empty()) {
+			UnsafeBaseExpressionRef number;
+
+			number = from_symbolic_form(SymEngine::mul(numbers), evaluation);
+
+			UnsafeBaseExpressionRef result;
+
+			if (times_number(number, symbolics, result, evaluation)) {
+				return result;
+			} else {
+				if (numbers.size() >= 2) {
+					symbolics.push_back(BaseExpressionRef(number));
+					return expression(evaluation.Times, LeafVector(std::move(symbolics)));
+				} else {
+					return BaseExpressionRef();
+				}
+			}
+		} else {
+			return BaseExpressionRef();
 		}
-	} else {
+	} catch (const SymEngine::SymEngineException &e) {
+		evaluation.sym_engine_exception(e);
 		return BaseExpressionRef();
 	}
 }
