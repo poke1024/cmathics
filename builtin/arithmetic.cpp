@@ -786,6 +786,21 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
+		builtin(&Abs::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		BaseExpressionPtr expr,
+		const Evaluation &evaluation) {
+
+		switch (expr->type()) {
+			case MachineIntegerType:
+				return Pool::MachineInteger(std::abs(static_cast<const MachineInteger*>(expr)->value));
+			case MachineRealType:
+				return Pool::MachineReal(std::abs(static_cast<const MachineReal*>(expr)->value));
+			default:
+				return BaseExpressionRef(); // apply_symengine(SymEngine::abs, expr, evaluation);
+		}
 	}
 };
 
@@ -1296,7 +1311,7 @@ void Builtins::Arithmetic::initialize() {
 	add<Re>();
 	add<Im>();
 	// add<Conjugate>();
-	// add<Abs>();
+	add<Abs>();
 	add<I>();
 
 	add<NumberQ>();

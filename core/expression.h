@@ -940,6 +940,34 @@ std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(co
 	}
 }
 
+inline BaseExpressionRef apply_symengine(
+	const SymEngineUnaryFunction &f,
+	const BaseExpressionPtr a,
+	const Evaluation &evaluation) {
+
+	const SymbolicFormRef symbolic_a = symbolic_form(a, evaluation);
+	if (!symbolic_a->is_none()) {
+		return from_symbolic_form(f(symbolic_a->get()), evaluation);
+	}
+
+	return BaseExpressionRef();
+}
+
+inline BaseExpressionRef apply_symengine(
+	const SymEngineBinaryFunction &f,
+	const BaseExpressionPtr a,
+	const BaseExpressionPtr b,
+	const Evaluation &evaluation) {
+
+	const SymbolicFormRef symbolic_a = symbolic_form(a, evaluation);
+	if (!symbolic_a->is_none()) {
+		const SymbolicFormRef symbolic_b = symbolic_form(b, evaluation);
+		if (!symbolic_b->is_none()) {
+			return from_symbolic_form(f(symbolic_a->get(), symbolic_b->get()), evaluation);
+		}
+	}
+
+	return BaseExpressionRef();
+}
+
 #endif
-
-
