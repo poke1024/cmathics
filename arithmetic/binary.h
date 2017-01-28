@@ -3,62 +3,59 @@
 #ifndef CMATHICS_BINARY_H
 #define CMATHICS_BINARY_H
 
-class no_binary_fallback {
-public:
-    inline BaseExpressionRef operator()(
+struct no_binary_fallback {
+    static inline BaseExpressionRef fallback(
         const BaseExpressionPtr head,
         const BaseExpressionPtr a,
         const BaseExpressionPtr b,
-        const Evaluation &evaluation) const {
+        const Evaluation &evaluation) {
 
         return BaseExpressionRef();
     }
 };
 
-template<typename F, typename Fallback = no_binary_fallback>
+template<typename F>
 class BinaryOperator {
-private:
-    const Fallback m_fallback;
+public:
+    typedef std::function<BaseExpressionRef(
+        const BaseExpressionPtr head,
+        const BaseExpressionPtr a,
+        const BaseExpressionPtr b,
+        const Evaluation &evaluation)> Function;
 
 protected:
-    typedef decltype(F::calculate(nullptr, nullptr)) IntermediateType;
-
-    typedef std::function<IntermediateType(const BaseExpression *a, const BaseExpression *b)> Function;
-
-    Function _functions[1LL << (2 * CoreTypeBits)];
+    Function m_functions[1LL << (2 * CoreTypeBits)];
 
     template<typename U, typename V>
     void init(const Function &f) {
-        _functions[size_t(U::Type) | (size_t(V::Type) << CoreTypeBits)] = f;
+	    m_functions[size_t(U::Type) | (size_t(V::Type) << CoreTypeBits)] = f;
     }
 
     template<typename U, typename V>
     void clear() {
-        _functions[size_t(U::Type) | (size_t(V::Type) << CoreTypeBits)] = nullptr;
+	    m_functions[size_t(U::Type) | (size_t(V::Type) << CoreTypeBits)] = F::fallback;
     }
 
     template<typename U, typename V>
     void init() {
-        init<U, V>([] (const BaseExpression *a, const BaseExpression *b) {
-            return F::calculate(*static_cast<const U*>(a), *static_cast<const V*>(b));
+        init<U, V>([] (
+		    const BaseExpressionPtr,
+		    const BaseExpressionPtr a,
+		    const BaseExpressionPtr b,
+		    const Evaluation &evaluation) -> BaseExpressionRef {
+
+            return F::function(
+		        *static_cast<const U*>(a),
+		        *static_cast<const V*>(b),
+	            evaluation);
         });
     };
 
-    static inline BaseExpressionRef result(const Definitions &definitions, const BaseExpressionRef &result) {
-        return result;
-    }
-
-    static inline BaseExpressionRef result(const Definitions &definitions, bool result) {
-        return definitions.symbols().Boolean(result);
-    }
-
-    static inline BaseExpressionRef result(const Definitions &definitions, const optional<bool> &result) {
-        return result ? definitions.symbols().Boolean(*result) : BaseExpressionRef();
-    }
-
 public:
-    BinaryOperator(const Fallback &fallback = Fallback()) : m_fallback(fallback) {
-        std::memset(_functions, 0, sizeof(_functions));
+    inline BinaryOperator() {
+	    for (size_t i = 0; i < sizeof(m_functions) / sizeof(Function); i++) {
+		    m_functions[i] = F::fallback;
+	    }
     }
 
     inline BaseExpressionRef operator()(
@@ -68,13 +65,8 @@ public:
         const BaseExpressionPtr b,
         const Evaluation &evaluation) const {
 
-        const Function &f = _functions[a->type() | (size_t(b->type()) << CoreTypeBits)];
-
-        if (f) {
-            return result(definitions, f(a, b));
-        } else {
-            return m_fallback(head, a, b, evaluation);
-        }
+        const Function &f = m_functions[a->type() | (size_t(b->type()) << CoreTypeBits)];
+        return f(head, a, b, evaluation);
     }
 
     inline BaseExpressionRef operator()(
@@ -91,12 +83,12 @@ public:
     }
 };
 
-template<typename F, typename Fallback = no_binary_fallback>
-class BinaryArithmetic : public BinaryOperator<F, Fallback> {
+template<typename F>
+class BinaryArithmetic : public BinaryOperator<F> {
 public:
-    using Base = BinaryOperator<F, Fallback>;
+    using Base = BinaryOperator<F>;
 
-    BinaryArithmetic(const Definitions &definitions, const Fallback &fallback = Fallback()) : Base(fallback) {
+    BinaryArithmetic(const Definitions &definitions) : Base() {
 
         Base::template init<MachineInteger, MachineInteger>();
         Base::template init<MachineInteger, BigInteger>();

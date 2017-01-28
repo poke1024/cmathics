@@ -303,15 +303,35 @@ inline BaseExpressionRef operator*(const BigRational &x, const BigRational &y) {
 
 struct plus {
 	template<typename U, typename V>
-	static BaseExpressionRef calculate(const U &u, const V &v) {
+	static inline BaseExpressionRef function(const U &u, const V &v, const Evaluation &) {
 		return u + v;
+	}
+
+	static inline BaseExpressionRef fallback(
+		const BaseExpressionPtr head,
+		const BaseExpressionPtr a,
+		const BaseExpressionPtr b,
+		const Evaluation &evaluation) {
+
+		const ExpressionRef expr = expression(head, a, b);
+		return add(expr.get(), evaluation);
 	}
 };
 
 struct times {
 	template<typename U, typename V>
-	static BaseExpressionRef calculate(const U &u, const V &v) {
+	static inline BaseExpressionRef function(const U &u, const V &v, const Evaluation &) {
 		return u * v;
+	}
+
+	static inline BaseExpressionRef fallback(
+		const BaseExpressionPtr head,
+		const BaseExpressionPtr a,
+		const BaseExpressionPtr b,
+		const Evaluation &evaluation) {
+
+		const ExpressionRef expr = expression(head, a, b);
+		return mul(expr.get(), evaluation);
 	}
 };
 
@@ -329,22 +349,9 @@ inline const BaseExpression *if_divisor(const BaseExpression *b_base) {
 	return args[0].get();
 }
 
-class binary_times_fallback {
+class TimesArithmetic : public BinaryArithmetic<times> {
 public:
-	inline BaseExpressionRef operator()(
-        const BaseExpressionPtr head,
-        const BaseExpressionPtr a,
-        const BaseExpressionPtr b,
-        const Evaluation &evaluation) const {
-
-        const ExpressionRef expr = expression(head, a, b);
-		return mul(expr.get(), evaluation);
-	}
-};
-
-class TimesArithmetic : public BinaryArithmetic<times, binary_times_fallback> {
-public:
-    using Base = BinaryArithmetic<times, binary_times_fallback>;
+    using Base = BinaryArithmetic<times>;
 
 	TimesArithmetic(const Definitions& definitions) : Base(definitions) {
 		// detect Times[x, Power[y, -1]] and use fast divide if possible.
@@ -422,24 +429,9 @@ public:
 	}
 };
 
-
-
-class binary_plus_fallback {
-public:
-	inline BaseExpressionRef operator()(
-        const BaseExpressionPtr head,
-        const BaseExpressionPtr a,
-        const BaseExpressionPtr b,
-        const Evaluation &evaluation) const {
-
-        const ExpressionRef expr = expression(head, a, b);
-		return add(expr.get(), evaluation);
-	}
-};
-
 constexpr auto Plus0 = NewRule<EmptyConstantRule<0>>;
 constexpr auto Plus1 = NewRule<IdentityRule>;
-constexpr auto Plus2 = NewRule<BinaryOperatorRule<BinaryArithmetic<plus, binary_plus_fallback>>>;
+constexpr auto Plus2 = NewRule<BinaryOperatorRule<BinaryArithmetic<plus>>>;
 constexpr auto PlusN = NewRule<PlusNRule>;
 
 constexpr auto Times0 = NewRule<EmptyConstantRule<1>>;

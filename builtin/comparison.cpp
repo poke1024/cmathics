@@ -120,72 +120,53 @@ struct Comparison<BigReal, BigRational> {
     }
 };
 
-struct less {
-    template<typename U, typename V>
-    static optional<bool> calculate(const U &u, const V &v) {
-        return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
-            return x < y;
-        });
-    }
-};
-
-struct less_equal {
-    template<typename U, typename V>
-    static optional<bool> calculate(const U &u, const V &v) {
-        return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
-            return x <= y;
-        });
-    }
-};
-
 template<bool Less, bool Equal, bool Greater>
-struct inequality_fallback {
-public:
-	inline BaseExpressionRef operator()(
-        const BaseExpressionPtr head,
-        const BaseExpressionPtr a,
-        const BaseExpressionPtr b,
-        const Evaluation &evaluation) const {
+struct inequality {
+	static inline BaseExpressionRef fallback(
+		const BaseExpressionPtr head,
+		const BaseExpressionPtr a,
+		const BaseExpressionPtr b,
+		const Evaluation &evaluation) {
 
 		const SymbolicFormRef sym_a = symbolic_form(a, evaluation);
 		if (!sym_a->is_none()) {
 			const SymbolicFormRef sym_b = symbolic_form(b, evaluation);
 			if (!sym_b->is_none()) {
-                if (sym_a->get()->__eq__(*sym_b->get())) {
-                    return evaluation.Boolean(Equal);
-                }
+				if (sym_a->get()->__eq__(*sym_b->get())) {
+					return evaluation.Boolean(Equal);
+				}
 
-                const Precision pa = precision(a);
-                const Precision pb = precision(b);
+				const Precision pa = precision(a);
+				const Precision pb = precision(b);
 
-                const Precision p = std::max(pa, pb);
-                const Precision p0 = std::min(pa, pb);
+				const Precision p = std::max(pa, pb);
+				const Precision p0 = std::min(pa, pb);
 
-                try {
-                    unsigned long prec = p.bits;
-                    const auto diff = SymEngine::sub(sym_a->get(), sym_b->get());
+				try {
+					unsigned long prec = p.bits;
+					const auto diff = SymEngine::sub(sym_a->get(), sym_b->get());
 
-                    while (true) {
-                        const auto ndiff = SymEngine::evalf(*diff, prec, true);
+					while (true) {
+						const auto ndiff = SymEngine::evalf(*diff, prec, true);
 
-                        if (ndiff->is_negative()) {
-                            return evaluation.Boolean(Less);
-                        } else if (ndiff->is_positive()) {
-                            return evaluation.Boolean(Greater);
-                        } else {
-                            if (p0.is_none()) {
-                                // we're probably dealing with an irrational as
-                                // in x < Pi. increase precision, try again.
-                                assert(!__builtin_umull_overflow(prec, 2, &prec));
-                            } else {
-                                return evaluation.Boolean(Equal);
-                            }
-                        }
-                    }
-                } catch (const SymEngine::SymEngineException &e) {
-                    evaluation.sym_engine_exception(e);
-                    return BaseExpressionRef();
-                }
+						if (ndiff->is_negative()) {
+							return evaluation.Boolean(Less);
+						} else if (ndiff->is_positive()) {
+							return evaluation.Boolean(Greater);
+						} else {
+							if (p0.is_none()) {
+								// we're probably dealing with an irrational as
+								// in x < Pi. increase precision, try again.
+								assert(!__builtin_umull_overflow(prec, 2, &prec));
+							} else {
+								return evaluation.Boolean(Equal);
+							}
+						}
+					}
+				} catch (const SymEngine::SymEngineException &e) {
+					evaluation.sym_engine_exception(e);
+					return BaseExpressionRef();
+				}
 			}
 		}
 
@@ -193,21 +174,39 @@ public:
 	}
 };
 
-struct greater {
+struct less : public inequality<true, false, false> {
     template<typename U, typename V>
-    static optional<bool> calculate(const U &u, const V &v) {
-        return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
-            return x > y;
-        });
+    static inline BaseExpressionRef function(const U &u, const V &v, const Evaluation &evaluation) {
+        return evaluation.Boolean(Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+            return x < y;
+        }));
     }
 };
 
-struct greater_equal {
+struct less_equal : public inequality<true, true, false> {
     template<typename U, typename V>
-    static optional<bool> calculate(const U &u, const V &v) {
-        return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+    static inline BaseExpressionRef function(const U &u, const V &v, const Evaluation &evaluation) {
+        return evaluation.Boolean(Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+            return x <= y;
+        }));
+    }
+};
+
+struct greater : public inequality<false, false, true> {
+    template<typename U, typename V>
+    static inline BaseExpressionRef function(const U &u, const V &v, const Evaluation &evaluation) {
+        return evaluation.Boolean(Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+            return x > y;
+        }));
+    }
+};
+
+struct greater_equal : public inequality<false, true, true> {
+    template<typename U, typename V>
+    static inline BaseExpressionRef function(const U &u, const V &v, const Evaluation &evaluation) {
+        return evaluation.Boolean(Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
             return x >= y;
-        });
+        }));
     }
 };
 
@@ -219,47 +218,47 @@ inline bool negate(bool f) {
 template<bool Unequal>
 struct equal {
     template<typename U, typename V>
-    static optional<bool> calculate(const U &u, const V &v) {
-        return Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
+    static inline BaseExpressionRef function(const U &u, const V &v, const Evaluation &evaluation) {
+        return evaluation.Boolean(Comparison<U, V>::compare(u, v, [] (const auto &x, const auto &y) {
             return negate<Unequal>(x == y);
-        });
+        }));
     }
+
+	static inline BaseExpressionRef fallback(
+		const BaseExpressionPtr head,
+		const BaseExpressionPtr a,
+		const BaseExpressionPtr b,
+		const Evaluation &evaluation) {
+
+		switch (a->equals(*b)) {
+			case true:
+				return evaluation.Boolean(negate<Unequal>(true));
+			case false:
+				return evaluation.Boolean(negate<Unequal>(false));
+			case undecided:
+				return BaseExpressionRef();
+			default:
+				throw std::runtime_error("illegal equals result");
+		}
+	}
 };
 
 template<bool Unequal>
-class equal_fallback {
+class EqualComparison : public BinaryArithmetic<equal<Unequal>> {
 public:
-    inline BaseExpressionRef operator()(
-        const BaseExpressionPtr head,
-        const BaseExpressionPtr a,
-        const BaseExpressionPtr b,
-        const Evaluation &evaluation) const {
-
-        switch (a->equals(*b)) {
-            case true:
-                return evaluation.Boolean(negate<Unequal>(true));
-            case false:
-                return evaluation.Boolean(negate<Unequal>(false));
-            case undecided:
-                return BaseExpressionRef();
-            default:
-                throw std::runtime_error("illegal equals result");
-        }
-    }
-};
-
-template<bool Unequal>
-class EqualComparison : public BinaryArithmetic<equal<Unequal>, equal_fallback<Unequal>> {
-public:
-    using Base = BinaryArithmetic<equal<Unequal>, equal_fallback<Unequal>>;
+    using Base = BinaryArithmetic<equal<Unequal>>;
 
     EqualComparison(const Definitions &definitions) : Base(definitions) {
-        Base::template init<Symbol, Symbol>(
-            [] (const BaseExpression *a, const BaseExpression *b) -> optional<bool> {
+        Base::template init<Symbol, Symbol>([] (
+		    BaseExpressionPtr,
+            const BaseExpression *a,
+		    const BaseExpression *b,
+		    const Evaluation& evaluation) {
+
                 if (a == b) {
-                    return Unequal ? false : true;
+                    return BaseExpressionRef(evaluation.Boolean(!Unequal));
                 } else {
-                    return optional<bool>();
+                    return BaseExpressionRef();
                 }
             }
         );
@@ -522,7 +521,7 @@ public:
     }
 };
 
-using LessBase = ComparisonBuiltin<BinaryArithmetic<less, inequality_fallback<true, false, false>>>;
+using LessBase = ComparisonBuiltin<BinaryArithmetic<less>>;
 
 class Less : public LessBase {
 public:
@@ -545,7 +544,7 @@ public:
     using LessBase::LessBase;
 };
 
-using LessEqualBase = ComparisonBuiltin<BinaryArithmetic<less_equal, inequality_fallback<true, true, false>>>;
+using LessEqualBase = ComparisonBuiltin<BinaryArithmetic<less_equal>>;
 
 class LessEqual : public LessEqualBase {
 public:
@@ -565,7 +564,7 @@ public:
     using LessEqualBase::LessEqualBase;
 };
 
-using GreaterBase = ComparisonBuiltin<BinaryArithmetic<greater, inequality_fallback<false, false, true>>>;
+using GreaterBase = ComparisonBuiltin<BinaryArithmetic<greater>>;
 
 class Greater : public GreaterBase {
 public:
@@ -589,7 +588,7 @@ public:
     using GreaterBase::GreaterBase;
 };
 
-using GreaterEqualBase = ComparisonBuiltin<BinaryArithmetic<greater_equal, inequality_fallback<false, true, true>>>;
+using GreaterEqualBase = ComparisonBuiltin<BinaryArithmetic<greater_equal>>;
 
 class GreaterEqual : public GreaterEqualBase {
 public:
