@@ -1,6 +1,7 @@
 #include "assignment.h"
 
 inline BaseExpressionRef assign(
+	ExpressionPtr,
 	BaseExpressionPtr lhs,
 	BaseExpressionPtr rhs,
 	const Evaluation &evaluation) {

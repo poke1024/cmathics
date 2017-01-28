@@ -69,12 +69,12 @@ public:
 			N <= MaxStaticSliceSize ? static_slice_code(N) : SliceCode::Unknown;
 		const F &func = _func;
 		return expr->with_leaves_array<slice_code>(
-			[&func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
+			[expr, &func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
 				typename BaseExpressionTuple<N>::type t;
 				unpack_leaves<N, 0>()(leaves, t);
 				return apply_from_tuple(
 					func,
-					std::tuple_cat(t, std::forward_as_tuple(evaluation)));
+					std::tuple_cat(std::forward_as_tuple(expr), t, std::forward_as_tuple(evaluation)));
 			});
 	}
 };
@@ -92,8 +92,8 @@ public:
 	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
 		const F &func = _func;
 		return expr->with_leaves_array(
-			[&func, &evaluation](const BaseExpressionRef *leaves, size_t size) {
-				return func(leaves, size, evaluation);
+			[expr, &func, &evaluation](const BaseExpressionRef *leaves, size_t size) {
+				return func(expr, leaves, size, evaluation);
 			});
 	}
 };
@@ -225,7 +225,7 @@ public:
 				unpack_leaves<N, 0>()(leaves, t);
 				return apply_from_tuple(
 					func,
-					std::tuple_cat(t, std::forward_as_tuple(options, evaluation)));
+					std::tuple_cat(std::forward_as_tuple(expr), t, std::forward_as_tuple(options, evaluation)));
 			});
 	}
 };

@@ -96,6 +96,12 @@ protected:
         const Evaluation &);
 
 	template<typename T>
+	using FullF1 = BaseExpressionRef (T::*) (
+		ExpressionPtr,
+		BaseExpressionPtr,
+		const Evaluation &);
+
+	template<typename T>
 	using B1 = bool (T::*) (
 		BaseExpressionPtr,
 		const Evaluation &);
@@ -147,6 +153,7 @@ protected:
         const auto self = shared_from_this<T>();
 
 		auto func = [self, fptr] (
+			ExpressionPtr expr,
 			BaseExpressionPtr a,
 			const Evaluation &evaluation) {
 
@@ -161,10 +168,30 @@ protected:
 	}
 
 	template<typename T>
+	inline void builtin(FullF1<T> fptr) {
+		const auto self = shared_from_this<T>();
+
+		auto func = [self, fptr] (
+			ExpressionPtr expr,
+			BaseExpressionPtr a,
+			const Evaluation &evaluation) {
+
+			auto p = self.get();
+			return (p->*fptr)(expr, a, evaluation);
+		};
+
+		m_symbol->state().add_rule(new BuiltinRule<1, decltype(func)>(
+			m_symbol,
+			m_runtime.definitions(),
+			func));
+	}
+
+	template<typename T>
 	inline void builtin(B1<T> fptr) {
 		const auto self = shared_from_this<T>();
 
 		auto func = [self, fptr] (
+			ExpressionPtr expr,
 			BaseExpressionPtr a,
 			const Evaluation &evaluation) {
 
@@ -187,6 +214,7 @@ protected:
 		const auto self = shared_from_this<T>();
 
 	    auto func = [self, fptr] (
+		    ExpressionPtr expr,
 			BaseExpressionPtr a,
 			BaseExpressionPtr b,
 		    const Evaluation &evaluation) {
@@ -206,6 +234,7 @@ protected:
 		const auto self = shared_from_this<T>();
 
 	    auto func = [self, fptr] (
+		    ExpressionPtr expr,
 		    BaseExpressionPtr a,
 		    BaseExpressionPtr b,
 		    BaseExpressionPtr c,
@@ -226,6 +255,7 @@ protected:
         const auto self = shared_from_this<T>();
 
         auto func = [self, fptr] (
+	        ExpressionPtr expr,
             BaseExpressionPtr a,
             BaseExpressionPtr b,
             BaseExpressionPtr c,
@@ -247,6 +277,7 @@ protected:
 		const auto self = shared_from_this<T>();
 
 		auto func = [self, fptr] (
+			ExpressionPtr expr,
 			const BaseExpressionRef *leaves,
 			size_t n,
 			const Evaluation &evaluation) {
@@ -266,6 +297,7 @@ protected:
 		const auto self = shared_from_this<T>();
 
 		auto func = [self, fptr] (
+			ExpressionPtr expr,
 			BaseExpressionPtr a,
 			BaseExpressionPtr b,
 			const Options &options,
@@ -287,6 +319,7 @@ protected:
 		const auto self = shared_from_this<T>();
 
         auto func = [self, fptr] (
+	        ExpressionPtr expr,
             BaseExpressionPtr a,
             BaseExpressionPtr b,
             BaseExpressionPtr c,

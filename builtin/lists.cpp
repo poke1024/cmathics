@@ -1072,7 +1072,7 @@ void Builtins::Lists::initialize() {
 
     add("ListQ",
         Attributes::None, {
-            builtin<1>([](BaseExpressionPtr x, const Evaluation &evaluation) {
+            builtin<1>([](ExpressionPtr, BaseExpressionPtr x, const Evaluation &evaluation) {
                 if (x->type() == ExpressionType) {
                     return evaluation.Boolean(x->as_expression()->_head.get() == evaluation.List);
                 } else {
@@ -1083,7 +1083,7 @@ void Builtins::Lists::initialize() {
 
     add("NotListQ",
         Attributes::None, {
-            builtin<1>([](BaseExpressionPtr x, const Evaluation &evaluation) {
+            builtin<1>([](ExpressionPtr, BaseExpressionPtr x, const Evaluation &evaluation) {
                 if (x->type() == ExpressionType) {
                     return evaluation.Boolean(x->as_expression()->_head.get() != evaluation.List);
                 } else {
@@ -1095,7 +1095,7 @@ void Builtins::Lists::initialize() {
     add("Length",
         Attributes::None, {
              builtin<1>(
-                 [](BaseExpressionPtr x, const Evaluation &evaluation) {
+                 [](ExpressionPtr, BaseExpressionPtr x, const Evaluation &evaluation) {
                      if (x->type() != ExpressionType) {
                         return from_primitive(machine_integer_t(0));
                      } else {
@@ -1109,7 +1109,7 @@ void Builtins::Lists::initialize() {
     add("Apply",
 	    Attributes::None, {
 			builtin<2>(
-				[](BaseExpressionPtr f, BaseExpressionPtr x, const Evaluation &evaluation) {
+				[](ExpressionPtr, BaseExpressionPtr f, BaseExpressionPtr x, const Evaluation &evaluation) {
 				    if (x->type() != ExpressionType) {
 					    throw std::runtime_error("expected Expression at position 2");
 				    }
@@ -1129,7 +1129,7 @@ void Builtins::Lists::initialize() {
 	add("Map",
 	    Attributes::None, {
 			builtin<2>(
-				[](BaseExpressionPtr func, BaseExpressionPtr expr, const Evaluation &evaluation) {
+				[](ExpressionPtr, BaseExpressionPtr func, BaseExpressionPtr expr, const Evaluation &evaluation) {
 				    if (expr->type() != ExpressionType) {
 					    return ExpressionRef();
 				    }

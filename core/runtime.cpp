@@ -84,6 +84,7 @@ public:
         add("Expand",
             Attributes::None, {
                 builtin<1>([] (
+                    ExpressionPtr,
                     const BaseExpressionRef &expr,
                     const Evaluation &evaluation) {
 
@@ -95,7 +96,7 @@ public:
         add("Timing",
             Attributes::HoldAll, {
                 builtin<1>(
-                    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
+                    [](ExpressionPtr, const BaseExpressionRef &expr, const Evaluation &evaluation) {
                         const auto &List = evaluation.List;
                         const auto start_time = std::chrono::steady_clock::now();
                         const auto evaluated = expr->evaluate(evaluation);
@@ -108,21 +109,21 @@ public:
             });
 
         add("Parallelize",
-                Attributes::HoldAll, {
-                builtin<1>(
-                    [](const BaseExpressionRef &expr, const Evaluation &evaluation) {
-	                    const bool old_parallelize = evaluation.parallelize;
-	                    evaluation.parallelize = true;
-	                    try {
-		                    const auto evaluated = expr->evaluate(evaluation);
-		                    evaluation.parallelize = old_parallelize;
-		                    return evaluated;
-	                    } catch(...) {
-		                    evaluation.parallelize = old_parallelize;
-		                    throw;
-	                    }
+            Attributes::HoldAll, {
+            builtin<1>(
+                [](ExpressionPtr, const BaseExpressionRef &expr, const Evaluation &evaluation) {
+                    const bool old_parallelize = evaluation.parallelize;
+                    evaluation.parallelize = true;
+                    try {
+	                    const auto evaluated = expr->evaluate(evaluation);
+	                    evaluation.parallelize = old_parallelize;
+	                    return evaluated;
+                    } catch(...) {
+	                    evaluation.parallelize = old_parallelize;
+	                    throw;
                     }
-                )
+                }
+            )
         });
     }
 };
