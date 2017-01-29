@@ -1,6 +1,135 @@
 #ifndef CMATHICS_GENERATOR_H
 #define CMATHICS_GENERATOR_H
 
+class SwappableBaseExpressionRef {
+private:
+	BaseExpressionRef *m_ref;
+
+public:
+	inline SwappableBaseExpressionRef() : m_ref(nullptr) {
+	}
+
+	inline SwappableBaseExpressionRef(BaseExpressionRef &ref) : m_ref(&ref) {
+	}
+
+	inline SwappableBaseExpressionRef &operator=(const SwappableBaseExpressionRef &ref) {
+		m_ref = ref.m_ref;
+		return *this;
+	}
+
+	inline BaseExpressionPtr operator->() const {
+		return m_ref->get();
+	}
+
+	friend void swap(SwappableBaseExpressionRef a, SwappableBaseExpressionRef b) {
+		a.m_ref->unsafe_swap(*b.m_ref);
+	}
+};
+
+class MutableIterator {
+private:
+	std::vector<BaseExpressionRef>::iterator m_iterator;
+
+public:
+	using iterator_type = std::vector<BaseExpressionRef>::iterator;
+
+	inline MutableIterator() {
+	}
+
+	inline MutableIterator(const std::vector<BaseExpressionRef>::iterator &iterator) :
+		m_iterator(iterator) {
+	}
+
+	inline MutableIterator &operator=(const MutableIterator &i) {
+		m_iterator = i.m_iterator;
+		return *this;
+	}
+
+	inline bool operator==(const MutableIterator &i) const {
+		return m_iterator == i.m_iterator;
+	}
+
+	inline bool operator>=(const MutableIterator &i) const {
+		return m_iterator >= i.m_iterator;
+	}
+
+	inline bool operator>(const MutableIterator &i) const {
+		return m_iterator > i.m_iterator;
+	}
+
+	inline bool operator<=(const MutableIterator &i) const {
+		return m_iterator <= i.m_iterator;
+	}
+
+	inline bool operator<(const MutableIterator &i) const {
+		return m_iterator < i.m_iterator;
+	}
+
+	inline bool operator!=(const MutableIterator &i) const {
+		return m_iterator != i.m_iterator;
+	}
+
+	inline SwappableBaseExpressionRef operator[](size_t i) const {
+		return SwappableBaseExpressionRef(m_iterator[i]);
+	}
+
+	inline SwappableBaseExpressionRef operator*() const {
+		return SwappableBaseExpressionRef(*m_iterator);
+	}
+
+	inline auto operator-(const MutableIterator &i) const {
+		return m_iterator - i.m_iterator;
+	}
+
+	inline MutableIterator operator--(int) {
+		MutableIterator previous(*this);
+		--m_iterator;
+		return previous;
+	}
+
+	inline MutableIterator &operator--() {
+		--m_iterator;
+		return *this;
+	}
+
+	inline MutableIterator operator++(int) {
+		MutableIterator previous(*this);
+		++m_iterator;
+		return previous;
+	}
+
+	inline MutableIterator &operator++() {
+		++m_iterator;
+		return *this;
+	}
+
+	inline MutableIterator operator+(size_t i) const {
+		return MutableIterator(m_iterator + i);
+	}
+
+	inline MutableIterator &operator+=(size_t i) {
+		m_iterator += i;
+		return *this;
+	}
+
+	inline MutableIterator operator-(size_t i) const {
+		return MutableIterator(m_iterator - i);
+	}
+
+	inline MutableIterator &operator-=(size_t i) {
+		m_iterator -= i;
+		return *this;
+	}
+};
+
+namespace std {
+	template<>
+	struct iterator_traits<MutableIterator> {
+		using difference_type = MutableIterator::iterator_type::difference_type;
+		using value_type = SwappableBaseExpressionRef;
+	};
+}
+
 class LeafVector {
 private:
 	std::vector<BaseExpressionRef> m_leaves;
@@ -14,12 +143,11 @@ public:
 		m_leaves(leaves), m_mask(mask) {
 	}
 
-	inline LeafVector(std::vector<UnsafeBaseExpressionRef> &&leaves) : m_mask(0) {
-		m_leaves.reserve(leaves.size());
-		for (size_t i = 0; i < leaves.size(); i++) {
-			BaseExpressionRef &&leaf = std::move(leaves[i]);
-			m_mask |= leaf->base_type_mask();
-			m_leaves.emplace_back(std::move(leaf));
+	inline LeafVector(std::vector<BaseExpressionRef> &&leaves) :
+		m_leaves(leaves), m_mask(0) {
+
+		for (size_t i = 0; i < m_leaves.size(); i++) {
+			m_mask |= m_leaves[i]->base_type_mask();
 		}
 	}
 
@@ -60,12 +188,21 @@ public:
 		return m_leaves.end();
 	}
 
-	inline std::vector<BaseExpressionRef> &&_grab_internal_vector() {
+	inline std::vector<BaseExpressionRef> &&unsafe_grab_internal_vector() {
 		return std::move(m_leaves);
 	}
 
-	inline BaseExpressionRef &&_grab_leaf(size_t i) {
+	inline BaseExpressionRef &&unsafe_grab_leaf(size_t i) {
 		return std::move(m_leaves[i]);
+	}
+
+	inline void sort() {
+		std::sort(
+			MutableIterator(m_leaves.begin()),
+			MutableIterator(m_leaves.end()),
+			[] (const SwappableBaseExpressionRef &x, const SwappableBaseExpressionRef &y) {
+				return x->sort_key().compare(y->sort_key()) < 0;
+			});
 	}
 };
 
@@ -109,7 +246,7 @@ struct FSGenerator : public FGenerator { // [f]ixed size [s]equential
 		size_t i = 0;
 		auto store = [&mask, &array, &i] (BaseExpressionRef &&leaf) mutable {
 			mask |= leaf->base_type_mask();
-			array[i++].mutate(std::move(leaf));
+			array[i++].unsafe_mutate(std::move(leaf));
 		};
 		f(store);
 		return std::make_tuple(std::move(array), mask);
@@ -198,7 +335,7 @@ public:
 		parallelize([&array, &f, &mask] (size_t i) {
 			BaseExpressionRef leaf = f(i);
 			mask.fetch_or(leaf->base_type_mask(), std::memory_order_relaxed);
-			array[i].mutate(std::move(leaf));
+			array[i].unsafe_mutate(std::move(leaf));
 		}, N);
 		return std::make_tuple(std::move(array), mask.load(std::memory_order_relaxed));
 	}
@@ -211,7 +348,7 @@ public:
 		parallelize([&v, &f, &mask] (size_t i) {
 			BaseExpressionRef leaf = f(i);
 			mask.fetch_or(leaf->base_type_mask(), std::memory_order_relaxed);
-			v[i].mutate(std::move(leaf));
+			v[i].unsafe_mutate(std::move(leaf));
 		}, n);
 		return LeafVector(std::move(v), mask.load(std::memory_order_relaxed));
 	}

@@ -114,7 +114,8 @@ class SymbolState {
 private:
 	const Symbol * const m_symbol;
 
-	DispatchableAttributes m_attributes;
+	Attributes m_attributes;
+	DispatchableAttributes m_dispatch;
 
 	UnsafeBaseExpressionRef m_own_value;
 
@@ -127,6 +128,7 @@ public:
 
 	inline SymbolState(const SymbolState &state) : m_symbol(state.m_symbol) {
 		m_attributes = state.m_attributes;
+		m_dispatch = state.m_dispatch;
 		m_own_value = state.m_own_value;
 		m_rules = state.m_rules;
 		m_copy_on_write = true;
@@ -167,6 +169,10 @@ public:
 	void add_rule(const RuleRef &rule);
 
 	void set_attributes(Attributes attributes);
+
+	inline bool has_attributes(Attributes attributes) const {
+		return m_attributes & attributes;
+	}
 
 	BaseExpressionRef dispatch(
 		const Expression *expr,
@@ -395,6 +401,7 @@ inline BaseExpressionRef BaseExpression::evaluate(
                 } else {
                     return result;
                 }
+	            break;
             }
 
             default:

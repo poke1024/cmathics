@@ -5,9 +5,7 @@
 
 struct no_binary_fallback {
     static inline BaseExpressionRef fallback(
-        const BaseExpressionPtr head,
-        const BaseExpressionPtr a,
-        const BaseExpressionPtr b,
+	    const ExpressionPtr expr,
         const Evaluation &evaluation) {
 
         return BaseExpressionRef();
@@ -18,9 +16,7 @@ template<typename F>
 class BinaryOperator {
 public:
     typedef std::function<BaseExpressionRef(
-        const BaseExpressionPtr head,
-        const BaseExpressionPtr a,
-        const BaseExpressionPtr b,
+        const ExpressionPtr expr,
         const Evaluation &evaluation)> Function;
 
 protected:
@@ -39,10 +35,13 @@ protected:
     template<typename U, typename V>
     void init() {
         init<U, V>([] (
-		    const BaseExpressionPtr,
-		    const BaseExpressionPtr a,
-		    const BaseExpressionPtr b,
+            const ExpressionPtr expr,
 		    const Evaluation &evaluation) -> BaseExpressionRef {
+
+	        const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+
+	        const BaseExpression * const a = leaves[0].get();
+	        const BaseExpression * const b = leaves[1].get();
 
             return F::function(
 		        *static_cast<const U*>(a),
@@ -60,26 +59,16 @@ public:
 
     inline BaseExpressionRef operator()(
         const Definitions &definitions,
-        const BaseExpressionPtr head,
-        const BaseExpressionPtr a,
-        const BaseExpressionPtr b,
+        const ExpressionPtr expr,
         const Evaluation &evaluation) const {
 
-        const Function &f = m_functions[a->type() | (size_t(b->type()) << CoreTypeBits)];
-        return f(head, a, b, evaluation);
-    }
+	    const BaseExpressionRef * const leaves = expr->static_leaves<2>();
 
-    inline BaseExpressionRef operator()(
-        const Definitions &definitions,
-        const Expression *expr,
-        const Evaluation &evaluation) const {
+	    const BaseExpression * const a = leaves[0].get();
+	    const BaseExpression * const b = leaves[1].get();
 
-        const BaseExpressionRef * const leaves = expr->static_leaves<2>();
-
-        const BaseExpression * const a = leaves[0].get();
-        const BaseExpression * const b = leaves[1].get();
-
-        return (*this)(definitions, expr->head(), a, b, evaluation);
+	    const Function &f = m_functions[a->type() | (size_t(b->type()) << CoreTypeBits)];
+	    return f(expr, evaluation);
     }
 };
 

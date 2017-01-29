@@ -308,13 +308,10 @@ struct plus {
 	}
 
 	static inline BaseExpressionRef fallback(
-		const BaseExpressionPtr head,
-		const BaseExpressionPtr a,
-		const BaseExpressionPtr b,
+		const ExpressionPtr expr,
 		const Evaluation &evaluation) {
 
-		const ExpressionRef expr = expression(head, a, b);
-		return add(expr.get(), evaluation);
+		return add(expr, evaluation);
 	}
 };
 
@@ -325,13 +322,10 @@ struct times {
 	}
 
 	static inline BaseExpressionRef fallback(
-		const BaseExpressionPtr head,
-		const BaseExpressionPtr a,
-		const BaseExpressionPtr b,
+		const ExpressionPtr expr,
 		const Evaluation &evaluation) {
 
-		const ExpressionRef expr = expression(head, a, b);
-		return mul(expr.get(), evaluation);
+		return mul(expr, evaluation);
 	}
 };
 
@@ -446,16 +440,16 @@ public:
 	virtual BaseExpressionRef try_apply(
         const Expression *expr, const Evaluation &evaluation) const {
 
-		const BaseExpressionRef *refs = expr->static_leaves<2>();
+		/*const BaseExpressionRef *refs = expr->static_leaves<2>();
 		const BaseExpressionRef &a = refs[0];
 		const BaseExpressionRef &b = refs[1];
 
 		if (b->type() == MachineIntegerType) {
 			const machine_integer_t integer_exponent =
-					static_cast<const MachineInteger*>(b.get())->value;
-		}
+				static_cast<const MachineInteger*>(b.get())->value;
+		}*/
 
-		return BaseExpressionRef();
+		return expr->symbolic_evaluate_binary(SymEngine::pow, evaluation);
 	}
 };
 
@@ -605,6 +599,41 @@ public:
 
 	void build(Runtime &runtime) {
 		rule("Infinity", "DirectedInfinity[1]");
+	}
+};
+
+class DirectedInfinity : public Builtin {
+public:
+	static constexpr const char *name = "DirectedInfinity";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&DirectedInfinity::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		ExpressionPtr expr,
+		BaseExpressionPtr x,
+		const Evaluation &evaluation) {
+
+		expr->symbolic_initialize([x] () {
+			if (x->type() == MachineIntegerType) {
+				const machine_integer_t direction =
+					static_cast<const MachineInteger*>(x)->value;
+
+				if (direction > 0) {
+					return SymEngineRef(SymEngine::Inf.get());
+				} else if (direction < 0) {
+					return SymEngineRef(SymEngine::NegInf.get());
+				}
+			}
+
+			return SymEngineRef();
+		}, evaluation);
+
+		return BaseExpressionRef();
 	}
 };
 
@@ -782,16 +811,17 @@ public:
 	}
 
 	inline BaseExpressionRef apply(
-		BaseExpressionPtr expr,
+		ExpressionPtr expr,
+		BaseExpressionPtr x,
 		const Evaluation &evaluation) {
 
-		switch (expr->type()) {
+		switch (x->type()) {
 			case MachineIntegerType:
-				return Pool::MachineInteger(std::abs(static_cast<const MachineInteger*>(expr)->value));
+				return Pool::MachineInteger(std::abs(static_cast<const MachineInteger*>(x)->value));
 			case MachineRealType:
-				return Pool::MachineReal(std::abs(static_cast<const MachineReal*>(expr)->value));
+				return Pool::MachineReal(std::abs(static_cast<const MachineReal*>(x)->value));
 			default:
-				return BaseExpressionRef(); // apply_symengine(SymEngine::abs, expr, evaluation);
+				return expr->symbolic_evaluate_unary(SymEngine::abs, evaluation);
 		}
 	}
 };
@@ -1157,6 +1187,25 @@ public:
     using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
+		builtin(&Gamma::apply_1);
+		builtin(&Gamma::apply_2);
+	}
+
+	inline BaseExpressionRef apply_1(
+		ExpressionPtr expr,
+		BaseExpressionPtr x,
+		const Evaluation &evaluation) {
+
+		return expr->symbolic_evaluate_unary(SymEngine::gamma, evaluation);
+	}
+
+	inline BaseExpressionRef apply_2(
+		ExpressionPtr expr,
+		BaseExpressionPtr x,
+		BaseExpressionPtr y,
+		const Evaluation &evaluation) {
+
+		return expr->symbolic_evaluate_binary(SymEngine::uppergamma, evaluation);
 	}
 };
 
@@ -1299,6 +1348,7 @@ void Builtins::Arithmetic::initialize() {
 
     add<Sqrt>();
 	add<Infinity>();
+	add<DirectedInfinity>();
 
 	add<Re>();
 	add<Im>();

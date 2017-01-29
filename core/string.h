@@ -395,6 +395,10 @@ public:
     }
 
     inline SymbolRef option_symbol(const Evaluation &evaluation) const;
+
+	virtual bool is_numeric() const {
+		return false;
+	}
 };
 
 inline const String *BaseExpression::as_string() const {

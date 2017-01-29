@@ -58,9 +58,13 @@ public:
         return value.get_d();
     }
 
+    virtual bool is_numeric() const {
+        return true;
+    }
+
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::Rational::from_mpq(value.get_mpq_t()), true);
+        return Pool::SymbolicForm(SymEngine::Rational::from_mpq(value.get_mpq_t()));
     }
 };
 

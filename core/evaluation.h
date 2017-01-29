@@ -186,4 +186,33 @@ inline SymbolicFormRef symbolic_form(const T &item, const Evaluation &evaluation
     }
 }
 
+class DebugOutput {
+private:
+    const Evaluation &m_evaluation;
+
+public:
+    DebugOutput(const Evaluation &evaluation) : m_evaluation(evaluation) {
+    }
+
+    inline DebugOutput &operator<<(const char *s) {
+        std::cout << s;
+        return *this;
+    }
+
+    inline DebugOutput &operator<<(const std::string &s) {
+        std::cout << s;
+        return *this;
+    }
+
+    inline DebugOutput &operator<<(const BaseExpressionRef &expr) {
+        if (expr) {
+            std::cout << expr->format(
+		        m_evaluation.StandardForm, m_evaluation);
+        } else {
+            std::cout << "IDENTITY";
+        }
+        return *this;
+    }
+};
+
 #endif

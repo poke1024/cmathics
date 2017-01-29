@@ -94,159 +94,6 @@ const char *type_name(Type type) {
     }
 }
 
-/*std::ostream &operator<<(std::ostream &s, const Match &m) {
-    s << "Match<" << (m ? "true" : "false"); // << ", ";
-    auto node = m.variables();
-    s << "{";
-    if (node) {
-        bool first = true;
-        while (node) {
-            const BaseExpressionRef &value = node->value;
-            if (!first) {
-                s << ", ";
-            }
-            s << node->variable->fullform() << ":" << value->fullform();
-            first = false;
-	        node = node->next_in_list;
-        }
-    }
-    s << "}";
-    s << ">";
-    return s;
-}*/
-
-InstantiateSymbolicForm::Function InstantiateSymbolicForm::s_functions[256];
-
-void InstantiateSymbolicForm::add(ExtendedType type, const Function &f) {
-    s_functions[index(type)] = f;
-}
-
-inline SymbolicFormRef times_2(const Expression *expr) {
-	const BaseExpressionRef * const leaves = expr->static_leaves<2>();
-
-	for (int i = 0; i < 2; i++) {
-		const BaseExpressionRef &operand = leaves[i];
-
-		if (operand->type() == MachineIntegerType &&
-		    static_cast<const MachineInteger*>(operand.get())->value == -1) {
-
-			const SymbolicFormRef form = unsafe_symbolic_form(leaves[1 - i]);
-			if (!form->is_none()) {
-				return Pool::SymbolicForm(SymEngine::neg(form->get()));
-			} else {
-				return Pool::NoSymbolicForm();
-			}
-		}
-	}
-
-	return expr->symbolic_2(SymEngine::mul);
-}
-
-void InstantiateSymbolicForm::init() {
-    std::memset(s_functions, 0, sizeof(s_functions));
-
-	add(SymbolDirectedInfinity, [] (const Expression *expr) {
-		if (expr->size() == 1) {
-			const BaseExpressionRef &leaf = expr->static_leaves<1>()[0];
-			if (leaf->type() == MachineIntegerType) {
-				const machine_integer_t direction = static_cast<const MachineInteger*>(leaf.get())->value;
-				if (direction > 0) {
-					return SymbolicFormRef(Pool::SymbolicForm(SymEngineRef(SymEngine::Inf.get()), true));
-				} else if (direction < 0) {
-					return SymbolicFormRef(Pool::SymbolicForm(SymEngineRef(SymEngine::NegInf.get()), true));
-				}
-			}
-		}
-
-		return Pool::NoSymbolicForm();
-	});
-
-	add(SymbolPlus, [] (const Expression *expr) {
-		if (expr->size() == 2) {
-			return expr->symbolic_2(SymEngine::add);
-		} else {
-			return expr->symbolic_n(SymEngine::add);
-		}
-	});
-
-    add(SymbolTimes, [] (const Expression *expr) {
-        if (expr->size() == 2) {
-            return times_2(expr);
-        } else {
-            return expr->symbolic_n(SymEngine::mul);
-        }
-    });
-
-    add(SymbolPower, [] (const Expression *expr) {
-        if (expr->size() == 2) {
-            return expr->symbolic_2(SymEngine::pow);
-        } else {
-            return Pool::NoSymbolicForm();
-        }
-    });
-
-	add(SymbolLog, [] (const Expression *expr) {
-		if (expr->size() == 1) {
-			return expr->symbolic_1(SymEngine::log);
-		} else if (expr->size() == 2) {
-			return expr->symbolic_2(SymEngine::log);
-		} else {
-			return Pool::NoSymbolicForm();
-		}
-	});
-
-    add(SymbolCos, [] (const Expression *expr) {
-        if (expr->size() == 1) {
-            return expr->symbolic_1(SymEngine::cos);
-        } else {
-            return Pool::NoSymbolicForm();
-        }
-    });
-
-    add(SymbolSin, [] (const Expression *expr) {
-        if (expr->size() == 1) {
-            return expr->symbolic_1(SymEngine::sin);
-        } else {
-            return Pool::NoSymbolicForm();
-        }
-    });
-
-	add(SymbolTan, [] (const Expression *expr) {
-		if (expr->size() == 1) {
-			return expr->symbolic_1(SymEngine::tan);
-		} else {
-			return Pool::NoSymbolicForm();
-		}
-	});
-
-    /*add(SymbolFactorial, [] (const Expression *expr) {
-        if (expr->size() == 1) {
-            // currently always expects SymEngine::Integer
-            return expr->symbolic_1(SymEngine::factorial);
-        } else {
-            return Pool::NoSymbolicForm();
-        }
-    });*/
-
-    add(SymbolGamma, [] (const Expression *expr) {
-        if (expr->size() == 1) {
-            return expr->symbolic_1(SymEngine::gamma);
-        } else if (expr->size() == 2) {
-            return expr->symbolic_2(SymEngine::uppergamma);
-        } else {
-            return Pool::NoSymbolicForm();
-        }
-    });
-
-	add(SymbolAbs, [] (const Expression *expr) {
-		if (expr->size() == 1) {
-			return expr->symbolic_1(SymEngine::abs);
-		} else {
-			return Pool::NoSymbolicForm();
-		}
-	});
-}
-
 BaseExpressionRef from_symbolic_expr(
 	const SymEngineRef &ref,
 	const BaseExpressionRef &head,
@@ -270,27 +117,21 @@ BaseExpressionRef from_symbolic_expr(
 		args.size()));
 }
 
-BaseExpressionRef from_symbolic_expr_with_sort(
+BaseExpressionRef from_symbolic_expr_canonical(
 	const SymEngineRef &ref,
 	const BaseExpressionRef &head,
 	const Evaluation &evaluation) {
 
 	const auto &args = ref->get_args();
 
-	std::vector<UnsafeBaseExpressionRef> sorted_args;
-	sorted_args.reserve(args.size());
+	LeafVector conv_args;
+	conv_args.reserve(args.size());
 	for (size_t i = 0; i < args.size(); i++) {
-		sorted_args.emplace_back(from_symbolic_form(args[i], evaluation));
+		conv_args.push_back(from_symbolic_form(args[i], evaluation));
 	}
+	conv_args.sort();
 
-	std::sort(
-		sorted_args.begin(),
-		sorted_args.end(),
-		[] (const BaseExpressionRef &x, const BaseExpressionRef &y) {
-			return x->sort_key().compare(y->sort_key()) < 0;
-		});
-
-	return expression(head, LeafVector(std::move(sorted_args)));
+	return expression(head, std::move(conv_args));
 }
 
 BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation &evaluation) {
@@ -354,11 +195,11 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 		}
 
 		case SymEngine::ADD:
-			expr = from_symbolic_expr_with_sort(form, evaluation.Plus, evaluation);
+			expr = from_symbolic_expr_canonical(form, evaluation.Plus, evaluation);
             break;
 
 		case SymEngine::MUL:
-			expr = from_symbolic_expr_with_sort(form, evaluation.Times, evaluation);
+			expr = from_symbolic_expr_canonical(form, evaluation.Times, evaluation);
             break;
 
 		case SymEngine::POW:
@@ -405,6 +246,10 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 			break;
 		}
 
+		case SymEngine::NOT_A_NUMBER:
+			expr = evaluation.Indeterminate;
+			break;
+
 		case SymEngine::CONSTANT:
 			if (form->__eq__(*SymEngine::pi.get())) {
 				expr = evaluation.Pi;
@@ -439,7 +284,7 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 		}
 	}
 
-    expr->set_simplified_form(form);
+    expr->set_symbolic_form(form);
     return expr;
 }
 
@@ -492,4 +337,103 @@ Precision precision(const BaseExpressionRef &item) {
         default:
             return Precision::none;
     }
+}
+
+void Expression::symbolic_initialize(
+	const std::function<SymEngineRef()> &f,
+	const Evaluation &evaluation) const {
+
+	m_symbolic_form.ensure([&f, &evaluation] () {
+		try {
+			SymEngineRef ref = f();
+			if (ref.get()) {
+				return Pool::SymbolicForm(ref);
+			} else {
+				return Pool::NoSymbolicForm();
+			}
+		} catch (const SymEngine::SymEngineException &e) {
+			evaluation.sym_engine_exception(e);
+			return Pool::NoSymbolicForm();
+		}
+	});
+}
+
+BaseExpressionRef Expression::symbolic_evaluate_unary(
+	const SymEngineUnaryFunction &f,
+	const Evaluation &evaluation) const {
+
+	const SymbolicFormRef form = m_symbolic_form.ensure([this, &f, &evaluation] () {
+		if (size() == 1) {
+			try {
+				const SymbolicFormRef symbolic_a = unsafe_symbolic_form(
+					static_leaves<1>()[0]);
+				if (!symbolic_a->is_none()) {
+					return Pool::SymbolicForm(f(symbolic_a->get()));
+				} else {
+					return Pool::NoSymbolicForm();
+				}
+			} catch (const SymEngine::SymEngineException &e) {
+				evaluation.sym_engine_exception(e);
+				return Pool::NoSymbolicForm();
+			}
+		} else {
+			return Pool::NoSymbolicForm();
+		}
+	});
+
+	if (form->is_none()) {
+		return BaseExpressionRef();
+	} else {
+		BaseExpressionRef expr = from_symbolic_form(
+			form->get(), evaluation);
+		if (!expr->same(this)) {
+			return expr;
+		} else {
+			set_symbolic_form(form->get());
+			return BaseExpressionRef();
+		}
+	}
+}
+
+BaseExpressionRef Expression::symbolic_evaluate_binary(
+	const SymEngineBinaryFunction &f,
+	const Evaluation &evaluation) const {
+
+	const SymbolicFormRef form = m_symbolic_form.ensure([this, &f, &evaluation] () {
+		if (size() == 2) {
+			try {
+				const BaseExpressionRef *const leaves = static_leaves<2>();
+				const BaseExpressionRef &a = leaves[0];
+				const BaseExpressionRef &b = leaves[1];
+
+				const SymbolicFormRef symbolic_a = unsafe_symbolic_form(a);
+				if (!symbolic_a->is_none()) {
+					const SymbolicFormRef symbolic_b = unsafe_symbolic_form(b);
+					if (!symbolic_b->is_none()) {
+						return Pool::SymbolicForm(f(symbolic_a->get(), symbolic_b->get()));
+					}
+				}
+
+				return Pool::NoSymbolicForm();
+			} catch (const SymEngine::SymEngineException &e) {
+				evaluation.sym_engine_exception(e);
+				return Pool::NoSymbolicForm();
+			}
+		} else {
+			return Pool::NoSymbolicForm();
+		}
+	});
+
+	if (form->is_none()) {
+		return BaseExpressionRef();
+	} else {
+		BaseExpressionRef expr = from_symbolic_form(
+			form->get(), evaluation);
+		if (!expr->same(this)) {
+			return expr;
+		} else {
+			set_symbolic_form(form->get());
+			return BaseExpressionRef();
+		}
+	}
 }

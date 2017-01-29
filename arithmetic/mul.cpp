@@ -9,8 +9,8 @@ inline bool is_plus(const BaseExpressionRef &expr) {
 }
 
 inline bool times_number(
-	const UnsafeBaseExpressionRef &number,
-	std::vector<UnsafeBaseExpressionRef> &symbolics,
+	const BaseExpressionRef &number,
+	std::vector<BaseExpressionRef> &&symbolics,
 	UnsafeBaseExpressionRef &result,
 	const Evaluation &evaluation) {
 
@@ -31,7 +31,7 @@ inline bool times_number(
 			const BaseExpressionRef &plus = symbolics[0];
 
 			if (is_plus(plus)) {
-				symbolics[0] = plus->as_expression()->with_slice<CompileToSliceType>(
+				symbolics[0].unsafe_mutate(plus->as_expression()->with_slice<CompileToSliceType>(
 					[&evaluation] (const auto &slice) {
 						return expression(evaluation.Plus, sequential([&slice, &evaluation] (auto &store) {
 							const size_t n = slice.size();
@@ -39,7 +39,7 @@ inline bool times_number(
 								store(expression(evaluation.Times, evaluation.minus_one, slice[i]));
 							}
 						}, slice.size()));
-					});
+					}));
 
 				result = expression(evaluation.Times, LeafVector(std::move(symbolics)));
 				return true;
@@ -59,48 +59,90 @@ inline BaseExpressionRef mul_slow(
 	const Slice &slice,
 	const Evaluation &evaluation) {
 
+	if (expr->is_symbolic_form_evaluated()) {
+		return BaseExpressionRef();
+	}
+
 	try {
-		std::vector<UnsafeBaseExpressionRef> symbolics;
 		SymEngine::vec_basic numbers;
+		std::vector<BaseExpressionRef> rest;
 
 		for (const BaseExpressionRef leaf : slice.leaves()) {
 			if (leaf->is_number()) {
 				const auto form = symbolic_form(leaf, evaluation);
 				numbers.push_back(form->get());
 			} else {
-				symbolics.push_back(leaf);
+				rest.push_back(leaf);
 			}
 		}
 
-		// it's important to check if a change happens. if we keep
-		// returning non-null BaseExpressionRef here, "a * b" will
-		// produce an infinite loop.
+		// carefully check if a change happens. if we keep returning
+		// non-null BaseExpressionRef here, an expression like "a * b"
+		// will trigger an infinite loop.
 
-		if (symbolics.empty()) {
-			if (numbers.size() >= 2) {
-				return from_symbolic_form(SymEngine::mul(numbers), evaluation);
-			} else {
-				return BaseExpressionRef();
-			}
-		} else if (!numbers.empty()) {
-			UnsafeBaseExpressionRef number;
+		SymEngine::vec_basic operands;
 
-			number = from_symbolic_form(SymEngine::mul(numbers), evaluation);
+		if (numbers.size() > 0) {
+			const auto number = SymEngine::mul(numbers);
+
+			const BaseExpressionRef number_expression =
+				from_symbolic_form(number, evaluation);
 
 			UnsafeBaseExpressionRef result;
 
-			if (times_number(number, symbolics, result, evaluation)) {
+			if (times_number(number_expression, std::move(rest), result, evaluation)) {
 				return result;
 			} else {
-				if (numbers.size() >= 2) {
-					symbolics.push_back(BaseExpressionRef(number));
-					return expression(evaluation.Times, LeafVector(std::move(symbolics)));
-				} else {
-					return BaseExpressionRef();
-				}
+				operands.push_back(number);
 			}
-		} else {
+		}
+
+		LeafVector new_rest;
+
+		for (const BaseExpressionRef &leaf : rest) {
+			const auto form = symbolic_form(leaf, evaluation);
+			if (!form->is_none()) {
+				operands.push_back(form->get());
+			} else {
+				new_rest.push_back_copy(leaf);
+			}
+		}
+
+		const auto multiplied = SymEngine::mul(operands);
+		const bool is_active_form = new_rest.empty();
+
+		if (operands.size() >= 1) {
+			if (multiplied->get_type_code() == SymEngine::MUL) {
+				const auto &args = multiplied->get_args();
+
+				new_rest.reserve(new_rest.size() + args.size());
+				for (size_t i = 0; i < args.size(); i++) {
+					new_rest.push_back(from_symbolic_form(args[i], evaluation));
+				}
+			} else {
+				new_rest.push_back(from_symbolic_form(multiplied, evaluation));
+			}
+		}
+
+		new_rest.sort();
+
+		const BaseExpressionRef result =
+			expression(evaluation.Times, std::move(new_rest));
+
+		if (result->same(expr)) {
+			if (is_active_form) {
+				expr->set_symbolic_form(multiplied);
+			} else {
+				expr->set_no_symbolic_form();
+			}
 			return BaseExpressionRef();
+		} else {
+			if (is_active_form) {
+				result->set_symbolic_form(multiplied);
+			} else {
+				result->set_no_symbolic_form();
+			}
+			return result;
 		}
 	} catch (const SymEngine::SymEngineException &e) {
 		evaluation.sym_engine_exception(e);
@@ -110,7 +152,7 @@ inline BaseExpressionRef mul_slow(
 
 BaseExpressionRef mul(const Expression *expr, const Evaluation &evaluation) {
 	// the most general and slowest form of mul
-	return expr->with_slice<CompileToSliceType>([&expr, &evaluation] (const auto &slice) {
+	return expr->with_slice<CompileToSliceType>([expr, &evaluation] (const auto &slice) {
 		return mul_slow(expr, slice, evaluation);
 	});
 };
@@ -118,7 +160,7 @@ BaseExpressionRef mul(const Expression *expr, const Evaluation &evaluation) {
 BaseExpressionRef TimesNRule::try_apply(
 	const Expression *expr, const Evaluation &evaluation) const {
 
-	return expr->with_slice<CompileToSliceType>([&expr, &evaluation] (const auto &slice) {
+	return expr->with_slice<CompileToSliceType>([expr, &evaluation] (const auto &slice) {
 		return mul_slow(expr, slice, evaluation);
 	});
 }

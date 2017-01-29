@@ -63,6 +63,7 @@ SYMBOL(Tan)
 
 SYMBOL(DirectedInfinity)
 SYMBOL(ComplexInfinity)
+SYMBOL(Indeterminate)
 SYMBOL(GoldenRatio)
 SYMBOL(MachinePrecision)
 SYMBOL(Catalan)

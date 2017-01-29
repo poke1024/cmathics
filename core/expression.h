@@ -338,6 +338,65 @@ public:
 
 	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
 
+	virtual bool is_numeric() const final {
+		if (head()->type() == SymbolType &&
+		    head()->as_symbol()->state().has_attributes(Attributes::NumericFunction)) {
+
+			const size_t n = size();
+			for (size_t i = 0; i < n; i++) {
+				if (!_leaves[i]->is_numeric())
+					return false;
+			}
+
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	virtual SortKey sort_key() const final {
+		MonomialMap m(Pool::monomial_map_allocator());
+
+		switch (_head->extended_type()) {
+			case SymbolTimes: {
+				const size_t n = size();
+
+				for (size_t i = 0; i < n; i++) {
+					const BaseExpressionRef leaf = _leaves[i];
+
+					if (leaf->type() == ExpressionType &&
+						leaf->as_expression()->head()->extended_type() == SymbolPower &&
+						leaf->as_expression()->size() == 2) {
+
+						const BaseExpressionRef * const power =
+							leaf->as_expression()->static_leaves<2>();
+
+						const BaseExpressionRef &var = power[0];
+						const BaseExpressionRef &exp = power[1];
+
+						if (var->type() == SymbolType) {
+							// FIXME
+						}
+					} else if (leaf->type() == SymbolType) {
+						increment_monomial(m, leaf->as_symbol(), 1);
+					}
+				}
+
+				break;
+			}
+
+			default: {
+				break;
+			}
+		}
+
+		if (!m.empty()) {
+			return SortKey(is_numeric() ? 1 : 2, 2, std::move(m), 1, SortByHead(this), SortByLeaves(this), 1);
+		} else {
+			return SortKey(is_numeric() ? 1 : 2, 3, SortByHead(this), SortByLeaves(this), 1);
+		}
+	}
+
 	virtual SortKey pattern_key() const final {
 		switch (_head->extended_type()) {
 			case SymbolBlank:
@@ -412,20 +471,6 @@ public:
             evaluation);
 	}
 
-	virtual optional<SymEngine::vec_basic> symbolic_operands() const final {
-		SymEngine::vec_basic operands;
-        operands.reserve(size());
-		for (const auto &leaf : _leaves.leaves()) {
-            const SymbolicFormRef form = unsafe_symbolic_form(leaf);
-            if (form->is_none()) {
-                return optional<SymEngine::vec_basic>();
-            }
-			operands.push_back(form->get());
-		}
-
-		return operands;
-	}
-
 	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const;
 
 	template<enum Type... Types, typename F>
@@ -443,30 +488,6 @@ template<size_t N>
 inline const BaseExpressionRef *Expression::static_leaves() const {
     static_assert(N <= MaxStaticSliceSize, "N is too large");
     return static_cast<const StaticSlice<N>*>(_slice_ptr)->refs();
-}
-
-inline SymbolicFormRef Expression::symbolic_1(const SymEngineUnaryFunction &f) const {
-    const SymbolicFormRef symbolic_a = unsafe_symbolic_form(static_leaves<1>()[0]);
-    if (!symbolic_a->is_none()) {
-	    return Pool::SymbolicForm(f(symbolic_a->get()));
-    } else {
-        return Pool::NoSymbolicForm();
-    }
-}
-
-inline SymbolicFormRef Expression::symbolic_2(const SymEngineBinaryFunction &f) const {
-	const BaseExpressionRef * const leaves = static_leaves<2>();
-	const BaseExpressionRef &a = leaves[0];
-	const BaseExpressionRef &b = leaves[1];
-
-    const SymbolicFormRef symbolic_a = unsafe_symbolic_form(a);
-    if (!symbolic_a->is_none()) {
-        const SymbolicFormRef symbolic_b = unsafe_symbolic_form(b);
-        if (!symbolic_b->is_none()) {
-	        return Pool::SymbolicForm(f(symbolic_a->get(), symbolic_b->get()));
-        }
-    }
-    return Pool::NoSymbolicForm();
 }
 
 template<typename E, typename T>
@@ -521,7 +542,7 @@ expression(
 	if (n <= MaxStaticSliceSize) {
 		return Pool::StaticExpression(head, sequential([&leaves, n] (auto &store) {
 			for (size_t i = 0; i < n; i++) {
-				store(leaves._grab_leaf(i));
+				store(leaves.unsafe_grab_leaf(i));
 			}
 		}, n));
 	} else {

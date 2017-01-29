@@ -123,10 +123,13 @@ struct Comparison<BigReal, BigRational> {
 template<bool Less, bool Equal, bool Greater>
 struct inequality {
 	static inline BaseExpressionRef fallback(
-		const BaseExpressionPtr head,
-		const BaseExpressionPtr a,
-		const BaseExpressionPtr b,
+		const ExpressionPtr expr,
 		const Evaluation &evaluation) {
+
+		const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+
+		const BaseExpression * const a = leaves[0].get();
+		const BaseExpression * const b = leaves[1].get();
 
 		const SymbolicFormRef sym_a = symbolic_form(a, evaluation);
 		if (!sym_a->is_none()) {
@@ -225,10 +228,13 @@ struct equal {
     }
 
 	static inline BaseExpressionRef fallback(
-		const BaseExpressionPtr head,
-		const BaseExpressionPtr a,
-		const BaseExpressionPtr b,
+		const ExpressionPtr expr,
 		const Evaluation &evaluation) {
+
+		const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+
+		const BaseExpression * const a = leaves[0].get();
+		const BaseExpression * const b = leaves[1].get();
 
 		switch (a->equals(*b)) {
 			case true:
@@ -250,10 +256,13 @@ public:
 
     EqualComparison(const Definitions &definitions) : Base(definitions) {
         Base::template init<Symbol, Symbol>([] (
-		    BaseExpressionPtr,
-            const BaseExpression *a,
-		    const BaseExpression *b,
+			const ExpressionPtr expr,
 		    const Evaluation& evaluation) {
+
+		        const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+
+		        const BaseExpression * const a = leaves[0].get();
+		        const BaseExpression * const b = leaves[1].get();
 
                 if (a == b) {
                     return BaseExpressionRef(evaluation.Boolean(!Unequal));
@@ -288,11 +297,12 @@ public:
             const size_t n = slice.size();
 
             for (size_t i = 0; i < n - 1; i++) {
+	            const ExpressionRef expr = expression(
+		            m_head, slice[i], slice[i + 1]);
+
                 const BaseExpressionRef result = m_operator(
                     evaluation.definitions,
-                    m_head.get(),
-                    slice[i].get(),
-                    slice[i + 1].get(),
+                    expr.get(),
                     evaluation);
 
                 if (!result) { // undefined?
@@ -329,11 +339,12 @@ public:
                 const BaseExpressionRef leaf = slice[i];
 
                 for (size_t j = i + 1; j < n; j++) {
+	                const ExpressionRef expr =
+		                expression(m_head, leaf, slice[j]);
+
                     const BaseExpressionRef is_equal = m_is_equal(
                         evaluation.definitions,
-                        m_head.get(),
-                        leaf.get(),
-                        slice[j].get(),
+                        expr.get(),
                         evaluation);
 
                     if (!is_equal) { // undefined?

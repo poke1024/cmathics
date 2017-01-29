@@ -48,9 +48,13 @@ public:
         return value;
     }
 
+	virtual bool is_numeric() const {
+		return true;
+	}
+
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::integer(value), true);
+        return Pool::SymbolicForm(SymEngine::integer(value));
 	}
 };
 
@@ -92,9 +96,13 @@ public:
         return value.get_d();
     }
 
+	virtual bool is_numeric() const {
+		return true;
+	}
+
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-		return Pool::SymbolicForm(SymEngine::integer(value.get_mpz_t()), true);
+		return Pool::SymbolicForm(SymEngine::integer(value.get_mpz_t()));
 	}
 };
 

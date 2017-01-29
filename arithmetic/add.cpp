@@ -111,34 +111,68 @@ inline BaseExpressionRef add_slow(
 	const Slice &slice,
 	const Evaluation &evaluation) {
 
+	if (expr->is_symbolic_form_evaluated()) {
+		return BaseExpressionRef();
+	}
+
 	try {
-		LeafVector symbolics;
-		SymEngine::vec_basic numbers;
+		SymEngine::vec_basic operands;
+		LeafVector rest;
 
 		for (const BaseExpressionRef leaf : slice.leaves()) {
-			if (leaf->is_number()) {
-				const auto form = symbolic_form(leaf, evaluation);
-				numbers.push_back(form->get());
+			const auto form = unsafe_symbolic_form(leaf);
+			if (!form->is_none()) {
+				operands.push_back(form->get());
 			} else {
-				symbolics.push_back_copy(leaf);
+				rest.push_back_copy(leaf);
 			}
 		}
 
-		// it's important to check if a change happens. if we keep
-		// returning non-null BaseExpressionRef here, "a + b" will
-		// produce an infinite loop.
+		// carefully check if a change happens. if we keep returning
+		// non-null BaseExpressionRef here, an expression like "a + b"
+		// will trigger an infinite loop.
 
-		if (numbers.size() >= 2) {
+		const auto added = SymEngine::add(operands);
+		const bool is_active_form = rest.empty();
+
+		if (operands.size() >= 2) {
 			UnsafeBaseExpressionRef result;
 
-			result = from_symbolic_form(SymEngine::add(numbers), evaluation);
+			if (rest.empty()) {
+				result = from_symbolic_form(added, evaluation);
+			} else {
+				if (added->get_type_code() == SymEngine::ADD) {
+					const auto &args = added->get_args();
 
-			if (!symbolics.empty()) {
-				symbolics.push_back(BaseExpressionRef(result));
-				result = expression(expr->head(), std::move(symbolics));
+					rest.reserve(rest.size() + args.size());
+					for (size_t i = 0; i < args.size(); i++) {
+						rest.push_back(from_symbolic_form(args[i], evaluation));
+					}
+				} else {
+					result = from_symbolic_form(added, evaluation);
+					rest.push_back(BaseExpressionRef(result));
+				}
+
+				rest.sort();
+
+				result = expression(expr->head(), std::move(rest));
 			}
 
-			return result;
+			if (result->same(expr)) {
+				if (is_active_form) {
+					expr->set_symbolic_form(added);
+				} else {
+					expr->set_no_symbolic_form();
+				}
+				return BaseExpressionRef();
+			} else {
+				if (is_active_form) {
+					result->set_symbolic_form(added);
+				} else {
+					result->set_no_symbolic_form();
+				}
+				return result;
+			}
 		} else {
 			return BaseExpressionRef();
 		}
@@ -150,7 +184,7 @@ inline BaseExpressionRef add_slow(
 
 BaseExpressionRef add(const Expression *expr, const Evaluation &evaluation) {
 	// the most general and slowest form of add
-	return expr->with_slice<CompileToSliceType>([&expr, &evaluation] (const auto &slice) {
+	return expr->with_slice<CompileToSliceType>([expr, &evaluation] (const auto &slice) {
 		return add_slow(expr, slice, evaluation);
 	});
 };
@@ -162,7 +196,7 @@ BaseExpressionRef PlusNRule::try_apply(
 	// in the corresponding Rule.
 	assert(expr->size() >= 3);
 
-	return expr->with_slice<CompileToSliceType>([&expr, &evaluation] (const auto &slice) {
+	return expr->with_slice<CompileToSliceType>([expr, &evaluation] (const auto &slice) {
 		// bit field to determine which types are present
 		const TypeMask types_seen = slice.exact_type_mask();
 

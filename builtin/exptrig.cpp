@@ -6,11 +6,13 @@
 template<typename F>
 class Unary : public Builtin {
 private:
-    const F m_function;
+	const SymEngineUnaryFunction m_sym_engine_function;
+    const F m_machine_function;
 
 protected:
     template<typename... Args>
-    Unary(const F &f, Args&... args) : Builtin(args...), m_function(f) {
+    Unary(SymEngineUnaryFunction sf, const F &f, Args&... args) :
+		Builtin(args...), m_sym_engine_function(sf), m_machine_function(f) {
     }
 
 public:
@@ -22,14 +24,15 @@ public:
     }
 
     inline BaseExpressionRef apply(
+        ExpressionPtr expr,
         BaseExpressionPtr x,
         const Evaluation &evaluation) {
 
         if (x->type() == MachineRealType) {
-            return Pool::MachineReal(m_function(
+            return Pool::MachineReal(m_machine_function(
                 static_cast<const MachineReal*>(x)->value));
         } else {
-            return BaseExpressionRef(); // leave to SymEngine
+            return expr->symbolic_evaluate_unary(m_sym_engine_function, evaluation);
         }
     }
 };
@@ -84,7 +87,7 @@ public:
     )";
 
     template<typename... Args>
-    Log(Args&... args) : Unary(_log, args...) {
+    Log(Args&... args) : Unary(SymEngine::log, _log, args...) {
     }
 
     void build(Runtime &runtime) {
@@ -96,7 +99,18 @@ public:
         // up("Derivative[1][Log]", "1/#&");
         // down("Log[x_?InexactNumberQ]", "Log[E, x]");
         Unary<decltype(_log)>::build(runtime);
+	    builtin(&Log::apply_2);
     }
+
+	inline BaseExpressionRef apply_2(
+		ExpressionPtr expr,
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		const Evaluation &evaluation) {
+
+		return expr->symbolic_evaluate_binary(
+			SymEngine::log, evaluation);
+	}
 };
 
 class Log2 : public Builtin {
@@ -220,7 +234,7 @@ public:
     )";
 
     template<typename... Args>
-    Sin(Args&... args) : Unary(_sin, args...) {
+    Sin(Args&... args) : Unary(SymEngine::sin, _sin, args...) {
     }
 };
 
@@ -242,7 +256,7 @@ public:
     )";
 
     template<typename... Args>
-    Cos(Args&... args) : Unary(_cos, args...) {
+    Cos(Args&... args) : Unary(SymEngine::cos, _cos, args...) {
     }
 };
 
@@ -266,7 +280,7 @@ public:
     )";
 
     template<typename... Args>
-    Tan(Args&... args) : Unary(_tan, args...) {
+    Tan(Args&... args) : Unary(SymEngine::tan, _tan, args...) {
     }
 };
 

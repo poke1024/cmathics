@@ -6,6 +6,19 @@ inline int compare_sort_keys(
     const BaseExpressionRef &y,
     int pattern_sort);
 
+inline void increment_monomial(
+	MonomialMap &m,
+    const SymbolRef &s,
+    size_t exp) {
+
+	auto i = m.find(s);
+	if (i == m.end()) {
+		m[s] = exp;
+	} else {
+		i->second += exp;
+	}
+}
+
 class Monomial {
 private:
     MonomialMap m_expressions;

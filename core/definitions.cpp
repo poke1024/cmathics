@@ -64,7 +64,8 @@ BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
 }
 
 void SymbolState::set_attributes(Attributes attributes) {
-    m_attributes = EvaluateDispatch::pick(attributes);
+	m_attributes = attributes;
+    m_dispatch = EvaluateDispatch::pick(attributes);
 }
 
 void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {

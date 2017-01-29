@@ -25,17 +25,6 @@ enum {
 
 typedef int tribool;
 
-/*class tribool {
-private:
-    int m_state;
-
-public:
-    explicit inline tribool(bool f) : m_state(f) {
-    }
-
-
-};*/
-
 template<typename F>
 class const_lambda_class {
 public:
@@ -363,15 +352,10 @@ typedef SymEngine::RCP<const SymEngine::Complex> SymEngineComplexRef;
 class SymbolicForm : public Shared<SymbolicForm, SharedPool> {
 private:
 	const SymEngineRef m_ref;
-	const bool m_is_simplified; // owner BaseExpression was simplified to this SymbolicForm
 
 public:
-	SymbolicForm(const SymEngineRef &ref, bool is_simplified) :
-		m_ref(ref), m_is_simplified(is_simplified) {
-	}
-
-	inline bool is_simplified() const {
-		return m_is_simplified;
+	inline SymbolicForm(const SymEngineRef &ref) :
+		m_ref(ref) {
 	}
 
 	inline bool is_none() const {
@@ -379,7 +363,7 @@ public:
 		return m_ref.is_null();
 	}
 
-	inline SymEngineRef get() const {
+	inline const SymEngineRef &get() const {
 		return m_ref;
 	}
 };
@@ -419,7 +403,13 @@ protected:
 
 public:
     template<typename T>
-    inline void set_simplified_form(const SymEngine::RCP<const T> &ref) const;
+    inline void set_symbolic_form(const SymEngine::RCP<const T> &ref) const;
+
+	inline void set_no_symbolic_form() const;
+
+	inline bool is_symbolic_form_evaluated() const {
+		return m_symbolic_form; // might be active or passive or "no symbolic form"
+	}
 
     inline BaseExpression(ExtendedType type) : _extended_type(type) {
     }
@@ -581,22 +571,18 @@ inline void SharedPool::release(const T *obj) {
 }
 
 template<typename T>
-inline void BaseExpression::set_simplified_form(const SymEngine::RCP<const T> &ref) const {
+inline void BaseExpression::set_symbolic_form(const SymEngine::RCP<const T> &ref) const {
 	m_symbolic_form.ensure([&ref] () {
-        return Pool::SymbolicForm(SymEngine::rcp_static_cast<const SymEngine::Basic>(ref), true);
-    }, [] (const SymbolicForm *form) {
-        return form->is_simplified();
+        return Pool::SymbolicForm(
+		    SymEngine::rcp_static_cast<const SymEngine::Basic>(ref));
     });
 }
 
-/*inline std::ostream &operator<<(std::ostream &s, const BaseExpressionRef &expr) {
-    if (expr) {
-        s << expr->format(evaluation.StandardForm);
-    } else {
-        s << "IDENTITY";
-    }
-    return s;
-}*/
+inline void BaseExpression::set_no_symbolic_form() const {
+	m_symbolic_form.ensure([] () {
+		return Pool::NoSymbolicForm();
+	});
+}
 
 class Slice {
 public:
@@ -617,7 +603,7 @@ typedef SymEngineRef (*SymEngineBinaryFunction)(
 typedef SymEngineRef (*SymEngineNAryFunction)(
 	const SymEngine::vec_basic&);
 
-class InstantiateSymbolicForm {
+/*class InstantiateSymbolicForm {
 public:
     typedef std::function<SymbolicFormRef(const Expression *expr)> Function;
 
@@ -638,7 +624,7 @@ public:
     static inline const Function &lookup(ExtendedType type) {
         return s_functions[index(type)];
     }
-};
+};*/
 
 enum SliceMethodOptimizeTarget {
 	DoNotCompileToSliceType,
@@ -773,22 +759,19 @@ protected:
         }));
 	}
 
-	virtual optional<SymEngine::vec_basic> symbolic_operands() const = 0;
-
     virtual SymbolicFormRef instantiate_symbolic_form() const;
 
-	inline SymbolicFormRef symbolic_1(const SymEngineUnaryFunction &f) const;
+	void symbolic_initialize(
+		const std::function<SymEngineRef()> &f,
+		const Evaluation &evaluation) const;
 
-	inline SymbolicFormRef symbolic_2(const SymEngineBinaryFunction &f) const;
+	BaseExpressionRef symbolic_evaluate_unary(
+		const SymEngineUnaryFunction &f,
+		const Evaluation &evaluation) const;
 
-	inline SymbolicFormRef symbolic_n(const SymEngineNAryFunction &f) const {
-		const optional<SymEngine::vec_basic> operands = symbolic_operands();
-		if (operands) {
-			return Pool::SymbolicForm(f(*operands));
-		} else {
-			return Pool::NoSymbolicForm();
-		}
-	}
+	BaseExpressionRef symbolic_evaluate_binary(
+		const SymEngineBinaryFunction &f,
+		const Evaluation &evaluation) const;
 
 	virtual MatchSize leaf_match_size() const = 0;
 
@@ -800,30 +783,9 @@ protected:
 };
 
 inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
-    // IMPORTANT: caller must handle SymEngine::SymEngineException
-
-    optional<SymEngine::SymEngineException> exception;
-
-	SymbolicFormRef form = (expr->m_symbolic_form.ensure([expr, &exception] () {
-        const auto &f = InstantiateSymbolicForm::lookup(
-            expr->_head->extended_type());
-        if (f) {
-            try {
-                return f(expr);
-            } catch (const SymEngine::SymEngineException &e) {
-                exception = e;
-                return Pool::NoSymbolicForm();
-            }
-        } else {
-            return Pool::NoSymbolicForm();
-        }
-    }));
-
-    if (exception) {
-        throw *exception;
-    }
-
-    return form;
+	return expr->m_symbolic_form.ensure([] () {
+        return Pool::NoSymbolicForm();
+    });
 }
 
 template<typename T>
@@ -843,11 +805,6 @@ inline SymbolicFormRef unsafe_symbolic_form<const ExpressionPtr&>(const Expressi
 
 	return fast_symbolic_form(expr);
 }
-
-/*inline std::ostream &operator<<(std::ostream &s, const ExpressionRef &expr) {
-	s << static_pointer_cast<const BaseExpression>(expr);
-	return s;
-}*/
 
 #include "rule.h"
 

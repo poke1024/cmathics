@@ -161,7 +161,7 @@ public:
                     changed = true;
                 }
                 new_type_mask |= leaf->base_type_mask();
-                v[i].mutate(std::move(leaf));
+                v[i].unsafe_mutate(std::move(leaf));
                 lock.clear();
             }
         }, end - begin);
@@ -387,7 +387,7 @@ inline BaseExpressionRef SymbolState::dispatch(
 	const Evaluation &evaluation) const {
 
     return EvaluateDispatch::call(
-        m_attributes,
+        m_dispatch,
         m_symbol,
         expr,
         slice_code,

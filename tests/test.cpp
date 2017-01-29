@@ -3,6 +3,8 @@
 
 #include "core/runtime.h"
 
+#include "core/generator.h"
+
 int main(int argc, char** argv) {
     Runtime::init();
 

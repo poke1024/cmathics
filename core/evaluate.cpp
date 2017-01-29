@@ -65,9 +65,9 @@ BaseExpressionRef evaluate(
 #endif
 
     const Expression * const safe_intermediate_form =
-            intermediate_form ?
-            intermediate_form.get() :
-            self;
+        intermediate_form ?
+        intermediate_form.get() :
+        self;
 
     if (attributes & Attributes::Listable) {
         bool done;
@@ -89,7 +89,7 @@ BaseExpressionRef evaluate(
         // Evaluate the head with leaves. (DownValue)
 
         const BaseExpressionRef down_form = rules->down_rules.try_and_apply<Slice>(
-                safe_intermediate_form, evaluation);
+           safe_intermediate_form, evaluation);
         if (down_form) {
             return down_form;
         }
@@ -98,15 +98,15 @@ BaseExpressionRef evaluate(
     // Simplify symbolic form, if possible. We guarantee that no vcall
     // happens unless a symbolic resolution is really necessary.
 
-    UnsafeSymbolicFormRef form;
+    /*UnsafeSymbolicFormRef form;
 
     try {
         form = fast_symbolic_form(safe_intermediate_form);
     } catch (const SymEngine::SymEngineException &e) {
         evaluation.sym_engine_exception(e);
-    }
+    }*/
 
-    if (form && !form->is_none() && !form->is_simplified()) {
+    /*if (form && !form->is_none() && !form->is_simplified()) {
         if (false) { // debug
             std::cout << "inspecting " << safe_intermediate_form->format(evaluation.FullForm, evaluation) << std::endl;
         }
@@ -120,7 +120,7 @@ BaseExpressionRef evaluate(
         assert(unsafe_symbolic_form(simplified)->is_simplified());
 
         return simplified;
-    }
+    }*/
 
     /*if (!form) {
         // if this expression already has a symbolic form attached, then

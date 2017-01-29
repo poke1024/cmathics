@@ -88,13 +88,17 @@ public:
         return value;
     }
 
+    virtual bool is_numeric() const {
+        return true;
+    }
+
     virtual bool is_inexact() const final {
         return true;
     }
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::real_double(value), true);
+        return Pool::SymbolicForm(SymEngine::real_double(value));
     }
 };
 
@@ -155,6 +159,10 @@ public:
         return as_double();
     }
 
+    virtual bool is_numeric() const {
+        return true;
+    }
+
     virtual bool is_inexact() const final {
         return true;
     }
@@ -165,7 +173,7 @@ protected:
 
         SymEngine::mpfr_class x;
         arf_get_mpfr(x.get_mpfr_t(), arb_midref(value), MPFR_RNDN);
-        return Pool::SymbolicForm(SymEngine::real_mpfr(x), true);
+        return Pool::SymbolicForm(SymEngine::real_mpfr(x));
     }
 };
 

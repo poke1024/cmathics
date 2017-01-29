@@ -112,6 +112,13 @@ protected:
 		BaseExpressionPtr,
         const Evaluation &);
 
+	template<typename T>
+	using FullF2 = BaseExpressionRef (T::*) (
+		ExpressionPtr,
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		const Evaluation &);
+
     template<typename T>
     using F3 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
@@ -228,6 +235,26 @@ protected:
 		    m_runtime.definitions(),
 		    func));
     }
+
+	template<typename T>
+	inline void builtin(FullF2<T> fptr) {
+		const auto self = shared_from_this<T>();
+
+		auto func = [self, fptr] (
+			ExpressionPtr expr,
+			BaseExpressionPtr a,
+			BaseExpressionPtr b,
+			const Evaluation &evaluation) {
+
+			auto p = self.get();
+			return (p->*fptr)(expr, a, b, evaluation);
+		};
+
+		m_symbol->state().add_rule(new BuiltinRule<2, decltype(func)>(
+			m_symbol,
+			m_runtime.definitions(),
+			func));
+	}
 
     template<typename T>
     inline void builtin(F3<T> fptr) {

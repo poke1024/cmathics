@@ -487,7 +487,7 @@ public:
 	}
 
 	inline DynamicSlice(LeafVector &&leaves) :
-		DynamicSlice(Pool::RefsExtent(leaves._grab_internal_vector()), leaves.type_mask()) {
+		DynamicSlice(Pool::RefsExtent(leaves.unsafe_grab_internal_vector()), leaves.type_mask()) {
 
 		assert(leaves.size() > MaxStaticSliceSize);
 	}
@@ -658,9 +658,10 @@ public:
 
     inline StaticSlice(const StaticSlice<N> &slice) :
 		BaseSlice(Array::data(), N, slice.m_type_mask) {
-        // mighty important to provide a copy iterator so that _begin won't get copied from other slice.
+        // mighty important to provide a copy iterator so that _begin
+	    // won't get copied from other slice.
 	    for (size_t i = 0; i < N; i++) {
-		    Array::data()[i].mutate(BaseExpressionRef(slice[i]));
+		    Array::data()[i].unsafe_mutate(BaseExpressionRef(slice[i]));
 	    }
     }
 
@@ -681,7 +682,7 @@ public:
 	    BaseSlice(Array::data(), N, type_mask) {
         assert(refs.size() == N);
 	    for (size_t i = 0; i < N; i++) {
-		    Array::data()[i].mutate(BaseExpressionRef(refs[i]));
+		    Array::data()[i].unsafe_mutate(BaseExpressionRef(refs[i]));
 	    }
     }
 
@@ -693,7 +694,7 @@ public:
 		assert(refs.size() == N);
 		size_t i = 0;
 		for (const BaseExpressionRef &ref : refs) {
-			Array::data()[i++].mutate(BaseExpressionRef(ref));
+			Array::data()[i++].unsafe_mutate(BaseExpressionRef(ref));
 		}
 	}
 
@@ -704,7 +705,7 @@ public:
 	    BaseSlice(Array::data(), N, type_mask) {
 
 	    for (size_t i = 0; i < N; i++) {
-		    Array::data()[i].mutate(BaseExpressionRef(refs[i]));
+		    Array::data()[i].unsafe_mutate(BaseExpressionRef(refs[i]));
 	    }
     }
 

@@ -402,8 +402,8 @@ public:
 
 	static inline MatchRef DefaultMatch();
 
-	static inline SymbolicFormRef SymbolicForm(const SymEngineRef &ref, bool is_simplified = false) {
-		return _s_instance->_symbolic_forms.construct(ref, is_simplified);
+	static inline SymbolicFormRef SymbolicForm(const SymEngineRef &ref) {
+		return _s_instance->_symbolic_forms.construct(ref);
 	}
 
 	static inline SymbolicFormRef NoSymbolicForm() {

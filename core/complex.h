@@ -48,13 +48,17 @@ public:
         return same(expr);
     }
 
+    virtual bool is_numeric() const {
+        return true;
+    }
+
     virtual bool is_inexact() const final {
         return true;
     }
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::complex_double(value), true);
+        return Pool::SymbolicForm(SymEngine::complex_double(value));
     }
 };
 
@@ -91,13 +95,17 @@ public:
 
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
+    virtual bool is_numeric() const {
+        return true;
+    }
+
     virtual bool is_inexact() const final {
         return false; // SymEngine's complex uses rationals
     }
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(m_value, true);
+        return Pool::SymbolicForm(m_value);
     }
 };
 

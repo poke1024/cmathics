@@ -352,11 +352,17 @@ public:
 		return get() != p.get();
 	}
 
-	void mutate(ConstSharedPtr &&p) {
-		// only use this if you know what you're doing! this is only to be used in
-		// situations where you initialize an otherwise uncontended data structure.
+	// only use the following unsafe_ functions if you know what you're doing!
+	// this is only to be used in situations where you initialize an otherwise
+	// uncontended data structure.
+
+	void unsafe_mutate(ConstSharedPtr &&p) {
 		m_ptr = p.m_ptr;
 		p.m_ptr = nullptr;
+	}
+
+	void unsafe_swap(ConstSharedPtr &p) {
+		std::swap(m_ptr, p.m_ptr);
 	}
 };
 

@@ -133,7 +133,7 @@ Runtime *Runtime::s_instance = nullptr;
 void Runtime::init() {
     Pool::init();
     EvaluateDispatch::init();
-    InstantiateSymbolicForm::init();
+    //InstantiateSymbolicForm::init();
     Parallel::init();
 }
 

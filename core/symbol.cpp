@@ -62,16 +62,16 @@ StringRef Symbol::lookup_message(
 SymbolicFormRef Symbol::instantiate_symbolic_form() const {
     switch (extended_type()) {
         case SymbolI:
-            return Pool::SymbolicForm(SymEngine::I, true);
+            return Pool::SymbolicForm(SymEngine::I);
 
         case SymbolPi:
-            return Pool::SymbolicForm(SymEngine::pi, true);
+            return Pool::SymbolicForm(SymEngine::pi);
 
         case SymbolE:
-            return Pool::SymbolicForm(SymEngine::E, true);
+            return Pool::SymbolicForm(SymEngine::E);
 
         case SymbolEulerGamma:
-            return Pool::SymbolicForm(SymEngine::EulerGamma, true);
+            return Pool::SymbolicForm(SymEngine::EulerGamma);
 
         default: {
             // quite a hack currently. we store the pointer to our symbol to avoid having
@@ -80,7 +80,7 @@ SymbolicFormRef Symbol::instantiate_symbolic_form() const {
             const Symbol * const addr = this;
             std::string name;
             name.append(reinterpret_cast<const char*>(&addr), sizeof(addr) / sizeof(char));
-            return Pool::SymbolicForm(SymEngine::symbol(name), true);
+            return Pool::SymbolicForm(SymEngine::symbol(name));
         }
     }
 }
