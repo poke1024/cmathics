@@ -21,7 +21,21 @@ inline DefinitionsPos get_definitions_pos(
 	} else if (pattern->lookup_name() == symbol) {
 		return DefinitionsPos::Sub;
 	} else {
-		return DefinitionsPos::None;
+        if (pattern->type() == ExpressionType) {
+            return pattern->as_expression()->with_slice([symbol] (const auto &slice) {
+                const size_t n = slice.size();
+
+                for (size_t i = 0; i < n; i++) {
+                    if (slice[i]->lookup_name() == symbol) {
+                        return DefinitionsPos::Up;
+                    }
+                }
+
+                return DefinitionsPos::None;
+            });
+        } else {
+            return DefinitionsPos::None;
+        }
 	}
 }
 
@@ -75,6 +89,9 @@ void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
 		case DefinitionsPos::Own:
 			m_own_value = rhs;
 			break;
+        case DefinitionsPos::Up:
+            add_up_rule(new UpRule(lhs, rhs));
+            break;
 		case DefinitionsPos::Down:
 			add_down_rule(new DownRule(lhs, rhs));
 			break;
@@ -91,6 +108,9 @@ void SymbolState::add_rule(const RuleRef &rule) {
 		case DefinitionsPos::Own:
 			m_own_value = rule->rhs();
 			break;
+        case DefinitionsPos::Up:
+            add_up_rule(rule);
+            break;
 		case DefinitionsPos::Down:
 			add_down_rule(rule);
 			break;

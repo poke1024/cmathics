@@ -78,13 +78,31 @@ BaseExpressionRef evaluate(
         }
     }
 
-    const SymbolRules *rules = head_symbol->state().rules();
+    // Step 3
+    // Apply UpValues for leaves
+
+    if ((attributes & Attributes::HoldAllComplete) == 0) {
+        const size_t n = slice.size();
+        for (size_t i = 0; i < n; i++) {
+            // FIXME do not check symbols twice
+            const Symbol * const up_name = slice[i]->lookup_name();
+            if (up_name == nullptr) {
+                continue;
+            }
+            const SymbolRules * const up_rules = up_name->state().rules();
+            if (up_rules) {
+                const BaseExpressionRef up_form = up_rules->up_rules.try_and_apply<Slice>(
+                    safe_intermediate_form, evaluation);
+                if (up_form) {
+                    return up_form;
+                }
+            }
+        }
+    }
+
+    const SymbolRules * const rules = head_symbol->state().rules();
 
     if (rules) {
-        // Step 3
-        // Apply UpValues for leaves
-        // TODO
-
         // Step 4
         // Evaluate the head with leaves. (DownValue)
 
@@ -94,45 +112,6 @@ BaseExpressionRef evaluate(
             return down_form;
         }
     }
-
-    // Simplify symbolic form, if possible. We guarantee that no vcall
-    // happens unless a symbolic resolution is really necessary.
-
-    /*UnsafeSymbolicFormRef form;
-
-    try {
-        form = fast_symbolic_form(safe_intermediate_form);
-    } catch (const SymEngine::SymEngineException &e) {
-        evaluation.sym_engine_exception(e);
-    }*/
-
-    /*if (form && !form->is_none() && !form->is_simplified()) {
-        if (false) { // debug
-            std::cout << "inspecting " << safe_intermediate_form->format(evaluation.FullForm, evaluation) << std::endl;
-        }
-
-        const BaseExpressionRef simplified = from_symbolic_form(form->get(), evaluation);
-
-        if (false) { // debug
-            std::cout << "simplified into " << simplified->format(evaluation.FullForm, evaluation) << std::endl;
-        }
-
-        assert(unsafe_symbolic_form(simplified)->is_simplified());
-
-        return simplified;
-    }*/
-
-    /*if (!form) {
-        // if this expression already has a symbolic form attached, then
-        // we already simplified it earlier and we must not recheck here;
-        // note that we end up in an infinite loop otherwise.
-
-        form = ::instantiate_symbolic_form(safe_intermediate_form);
-
-        } else {
-            safe_intermediate_form->set_no_symbolic_form();
-        }
-    }*/
 
     return intermediate_form;
 }

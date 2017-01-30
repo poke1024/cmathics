@@ -162,6 +162,8 @@ public:
     void message(const SymbolRef &name, const char *tag, const Args&... args) const;
 
     void sym_engine_exception(const SymEngine::SymEngineException &e) const;
+
+    void print_out(const ExpressionRef &expr) const;
 };
 
 inline SymbolRef String::option_symbol(const Evaluation &evaluation) const {

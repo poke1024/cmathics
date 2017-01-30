@@ -91,6 +91,16 @@ protected:
 	const SymbolRef m_symbol;
 
     template<typename T>
+    using BuiltinFunction = BaseExpressionRef (T::*) (
+        ExpressionPtr,
+        const Evaluation &);
+
+    template<typename T>
+    using F0 = BaseExpressionRef (T::*) (
+        ExpressionPtr,
+        const Evaluation &);
+
+    template<typename T>
     using F1 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
         const Evaluation &);
@@ -155,6 +165,43 @@ protected:
         const Options &options,
         const Evaluation &);
 
+    template<typename T>
+    inline void builtin(BuiltinFunction<T> fptr) {
+        const auto self = shared_from_this<T>();
+
+        auto func = [self, fptr] (
+            ExpressionPtr expr,
+            const BaseExpressionRef *,
+            size_t,
+            const Evaluation &evaluation) {
+
+            auto p = self.get();
+            return (p->*fptr)(expr, evaluation);
+        };
+
+        m_symbol->state().add_rule(new VariadicBuiltinRule<0, decltype(func)>(
+            m_symbol,
+            m_runtime.definitions(),
+            func));
+    }
+
+    template<typename T>
+    inline void builtin_no_args(F0<T> fptr) {
+        const auto self = shared_from_this<T>();
+
+        auto func = [self, fptr] (
+            ExpressionPtr expr,
+            const Evaluation &evaluation) {
+
+            auto p = self.get();
+            return (p->*fptr)(expr, evaluation);
+        };
+
+        m_symbol->state().add_rule(new BuiltinRule<0, decltype(func)>(
+            m_symbol,
+            m_runtime.definitions(),
+            func));
+    }
 	template<typename T>
 	inline void builtin(F1<T> fptr) {
         const auto self = shared_from_this<T>();
@@ -369,6 +416,57 @@ protected:
 		const BaseExpressionRef rhs = m_runtime.parse(into);
 		m_symbol->state().add_rule(lhs.get(), rhs.get());
 	}
+
+    template<typename T>
+    inline void builtin(const char *pattern, F1<T> fptr) {
+        const auto self = shared_from_this<T>();
+
+        auto func = [self, fptr] (
+            BaseExpressionPtr a,
+            const Evaluation &evaluation) {
+
+            auto p = self.get();
+            return (p->*fptr)(a, evaluation);
+        };
+
+        const BaseExpressionRef p = m_runtime.parse(pattern);
+        m_symbol->state().add_rule(new PatternMatchedBuiltinRule<1>(p, func));
+    }
+
+    template<typename T>
+    inline void builtin(const char *pattern, F2<T> fptr) {
+        const auto self = shared_from_this<T>();
+
+        auto func = [self, fptr] (
+            BaseExpressionPtr a,
+            BaseExpressionPtr b,
+            const Evaluation &evaluation) {
+
+            auto p = self.get();
+            return (p->*fptr)(a, b, evaluation);
+        };
+
+        const BaseExpressionRef p = m_runtime.parse(pattern);
+        m_symbol->state().add_rule(new PatternMatchedBuiltinRule<2>(p, func));
+    }
+
+    template<typename T>
+    inline void builtin(const char *pattern, F3<T> fptr) {
+        const auto self = shared_from_this<T>();
+
+        auto func = [self, fptr] (
+            BaseExpressionPtr a,
+            BaseExpressionPtr b,
+            BaseExpressionPtr c,
+            const Evaluation &evaluation) {
+
+            auto p = self.get();
+            return (p->*fptr)(a, b, c, evaluation);
+        };
+
+        const BaseExpressionRef p = m_runtime.parse(pattern);
+        m_symbol->state().add_rule(new PatternMatchedBuiltinRule<3>(p, func));
+    }
 
     template<typename T>
     inline void rule() {

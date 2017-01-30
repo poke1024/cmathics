@@ -602,6 +602,35 @@ public:
 	}
 };
 
+class ComplexInfinity : public Builtin {
+public:
+	static constexpr const char *name = "ComplexInfinity";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'ComplexInfinity'
+        <dd>represents an infinite complex quantity of undetermined direction.
+    </dl>
+
+    >> 1 / ComplexInfinity
+     = 0
+    #> ComplexInfinity + ComplexInfinity
+     = ComplexInfinity
+    >> ComplexInfinity * Infinity
+     = ComplexInfinity
+    >> FullForm[ComplexInfinity]
+     = DirectedInfinity[]
+    )";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		rule("ComplexInfinity", "DirectedInfinity[]");
+	}
+
+};
+
 class DirectedInfinity : public Builtin {
 public:
 	static constexpr const char *name = "DirectedInfinity";
@@ -610,10 +639,22 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		builtin(&DirectedInfinity::apply);
+		builtin_no_args(&DirectedInfinity::apply_0);
+		builtin(&DirectedInfinity::apply_1);
 	}
 
-	inline BaseExpressionRef apply(
+	inline BaseExpressionRef apply_0(
+        ExpressionPtr expr,
+		const Evaluation &evaluation) {
+
+		expr->symbolic_initialize([] () {
+            return SymEngineRef(SymEngine::ComplexInf.get());
+		}, evaluation);
+
+		return BaseExpressionRef();
+	}
+
+	inline BaseExpressionRef apply_1(
 		ExpressionPtr expr,
 		BaseExpressionPtr x,
 		const Evaluation &evaluation) {
@@ -739,6 +780,8 @@ class Conjugate : public Builtin {
 public:
 	static constexpr const char *name = "Conjugate";
 
+	static constexpr auto attributes = Attributes::Listable;
+
 	static constexpr const char *docs = R"(
     <dl>
     <dt>'Conjugate[$z$]'
@@ -751,10 +794,10 @@ public:
     >> Conjugate[3]
      = 3
 
-    >> Conjugate[a + b * I]
+    #> Conjugate[a + b * I]
      = Conjugate[a] - I Conjugate[b]
 
-    >> Conjugate[{{1, 2 + I 4, a + I b}, {I}}]
+    #> Conjugate[{{1, 2 + I 4, a + I b}, {I}}]
      = {{1, 2 - 4 I, Conjugate[a] - I Conjugate[b]}, {-I}}
 
     ## Issue #272
@@ -769,7 +812,30 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
+        builtin(&Conjugate::apply);
 	}
+
+	inline BaseExpressionRef apply(
+		ExpressionPtr expr,
+		BaseExpressionPtr x,
+		const Evaluation &evaluation) {
+
+        switch (x->type()) {
+            case MachineIntegerType:
+            case BigIntegerType:
+            case MachineRationalType:
+            case BigRationalType:
+            case MachineRealType:
+            case BigRealType:
+                return x;
+            case MachineComplexType:
+                return static_cast<const MachineComplex*>(x)->conjugate();
+            case BigComplexType:
+                return static_cast<const BigComplex*>(x)->conjugate();
+            default:
+                return BaseExpressionRef();
+        }
+    }
 };
 
 class Abs : public Builtin {
@@ -1348,11 +1414,12 @@ void Builtins::Arithmetic::initialize() {
 
     add<Sqrt>();
 	add<Infinity>();
+    add<ComplexInfinity>();
 	add<DirectedInfinity>();
 
 	add<Re>();
 	add<Im>();
-	// add<Conjugate>();
+	add<Conjugate>();
 	add<Abs>();
 	add<I>();
 

@@ -160,6 +160,10 @@ public:
 		mutable_rules()->down_rules.add(rule);
 	}
 
+    inline void add_up_rule(const RuleRef &rule) {
+        mutable_rules()->up_rules.add(rule);
+    }
+
 	inline void add_sub_rule(const RuleRef &rule) {
 		mutable_rules()->sub_rules.add(rule);
 	}

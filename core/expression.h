@@ -480,6 +480,51 @@ public:
 	template<enum Type... Types, typename F>
 	inline ExpressionRef conditional_map(
 		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
+
+    virtual std::string boxes_to_text() const {
+        switch (head()->extended_type()) {
+            case SymbolRowBox: {
+                if (size() != 1) {
+                    break;
+                }
+
+                const BaseExpressionRef &list = static_leaves<1>()[0];
+                if (list->type() != ExpressionType) {
+                    break;
+                }
+                if (list->as_expression()->head()->extended_type() != SymbolList) {
+                    break;
+                }
+
+                std::ostringstream s;
+                list->as_expression()->with_slice([&s] (const auto &slice) {
+                    const size_t n = slice.size();
+                    for (size_t i = 0; i < n; i++) {
+                        s << slice[i]->boxes_to_text();
+                    }
+                });
+
+                return s.str();
+            }
+
+            case SymbolSuperscriptBox: {
+                if (size() != 2) {
+                    break;
+                }
+
+                const BaseExpressionRef * const leaves = static_leaves<2>();
+
+                std::ostringstream s;
+                s << leaves[0]->boxes_to_text() << "^" << leaves[1]->boxes_to_text();
+                return s.str();
+            }
+
+            default:
+                break;
+        }
+
+        throw std::runtime_error("box error");
+    }
 };
 
 #include "leaves.tcc"

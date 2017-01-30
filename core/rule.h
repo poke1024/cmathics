@@ -6,6 +6,7 @@
 enum class DefinitionsPos : int {
 	None,
 	Own,
+    Up,
 	Down,
 	Sub
 };
@@ -17,7 +18,7 @@ public:
 	const BaseExpressionRef pattern;
 	const SortKey key;
 
-	Rule(const BaseExpressionRef &patt) : pattern(patt), key(patt->pattern_key()) {
+	inline Rule(const BaseExpressionRef &patt) : pattern(patt), key(patt->pattern_key()) {
 	}
 
     virtual ~Rule() {

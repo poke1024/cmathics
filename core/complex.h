@@ -56,6 +56,10 @@ public:
         return true;
     }
 
+    inline BaseExpressionRef conjugate() const {
+        return Pool::MachineComplex(value.real(), -value.imag());
+    }
+
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
         return Pool::SymbolicForm(SymEngine::complex_double(value));
@@ -101,6 +105,16 @@ public:
 
     virtual bool is_inexact() const final {
         return false; // SymEngine's complex uses rationals
+    }
+
+    inline BaseExpressionRef conjugate() const {
+        const SymEngine::Integer &minus_one = *SymEngine::minus_one;
+
+        SymEngine::RCP<const SymEngine::Number> real = m_value->real_part();
+        SymEngine::RCP<const SymEngine::Number> imag = m_value->imaginary_part()->mul(minus_one);
+
+        return Pool::BigComplex(SymEngine::rcp_static_cast<const SymEngine::Complex>(
+            SymEngine::Complex::from_two_nums(*real, *imag)));
     }
 
 protected:

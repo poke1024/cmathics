@@ -76,6 +76,11 @@ SYMBOL(TraditionalForm)
 SYMBOL(TeXForm)
 SYMBOL(MathMLForm)
 
+SYMBOL(Row)
+SYMBOL(Superscript)
+SYMBOL(RowBox)
+SYMBOL(SuperscriptBox)
+
 SYMBOL(HoldForm)
 
 SYMBOL(StartOfString)

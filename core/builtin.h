@@ -31,7 +31,7 @@ RuleRef NewRule(const SymbolRef &head, const Definitions &definitions) {
 
 template<int N, typename... refs>
 struct BuiltinFunctionArguments {
-    typedef typename BuiltinFunctionArguments<N - 1, BaseExpressionRef, refs...>::type type;
+    typedef typename BuiltinFunctionArguments<N - 1, BaseExpressionPtr, refs...>::type type;
 };
 
 template<typename... refs>
@@ -236,50 +236,6 @@ template<int N, typename F>
 inline NewRuleRef make_builtin_rule(const F &func) {
 	return [func] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
 		return new BuiltinRule<N, F>(head, definitions, func);
-	};
-}
-
-// note: PatternMatchedBuiltinRule should only be used for builtins that match non-down values (e.g. sub values).
-// if you write builtins that match down values, always use BuiltinRule, since it's faster (it doesn't involve the
-// pattern match).
-
-template<int N>
-class PatternMatchedBuiltinRule : public Rule {
-private:
-	const BaseExpressionRef _patt;
-	typename BuiltinFunctionArguments<N>::type _func;
-
-public:
-	PatternMatchedBuiltinRule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) :
-		_patt(patt), _func(func) {
-	}
-
-	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
-		const MatchRef m = match(_patt, expr, evaluation.definitions);
-		if (m) {
-			return apply_from_tuple(_func, std::tuple_cat(
-                m->unpack<N>(), std::forward_as_tuple(evaluation)));
-		} else {
-			return BaseExpressionRef();
-		}
-	}
-
-	virtual MatchSize leaf_match_size() const {
-		assert(_patt->type() == ExpressionType);
-		return _patt->as_expression()->leaf_match_size();
-	}
-
-	virtual SortKey pattern_key() const {
-		return _patt->pattern_key();
-	}
-};
-
-template<int N>
-inline NewRuleRef make_pattern_matched_builtin_rule(
-	const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
-
-	return [patt, func] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
-		return new PatternMatchedBuiltinRule<N>(patt, func);
 	};
 }
 

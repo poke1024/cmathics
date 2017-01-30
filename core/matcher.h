@@ -47,7 +47,7 @@ struct unpack_symbols {
 
 		// symbols are already ordered in the order of their (first) appearance in the original pattern.
 		assert(index != match.n_slots_fixed());
-		std::get<N>(t) = match.ith_slot(index);
+		std::get<N>(t) = match.ith_slot(index).get();
 		unpack_symbols<M, N + 1>()(match, index + 1, t);
 	}
 };
@@ -548,7 +548,9 @@ inline auto match(
 
 typedef RewriteRule<Matcher> SubRule;
 
-// DownRule assumes that the expresion's head was matched already using the down lookup rule
+typedef RewriteRule<Matcher> UpRule;
+
+// DownRule assumes that the expression's head was matched already using the down lookup rule
 // process, so it only looks at the leaves.
 
 typedef RewriteRule<SequenceMatcher> DownRule;
@@ -557,6 +559,50 @@ inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpres
 	return [patt, into] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
 		return RuleRef(new DownRule(patt, into));
 	};
+}
+
+// note: PatternMatchedBuiltinRule should only be used for builtins that match non-down values (e.g. sub values).
+// if you write builtins that match down values, always use BuiltinRule, since it's faster (it doesn't involve the
+// pattern match).
+
+template<int N>
+class PatternMatchedBuiltinRule : public Rule {
+private:
+    typename BuiltinFunctionArguments<N>::type function;
+    const Matcher matcher;
+
+public:
+    inline PatternMatchedBuiltinRule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) :
+        Rule(patt), function(func), matcher(pattern) {
+    }
+
+    virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
+        const MatchRef m = matcher(expr, evaluation);
+        if (m) {
+            return apply_from_tuple(function, std::tuple_cat(
+                m->unpack<N>(), std::forward_as_tuple(evaluation)));
+        } else {
+            return BaseExpressionRef();
+        }
+    }
+
+    virtual MatchSize leaf_match_size() const {
+        assert(pattern->type() == ExpressionType);
+        return pattern->as_expression()->leaf_match_size();
+    }
+
+    virtual SortKey pattern_key() const {
+        return pattern->pattern_key();
+    }
+};
+
+template<int N>
+inline NewRuleRef make_pattern_matched_builtin_rule(
+    const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
+
+    return [patt, func] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
+        return new PatternMatchedBuiltinRule<N>(patt, func);
+    };
 }
 
 #endif //CMATHICS_MATCHER_H

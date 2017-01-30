@@ -70,3 +70,8 @@ void Evaluation::sym_engine_exception(const SymEngine::SymEngineException &e) co
         std::cerr << "SymEngine error: " << what << std::endl;
     }
 }
+
+void Evaluation::print_out(const ExpressionRef &expr) const {
+    std::string text = expr->format(this->OutputForm, *this);
+    std::cout << text << std::endl;
+}

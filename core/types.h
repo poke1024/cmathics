@@ -557,6 +557,10 @@ public:
 	virtual SortKey sort_key() const;
 
 	virtual SortKey pattern_key() const;
+
+    virtual std::string boxes_to_text() const {
+        throw std::runtime_error("boxes_to_text not implemented");
+    }
 };
 
 inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressionRef &b) {
