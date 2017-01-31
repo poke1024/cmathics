@@ -62,6 +62,10 @@ public:
         BaseExpression(MachineRealExtendedType), value(eval_to_machine_real(form)) {
     }
 
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const;
+
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
@@ -132,6 +136,10 @@ public:
     virtual ~BigReal() {
         arb_clear(value);
     }
+
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const;
 
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 

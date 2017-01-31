@@ -277,6 +277,10 @@ public:
         m_length(length) {
     }
 
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const;
+
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
     inline StringExtent::Type extent_type() const {

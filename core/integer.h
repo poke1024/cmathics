@@ -24,6 +24,10 @@ public:
 	    Integer(MachineIntegerExtendedType), value(new_value) {
     }
 
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const;
+
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
@@ -72,6 +76,10 @@ public:
 	inline BigInteger(mpz_class &&new_value) :
 	    Integer(BigIntegerExtendedType), value(new_value) {
     }
+
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const;
 
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 

@@ -6,6 +6,17 @@
 #include "unicode/normalizer2.h"
 #include "unicode/errorcode.h"
 
+BaseExpressionRef String::make_boxes(
+    BaseExpressionPtr form,
+    const Evaluation &evaluation) const {
+
+    std::ostringstream s;
+    s << "\"";
+    s << utf8();
+    s << "\"";
+    return Pool::String(s.str());
+}
+
 BaseExpressionPtr String::head(const Evaluation &evaluation) const {
 	return evaluation.String;
 }

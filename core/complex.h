@@ -26,6 +26,10 @@ public:
         BaseExpression(MachineComplexExtendedType), value(real, imag) {
     }
 
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const;
+
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
@@ -78,6 +82,10 @@ public:
     explicit inline BigComplex(const SymEngineComplexRef &value) :
         BaseExpression(BigComplexExtendedType), m_value(value) {
     }
+
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const;
 
     virtual bool same(const BaseExpression &expr) const {
         if (expr.type() == BigComplexType) {

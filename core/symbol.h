@@ -285,6 +285,13 @@ public:
 		return _name;
 	}
 
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const {
+
+        return Pool::String(short_name());
+    }
+
 	inline BaseExpressionRef evaluate_symbol() const {
 		return state().own_value();
 	}

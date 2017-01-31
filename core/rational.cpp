@@ -2,6 +2,13 @@
 #include "expression.h"
 #include "rational.h"
 
+BaseExpressionRef BigRational::make_boxes(
+    BaseExpressionPtr form,
+    const Evaluation &evaluation) const {
+
+    return Pool::String(format(SymbolRef(static_cast<const Symbol*>(form)), evaluation));
+}
+
 BaseExpressionPtr BigRational::head(const Evaluation &evaluation) const {
     return evaluation.Rational;
 }

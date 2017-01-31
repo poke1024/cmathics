@@ -559,6 +559,10 @@ public:
     virtual std::string boxes_to_text() const {
         throw std::runtime_error("boxes_to_text not implemented");
     }
+
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const = 0;
 };
 
 inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressionRef &b) {
@@ -604,29 +608,6 @@ typedef SymEngineRef (*SymEngineBinaryFunction)(
 
 typedef SymEngineRef (*SymEngineNAryFunction)(
 	const SymEngine::vec_basic&);
-
-/*class InstantiateSymbolicForm {
-public:
-    typedef std::function<SymbolicFormRef(const Expression *expr)> Function;
-
-private:
-    static Function s_functions[256];
-
-    static void add(ExtendedType type, const Function &f);
-
-    static inline constexpr uint8_t index(ExtendedType type) {
-        const size_t index = type & ((1LL << CoreTypeShift) - 1);
-        assert(index < 256);
-        return uint8_t(index);
-    }
-
-public:
-    static void init();
-
-    static inline const Function &lookup(ExtendedType type) {
-        return s_functions[index(type)];
-    }
-};*/
 
 enum SliceMethodOptimizeTarget {
 	DoNotCompileToSliceType,

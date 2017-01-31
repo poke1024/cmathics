@@ -90,6 +90,15 @@ inline bool is_almost_equal(machine_real_t s, const BigReal &t) {
 	return eq;
 }
 
+BaseExpressionRef MachineReal::make_boxes(
+    BaseExpressionPtr form,
+    const Evaluation &evaluation) const {
+
+    std::ostringstream s;
+    s << std::showpoint << std::setprecision(6) << value;
+    return Pool::String(s.str());
+}
+
 BaseExpressionPtr MachineReal::head(const Evaluation &evaluation) const {
 	return evaluation.Real;
 }
@@ -120,6 +129,15 @@ tribool MachineReal::equals(const BaseExpression &expr) const {
 		default:
 			return false;
 	}
+}
+
+BaseExpressionRef BigReal::make_boxes(
+    BaseExpressionPtr form,
+    const Evaluation &evaluation) const {
+
+    std::ostringstream s;
+    s << arb_get_str(value, long(floor(prec.decimals)), ARB_STR_NO_RADIUS);
+    return Pool::String(s.str());
 }
 
 BaseExpressionPtr BigReal::head(const Evaluation &evaluation) const {

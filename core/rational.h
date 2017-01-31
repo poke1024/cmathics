@@ -24,6 +24,10 @@ public:
         BaseExpression(BigRationalExtendedType), value(new_value) {
     }
 
+    virtual BaseExpressionRef make_boxes(
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) const;
+
     virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
 
     virtual hash_t hash() const {

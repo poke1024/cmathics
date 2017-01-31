@@ -9,6 +9,13 @@
 
 const std::hash<machine_real_t> MachineComplex::hash_function = std::hash<machine_real_t>();
 
+BaseExpressionRef MachineComplex::make_boxes(
+    BaseExpressionPtr form,
+    const Evaluation &evaluation) const {
+
+    return Pool::String(format(SymbolRef(static_cast<const Symbol*>(form)), evaluation));
+}
+
 BaseExpressionPtr MachineComplex::head(const Evaluation &evaluation) const {
     return evaluation.Complex;
 }
@@ -32,6 +39,13 @@ std::string MachineComplex::format(const SymbolRef &form, const Evaluation &eval
             return s.str();
         }
     }
+}
+
+BaseExpressionRef BigComplex::make_boxes(
+    BaseExpressionPtr form,
+    const Evaluation &evaluation) const {
+
+    return Pool::String(format(SymbolRef(static_cast<const Symbol*>(form)), evaluation));
 }
 
 BaseExpressionPtr BigComplex::head(const Evaluation &evaluation) const {
