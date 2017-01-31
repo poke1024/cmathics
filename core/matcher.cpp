@@ -836,6 +836,53 @@ public:
     DECLARE_MATCH_METHODS
 };
 
+template<typename Dummy, typename MatchRest>
+class OptionalMatcher : public PatternMatcher {
+private:
+	const PatternMatcherRef m_matcher;
+	const BaseExpressionRef m_default;
+	const MatchRest m_rest;
+
+	template<typename Sequence>
+	inline index_t do_match(
+		const Sequence &sequence,
+		index_t begin,
+		index_t end) const {
+
+		const index_t match = m_matcher->match(sequence, begin, end);
+		if (match >= 0) {
+			auto slice = sequence.slice(begin, match);
+			return m_rest(sequence, match, end, slice);
+		} else {
+			const index_t ok = m_matcher->match(
+				FastLeafSequence(sequence.context(), &m_default), 0, 1);
+			if (ok == 1) {
+				auto slice = sequence.slice(begin, begin);
+				return m_rest(sequence, begin, end, slice);
+			}
+		}
+
+		return -1;
+	}
+
+public:
+	inline OptionalMatcher(
+		const std::tuple<PatternMatcherRef, BaseExpressionRef> &parameter,
+		const MatchRest &next) :
+		m_matcher(std::get<0>(parameter)), m_default(std::get<1>(parameter)), m_rest(next) {
+	}
+
+	virtual std::string name(const MatchContext &context) const {
+		std::ostringstream s;
+		s << "OptionalMatcher(";
+		s << m_matcher->name(context) << ": " << m_default->debug(context.evaluation);
+		s << "), " << m_rest.name(context);
+		return s.str();
+	}
+
+	DECLARE_MATCH_METHODS
+};
+
 template<typename ElementTest, typename MatchRest>
 class BlankMatcher : public PatternMatcher {
 private:
@@ -1641,6 +1688,14 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 		case SymbolPatternTest:
 			if (patt_end - patt_begin == 2) { // 2 leaves?
                 return compile(*patt_begin, size.from_here(), factory.for_test(patt_begin[1]));
+			}
+			break;
+
+		case SymbolOptional:
+			if (patt_end - patt_begin == 2) { // 2 leaves?
+				const PatternMatcherRef matcher = compile(
+					patt_begin[0], size.from_here(), factory);
+				return factory.create<OptionalMatcher>(std::make_tuple(matcher, patt_begin[1]));
 			}
 			break;
 

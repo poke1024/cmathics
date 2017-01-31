@@ -17,8 +17,8 @@ BaseExpressionRef String::make_boxes(
     return Pool::String(s.str());
 }
 
-BaseExpressionPtr String::head(const Evaluation &evaluation) const {
-	return evaluation.String;
+BaseExpressionPtr String::head(const Symbols &symbols) const {
+	return symbols.String;
 }
 
 std::string String::format(const SymbolRef &form, const Evaluation &evaluation) const {

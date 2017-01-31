@@ -217,4 +217,17 @@ public:
     }
 };
 
+template<ExtendedType HeadType, int NLeaves>
+inline bool BaseExpression::has_form(const Evaluation &evaluation) const {
+    if (type() != ExpressionType) {
+        return false;
+    }
+    const Expression * const expr = as_expression();
+    if (expr->head(evaluation)->extended_type() == HeadType && expr->size() == NLeaves) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 #endif

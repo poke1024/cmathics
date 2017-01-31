@@ -30,7 +30,7 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
-    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+    virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == MachineComplexType) {
@@ -105,7 +105,7 @@ public:
 
     virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
-    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+    virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual bool is_numeric() const {
         return true;

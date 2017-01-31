@@ -336,6 +336,7 @@ typedef ConstSharedPtr<const String> StringRef;
 typedef UnsafeSharedPtr<const String> UnsafeStringRef;
 
 class Evaluation;
+class Symbols;
 
 class SortKey;
 class PatternSortKey;
@@ -484,7 +485,7 @@ public:
 
     // various getters
 
-    virtual BaseExpressionPtr head(const Evaluation &evaluation) const = 0;
+    virtual BaseExpressionPtr head(const Symbols &symbols) const = 0;
 
     virtual bool is_sequence() const {
         return false;
@@ -720,7 +721,7 @@ protected:
 
 	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const = 0;
 
-	virtual inline BaseExpressionPtr head(const Evaluation &evaluation) const final {
+	virtual inline BaseExpressionPtr head(const Symbols &symbols) const final {
 		return _head.get();
 	}
 
@@ -846,19 +847,6 @@ inline auto with_slices(const Expression *a, const Expression *b, const F &f) {
 
 inline const Expression *BaseExpression::as_expression() const {
 	return static_cast<const Expression*>(this);
-}
-
-template<ExtendedType HeadType, int NLeaves>
-inline bool BaseExpression::has_form(const Evaluation &evaluation) const {
-	if (type() != ExpressionType) {
-		return false;
-	}
-	const Expression * const expr = as_expression();
-	if (expr->head(evaluation)->extended_type() == HeadType && expr->size() == NLeaves) {
-		return true;
-	} else {
-		return false;
-	}
 }
 
 class Precision {

@@ -246,7 +246,7 @@ public:
 		}
 	}
 
-	virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+	virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
 	virtual inline bool same(const BaseExpression &expr) const final {
 		// compare as pointers: Symbol instances are unique

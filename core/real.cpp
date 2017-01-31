@@ -99,8 +99,8 @@ BaseExpressionRef MachineReal::make_boxes(
     return Pool::String(s.str());
 }
 
-BaseExpressionPtr MachineReal::head(const Evaluation &evaluation) const {
-	return evaluation.Real;
+BaseExpressionPtr MachineReal::head(const Symbols &symbols) const {
+	return symbols.Real;
 }
 
 std::string MachineReal::format(const SymbolRef &form, const Evaluation &evaluation) const {
@@ -140,8 +140,8 @@ BaseExpressionRef BigReal::make_boxes(
     return Pool::String(s.str());
 }
 
-BaseExpressionPtr BigReal::head(const Evaluation &evaluation) const {
-	return evaluation.Real;
+BaseExpressionPtr BigReal::head(const Symbols &symbols) const {
+	return symbols.Real;
 }
 
 std::string BigReal::format(const SymbolRef &form, const Evaluation &evaluation) const {

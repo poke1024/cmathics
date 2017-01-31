@@ -106,7 +106,7 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        builtin("MakeBoxes[Row[{items___}, sep_], f_]", &Row::apply);
+        builtin("MakeBoxes[Row[{items___}, sep_:\"\"], f_]", &Row::apply);
     }
 
     inline BaseExpressionRef apply(
@@ -180,6 +180,8 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
+	    rule("MakeBoxes[expr_]", "MakeBoxes[expr, StandardForm]");
+
         builtin(&MakeBoxes::apply);
 
         m_parentheses[0][0].initialize(Pool::String("("));
@@ -269,5 +271,5 @@ void Builtins::InOut::initialize() {
     add<Print>();
 	add<FullForm>();
     add<Row>();
-    // add<MakeBoxes>();
+    add<MakeBoxes>();
 }

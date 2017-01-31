@@ -281,7 +281,7 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
-    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+    virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     inline StringExtent::Type extent_type() const {
 		return m_extent->type();

@@ -28,7 +28,7 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
-    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+    virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual hash_t hash() const {
         if (!m_hash) {

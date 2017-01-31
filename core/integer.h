@@ -28,7 +28,7 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
-    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+    virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == type()) {
@@ -81,7 +81,7 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
-    virtual BaseExpressionPtr head(const Evaluation &evaluation) const final;
+    virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == BigIntegerType) {

@@ -9,8 +9,8 @@ BaseExpressionRef BigRational::make_boxes(
     return Pool::String(format(SymbolRef(static_cast<const Symbol*>(form)), evaluation));
 }
 
-BaseExpressionPtr BigRational::head(const Evaluation &evaluation) const {
-    return evaluation.Rational;
+BaseExpressionPtr BigRational::head(const Symbols &symbols) const {
+    return symbols.Rational;
 }
 
 std::string BigRational::format(const SymbolRef &form, const Evaluation &evaluation) const {

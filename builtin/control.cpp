@@ -149,7 +149,7 @@ public:
     using Builtin::Builtin;
 
     static constexpr auto attributes =
-            Attributes::HoldRest;
+        Attributes::HoldRest;
 
     void build(Runtime &runtime) {
         builtin(&Switch::apply);

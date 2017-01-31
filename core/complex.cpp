@@ -16,8 +16,8 @@ BaseExpressionRef MachineComplex::make_boxes(
     return Pool::String(format(SymbolRef(static_cast<const Symbol*>(form)), evaluation));
 }
 
-BaseExpressionPtr MachineComplex::head(const Evaluation &evaluation) const {
-    return evaluation.Complex;
+BaseExpressionPtr MachineComplex::head(const Symbols &symbols) const {
+    return symbols.Complex;
 }
 
 std::string MachineComplex::format(const SymbolRef &form, const Evaluation &evaluation) const {
@@ -48,8 +48,8 @@ BaseExpressionRef BigComplex::make_boxes(
     return Pool::String(format(SymbolRef(static_cast<const Symbol*>(form)), evaluation));
 }
 
-BaseExpressionPtr BigComplex::head(const Evaluation &evaluation) const {
-    return evaluation.Complex;
+BaseExpressionPtr BigComplex::head(const Symbols &symbols) const {
+    return symbols.Complex;
 }
 
 std::string BigComplex::format(const SymbolRef &form, const Evaluation &evaluation) const {

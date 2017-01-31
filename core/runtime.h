@@ -86,6 +86,19 @@ private:
 		return ConstSharedPtr<T>(static_cast<T*>(this));
 	}
 
+	inline SymbolState &rule_owner(const BaseExpressionRef &lhs) const {
+		// compare Python Mathics Builtin::contribute; we do a special
+		// case for MakeBoxes to add down rules even though they are
+		// specified as up rules.
+
+		const auto &symbols = m_runtime.symbols();
+		if (lhs->head(symbols) == symbols.MakeBoxes) {
+			return symbols.MakeBoxes->state();
+		} else {
+			return m_symbol->state();
+		}
+	}
+
 protected:
 	Runtime &m_runtime;
 	const SymbolRef m_symbol;
@@ -414,7 +427,7 @@ protected:
 	inline void rule(const char *pattern, const char *into) {
 		const BaseExpressionRef lhs = m_runtime.parse(pattern);
 		const BaseExpressionRef rhs = m_runtime.parse(into);
-		m_symbol->state().add_rule(lhs.get(), rhs.get());
+		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
 	}
 
     template<typename T>
@@ -430,7 +443,7 @@ protected:
         };
 
         const BaseExpressionRef p = m_runtime.parse(pattern);
-        m_symbol->state().add_rule(new PatternMatchedBuiltinRule<1>(p, func));
+	    rule_owner(p).add_rule(new PatternMatchedBuiltinRule<1>(p, func));
     }
 
     template<typename T>
@@ -447,7 +460,7 @@ protected:
         };
 
         const BaseExpressionRef p = m_runtime.parse(pattern);
-        m_symbol->state().add_rule(new PatternMatchedBuiltinRule<2>(p, func));
+	    rule_owner(p).add_rule(new PatternMatchedBuiltinRule<2>(p, func));
     }
 
     template<typename T>
@@ -465,7 +478,7 @@ protected:
         };
 
         const BaseExpressionRef p = m_runtime.parse(pattern);
-        m_symbol->state().add_rule(new PatternMatchedBuiltinRule<3>(p, func));
+	    rule_owner(p).add_rule(new PatternMatchedBuiltinRule<3>(p, func));
     }
 
     template<typename T>

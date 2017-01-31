@@ -317,6 +317,9 @@ public:
             case SymbolExcept:
                 return MatchSize::at_least(0);
 
+			case SymbolOptional:
+				return MatchSize::at_least(0);
+
 			default:
 				return MatchSize::exactly(1);
 		}
