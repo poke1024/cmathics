@@ -8,7 +8,7 @@ inline BaseExpressionRef assign(
 
 	// FIXME this is just a super simple example implementation.
 
-	const Symbol *name = lhs->lookup_name();
+	const Symbol *name = lookup_name(lhs);
 	if (name) {
 		const_cast<Symbol*>(name)->state().add_rule(lhs, rhs);
 	}

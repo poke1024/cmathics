@@ -531,10 +531,6 @@ public:
         throw std::runtime_error("not implemented");
     }
 
-	virtual const Symbol *lookup_name() const {
-		return nullptr;
-	}
-
     inline bool is_true() const {
         return extended_type() == SymbolTrue;
     }
@@ -656,9 +652,12 @@ inline void Pool::release(Cache *cache) {
 	_s_instance->_caches.destroy(cache);
 }
 
+inline const Symbol *lookup_name(const BaseExpressionPtr item);
+
 class Expression : public BaseExpression {
 private:
 	mutable CachedCacheRef m_cache;
+    const Symbol * const m_lookup_name;
 
 protected:
 	template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
@@ -684,11 +683,16 @@ protected:
 
 	inline Expression(const BaseExpressionRef &head, SliceCode slice_id, const Slice *slice_ptr) :
 		BaseExpression(build_extended_type(ExpressionType, slice_id)),
+        m_lookup_name(::lookup_name(head.get())),
 		_head(head),
 		_slice_ptr(slice_ptr) {
 	}
 
-	template<size_t N>
+    inline const Symbol *lookup_name() const {
+        return m_lookup_name;
+    }
+
+    template<size_t N>
 	inline const BaseExpressionRef *static_leaves() const;
 
 	inline SliceCode slice_code() const {

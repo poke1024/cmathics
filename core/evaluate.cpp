@@ -81,15 +81,17 @@ BaseExpressionRef evaluate(
     // Step 3
     // Apply UpValues for leaves
 
-    if ((attributes & Attributes::HoldAllComplete) == 0) {
+    if ((attributes & Attributes::HoldAllComplete) == 0 &&
+        slice.type_mask() & make_type_mask(SymbolType, ExpressionType)) {
+
         const size_t n = slice.size();
         for (size_t i = 0; i < n; i++) {
             // FIXME do not check symbols twice
-            const Symbol * const up_name = slice[i]->lookup_name();
+            const Symbol * const up_name = lookup_name(slice[i].get());
             if (up_name == nullptr) {
                 continue;
             }
-            const SymbolRules * const up_rules = up_name->state().rules();
+            const SymbolRules *const up_rules = up_name->state().rules();
             if (up_rules) {
                 const BaseExpressionRef up_form = up_rules->up_rules.try_and_apply<Slice>(
                     safe_intermediate_form, evaluation);

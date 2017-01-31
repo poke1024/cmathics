@@ -332,10 +332,6 @@ public:
 
 	virtual DynamicExpressionRef to_dynamic_expression(const BaseExpressionRef &self) const;
 
-	virtual const Symbol *lookup_name() const final {
-		return _head->lookup_name();
-	}
-
 	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
 
 	virtual bool is_numeric() const final {

@@ -18,16 +18,18 @@ inline DefinitionsPos get_definitions_pos(
 		return DefinitionsPos::None;
 	} else if (pattern->as_expression()->head() == symbol) {
 		return DefinitionsPos::Down;
-	} else if (pattern->lookup_name() == symbol) {
+	} else if (lookup_name(pattern) == symbol) {
 		return DefinitionsPos::Sub;
 	} else {
         if (pattern->type() == ExpressionType) {
             return pattern->as_expression()->with_slice([symbol] (const auto &slice) {
-                const size_t n = slice.size();
+                if (slice.type_mask() & make_type_mask(SymbolType, ExpressionType)) {
+                    const size_t n = slice.size();
 
-                for (size_t i = 0; i < n; i++) {
-                    if (slice[i]->lookup_name() == symbol) {
-                        return DefinitionsPos::Up;
+                    for (size_t i = 0; i < n; i++) {
+                        if (lookup_name(slice[i].get()) == symbol) {
+                            return DefinitionsPos::Up;
+                        }
                     }
                 }
 

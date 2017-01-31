@@ -304,10 +304,6 @@ public:
 
 	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
 
-	virtual const Symbol *lookup_name() const {
-		return this;
-	}
-
 	virtual SortKey sort_key() const final {
         MonomialMap map(Pool::monomial_map_allocator());
         map[SymbolKey(SymbolRef(this))] = 1;
@@ -499,6 +495,17 @@ inline SlotDirective CompiledArguments::operator()(const BaseExpressionRef &item
 	} else {
 		return SlotDirective::descend();
 	}
+}
+
+inline const Symbol *lookup_name(const BaseExpressionPtr item) {
+    switch (item->type()) {
+        case SymbolType:
+            return static_cast<const Symbol*>(item);
+        case ExpressionType:
+            return item->as_expression()->lookup_name();
+        default:
+            return nullptr;
+    }
 }
 
 #endif //CMATHICS_SYMBOL_H_H
