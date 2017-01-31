@@ -76,6 +76,7 @@ SYMBOL(TraditionalForm)
 SYMBOL(TeXForm)
 SYMBOL(MathMLForm)
 
+SYMBOL(MakeBoxes)
 SYMBOL(Row)
 SYMBOL(Superscript)
 SYMBOL(RowBox)

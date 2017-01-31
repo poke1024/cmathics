@@ -437,3 +437,7 @@ BaseExpressionRef Expression::symbolic_evaluate_binary(
 		}
 	}
 }
+
+std::string BaseExpression::debug(const Evaluation &evaluation) const {
+    return format(evaluation.StandardForm, evaluation);
+}

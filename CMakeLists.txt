@@ -157,7 +157,8 @@ set(TESTS_SOURCE_FILES ${SOURCE_FILES}
     tests/test_string.cpp
     tests/test.cpp
     tests/test_pool.cpp
-    tests/test_parallel.cpp)
+    tests/test_parallel.cpp
+    tests/test_matcher.cpp)
 
 add_executable(cmathicstest ${TESTS_SOURCE_FILES})
 target_compile_definitions(cmathicstest PRIVATE MAKE_UNIT_TEST=1)

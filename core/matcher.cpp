@@ -119,6 +119,14 @@ public:
         m_rest(next) {
     }
 
+    virtual std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "ExpressionMatcher(" << m_matcher.name(context) << "), ";
+        s << m_rest.name(context);
+        return s.str();
+    }
+
+
     virtual const HeadLeavesMatcher *head_leaves_matcher() const {
         return &m_matcher;
     }
@@ -152,6 +160,13 @@ public:
 	}
 
 	DECLARE_MATCH_METHODS
+
+    virtual std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "StartMatcher, ";
+        s << m_rest.name(context);
+        return s.str();
+    }
 };
 
 class EndMatcher : public PatternMatcher {
@@ -170,11 +185,19 @@ private:
 	}
 
 public:
+    virtual std::string name(const MatchContext &context) const {
+        return "EndMatcher";
+    }
+
 	DECLARE_MATCH_METHODS
 };
 
 class TestNone {
 public:
+    inline std::string name(const MatchContext &context) const {
+        return "TestNone()";
+    }
+
 	template<typename Sequence, typename Element>
 	inline index_t operator()(const Sequence &sequence, Element &element) const {
 		return element.begin() + 1;
@@ -209,6 +232,12 @@ private:
 public:
 	inline TestHead(const BaseExpressionRef &head) : m_head(head), m_same() {
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "TestHead(" << m_head->debug(context.evaluation) << ")";
+        return s.str();
+    }
 
 	template<typename Sequence, typename Element>
 	inline index_t operator()(const Sequence &sequence, Element &element) const {
@@ -345,6 +374,10 @@ public:
     inline index_t operator()(const Sequence &sequence, index_t begin, index_t end) const {
         return m_next->match(sequence, begin, end);
     }
+
+    inline std::string name(const MatchContext &context) const {
+        return m_next->name(context);
+    }
 };
 
 class Terminate {
@@ -357,6 +390,10 @@ public:
             return -1;
         }
     }
+
+    inline std::string name(const MatchContext &context) const {
+        return "Terminate";
+    }
 };
 
 class Unanchored {
@@ -364,6 +401,10 @@ public:
     template<typename Sequence>
     inline index_t operator()(const Sequence &sequence, index_t begin, index_t end) const {
         return begin;
+    }
+
+    inline std::string name(const MatchContext &context) const {
+        return "Unanchored";
     }
 };
 
@@ -394,6 +435,10 @@ public:
 
     inline RestMatcher(const PatternTest &test, const Variable &variable, const Continue &cont) :
         m_pattern_test(test), m_variable(variable), m_continue(cont) {
+    }
+
+    inline std::string name(const MatchContext &context) const {
+        return m_continue.name(context);
     }
 };
 
@@ -428,6 +473,13 @@ public:
 	inline ElementMatcher(const Match &match, const MatchRest &next) :
 		m_match(match), m_rest(next) {
 	}
+
+    virtual std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "ElementMatcher(" << m_match.name(context) << "), ";
+        s << m_rest.name(context);
+        return s.str();
+    }
 };
 
 template<typename Match, typename MatchRest>
@@ -455,6 +507,13 @@ public:
 	inline PositionMatcher(const Match &match, const MatchRest &next) :
 		m_match(match), m_rest(next) {
 	}
+
+    virtual std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "PositionMatcher(" << m_match.name(context) << "), ";
+        s << m_rest.name(context);
+        return s.str();
+    }
 };
 
 class MatchSame {
@@ -463,6 +522,12 @@ private:
 
 public:
     inline MatchSame(const BaseExpressionRef &patt) : m_patt(patt) {
+    }
+
+    inline std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "MatchSame(" << m_patt->debug(context.evaluation) << ")";
+        return s.str();
     }
 
     template<typename Sequence>
@@ -480,6 +545,12 @@ private:
 public:
 	inline MatchCharacterBlank(const Test &test) : m_test(test) {
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "MatchCharacterBlank(), ";
+        return s.str();
+    }
 
 	template<typename Sequence>
 	inline auto operator()(const Sequence &sequence, index_t begin, index_t end) const {
@@ -553,6 +624,10 @@ public:
 			return is_newline(p);
 		});
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        return "StartOfLine";
+    }
 };
 
 class EndOfLine {
@@ -563,6 +638,10 @@ public:
 			return is_newline(p);
 		});
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        return "EndOfLine";
+    }
 };
 
 class WordBoundary {
@@ -571,6 +650,10 @@ public:
 	inline bool operator()(const Sequence &sequence, index_t begin, index_t end) const {
 		return sequence.is_word_boundary(begin);
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        return "WordBoundary";
+    }
 };
 
 template<typename MatchAsCharacter, typename MatchAsExpression>
@@ -586,6 +669,13 @@ public:
 		m_match_character(match_character),
 		m_match_expression(match_expression) {
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "MatchCharacterOrExpression(";
+        s << m_match_expression.name(context) << ")";
+        return s.str();
+    }
 
 	inline auto operator()(const SlowLeafSequence &sequence, index_t begin, index_t end) const {
 		return m_match_expression(sequence, begin, end);
@@ -614,6 +704,10 @@ public:
 	inline bool operator()(const Sequence &sequence, index_t begin, index_t end) const {
 		return false;
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        return "MatchToFalse";
+    }
 };
 
 template<typename Match>
@@ -631,6 +725,10 @@ public:
 	inline auto operator()(const Sequence &sequence, index_t begin, index_t end) const {
 		return std::make_tuple(Element(m_patt), sequence.same(begin, m_patt.get()));
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        return "MatchToPattern: " + m_patt->debug(context.evaluation);
+    }
 };
 
 template<typename Match>
@@ -683,6 +781,12 @@ public:
         m_match(match), m_rest(next) {
     }
 
+    virtual std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "ExceptMatcher(" << m_match->name(context) << "), " << m_rest.name(context);
+        return s.str();
+    }
+
     DECLARE_MATCH_METHODS
 };
 
@@ -713,6 +817,21 @@ public:
 	inline AlternativesMatcher(const std::vector<PatternMatcherRef> &matchers, const MatchRest &next) :
         m_matchers(matchers), m_rest(next) {
 	}
+
+    virtual std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "AlternativesMatcher(";
+        size_t i = 0;
+        for (auto &m : m_matchers) {
+            if (i > 0) {
+                s << ", ";
+            }
+            s << m->name(context);
+            i++;
+        }
+        s << "), " << m_rest.name(context);
+        return s.str();
+    }
 
     DECLARE_MATCH_METHODS
 };
@@ -746,6 +865,12 @@ public:
         m_rest(next) {
 	}
 
+    virtual std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "BlankMatcher(" << m_test.name(context) << "), " << m_rest.name(context);
+        return s.str();
+    }
+
 	DECLARE_MATCH_METHODS
 };
 
@@ -762,6 +887,10 @@ public:
 	inline index_t operator()(Args... args) const {
 		return m_test.greedy(*this, args...);
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        return "Longest";
+    }
 
 public:
 	template<typename Sequence, typename Take>
@@ -867,6 +996,10 @@ public:
 	inline index_t operator()(Args... args) const {
 		return m_test.greedy(*this, args...);
 	}
+
+    inline std::string name(const MatchContext &context) const {
+        return "Shortest";
+    }
 
 public:
 	template<typename Sequence, typename Take>
@@ -985,6 +1118,12 @@ public:
         m_rest(next) {
 	}
 
+    virtual std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "BlankSequenceMatcher(" << m_strategy.name(context) << "), " << m_rest.name(context);
+        return s.str();
+    }
+
 	DECLARE_MATCH_METHODS
 };
 
@@ -1077,7 +1216,7 @@ public:
 	}
 
 	PatternFactory stripped(bool anchored = true) const {
-		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), m_next, m_shortest, anchored);
+		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), PatternMatcherRef(), m_shortest, anchored);
 	}
 
 	template<template<typename, typename> class Matcher, typename Parameter>

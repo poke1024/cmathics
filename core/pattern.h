@@ -150,6 +150,8 @@ public:
         return nullptr;
     }
 
+    virtual std::string name(const MatchContext &context) const = 0; // useful for debugging
+
     virtual index_t match(
         const FastLeafSequence &sequence,
         index_t begin,

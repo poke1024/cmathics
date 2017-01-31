@@ -417,6 +417,8 @@ public:
     virtual ~BaseExpression() {
     }
 
+    std::string debug(const Evaluation &evaluation) const;
+
     inline Type type() const {
 	    // basic type, e.g. MachineIntegerType, SymbolType, ...
 	    return Type(_extended_type >> CoreTypeShift);

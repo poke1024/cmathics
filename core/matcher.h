@@ -30,7 +30,9 @@ public:
 		const Evaluation &evaluation_,
 		MatchOptions options_ = 0) :
 
-        evaluation(evaluation_), match(Pool::Match(matcher)), options(options_) {
+        evaluation(evaluation_),
+        match(Pool::Match(matcher)),
+        options(options_) {
 	}
 
 	inline void reset() {
@@ -369,6 +371,13 @@ public:
 
         m_match_head(match_head),
         m_match_leaves(match_leaves) {
+    }
+
+    inline std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "HeadLeavesMatcher(" << m_match_head->name(context) << ", ";
+        s << m_match_leaves->name(context) << ")";
+        return s.str();
     }
 
     inline bool with_head(
