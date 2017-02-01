@@ -138,7 +138,7 @@ set(SOURCE_FILES
     arithmetic/mul.h
     builtin/comparison.cpp
     builtin/comparison.h
-    arithmetic/binary.h)
+    arithmetic/binary.h builtin/evaluation.cpp builtin/evaluation.h)
 
 add_custom_target(standalone)
 

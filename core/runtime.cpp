@@ -4,6 +4,7 @@
 #include "builtin/assignment.h"
 #include "builtin/comparison.h"
 #include "builtin/control.h"
+#include "builtin/evaluation.h"
 #include "builtin/exptrig.h"
 #include "builtin/functional.h"
 #include "builtin/inout.h"
@@ -153,6 +154,7 @@ Runtime::Runtime() : _parser(_definitions) {
     Builtins::Assignment(*this).initialize();
     Builtins::Comparison(*this).initialize();
     Builtins::Control(*this).initialize();
+    Builtins::Evaluation(*this).initialize();
     Builtins::ExpTrig(*this).initialize();
     Builtins::Functional(*this).initialize();
 	Builtins::InOut(*this).initialize();

@@ -245,10 +245,12 @@ struct FSGenerator : public FGenerator { // [f]ixed size [s]equential
 		TypeMask mask = 0;
 		size_t i = 0;
 		auto store = [&mask, &array, &i] (BaseExpressionRef &&leaf) mutable {
+            assert(i < N);
 			mask |= leaf->base_type_mask();
 			array[i++].unsafe_mutate(std::move(leaf));
 		};
 		f(store);
+        assert(i == N);
 		return std::make_tuple(std::move(array), mask);
 	}
 

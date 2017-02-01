@@ -23,8 +23,10 @@ BaseExpressionRef evaluate(
 
     const ReducedAttributes attributes(full_attributes);
 
-    if (attributes & Attributes::HoldFirst) {
-        if (attributes & Attributes::HoldRest) { // i.e. HoldAll, HoldAllComplete
+    if (attributes & Attributes::HoldAllComplete) { // HoldAllComplete
+        eval_leaf = eval_range(0, 0);
+    } else if (attributes & Attributes::HoldFirst) {
+        if (attributes & Attributes::HoldRest) { // i.e. HoldAll
             // TODO flatten sequences
             eval_leaf = eval_range(0, 0);
         } else {

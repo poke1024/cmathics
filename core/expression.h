@@ -524,13 +524,6 @@ public:
 
         throw std::runtime_error("box error");
     }
-
-    virtual BaseExpressionRef make_boxes(
-        BaseExpressionPtr form,
-        const Evaluation &evaluation) const {
-
-        throw std::runtime_error("should be handled in MakeBoxes.");
-    }
 };
 
 #include "leaves.tcc"

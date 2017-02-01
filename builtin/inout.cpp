@@ -106,7 +106,8 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        builtin("MakeBoxes[Row[{items___}, sep_:\"\"], f_]", &Row::apply);
+        // FIXME BUG enabling this leads to crashes when running test cases
+        // builtin("MakeBoxes[Row[{items___}, sep_:\"\"], f_]", &Row::apply);
     }
 
     inline BaseExpressionRef apply(
@@ -116,9 +117,9 @@ public:
         const Evaluation &evaluation) {
 
         assert(items->type() == ExpressionType); // must be a Sequence
-        ExpressionPtr items_seq = items->as_expression();
+        const ExpressionPtr items_seq = items->as_expression();
 
-        const auto &MakeBoxes = evaluation.MakeBoxes;
+        const BaseExpressionRef MakeBoxes = evaluation.MakeBoxes;
 
         UnsafeBaseExpressionRef good_sep;
         if (sep->type() == StringType) {

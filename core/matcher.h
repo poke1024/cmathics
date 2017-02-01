@@ -588,6 +588,7 @@ public:
     virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
         const MatchRef m = matcher(expr, evaluation);
         if (m) {
+            assert(m->n_slots_fixed() == N);
             return apply_from_tuple(function, std::tuple_cat(
                 m->unpack<N>(), std::forward_as_tuple(evaluation)));
         } else {

@@ -186,7 +186,11 @@ inline BaseExpressionRef from_primitive(machine_real_t value) {
 }
 
 inline BaseExpressionRef from_primitive(const mpq_class &value) {
-	return Pool::BigRational(value);
+    if (value.get_den() == 1) {
+        return from_primitive(value.get_num());
+    } else {
+        return Pool::BigRational(value);
+    }
 }
 
 inline BaseExpressionRef from_primitive(const Numeric::Z &value) {

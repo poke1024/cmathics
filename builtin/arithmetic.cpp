@@ -433,6 +433,60 @@ constexpr auto Times1 = NewRule<IdentityRule>;
 constexpr auto Times2 = NewRule<BinaryOperatorRule<TimesArithmetic>>;
 constexpr auto TimesN = NewRule<TimesNRule>;
 
+class Divide : public Builtin {
+public:
+	static constexpr const char *name = "Divide";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Divide[$a$, $b$]'</dt>
+    <dt>'$a$ / $b$'</dt>
+        <dd>represents the division of $a$ by $b$.
+    </dl>
+    >> 30 / 5
+     = 6
+    >> 1 / 8
+     = 1 / 8
+    >> Pi / 4
+     = Pi / 4
+
+    Use 'N' or a decimal point to force numeric evaluation:
+    >> Pi / 4.0
+     = 0.785398
+    >> 1 / 8
+     = 1 / 8
+    >> N[%]
+     = 0.125
+
+    Nested divisions:
+    >> a / b / c
+     = a / (b c)
+    >> a / (b / c)
+     = a c / b
+    >> a / b / (c / (d / e))
+     = a d / (b c e)
+    >> a / (b ^ 2 * c ^ 3 / e)
+     = a e / (b ^ 2 c ^ 3)
+
+    #> 1 / 4.0
+     = 0.25
+    #> 10 / 3 // FullForm
+     = Rational[10, 3]
+    #> a / b // FullForm
+     = Times[a, Power[b, -1]]
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	static constexpr auto attributes =
+		Attributes::Listable + Attributes::NumericFunction;
+
+	void build(Runtime &runtime) {
+		rule("Divide[x_, y_]", "Times[x, Power[y, -1]]");
+	}
+};
+
 class PowerRule : public ExactlyNRule<2> {
 public:
 	using ExactlyNRule<2>::ExactlyNRule;
@@ -1394,10 +1448,6 @@ void Builtins::Arithmetic::initialize() {
 			 = 3
 		)");
 
-	add<Subtract>();
-
-	add<Minus>();
-
 	add("Times",
 		Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +
 			Attributes::OneIdentity + Attributes::Orderless + Attributes::Protected, {
@@ -1407,10 +1457,15 @@ void Builtins::Arithmetic::initialize() {
 			TimesN
 	    });
 
+    add<Divide>();
+
 	add("Power",
 		Attributes::Listable + Attributes::NumericFunction + Attributes::OneIdentity, {
 			Power
 	    });
+
+    add<Subtract>();
+	add<Minus>();
 
     add<Sqrt>();
 	add<Infinity>();

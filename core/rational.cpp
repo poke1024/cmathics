@@ -6,7 +6,7 @@ BaseExpressionRef BigRational::custom_format(
 	const BaseExpressionRef &form,
 	const Evaluation &evaluation) const {
 
-	switch (form->extended_type()) {
+    switch (form->extended_type()) {
 		case SymbolFullForm:
 			return expression(
 				expression(evaluation.HoldForm, evaluation.Rational),

@@ -54,6 +54,8 @@ BaseExpressionRef BigComplex::custom_format(
 	const BaseExpressionRef &form,
 	const Evaluation &evaluation) const {
 
+    return Pool::String("?");
+
 	switch (form->extended_type()) {
 		case SymbolFullForm:
 			return expression(
@@ -72,16 +74,16 @@ BaseExpressionRef BigComplex::custom_format(
 
 			if (!real->is_zero()) {
 				if (imag->is_one()) {
-					leaf = expression(evaluation.Plus, Pool::BigRational(real_mpq), evaluation.I);
+					leaf = expression(evaluation.Plus, from_primitive(real_mpq), evaluation.I);
 				} else {
-					leaf = expression(evaluation.Plus, Pool::BigRational(real_mpq),
-						expression(evaluation.Times, Pool::BigRational(imag_mpq), evaluation.I));
+					leaf = expression(evaluation.Plus, from_primitive(real_mpq),
+						expression(evaluation.Times, from_primitive(imag_mpq), evaluation.I));
 				}
 			} else {
 				if (imag->is_one()) {
 					leaf = evaluation.I;
 				} else {
-					leaf = expression(evaluation.Times, Pool::BigRational(imag_mpq), evaluation.I);
+					leaf = expression(evaluation.Times, from_primitive(imag_mpq), evaluation.I);
 				}
 			}
 
