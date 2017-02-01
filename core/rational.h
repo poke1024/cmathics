@@ -15,18 +15,18 @@ public:
     mpq_class value;
     mutable optional<hash_t> m_hash;
 
-    inline BigRational(machine_integer_t x, machine_integer_t y) :
+    inline explicit BigRational(machine_integer_t x, machine_integer_t y) :
         BaseExpression(BigRationalExtendedType),
         value(machine_integer_to_mpz(x), machine_integer_to_mpz(y)) {
     }
 
-    inline BigRational(const mpq_class &new_value) :
+    inline explicit BigRational(const mpq_class &new_value) :
         BaseExpression(BigRationalExtendedType), value(new_value) {
     }
 
-    virtual BaseExpressionRef make_boxes(
-        BaseExpressionPtr form,
-        const Evaluation &evaluation) const;
+	virtual BaseExpressionRef custom_format(
+		const BaseExpressionRef &form,
+		const Evaluation &evaluation) const final;
 
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
@@ -45,8 +45,6 @@ public:
 	        return false;
         }
     }
-
-    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     /*// copies denominator to a new Integer
     inline BaseExpressionRef numer() const {

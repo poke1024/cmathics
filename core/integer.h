@@ -28,6 +28,8 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
+	virtual std::string boxes_to_text(const Evaluation &evaluation) const;
+
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
@@ -41,8 +43,6 @@ public:
     virtual hash_t hash() const {
 	    return hash_pair(machine_integer_hash, value);
     }
-
-    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual inline bool match(const BaseExpression &expr) const final {
         return same(expr);
@@ -81,7 +81,9 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
-    virtual BaseExpressionPtr head(const Symbols &symbols) const final;
+	virtual std::string boxes_to_text(const Evaluation &evaluation) const;
+
+	virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == BigIntegerType) {
@@ -97,8 +99,6 @@ public:
         }
         return *m_hash;
     }
-
-    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual double round_to_float() const {
         return value.get_d();

@@ -17,6 +17,10 @@ BaseExpressionRef String::make_boxes(
     return Pool::String(s.str());
 }
 
+std::string String::boxes_to_text(const Evaluation &evaluation) const {
+	return utf8();
+}
+
 BaseExpressionPtr String::head(const Symbols &symbols) const {
 	return symbols.String;
 }

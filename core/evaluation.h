@@ -163,6 +163,8 @@ public:
 
     void sym_engine_exception(const SymEngine::SymEngineException &e) const;
 
+    std::string format_output(const BaseExpressionRef &expr) const;
+
     void print_out(const ExpressionRef &expr) const;
 };
 
@@ -208,8 +210,7 @@ public:
 
     inline DebugOutput &operator<<(const BaseExpressionRef &expr) {
         if (expr) {
-            std::cout << expr->format(
-		        m_evaluation.StandardForm, m_evaluation);
+            std::cout << m_evaluation.format_output(expr);
         } else {
             std::cout << "IDENTITY";
         }

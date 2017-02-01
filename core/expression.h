@@ -148,7 +148,7 @@ public:
 		});
 	}
 
-    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final {
+    /*virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final {
         switch (_head->extended_type()) {
             case SymbolFullForm:
             case SymbolStandardForm:
@@ -187,7 +187,7 @@ public:
         result << "]";
 
         return result.str();
-    }
+    }*/
 
 	virtual BaseExpressionRef evaluate_expression_with_non_symbol_head(
 		const Evaluation &evaluation) const {
@@ -480,7 +480,7 @@ public:
 	inline ExpressionRef conditional_map(
 		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
 
-    virtual std::string boxes_to_text() const {
+    virtual std::string boxes_to_text(const Evaluation &evaluation) const {
         switch (head()->extended_type()) {
             case SymbolRowBox: {
                 if (size() != 1) {
@@ -496,10 +496,10 @@ public:
                 }
 
                 std::ostringstream s;
-                list->as_expression()->with_slice([&s] (const auto &slice) {
+                list->as_expression()->with_slice([&s, &evaluation] (const auto &slice) {
                     const size_t n = slice.size();
                     for (size_t i = 0; i < n; i++) {
-                        s << slice[i]->boxes_to_text();
+                        s << slice[i]->boxes_to_text(evaluation);
                     }
                 });
 
@@ -514,7 +514,7 @@ public:
                 const BaseExpressionRef * const leaves = static_leaves<2>();
 
                 std::ostringstream s;
-                s << leaves[0]->boxes_to_text() << "^" << leaves[1]->boxes_to_text();
+                s << leaves[0]->boxes_to_text(evaluation) << "^" << leaves[1]->boxes_to_text(evaluation);
                 return s.str();
             }
 
@@ -777,7 +777,7 @@ std::string message_text(
 
     const auto pos = new_text.find(placeholder);
     if (pos != std::string::npos) {
-        new_text = new_text.replace(pos, placeholder.length(), arg->format(evaluation.FullForm, evaluation));
+        new_text = new_text.replace(pos, placeholder.length(), evaluation.format_output(arg));
     }
 
     return message_text(evaluation, std::move(new_text), index + 1, args...);

@@ -66,6 +66,8 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
+	std::string boxes_to_text(const Evaluation &evaluation) const;
+
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
@@ -81,8 +83,6 @@ public:
     virtual hash_t hash() const {
         return hash_pair(machine_real_hash, hash_function(chop(value)));
     }
-
-    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual bool match(const BaseExpression &expr) const {
         return same(expr);
@@ -141,6 +141,8 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
+    std::string boxes_to_text(const Evaluation &evaluation) const;
+
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
 	virtual inline bool same(const BaseExpression &expr) const final {
@@ -156,8 +158,6 @@ public:
     virtual hash_t hash() const {
         return 0; // FIXME
     }
-
-    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     inline double as_double() const {
         return arf_get_d(arb_midref(value), ARF_RND_DOWN); // FIXME

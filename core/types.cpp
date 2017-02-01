@@ -55,6 +55,11 @@ MatchSize Rule::leaf_match_size() const {
 	}
 }
 
+BaseExpressionRef BaseExpression::format(const BaseExpressionRef &form, const Evaluation &evaluation) const {
+	BaseExpressionRef expr = custom_format(form, evaluation);
+	return expression(evaluation.MakeBoxes, expr, form)->evaluate_or_copy(evaluation);
+}
+
 bool BaseExpression::is_numeric() const {
 	throw std::runtime_error("is_numeric not implemented");
 }
@@ -439,5 +444,5 @@ BaseExpressionRef Expression::symbolic_evaluate_binary(
 }
 
 std::string BaseExpression::debug(const Evaluation &evaluation) const {
-    return format(evaluation.StandardForm, evaluation);
+    return evaluation.format_output(this);
 }

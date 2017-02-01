@@ -45,6 +45,8 @@ SYMBOL(LessEqual)
 
 SYMBOL(Plus)
 SYMBOL(Times)
+SYMBOL(Divide)
+SYMBOL(Minus)
 SYMBOL(Power)
 SYMBOL(Log)
 SYMBOL(Factorial)

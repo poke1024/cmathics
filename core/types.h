@@ -477,8 +477,6 @@ public:
 
     virtual hash_t hash() const = 0;
 
-    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const = 0;
-
 	inline BaseExpressionRef evaluate(const Evaluation &evaluation) const;
 
 	inline BaseExpressionRef evaluate_or_copy(const Evaluation &evaluation) const;
@@ -557,13 +555,22 @@ public:
 
 	virtual SortKey pattern_key() const;
 
-    virtual std::string boxes_to_text() const {
-        throw std::runtime_error("boxes_to_text not implemented");
-    }
+	BaseExpressionRef format(const BaseExpressionRef &form, const Evaluation &evaluation) const;
+
+	virtual BaseExpressionRef custom_format(const BaseExpressionRef &form, const Evaluation &evaluation) const {
+		return BaseExpressionRef(this);
+	}
+
+	virtual std::string boxes_to_text(const Evaluation &evaluation) const {
+		throw std::runtime_error("boxes_to_text not implemented");
+	}
 
     virtual BaseExpressionRef make_boxes(
         BaseExpressionPtr form,
-        const Evaluation &evaluation) const = 0;
+        const Evaluation &evaluation) const {
+
+	    return format(form, evaluation);
+    }
 };
 
 inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressionRef &b) {

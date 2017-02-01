@@ -71,7 +71,11 @@ void Evaluation::sym_engine_exception(const SymEngine::SymEngineException &e) co
     }
 }
 
+std::string Evaluation::format_output(const BaseExpressionRef &expr) const {
+	return expr->make_boxes(OutputForm, *this)->boxes_to_text(*this);
+}
+
 void Evaluation::print_out(const ExpressionRef &expr) const {
-    std::string text = expr->format(this->OutputForm, *this);
+    std::string text = expr->make_boxes(this->OutputForm, *this)->boxes_to_text(*this);
     std::cout << text << std::endl;
 }

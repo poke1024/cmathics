@@ -330,6 +330,10 @@ public:
 				return false;
 		}
 	}
+
+	virtual std::string boxes_to_text(const Evaluation &evaluation) const {
+		return name();
+	}
 };
 
 inline SymbolState &EvaluationContext::state(const Symbol *symbol) {

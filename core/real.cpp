@@ -99,14 +99,12 @@ BaseExpressionRef MachineReal::make_boxes(
     return Pool::String(s.str());
 }
 
-BaseExpressionPtr MachineReal::head(const Symbols &symbols) const {
-	return symbols.Real;
+std::string MachineReal::boxes_to_text(const Evaluation &evaluation) const {
+	return make_boxes(evaluation.OutputForm, evaluation)->boxes_to_text(evaluation);
 }
 
-std::string MachineReal::format(const SymbolRef &form, const Evaluation &evaluation) const {
-	std::ostringstream s;
-	s << std::showpoint << std::setprecision(6) << value;
-	return s.str();
+BaseExpressionPtr MachineReal::head(const Symbols &symbols) const {
+	return symbols.Real;
 }
 
 tribool MachineReal::equals(const BaseExpression &expr) const {
@@ -140,14 +138,12 @@ BaseExpressionRef BigReal::make_boxes(
     return Pool::String(s.str());
 }
 
-BaseExpressionPtr BigReal::head(const Symbols &symbols) const {
-	return symbols.Real;
+std::string BigReal::boxes_to_text(const Evaluation &evaluation) const {
+	return make_boxes(evaluation.OutputForm, evaluation)->boxes_to_text(evaluation);
 }
 
-std::string BigReal::format(const SymbolRef &form, const Evaluation &evaluation) const {
-	std::ostringstream s;
-	s << arb_get_str(value, long(floor(prec.decimals)), ARB_STR_NO_RADIUS);
-	return s.str();
+BaseExpressionPtr BigReal::head(const Symbols &symbols) const {
+	return symbols.Real;
 }
 
 tribool BigReal::equals(const BaseExpression &expr) const {

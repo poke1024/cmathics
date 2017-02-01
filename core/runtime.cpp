@@ -250,8 +250,9 @@ void Runtime::run_tests() {
                     if (result) {
                         auto parsed = _parser.parse(trimmed_line.c_str());
 
-	                    const std::string expected_str = parsed->evaluate_or_copy(dummy_evaluation)->format(fullform, evaluation);
-                        const std::string result_str = result->format(fullform, evaluation);
+	                    const std::string expected_str = dummy_evaluation.format_output(parsed->evaluate_or_copy(
+	                        dummy_evaluation));
+                        const std::string result_str = evaluation.format_output(result);
 
                         if (expected_str != result_str) {
                             if (!fail_expected) {

@@ -26,8 +26,8 @@ public:
         BaseExpression(MachineComplexExtendedType), value(real, imag) {
     }
 
-    virtual BaseExpressionRef make_boxes(
-        BaseExpressionPtr form,
+    virtual BaseExpressionRef custom_format(
+        const BaseExpressionRef &form,
         const Evaluation &evaluation) const;
 
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
@@ -45,8 +45,6 @@ public:
             hash_function(value.real()), hash_function(value.imag()));
         return hash_pair(machine_complex_hash, value_hash);
     }
-
-    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual bool match(const BaseExpression &expr) const {
         return same(expr);
@@ -83,8 +81,8 @@ public:
         BaseExpression(BigComplexExtendedType), m_value(value) {
     }
 
-    virtual BaseExpressionRef make_boxes(
-        BaseExpressionPtr form,
+    virtual BaseExpressionRef custom_format(
+        const BaseExpressionRef &form,
         const Evaluation &evaluation) const;
 
     virtual bool same(const BaseExpression &expr) const {
@@ -102,8 +100,6 @@ public:
     virtual hash_t hash() const {
         return m_value->__hash__();
     }
-
-    virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;
 
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 

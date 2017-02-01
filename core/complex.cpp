@@ -9,81 +9,88 @@
 
 const std::hash<machine_real_t> MachineComplex::hash_function = std::hash<machine_real_t>();
 
-BaseExpressionRef MachineComplex::make_boxes(
-    BaseExpressionPtr form,
-    const Evaluation &evaluation) const {
+BaseExpressionRef MachineComplex::custom_format(
+	const BaseExpressionRef &form,
+	const Evaluation &evaluation) const {
 
-    return Pool::String(format(SymbolRef(static_cast<const Symbol*>(form)), evaluation));
+	switch (form->extended_type()) {
+		case SymbolFullForm:
+			return expression(
+				expression(evaluation.HoldForm, evaluation.Complex),
+				Pool::MachineReal(value.real()),
+				Pool::MachineReal(value.imag()))->custom_format(form, evaluation);
+
+		default: {
+			UnsafeBaseExpressionRef leaf;
+
+			const machine_real_t real = value.real();
+			const machine_real_t imag = value.imag();
+
+			if (real) {
+				if (imag == 1.0) {
+					leaf = expression(evaluation.Plus, Pool::MachineReal(real), evaluation.I);
+				} else {
+					leaf = expression(evaluation.Plus, Pool::MachineReal(real),
+						expression(evaluation.Times, Pool::MachineReal(imag), evaluation.I));
+				}
+			} else {
+				if (imag == 1.0) {
+					leaf = evaluation.I;
+				} else {
+					leaf = expression(evaluation.Times, Pool::MachineReal(imag), evaluation.I);
+				}
+			}
+
+			return expression(evaluation.HoldForm, leaf)->custom_format(form, evaluation);
+		}
+	}
 }
 
 BaseExpressionPtr MachineComplex::head(const Symbols &symbols) const {
     return symbols.Complex;
 }
 
-std::string MachineComplex::format(const SymbolRef &form, const Evaluation &evaluation) const {
-    switch (form->extended_type()) {
-        case SymbolFullForm:
-            return expression(
-                expression(evaluation.HoldForm, evaluation.Complex),
-                Pool::MachineReal(value.real()),
-                Pool::MachineReal(value.imag()))->format(form, evaluation);
-        default: {
-            std::ostringstream s;
-            const machine_real_t imag = value.imag();
-            s << std::showpoint << std::setprecision(6);
-            if (value.real() != 0.0) {
-                s << value.real() << (imag >= 0. ? " + " : " - ") << std::abs(imag) << " I";
-            } else {
-                s << imag << " I";
-            }
-            return s.str();
-        }
-    }
-}
+BaseExpressionRef BigComplex::custom_format(
+	const BaseExpressionRef &form,
+	const Evaluation &evaluation) const {
 
-BaseExpressionRef BigComplex::make_boxes(
-    BaseExpressionPtr form,
-    const Evaluation &evaluation) const {
+	switch (form->extended_type()) {
+		case SymbolFullForm:
+			return expression(
+				expression(evaluation.HoldForm, evaluation.Complex),
+				Pool::String(m_value->real_part()->__str__()),
+				Pool::String(m_value->imaginary_part()->__str__()))->custom_format(form, evaluation);
 
-    return Pool::String(format(SymbolRef(static_cast<const Symbol*>(form)), evaluation));
+		default: {
+			UnsafeBaseExpressionRef leaf;
+
+			const auto real = m_value->real_part();
+			const auto imag = m_value->imaginary_part();
+
+			mpq_class real_mpq(m_value->real_.get_mpq_t());
+			mpq_class imag_mpq(m_value->imaginary_.get_mpq_t());
+
+			if (!real->is_zero()) {
+				if (imag->is_one()) {
+					leaf = expression(evaluation.Plus, Pool::BigRational(real_mpq), evaluation.I);
+				} else {
+					leaf = expression(evaluation.Plus, Pool::BigRational(real_mpq),
+						expression(evaluation.Times, Pool::BigRational(imag_mpq), evaluation.I));
+				}
+			} else {
+				if (imag->is_one()) {
+					leaf = evaluation.I;
+				} else {
+					leaf = expression(evaluation.Times, Pool::BigRational(imag_mpq), evaluation.I);
+				}
+			}
+
+			return expression(evaluation.HoldForm, leaf)->custom_format(form, evaluation);
+		}
+	}
 }
 
 BaseExpressionPtr BigComplex::head(const Symbols &symbols) const {
     return symbols.Complex;
 }
 
-std::string BigComplex::format(const SymbolRef &form, const Evaluation &evaluation) const {
-    switch (form->extended_type()) {
-        case SymbolFullForm:
-            return expression(
-                expression(evaluation.HoldForm, evaluation.Complex),
-                Pool::String(m_value->real_part()->__str__()),
-                Pool::String(m_value->imaginary_part()->__str__()))->format(form, evaluation);
-        default: {
-            std::ostringstream s;
-            const auto real = m_value->real_part();
-            const auto imag = m_value->imaginary_part();
-            if (!real->is_zero()) {
-                s << real->__str__();
-
-	            if (imag->is_one()) {
-		            s << " + I";
-	            } else if (imag->is_minus_one()) {
-		            s << " - I";
-	            } else {
-		            s << (imag->is_negative() ? " - " : " + ");
-		            s << imag->__str__() << " I";
-	            }
-            } else {
-                if (imag->is_one()) {
-	                s << "I";
-                } else if (imag->is_minus_one()) {
-	                s << "-I";
-                } else {
-	                s << imag->__str__() << " I";
-                }
-            }
-            return s.str();
-        }
-    }
-}

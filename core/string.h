@@ -281,6 +281,8 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
+	virtual std::string boxes_to_text(const Evaluation &evaluation) const;
+
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     inline StringExtent::Type extent_type() const {
