@@ -467,7 +467,7 @@ private:
 
 	struct Node {
 		Node *next;
-		T block[0];
+		T block[1];
 	};
 
 	struct Pools {
@@ -477,11 +477,10 @@ private:
 	const std::shared_ptr<Pools> m_pools;
 
 	inline static int bits(size_t n) {
-		const int k = (nbits - __builtin_clz(n)) - 1;
-#if DEBUG_ALLOCATIONS
+		const int m = __builtin_clz(n);
+		const int k = nbits - m;
 		assert(k >= 0 && k < nbits);
 		assert(n <= (1LL << k));
-#endif
 		return k;
 	}
 
@@ -497,7 +496,7 @@ public:
 	VectorAllocator(const VectorAllocator &allocator) : m_pools(allocator.m_pools) {
 	}
 
-	T *allocate(size_t n, const void *hint = 0) {
+	inline T *allocate(size_t n, const void *hint = 0) {
 		if (n == 0) {
 			return nullptr;
 		}
@@ -519,7 +518,7 @@ public:
 		return node->block;
 	}
 
-	void deallocate(T *p, size_t n) {
+	inline void deallocate(T *p, size_t n) {
 		const int k = bits(n);
 
 		Node * const node = reinterpret_cast<Node*>(

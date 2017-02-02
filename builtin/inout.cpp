@@ -106,8 +106,7 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        // FIXME BUG enabling this leads to crashes when running test cases
-        // builtin("MakeBoxes[Row[{items___}, sep_:\"\"], f_]", &Row::apply);
+        builtin("MakeBoxes[Row[{items___}, sep_:\"\"], f_]", &Row::apply);
     }
 
     inline BaseExpressionRef apply(
