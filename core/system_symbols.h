@@ -83,6 +83,7 @@ SYMBOL(Row)
 SYMBOL(Superscript)
 SYMBOL(RowBox)
 SYMBOL(SuperscriptBox)
+SYMBOL(StyleBox)
 
 SYMBOL(HoldForm)
 

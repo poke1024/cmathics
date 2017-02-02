@@ -182,6 +182,9 @@ public:
     void build(Runtime &runtime) {
 	    rule("MakeBoxes[expr_]", "MakeBoxes[expr, StandardForm]");
 
+        rule("MakeBoxes[FullForm[expr_], StandardForm|TraditionalForm|OutputForm]",
+		    "StyleBox[MakeBoxes[expr, FullForm], ShowStringCharacters->True]");
+
         builtin(&MakeBoxes::apply);
 
         m_parentheses[0][0].initialize(Pool::String("("));

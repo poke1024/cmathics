@@ -482,6 +482,14 @@ public:
 
     virtual std::string boxes_to_text(const Evaluation &evaluation) const {
         switch (head()->extended_type()) {
+	        case SymbolStyleBox: {
+				// FIXME parse StyleBox options like System`ShowStringCharacters
+		        if (size() < 1) {
+			        break;
+		        }
+		        return _leaves[0]->boxes_to_text(evaluation);
+	        }
+
             case SymbolRowBox: {
                 if (size() != 1) {
                     break;

@@ -12,11 +12,11 @@ public:
         <dd>is equivalent to 'Hold[$expr$]', but prints as $expr$.
     </dl>
 
-    >> HoldForm[1 + 2 + 3]
+    #> HoldForm[1 + 2 + 3]
      = 1 + 2 + 3
 
     'HoldForm' has attribute 'HoldAll':
-    >> Attributes[HoldForm]
+    #> Attributes[HoldForm]
      = {HoldAll, Protected}
     )";
 

@@ -451,11 +451,11 @@ public:
      = Pi / 4
 
     Use 'N' or a decimal point to force numeric evaluation:
-    >> Pi / 4.0
+    #> Pi / 4.0
      = 0.785398
     >> 1 / 8
      = 1 / 8
-    >> N[%]
+    #> N[%]
      = 0.125
 
     Nested divisions:
