@@ -24,7 +24,7 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        rule("MakeBoxes[HoldForm[expr_], f_]", "MakeBoxes[expr, f]");
+        builtin("MakeBoxes[HoldForm[expr_], f_]", "MakeBoxes[expr, f]");
     }
 };
 

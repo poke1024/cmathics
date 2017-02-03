@@ -483,7 +483,7 @@ public:
 		Attributes::Listable + Attributes::NumericFunction;
 
 	void build(Runtime &runtime) {
-		rule("Divide[x_, y_]", "Times[x, Power[y, -1]]");
+		builtin("Divide[x_, y_]", "Times[x, Power[y, -1]]");
 	}
 };
 
@@ -537,7 +537,7 @@ public:
 		Attributes::Listable + Attributes::NumericFunction;
 
 	void build(Runtime &runtime) {
-		rule("Subtract[x_, y_]", "Plus[x, Times[-1, y]]");
+		builtin("Subtract[x_, y_]", "Plus[x, Times[-1, y]]");
 	}
 };
 
@@ -570,7 +570,7 @@ public:
 		Attributes::Listable + Attributes::NumericFunction;
 
 	void build(Runtime &runtime) {
-		rule("Minus[x_]", "Times[-1, x]");
+		builtin("Minus[x_]", "Times[-1, x]");
 	}
 };
 
@@ -612,7 +612,7 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-        rule("Sqrt[x_]", "x ^ (1 / 2)");
+        builtin("Sqrt[x_]", "x ^ (1 / 2)");
 	}
 };
 
@@ -652,7 +652,7 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		rule("Infinity", "DirectedInfinity[1]");
+		builtin("Infinity", "DirectedInfinity[1]");
 	}
 };
 
@@ -680,7 +680,7 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		rule("ComplexInfinity", "DirectedInfinity[]");
+		builtin("ComplexInfinity", "DirectedInfinity[]");
 	}
 
 };
@@ -1347,7 +1347,7 @@ public:
     using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-        rule("Pochhammer[a_, n_]", "Gamma[a + n] / Gamma[a]");
+        builtin("Pochhammer[a_, n_]", "Gamma[a + n] / Gamma[a]");
 	}
 };
 
@@ -1375,7 +1375,7 @@ public:
     using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-        rule("HarmonicNumber[-1]", "ComplexInfinity");
+        builtin("HarmonicNumber[-1]", "ComplexInfinity");
         builtin(&HarmonicNumber::apply);
 	}
 

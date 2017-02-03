@@ -30,7 +30,7 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        rule("N[expr_]", "N[expr, MachinePrecision]");
+        builtin("N[expr_]", "N[expr, MachinePrecision]");
         builtin(&N::apply);
     }
 

@@ -151,9 +151,9 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-	    rule("MakeBoxes[expr_]", "MakeBoxes[expr, StandardForm]");
+        builtin("MakeBoxes[expr_]", "MakeBoxes[expr, StandardForm]");
 
-        rule("MakeBoxes[FullForm[expr_], StandardForm|TraditionalForm|OutputForm]",
+        builtin("MakeBoxes[FullForm[expr_], StandardForm|TraditionalForm|OutputForm]",
 		    "StyleBox[MakeBoxes[expr, FullForm], ShowStringCharacters->True]");
 
         builtin(&MakeBoxes::apply);

@@ -91,13 +91,13 @@ public:
     }
 
     void build(Runtime &runtime) {
-        rule("Log[0.]", "Indeterminate");
-        rule("Log[0]", "DirectedInfinity[-1]");
-        rule("Log[1]", "0");
-        rule("Log[E]", "1");
-        rule("Log[E^x_Integer]", "x");
-        // up("Derivative[1][Log]", "1/#&");
-        // down("Log[x_?InexactNumberQ]", "Log[E, x]");
+        builtin("Log[0.]", "Indeterminate");
+        builtin("Log[0]", "DirectedInfinity[-1]");
+        builtin("Log[1]", "0");
+        builtin("Log[E]", "1");
+        builtin("Log[E^x_Integer]", "x");
+        // builtin("Derivative[1][Log]", "1/#&");
+        // builtin("Log[x_?InexactNumberQ]", "Log[E, x]");
         Unary<decltype(_log)>::build(runtime);
 	    builtin(&Log::apply_2);
     }

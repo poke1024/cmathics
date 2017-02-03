@@ -368,10 +368,10 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        rule<ConstantTrueRule<0>>();
-        rule<ConstantTrueRule<1>>();
-        rule<BinaryOperatorRule<T>>();
-        rule<CompareNRule<T>>();
+        builtin<ConstantTrueRule<0>>();
+        builtin<ConstantTrueRule<1>>();
+        builtin<BinaryOperatorRule<T>>();
+        builtin<CompareNRule<T>>();
     }
 };
 
@@ -464,10 +464,10 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        rule<ConstantTrueRule<0>>();
-        rule<ConstantTrueRule<1>>();
-        rule<BinaryOperatorRule<EqualComparison<false>>>();
-        rule<CompareNRule<EqualComparison<false>>>();
+        builtin<ConstantTrueRule<0>>();
+        builtin<ConstantTrueRule<1>>();
+        builtin<BinaryOperatorRule<EqualComparison<false>>>();
+        builtin<CompareNRule<EqualComparison<false>>>();
     }
 };
 
@@ -525,10 +525,10 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        rule<ConstantTrueRule<0>>();
-        rule<ConstantTrueRule<1>>();
-        rule<BinaryOperatorRule<EqualComparison<true>>>();
-        rule<CompareUnequalNRule>();
+        builtin<ConstantTrueRule<0>>();
+        builtin<ConstantTrueRule<1>>();
+        builtin<BinaryOperatorRule<EqualComparison<true>>>();
+        builtin<CompareUnequalNRule>();
     }
 };
 

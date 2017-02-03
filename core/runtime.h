@@ -436,19 +436,19 @@ protected:
         });
     }
 
-	inline void rule(const char *pattern, const char *into) {
+	inline void builtin(const char *pattern, const char *into) {
 		const BaseExpressionRef lhs = m_runtime.parse(pattern);
 		const BaseExpressionRef rhs = m_runtime.parse(into);
 		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
 	}
 
-	inline void rule(const BaseExpressionRef &lhs, const char *into) {
+	inline void builtin(const BaseExpressionRef &lhs, const char *into) {
 		const BaseExpressionRef rhs = m_runtime.parse(into);
 		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
 	}
 
     template<typename T>
-    inline void rule() {
+    inline void builtin() {
         m_symbol->state().add_rule(RuleRef(new T(m_symbol, m_runtime.definitions())));
     }
 
