@@ -574,15 +574,15 @@ inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpres
 // if you write builtins that match down values, always use BuiltinRule, since it's faster (it doesn't involve the
 // pattern match).
 
-template<int N>
+template<int N, typename F>
 class PatternMatchedBuiltinRule : public Rule {
 private:
-    typename BuiltinFunctionArguments<N>::type function;
+    const F function;
     const Matcher matcher;
 
 public:
-    inline PatternMatchedBuiltinRule(const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) :
-        Rule(patt), function(func), matcher(pattern) {
+    inline PatternMatchedBuiltinRule(const BaseExpressionRef &patt, const F &f) :
+        Rule(patt), function(f), matcher(pattern) {
     }
 
     virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
@@ -590,7 +590,7 @@ public:
         if (m) {
             assert(m->n_slots_fixed() == N);
             return apply_from_tuple(function, std::tuple_cat(
-                m->unpack<N>(), std::forward_as_tuple(evaluation)));
+                std::forward_as_tuple(expr), m->unpack<N>(), std::forward_as_tuple(evaluation)));
         } else {
             return BaseExpressionRef();
         }
@@ -611,7 +611,7 @@ inline NewRuleRef make_pattern_matched_builtin_rule(
     const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
 
     return [patt, func] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
-        return new PatternMatchedBuiltinRule<N>(patt, func);
+        return new PatternMatchedBuiltinRule<N, decltype(func)>(patt, func);
     };
 }
 

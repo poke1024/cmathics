@@ -119,6 +119,59 @@ namespace std {
     };
 }
 
+class Rule;
+
+typedef ConstSharedPtr<Rule> RuleRef;
+typedef QuasiConstSharedPtr<Rule> CachedRuleRef;
+typedef UnsafeSharedPtr<Rule> UnsafeRuleRef;
+
+class Rules {
+public:
+    struct Entry {
+        UnsafeRuleRef rule;
+        MatchSize match_size;
+        optional<hash_t> match_hash;
+    };
+
+private:
+    std::vector<Entry> m_rules[NumberOfSliceCodes];
+
+    template<bool CheckMatchSize>
+    inline BaseExpressionRef do_try_and_apply(
+        const std::vector<Entry> &entries,
+        const Expression *expr,
+        const Evaluation &evaluation) const;
+
+public:
+    void add(const RuleRef &rule);
+
+    inline BaseExpressionRef try_and_apply(
+        const SliceCode slice_code,
+        const Expression *expr,
+        const Evaluation &evaluation) const {
+
+        if (is_static_slice(slice_code)) {
+            return do_try_and_apply<false>(m_rules[slice_code], expr, evaluation);
+        } else {
+            return do_try_and_apply<true>(m_rules[slice_code], expr, evaluation);
+        }
+    }
+
+    template<typename Slice>
+    inline BaseExpressionRef try_and_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
+
+        constexpr SliceCode slice_code = Slice::code();
+
+        if (is_static_slice(slice_code)) {
+            return do_try_and_apply<false>(m_rules[slice_code], expr, evaluation);
+        } else {
+            return do_try_and_apply<true>(m_rules[slice_code], expr, evaluation);
+        }
+    }
+};
+
 template<typename Key, typename Value>
 using SymbolMap = std::unordered_map<Key, Value,
 	SymbolHash, SymbolEqual,
@@ -135,6 +188,8 @@ using VariableMap = SymbolPtrMap<const BaseExpressionRef*>;
 using SymbolStateMap = SymbolRefMap<SymbolState>;
 
 using MonomialMap = std::map<SymbolKey, size_t>;
+
+using SymbolRulesMap = SymbolRefMap<Rules>;
 
 class Cache;
 
@@ -308,11 +363,13 @@ private:
 	ObjectPool<SymbolicForm> _symbolic_forms;
 	UnsafeSymbolicFormRef _no_symbolic_form;
 
+    SlotAllocator _slots;
+    VectorAllocator<UnsafeBaseExpressionRef> _ref_vector_allocator;
+
 	ObjectAllocator<VariableMap::value_type> _variable_map;
 	ObjectAllocator<SymbolStateMap::value_type> _symbol_state_map;
-	SlotAllocator _slots;
-    VectorAllocator<UnsafeBaseExpressionRef> _ref_vector_allocator;
     ObjectAllocator<MonomialMap::value_type> _monomial_map;
+    ObjectAllocator<SymbolRulesMap::value_type> _rules_map_allocator;
 
 public:
 	static inline auto &variable_map_allocator() {
@@ -333,6 +390,10 @@ public:
 
     static inline auto &ref_vector_allocator() {
         return _s_instance->_ref_vector_allocator;
+    }
+
+    static inline auto &rules_map_allocator() {
+        return _s_instance->_rules_map_allocator;
     }
 
 public:

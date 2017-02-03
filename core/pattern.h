@@ -212,9 +212,7 @@ private:
     index_t m_slots_fixed;
 
 public:
-    inline Match() : // only for Pool::DefaultMatch()
-        m_slots_fixed(0) {
-    }
+    inline Match(); // only for Pool::DefaultMatch()
 
     inline Match(const PatternMatcherRef &matcher);
 

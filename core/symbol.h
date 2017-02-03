@@ -78,25 +78,27 @@ public:
 typedef QuasiConstSharedPtr<Messages> MessagesRef;
 
 struct SymbolRules {
-	inline SymbolRules() {
+	inline SymbolRules() :
+        format_values(Pool::rules_map_allocator()) {
 	}
 
 	inline SymbolRules(const SymbolRules &rules) :
 		sub_rules(rules.sub_rules),
 		up_rules(rules.up_rules),
 		down_rules(rules.down_rules),
+        format_values(Pool::rules_map_allocator()),
 		messages(rules.messages) {
 	}
 
 	Rules sub_rules;
 	Rules up_rules;
 	Rules down_rules;
+    SymbolRefMap<Rules> format_values;
 
     MessagesRef messages;
 
 	/*
 	Expression* n_values;
-	Expression* format_values;
 	Expression* default_values;
 	Expression* options;
 	*/
@@ -171,6 +173,8 @@ public:
 	void add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs);
 
 	void add_rule(const RuleRef &rule);
+
+    void add_format(const RuleRef &rule, const SymbolRef &form);
 
 	void set_attributes(Attributes attributes);
 

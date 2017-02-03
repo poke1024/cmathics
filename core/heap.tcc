@@ -197,6 +197,11 @@ inline BaseExpressionRef from_primitive(const Numeric::Z &value) {
 	return value.to_expression();
 }
 
+inline Match::Match() :
+    m_slots(Pool::slots_allocator()),
+    m_slots_fixed(0) {
+}
+
 inline Match::Match(const PatternMatcherRef &matcher) :
 	m_matcher(matcher),
 	m_slots(matcher->variables().size(), Pool::slots_allocator()),

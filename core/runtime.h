@@ -1,3 +1,5 @@
+// @formatter:off
+
 #ifndef CMATHICS_RUNTIME_H
 #define CMATHICS_RUNTIME_H
 
@@ -79,12 +81,28 @@ public:
 #endif
 };
 
+template<typename T>
+const T &last(const T &x) {
+    return x;
+};
+
+template<typename T, typename... Args>
+const auto &last(const T &x, const Args&... args) {
+    return last(args...);
+};
+
+struct EmptyExpression {
+    const ExpressionPtr expr;
+    EmptyExpression(ExpressionPtr e) : expr(e) {
+    }
+};
+
 class Builtin : public Shared<Builtin, SharedHeap> {
 private:
-	template<typename T>
-	auto shared_from_this() {
-		return ConstSharedPtr<T>(static_cast<T*>(this));
-	}
+    template<typename T>
+    auto shared_from_this() {
+        return ConstSharedPtr<T>(static_cast<T*>(this));
+    }
 
 	inline SymbolState &rule_owner(const BaseExpressionRef &lhs) const {
 		// compare Python Mathics Builtin::contribute; we do a special
@@ -99,18 +117,89 @@ private:
 		}
 	}
 
+    template<typename T, typename M>
+    class Bridge {
+    protected:
+        const ConstSharedPtr<T> m_self;
+        const M m_method;
+
+    public:
+        inline Bridge(Builtin *instance, const M &method) :
+            m_self(instance->shared_from_this<T>()), m_method(method) {
+            }
+    };
+
+    template<typename T, typename M, int N>
+    class ArgumentsBridge : public Bridge<T, M> {
+    public:
+        using Bridge<T, M>::Bridge;
+
+        template<typename... Args>
+        inline auto operator()(ExpressionPtr expr, const Args&... args) const {
+            const auto p = this->m_self.get();
+            return (p->*this->m_method)(args...);
+        }
+    };
+
+    template<typename T, typename M, int N>
+    class ExtendedArgumentsBridge : public Bridge<T, M> {
+    public:
+        using Bridge<T, M>::Bridge;
+
+        template<typename... Args>
+        inline auto operator()(ExpressionPtr expr, const Args&... args) const {
+            const auto p = this->m_self.get();
+            return (p->*this->m_method)(expr, args...);
+        }
+    };
+
+    template<typename T, typename M>
+    class ExtendedArgumentsBridge<T, M, 0> : public Bridge<T, M> {
+    public:
+        using Bridge<T, M>::Bridge;
+
+        template<typename... Args>
+        inline auto operator()(ExpressionPtr expr, const Args&... args) const {
+            const auto p = this->m_self.get();
+            return (p->*this->m_method)(EmptyExpression(expr), args...);
+        }
+    };
+
+    template<typename T, typename M, int N>
+    class BooleanBridge : public Bridge<T, M> {
+    public:
+        using Bridge<T, M>::Bridge;
+
+        template<typename... Args>
+        inline auto operator()(ExpressionPtr expr, const Args&... args) const {
+            const auto p = this->m_self.get();
+            const Evaluation &evaluation = last(args...);
+			if ((p->*this->m_method)(args...)) {
+				return evaluation.True;
+			} else {
+				return evaluation.False;
+			}
+        }
+    };
+
 protected:
 	Runtime &m_runtime;
 	const SymbolRef m_symbol;
 
+	template<typename T>
+	using BuiltinFunction = BaseExpressionRef (T::*) (
+		const BaseExpressionRef *,
+		size_t,
+		const Evaluation &);
+
     template<typename T>
-    using BuiltinFunction = BaseExpressionRef (T::*) (
+    using ExtendedBuiltinFunction = BaseExpressionRef (T::*) (
         ExpressionPtr,
         const Evaluation &);
 
     template<typename T>
-    using F0 = BaseExpressionRef (T::*) (
-        ExpressionPtr,
+    using ExtendedF0 = BaseExpressionRef (T::*) (
+        const EmptyExpression &,
         const Evaluation &);
 
     template<typename T>
@@ -119,7 +208,7 @@ protected:
         const Evaluation &);
 
 	template<typename T>
-	using FullF1 = BaseExpressionRef (T::*) (
+	using ExtendedF1 = BaseExpressionRef (T::*) (
 		ExpressionPtr,
 		BaseExpressionPtr,
 		const Evaluation &);
@@ -136,7 +225,7 @@ protected:
         const Evaluation &);
 
 	template<typename T>
-	using FullF2 = BaseExpressionRef (T::*) (
+	using ExtendedF2 = BaseExpressionRef (T::*) (
 		ExpressionPtr,
 		BaseExpressionPtr,
 		BaseExpressionPtr,
@@ -157,12 +246,6 @@ protected:
         BaseExpressionPtr,
         const Evaluation &);
 
-	template<typename T>
-	using FN = BaseExpressionRef (T::*) (
-		const BaseExpressionRef *,
-		size_t,
-		const Evaluation &);
-
 	template<typename T, typename Options>
 	using OptionsF2 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
@@ -178,250 +261,179 @@ protected:
         const Options &options,
         const Evaluation &);
 
-    template<typename T>
-    inline void builtin(BuiltinFunction<T> fptr) {
+private:
+    template<typename T, typename Add>
+    inline void add_rule(BuiltinFunction<T> method, const Add &add) {
         const auto self = shared_from_this<T>();
 
-        auto func = [self, fptr] (
+        const auto function = [self, method] (
+            ExpressionPtr,
+            const BaseExpressionRef *leaves,
+            size_t n,
+            const Evaluation &evaluation) {
+
+			auto p = self.get();
+			return (p->*method)(leaves, n, evaluation);
+        };
+
+        add(new VariadicBuiltinRule<0, decltype(function)>(
+            m_symbol,
+            m_runtime.definitions(),
+            function));
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(ExtendedBuiltinFunction<T> method, const Add &add) {
+        const auto self = shared_from_this<T>();
+
+        const auto function = [self, method] (
             ExpressionPtr expr,
             const BaseExpressionRef *,
             size_t,
             const Evaluation &evaluation) {
 
             auto p = self.get();
-            return (p->*fptr)(expr, evaluation);
+            return (p->*method)(expr, evaluation);
         };
 
-        m_symbol->state().add_rule(new VariadicBuiltinRule<0, decltype(func)>(
+        add(new VariadicBuiltinRule<0, decltype(function)>(
             m_symbol,
             m_runtime.definitions(),
-            func));
+            function));
     }
 
-    template<typename T>
-    inline void builtin_no_args(F0<T> fptr) {
-        const auto self = shared_from_this<T>();
+    template<typename T, typename Options, typename Add, typename F, int N, template<typename, typename, int> class B>
+    inline void internal_add_options_rule(const OptionsInitializerList &options, F function, const Add &add) {
+        const auto bridge = B<T, F, N>(this, function);
 
-        auto func = [self, fptr] (
-            ExpressionPtr expr,
-            const Evaluation &evaluation) {
-
-            auto p = self.get();
-            return (p->*fptr)(expr, evaluation);
-        };
-
-        m_symbol->state().add_rule(new BuiltinRule<0, decltype(func)>(
-            m_symbol,
-            m_runtime.definitions(),
-            func));
-    }
-	template<typename T>
-	inline void builtin(F1<T> fptr) {
-        const auto self = shared_from_this<T>();
-
-		auto func = [self, fptr] (
-			ExpressionPtr expr,
-			BaseExpressionPtr a,
-			const Evaluation &evaluation) {
-
-			auto p = self.get();
-			return (p->*fptr)(a, evaluation);
-		};
-
-		m_symbol->state().add_rule(new BuiltinRule<1, decltype(func)>(
-			m_symbol,
-			m_runtime.definitions(),
-			func));
-	}
-
-	template<typename T>
-	inline void builtin(FullF1<T> fptr) {
-		const auto self = shared_from_this<T>();
-
-		auto func = [self, fptr] (
-			ExpressionPtr expr,
-			BaseExpressionPtr a,
-			const Evaluation &evaluation) {
-
-			auto p = self.get();
-			return (p->*fptr)(expr, a, evaluation);
-		};
-
-		m_symbol->state().add_rule(new BuiltinRule<1, decltype(func)>(
-			m_symbol,
-			m_runtime.definitions(),
-			func));
-	}
-
-	template<typename T>
-	inline void builtin(B1<T> fptr) {
-		const auto self = shared_from_this<T>();
-
-		auto func = [self, fptr] (
-			ExpressionPtr expr,
-			BaseExpressionPtr a,
-			const Evaluation &evaluation) {
-
-			auto p = self.get();
-			if ((p->*fptr)(a, evaluation)) {
-				return evaluation.True;
-			} else {
-				return evaluation.False;
-			}
-		};
-
-		m_symbol->state().add_rule(new BuiltinRule<1, decltype(func)>(
-			m_symbol,
-			m_runtime.definitions(),
-			func));
-	}
-
-    template<typename T>
-    inline void builtin(F2<T> fptr) {
-		const auto self = shared_from_this<T>();
-
-	    auto func = [self, fptr] (
-		    ExpressionPtr expr,
-			BaseExpressionPtr a,
-			BaseExpressionPtr b,
-		    const Evaluation &evaluation) {
-
-		    auto p = self.get();
-		    return (p->*fptr)(a, b, evaluation);
-	    };
-
-	    m_symbol->state().add_rule(new BuiltinRule<2, decltype(func)>(
-		    m_symbol,
-		    m_runtime.definitions(),
-		    func));
-    }
-
-	template<typename T>
-	inline void builtin(FullF2<T> fptr) {
-		const auto self = shared_from_this<T>();
-
-		auto func = [self, fptr] (
-			ExpressionPtr expr,
-			BaseExpressionPtr a,
-			BaseExpressionPtr b,
-			const Evaluation &evaluation) {
-
-			auto p = self.get();
-			return (p->*fptr)(expr, a, b, evaluation);
-		};
-
-		m_symbol->state().add_rule(new BuiltinRule<2, decltype(func)>(
-			m_symbol,
-			m_runtime.definitions(),
-			func));
-	}
-
-    template<typename T>
-    inline void builtin(F3<T> fptr) {
-		const auto self = shared_from_this<T>();
-
-	    auto func = [self, fptr] (
-		    ExpressionPtr expr,
-		    BaseExpressionPtr a,
-		    BaseExpressionPtr b,
-		    BaseExpressionPtr c,
-		    const Evaluation &evaluation) {
-
-		    auto p = self.get();
-		    return (p->*fptr)(a, b, c, evaluation);
-	    };
-
-	    m_symbol->state().add_rule(new BuiltinRule<3, decltype(func)>(
-		    m_symbol,
-		    m_runtime.definitions(),
-            func));
-    }
-
-    template<typename T>
-    inline void builtin(F4<T> fptr) {
-        const auto self = shared_from_this<T>();
-
-        auto func = [self, fptr] (
-	        ExpressionPtr expr,
-            BaseExpressionPtr a,
-            BaseExpressionPtr b,
-            BaseExpressionPtr c,
-            BaseExpressionPtr d,
-            const Evaluation &evaluation) {
-
-            auto p = self.get();
-            return (p->*fptr)(a, b, c, d, evaluation);
-        };
-
-        m_symbol->state().add_rule(new BuiltinRule<4, decltype(func)>(
-            m_symbol,
-            m_runtime.definitions(),
-            func));
-    }
-
-	template<typename T>
-	inline void builtin(FN<T> fptr) {
-		const auto self = shared_from_this<T>();
-
-		auto func = [self, fptr] (
-			ExpressionPtr expr,
-			const BaseExpressionRef *leaves,
-			size_t n,
-			const Evaluation &evaluation) {
-
-			auto p = self.get();
-			return (p->*fptr)(leaves, n, evaluation);
-		};
-
-		m_symbol->state().add_rule(new VariadicBuiltinRule<0, decltype(func)>(
-			m_symbol,
-			m_runtime.definitions(),
-			func));
-	}
-
-	template<typename T, typename Options>
-	inline void builtin(const OptionsInitializerList &options, OptionsF2<T, Options> fptr) {
-		const auto self = shared_from_this<T>();
-
-		auto func = [self, fptr] (
-			ExpressionPtr expr,
-			BaseExpressionPtr a,
-			BaseExpressionPtr b,
-			const Options &options,
-			const Evaluation &evaluation) {
-
-			auto p = self.get();
-			return (p->*fptr)(a, b, options, evaluation);
-		};
-
-		m_symbol->state().add_rule(new OptionsBuiltinRule<2, Options, decltype(func)>(
-			m_symbol,
-			m_runtime.definitions(),
-			options,
-			func));
-	}
-
-    template<typename T, typename Options>
-    inline void builtin(const OptionsInitializerList &options, OptionsF3<T, Options> fptr) {
-		const auto self = shared_from_this<T>();
-
-        auto func = [self, fptr] (
-	        ExpressionPtr expr,
-            BaseExpressionPtr a,
-            BaseExpressionPtr b,
-            BaseExpressionPtr c,
-            const Options &options,
-            const Evaluation &evaluation) {
-
-            auto p = self.get();
-            return (p->*fptr)(a, b, c, options, evaluation);
-        };
-
-        m_symbol->state().add_rule(new OptionsBuiltinRule<3, Options, decltype(func)>(
+        add(new OptionsBuiltinRule<N, Options, decltype(bridge)>(
             m_symbol,
             m_runtime.definitions(),
             options,
-            func));
+            bridge));
+    }
+
+    template<typename T, typename Options, typename Add>
+    inline void add_rule(const OptionsInitializerList &options, OptionsF2<T, Options> function, const Add &add) {
+        return internal_add_options_rule<T, Options, Add, decltype(function), 2, ArgumentsBridge>(
+            options, function, add);
+    }
+
+    template<typename T, typename Options, typename Add>
+    inline void add_rule(const OptionsInitializerList &options, OptionsF3<T, Options> function, const Add &add) {
+        return internal_add_options_rule<T, Options, Add, decltype(function), 3, ArgumentsBridge>(
+            options, function, add);
+    }
+
+    template<typename T, typename Add, typename F, int N, template<typename, typename, int> class B>
+    inline void internal_add_arguments_rule(F function, const Add &add) {
+        const auto bridge = B<T, F, N>(this, function);
+
+        add(new BuiltinRule<N, decltype(bridge)>(
+            m_symbol,
+            m_runtime.definitions(),
+            bridge));
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(ExtendedF0<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 0, ExtendedArgumentsBridge>(function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(F1<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 1, ArgumentsBridge>(function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(ExtendedF1<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 1, ExtendedArgumentsBridge>(function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(B1<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 1, BooleanBridge>(function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(F2<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 2, ArgumentsBridge>(function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(ExtendedF2<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 2, ExtendedArgumentsBridge>(function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(F3<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 3, ArgumentsBridge>(function, add);
+    }
+
+    /*template<typename T, typename Add>
+    inline void add_rule(ExtendedF3<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 3, ExtendedArgumentsBridge>(function, add);
+    }*/
+
+    template<typename T, typename Add>
+    inline void add_rule(F4<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 4, ArgumentsBridge>(function, add);
+    }
+
+    /*template<typename T, typename Add>
+    inline void add_rule(ExtendedF4<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 4, ExtendedArgumentsBridge>(function, add);
+    }*/
+
+    template<typename T, typename Add, typename F, int N, template<typename, typename, int> class B>
+    inline void internal_add_pattern_rule(const char *pattern, F function, const Add &add) {
+        const auto bridge = B<T, F, N>(this, function);
+        const BaseExpressionRef p = m_runtime.parse(pattern);
+	    add(new PatternMatchedBuiltinRule<N, decltype(bridge)>(p, bridge));
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(const char *pattern, F1<T> function, const Add &add) {
+        internal_add_pattern_rule<T, Add, decltype(function), 1, ArgumentsBridge>(pattern, function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(const char *pattern, F2<T> function, const Add &add) {
+        internal_add_pattern_rule<T, Add, decltype(function), 2, ArgumentsBridge>(pattern, function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(const char *pattern, F3<T> function, const Add &add) {
+        internal_add_pattern_rule<T, Add, decltype(function), 3, ArgumentsBridge>(pattern, function, add);
+    }
+
+    /*template<typename T, typename Add>
+	inline void add_rule(const char *pattern, const char *into, const Add &add) {
+		const BaseExpressionRef lhs = m_runtime.parse(pattern);
+		const BaseExpressionRef rhs = m_runtime.parse(into);
+		add(lhs.get(), rhs.get());
+	}*/
+
+protected:
+    template<typename F>
+    inline void builtin(F function) {
+        add_rule(function, [this] (const RuleRef &rule) {
+            m_symbol->state().add_rule(rule);
+        });
+    }
+
+	template<typename F>
+	inline void builtin(const OptionsInitializerList &options, F function) {
+        add_rule(options, function, [this] (const RuleRef &rule) {
+            m_symbol->state().add_rule(rule);
+        });
+	}
+
+    template<typename F>
+    inline void builtin(const char *pattern, F function) {
+        add_rule(pattern, function, [this] (const RuleRef &rule) {
+            m_symbol->state().add_rule(rule);
+        });
     }
 
 	inline void rule(const char *pattern, const char *into) {
@@ -434,57 +446,6 @@ protected:
 		const BaseExpressionRef rhs = m_runtime.parse(into);
 		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
 	}
-
-    template<typename T>
-    inline void builtin(const char *pattern, F1<T> fptr) {
-        const auto self = shared_from_this<T>();
-
-        auto func = [self, fptr] (
-            BaseExpressionPtr a,
-            const Evaluation &evaluation) {
-
-            auto p = self.get();
-            return (p->*fptr)(a, evaluation);
-        };
-
-        const BaseExpressionRef p = m_runtime.parse(pattern);
-	    rule_owner(p).add_rule(new PatternMatchedBuiltinRule<1>(p, func));
-    }
-
-    template<typename T>
-    inline void builtin(const char *pattern, F2<T> fptr) {
-        const auto self = shared_from_this<T>();
-
-        auto func = [self, fptr] (
-            BaseExpressionPtr a,
-            BaseExpressionPtr b,
-            const Evaluation &evaluation) {
-
-            auto p = self.get();
-            return (p->*fptr)(a, b, evaluation);
-        };
-
-        const BaseExpressionRef p = m_runtime.parse(pattern);
-	    rule_owner(p).add_rule(new PatternMatchedBuiltinRule<2>(p, func));
-    }
-
-    template<typename T>
-    inline void builtin(const char *pattern, F3<T> fptr) {
-        const auto self = shared_from_this<T>();
-
-        auto func = [self, fptr] (
-            BaseExpressionPtr a,
-            BaseExpressionPtr b,
-            BaseExpressionPtr c,
-            const Evaluation &evaluation) {
-
-            auto p = self.get();
-            return (p->*fptr)(a, b, c, evaluation);
-        };
-
-        const BaseExpressionRef p = m_runtime.parse(pattern);
-	    rule_owner(p).add_rule(new PatternMatchedBuiltinRule<3>(p, func));
-    }
 
     template<typename T>
     inline void rule() {

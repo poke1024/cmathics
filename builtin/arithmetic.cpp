@@ -693,15 +693,15 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		builtin_no_args(&DirectedInfinity::apply_0);
+		builtin(&DirectedInfinity::apply_0);
 		builtin(&DirectedInfinity::apply_1);
 	}
 
 	inline BaseExpressionRef apply_0(
-        ExpressionPtr expr,
+        const EmptyExpression &empty,
 		const Evaluation &evaluation) {
 
-		expr->symbolic_initialize([] () {
+		empty.expr->symbolic_initialize([] () {
             return SymEngineRef(SymEngine::ComplexInf.get());
 		}, evaluation);
 
