@@ -430,6 +430,11 @@ protected:
 		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
 	}
 
+	inline void rule(const BaseExpressionRef &lhs, const char *into) {
+		const BaseExpressionRef rhs = m_runtime.parse(into);
+		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
+	}
+
     template<typename T>
     inline void builtin(const char *pattern, F1<T> fptr) {
         const auto self = shared_from_this<T>();

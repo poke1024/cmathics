@@ -199,6 +199,8 @@ inline std::string trim(const std::string &s) {
 }
 
 void Runtime::run_tests() {
+	// also see mathics/test.py
+
 	size_t n_tests = 0;
 
 	for (const auto &record : m_docs) {
@@ -250,16 +252,15 @@ void Runtime::run_tests() {
                     // ignore stuff like -Graphics- for now
                 } else {
                     if (result) {
-                        auto parsed = _parser.parse(trimmed_line.c_str());
+                        auto wanted_str = trimmed_line;
 
-	                    const std::string expected_str = dummy_evaluation.format_output(parsed->evaluate_or_copy(
-	                        dummy_evaluation));
                         const std::string result_str = evaluation.format_output(result);
 
-                        if (expected_str != result_str) {
+                        if (wanted_str != result_str) {
                             if (!fail_expected) {
                                 std::cout << "FAIL" << std::endl;
-                                std::cout << expected_str <<" != " << result_str << std::endl;
+	                            std::cout << "Result: " << result_str << std::endl;
+	                            std::cout << "Wanted: " << wanted_str << std::endl;
                                 fail_count++;
                             }
                         }
