@@ -18,7 +18,7 @@ inline DefinitionsPos get_definitions_pos(
 		return DefinitionsPos::None;
 	} else if (pattern->as_expression()->head() == symbol) {
 		return DefinitionsPos::Down;
-	} else if (lookup_name(pattern) == symbol) {
+	} else if (pattern->lookup_name() == symbol) {
 		return DefinitionsPos::Sub;
 	} else {
         if (pattern->type() == ExpressionType) {
@@ -27,7 +27,7 @@ inline DefinitionsPos get_definitions_pos(
                     const size_t n = slice.size();
 
                     for (size_t i = 0; i < n; i++) {
-                        if (lookup_name(slice[i].get()) == symbol) {
+                        if (slice[i]->lookup_name() == symbol) {
                             return DefinitionsPos::Up;
                         }
                     }
@@ -123,7 +123,7 @@ void SymbolState::add_rule(const RuleRef &rule) {
 }
 
 void SymbolState::add_format(const RuleRef &rule, const SymbolRef &form) {
-    mutable_rules()->format_values[form].add(rule);
+    mutable_rules()->format_values.add(FormatRuleRef(new FormatRule(rule, form)));
 }
 
 Definitions::Definitions() : _symbols(*this) {

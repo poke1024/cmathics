@@ -12,13 +12,17 @@ typedef Slice GenericSlice;
 
 template<typename Slice, typename ReducedAttributes>
 BaseExpressionRef evaluate(
-    const Expression *self,
+    const Expression *generic_self,
     const BaseExpressionRef &head,
     const GenericSlice &generic_slice,
     const Attributes full_attributes,
     const Evaluation &evaluation) {
 
+    const ExpressionImplementation<Slice> * const self =
+		static_cast<const ExpressionImplementation<Slice>*>(generic_self);
+
     const Slice &slice = static_cast<const Slice&>(generic_slice);
+
     eval_range eval_leaf;
 
     const ReducedAttributes attributes(full_attributes);
@@ -63,9 +67,9 @@ BaseExpressionRef evaluate(
         << " TO " << intermediate_form << std::endl;
 #endif
 
-    const Expression * const safe_intermediate_form =
+    const ExpressionImplementation<Slice> * const safe_intermediate_form =
         intermediate_form ?
-        intermediate_form.get() :
+        static_cast<const ExpressionImplementation<Slice>*>(intermediate_form.get()) :
         self;
 
     if (attributes & Attributes::Listable) {
@@ -86,13 +90,13 @@ BaseExpressionRef evaluate(
         const size_t n = slice.size();
         for (size_t i = 0; i < n; i++) {
             // FIXME do not check symbols twice
-            const Symbol * const up_name = lookup_name(slice[i].get());
+            const Symbol * const up_name = slice[i]->lookup_name();
             if (up_name == nullptr) {
                 continue;
             }
             const SymbolRules *const up_rules = up_name->state().rules();
             if (up_rules) {
-                const BaseExpressionRef up_form = up_rules->up_rules.try_and_apply<Slice>(
+                const BaseExpressionRef up_form = up_rules->up_rules.apply(
                     safe_intermediate_form, evaluation);
                 if (up_form) {
                     return up_form;
@@ -107,8 +111,8 @@ BaseExpressionRef evaluate(
         // Step 4
         // Evaluate the head with leaves. (DownValue)
 
-        const BaseExpressionRef down_form = rules->down_rules.try_and_apply<Slice>(
-           safe_intermediate_form, evaluation);
+        const BaseExpressionRef down_form = rules->down_rules.apply(
+            safe_intermediate_form, evaluation);
         if (down_form) {
             return down_form;
         }

@@ -78,22 +78,21 @@ public:
 typedef QuasiConstSharedPtr<Messages> MessagesRef;
 
 struct SymbolRules {
-	inline SymbolRules() :
-        format_values(Pool::rules_map_allocator()) {
+	inline SymbolRules() {
 	}
 
 	inline SymbolRules(const SymbolRules &rules) :
 		sub_rules(rules.sub_rules),
 		up_rules(rules.up_rules),
 		down_rules(rules.down_rules),
-        format_values(Pool::rules_map_allocator()),
+        format_values(rules.format_values),
 		messages(rules.messages) {
 	}
 
 	Rules sub_rules;
 	Rules up_rules;
 	Rules down_rules;
-    SymbolRefMap<Rules> format_values;
+	FormatRules format_values;
 
     MessagesRef messages;
 
@@ -175,6 +174,12 @@ public:
 	void add_rule(const RuleRef &rule);
 
     void add_format(const RuleRef &rule, const SymbolRef &form);
+
+	template<typename Expression>
+	BaseExpressionRef format(
+		const Expression *expr,
+		const SymbolRef &form,
+		const Evaluation &evaluation) const;
 
 	void set_attributes(Attributes attributes);
 
@@ -339,6 +344,27 @@ public:
 		return name();
 	}
 };
+
+template<typename Expression>
+BaseExpressionRef SymbolState::format(
+	const Expression *expr,
+	const SymbolRef &form,
+	const Evaluation &evaluation) const {
+
+	if (expr->type() == ExpressionType &&
+	    expr->as_expression()->head()->type() == ExpressionType) {
+		// expr is of the form f[...][...]
+		return BaseExpressionRef();
+	}
+
+	const Symbol * const name = expr->lookup_name();
+	const SymbolRules * const rules = name->state().rules();
+	if (rules) {
+		return rules->format_values.apply(expr, form, evaluation);
+	} else {
+		return BaseExpressionRef();
+	}
+}
 
 inline SymbolState &EvaluationContext::state(const Symbol *symbol) {
 	const auto i = m_symbols.find(symbol);
@@ -512,12 +538,12 @@ inline SlotDirective CompiledArguments::operator()(const BaseExpressionRef &item
 	}
 }
 
-inline const Symbol *lookup_name(const BaseExpressionPtr item) {
-    switch (item->type()) {
+inline const Symbol *BaseExpression::lookup_name() const {
+    switch (type()) {
         case SymbolType:
-            return static_cast<const Symbol*>(item);
+            return static_cast<const Symbol*>(this);
         case ExpressionType:
-            return item->as_expression()->lookup_name();
+            return as_expression()->lookup_name();
         default:
             return nullptr;
     }

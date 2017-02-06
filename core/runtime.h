@@ -452,9 +452,16 @@ protected:
         m_symbol->state().add_rule(RuleRef(new T(m_symbol, m_runtime.definitions())));
     }
 
-    inline void message(const char *tag, const char *text) {
-        m_symbol->add_message(tag, text, m_runtime.definitions());
-    }
+	template<typename F>
+	inline void format(F function, const SymbolRef &form) {
+		add_rule(function, [this, &form] (const RuleRef &rule) {
+			m_symbol->state().add_format(rule, form);
+		});
+	}
+
+	inline void message(const char *tag, const char *text) {
+		m_symbol->add_message(tag, text, m_runtime.definitions());
+	}
 
 public:
     static constexpr auto attributes = Attributes::None;

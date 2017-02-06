@@ -84,6 +84,10 @@ public:
 		_leaves.init_type_mask(type_mask);
 	}
 
+	inline constexpr SliceCode slice_code() const {
+		return Slice::code();
+	}
+
 	virtual inline bool same(const BaseExpression &item) const final {
 		if (this == &item) {
 			return true;
@@ -205,7 +209,7 @@ public:
 
 				if (rules) {
 					const BaseExpressionRef sub_form =
-						rules->sub_rules.try_and_apply<Slice>(this, evaluation);
+						rules->sub_rules.apply(this, evaluation);
 
 					if (sub_form) {
 						return sub_form;

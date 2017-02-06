@@ -4,6 +4,7 @@
 #include <static_if/static_if.hpp>
 
 #include <forward_list>
+#include <unordered_set>
 
 #include "gmpxx.h"
 #include <arb.h>
@@ -125,51 +126,153 @@ typedef ConstSharedPtr<Rule> RuleRef;
 typedef QuasiConstSharedPtr<Rule> CachedRuleRef;
 typedef UnsafeSharedPtr<Rule> UnsafeRuleRef;
 
-class Rules {
-public:
-    struct Entry {
-        UnsafeRuleRef rule;
-        MatchSize match_size;
-        optional<hash_t> match_hash;
-    };
+struct RuleHash {
+	MatchSize size;
+	optional<hash_t> hash;
 
-private:
+	inline RuleHash(
+		const MatchSize &size_,
+		const optional<hash_t> &hash_) :
+
+		size(size_),
+		hash(hash_) {
+	}
+};
+
+class NoRulesVectorFilter;
+
+template<typename Entry>
+class RulesVector {
+protected:
     std::vector<Entry> m_rules[NumberOfSliceCodes];
 
-    template<bool CheckMatchSize>
-    inline BaseExpressionRef do_try_and_apply(
-        const std::vector<Entry> &entries,
-        const Expression *expr,
-        const Evaluation &evaluation) const;
+	template<typename Filter>
+	inline BaseExpressionRef apply(
+		const std::vector<Entry> &entries,
+		const Expression *expr,
+		Filter &filter,
+		const Evaluation &evaluation) const;
+
+	void insert_rule(
+		std::vector<Entry> &entries,
+		const Entry &entry);
+
+	template<typename Expression, typename Filter>
+	inline BaseExpressionRef apply(
+		const Expression *expr,
+		Filter &filter,
+		const Evaluation &evaluation) const;
 
 public:
-    void add(const RuleRef &rule);
+    void add(const typename Entry::RuleRef &rule);
+};
 
-    inline BaseExpressionRef try_and_apply(
-        const SliceCode slice_code,
-        const Expression *expr,
-        const Evaluation &evaluation) const {
+class RuleEntry : public RuleHash {
+private:
+	UnsafeRuleRef m_rule;
 
-        if (is_static_slice(slice_code)) {
-            return do_try_and_apply<false>(m_rules[slice_code], expr, evaluation);
-        } else {
-            return do_try_and_apply<true>(m_rules[slice_code], expr, evaluation);
-        }
-    }
+public:
+	using RuleRef = ::RuleRef;
 
-    template<typename Slice>
-    inline BaseExpressionRef try_and_apply(
-        const Expression *expr,
-        const Evaluation &evaluation) const {
+	inline RuleEntry(const RuleRef &rule);
 
-        constexpr SliceCode slice_code = Slice::code();
+	inline BaseExpressionRef try_apply(
+		const Expression *expr, const Evaluation &evaluation) const;
 
-        if (is_static_slice(slice_code)) {
-            return do_try_and_apply<false>(m_rules[slice_code], expr, evaluation);
-        } else {
-            return do_try_and_apply<true>(m_rules[slice_code], expr, evaluation);
-        }
-    }
+	inline const auto &key() const;
+
+	inline const auto &pattern() const;
+
+	void merge(const RuleEntry &entry) {
+		*this = entry;
+	}
+};
+
+class Rules : public RulesVector<RuleEntry> {
+public:
+	using RulesVector<RuleEntry>::RulesVector;
+
+	template<typename Expression>
+	inline BaseExpressionRef apply(
+		const Expression *expr,
+		const Evaluation &evaluation) const;
+};
+
+class FormatRule;
+
+typedef UnsafeSharedPtr<FormatRule> UnsafeFormatRuleRef;
+typedef ConstSharedPtr<FormatRule> FormatRuleRef;
+
+class FormatRule : public Shared<FormatRule, SharedHeap> {
+public:
+	using Forms = std::unordered_set<SymbolRef, SymbolHash, SymbolEqual>;
+
+private:
+	const RuleRef m_rule;
+	const Forms m_forms;
+
+public:
+	const RuleRef &rule() const {
+		return m_rule;
+	}
+
+	FormatRule(const RuleRef &rule, const SymbolRef &form) :
+		m_rule(rule), m_forms(&form, &form + 1) {
+	}
+
+	FormatRule(const RuleRef &rule, const Forms &forms) :
+		m_rule(rule), m_forms(forms) {
+	}
+
+	FormatRuleRef merge(FormatRule *rule) {
+		assert(m_rule.get() == rule->m_rule.get());
+		Forms forms(m_forms);
+		for (const SymbolRef &symbol : rule->m_forms) {
+			forms.insert(symbol);
+		}
+		return FormatRuleRef(new FormatRule(m_rule, forms));
+	}
+
+	inline bool has_form(const SymbolRef &form) const {
+		return m_forms.find(form) != m_forms.end();
+	}
+};
+
+class FormatRuleEntry : public RuleHash {
+private:
+	UnsafeFormatRuleRef m_rule;
+
+public:
+	using RuleRef = ::FormatRuleRef;
+
+	inline FormatRuleEntry(
+		const FormatRuleRef &rule);
+
+	inline BaseExpressionRef try_apply(
+		const Expression *expr, const Evaluation &evaluation) const;
+
+	inline const auto &key() const;
+
+	inline const auto &pattern() const;
+
+	void merge(const FormatRuleEntry &entry) {
+		m_rule = m_rule->merge(entry.m_rule.get());
+	}
+
+	inline bool has_form(const SymbolRef &form) const {
+		return m_rule->has_form(form);
+	}
+};
+
+class FormatRules : public RulesVector<FormatRuleEntry> {
+public:
+	using RulesVector<FormatRuleEntry>::RulesVector;
+
+	template<typename Expression>
+	inline BaseExpressionRef apply(
+		const Expression *expr,
+		const SymbolRef &form,
+		const Evaluation &evaluation) const;
 };
 
 template<typename Key, typename Value>

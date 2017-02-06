@@ -22,8 +22,8 @@ StringRef Messages::lookup(
     const Expression *message,
     const Evaluation &evaluation) const {
 
-	const BaseExpressionRef result = m_rules.try_and_apply(
-		message->slice_code(), message, evaluation);
+	const BaseExpressionRef result = m_rules.apply(
+		message, evaluation);
 
     if (result && result->type() == StringType) {
         return static_pointer_cast<const String>(result);

@@ -453,6 +453,8 @@ public:
         return false;
     }
 
+	inline const Symbol *lookup_name() const;
+
 	inline optional<hash_t> match_hash() const {
 		if (type() == ExpressionType) {
 			return compute_match_hash();
@@ -643,8 +645,6 @@ inline void Pool::release(Cache *cache) {
 	_s_instance->_caches.destroy(cache);
 }
 
-inline const Symbol *lookup_name(const BaseExpressionPtr item);
-
 class Expression : public BaseExpression {
 private:
 	mutable CachedCacheRef m_cache;
@@ -674,7 +674,7 @@ protected:
 
 	inline Expression(const BaseExpressionRef &head, SliceCode slice_id, const Slice *slice_ptr) :
 		BaseExpression(build_extended_type(ExpressionType, slice_id)),
-        m_lookup_name(::lookup_name(head.get())),
+        m_lookup_name(head->lookup_name()),
 		_head(head),
 		_slice_ptr(slice_ptr) {
 	}
@@ -806,42 +806,6 @@ inline SymbolicFormRef unsafe_symbolic_form<const ExpressionPtr&>(const Expressi
 }
 
 #include "rule.h"
-
-template<bool CheckMatchSize>
-inline BaseExpressionRef Rules::do_try_and_apply(
-	const std::vector<Entry> &entries,
-	const Expression *expr,
-	const Evaluation &evaluation) const {
-
-	hash_t match_hash;
-	bool match_hash_valid = false;
-
-	const size_t size = CheckMatchSize ? expr->size() : 0;
-
-	for (const Entry &entry : entries) {
-		if (CheckMatchSize && !entry.match_size.contains(size)) {
-			continue;
-		}
-
-		if (entry.match_hash) {
-			if (!match_hash_valid) {
-				match_hash = expr->hash();
-				match_hash_valid = true;
-			}
-			if (match_hash != *entry.match_hash) {
-				continue;
-			}
-		}
-
-		const BaseExpressionRef result =
-			entry.rule->try_apply(expr, evaluation);
-		if (result) {
-			return result;
-		}
-	}
-
-	return BaseExpressionRef();
-}
 
 template<typename F>
 inline auto with_slices(const Expression *a, const Expression *b, const F &f) {
