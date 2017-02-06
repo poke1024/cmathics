@@ -156,10 +156,10 @@ public:
         builtin("MakeBoxes[FullForm[expr_], StandardForm|TraditionalForm|OutputForm]",
 		    "StyleBox[MakeBoxes[expr, FullForm], ShowStringCharacters->True]");
 
-        /*builtin(R"(
+        builtin(R"(
             MakeBoxes[Infix[expr_, h_, prec_:None, grouping_:None],
             f:StandardForm|TraditionalForm|OutputForm|InputForm]
-            )", &MakeBoxes::apply_infix);*/
+            )", &MakeBoxes::apply_infix);
 
         builtin(&MakeBoxes::apply);
 

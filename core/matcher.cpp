@@ -804,11 +804,15 @@ private:
 		index_t begin,
 		index_t end) const {
 
-        for (const PatternMatcherRef &matcher : m_matchers) {
+	    const auto &state = sequence.context().match;
+	    const size_t vars0 = state->n_slots_fixed();
+	    for (const PatternMatcherRef &matcher : m_matchers) {
 	        const index_t match = matcher->match(sequence, begin, end);
             if (match >= 0) {
                 auto slice = sequence.slice(begin, match);
                 return m_rest(sequence, match, end, slice);
+            } else {
+	            state->backtrack(vars0);
             }
         }
 
@@ -851,18 +855,31 @@ private:
 		index_t begin,
 		index_t end) const {
 
+		const auto &state = sequence.context().match;
+		const size_t vars0 = state->n_slots_fixed();
+
 		const index_t match = m_matcher->match(sequence, begin, end);
 		if (match >= 0) {
 			auto slice = sequence.slice(begin, match);
-			return m_rest(sequence, match, end, slice);
-		} else {
-			const index_t ok = m_matcher->match(
-				FastLeafSequence(sequence.context(), &m_default), 0, 1);
-			if (ok == 1) {
-				auto slice = sequence.slice(begin, begin);
-				return m_rest(sequence, begin, end, slice);
+			const index_t rest_match = m_rest(sequence, match, end, slice);
+			if (rest_match >= 0) {
+				return rest_match;
 			}
 		}
+
+		state->backtrack(vars0);
+
+		const index_t match1 = m_matcher->match(
+			FastLeafSequence(sequence.context(), &m_default), 0, 1);
+		if (match1 == 1) {
+			auto slice = sequence.slice(begin, begin);
+			const index_t rest_match = m_rest(sequence, begin, end, slice);
+			if (rest_match >= 0) {
+				return rest_match;
+			}
+		}
+
+		state->backtrack(vars0);
 
 		return -1;
 	}
@@ -1651,7 +1668,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			std::vector<PatternMatcherRef> matchers;
 			matchers.reserve(patt_end - patt_begin);
 			for (const BaseExpressionRef *patt = patt_begin; patt < patt_end; patt++) {
-				matchers.push_back(compile(*patt, size.from_here(), factory));
+				matchers.push_back(compile(*patt, size.from_here(), factory.stripped()));
 			}
 			return factory.create<AlternativesMatcher>(matchers);
 		}
@@ -1696,7 +1713,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 		case SymbolOptional:
 			if (patt_end - patt_begin == 2) { // 2 leaves?
 				const PatternMatcherRef matcher = compile(
-					patt_begin[0], size.from_here(), factory);
+					patt_begin[0], size.from_here(), factory.stripped(false));
 				return factory.create<OptionalMatcher>(std::make_tuple(matcher, patt_begin[1]));
 			}
 			break;
