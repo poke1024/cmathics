@@ -64,6 +64,12 @@ public:
         return true;
     }
 
+    virtual bool is_negative() const {
+        return value < 0;
+    }
+
+    virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
+
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
         return Pool::SymbolicForm(SymEngine::Rational::from_mpq(value.get_mpq_t()));

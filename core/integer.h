@@ -56,6 +56,12 @@ public:
 		return true;
 	}
 
+    virtual bool is_negative() const {
+        return value < 0;
+    }
+
+    virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
+
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
         return Pool::SymbolicForm(SymEngine::integer(value));
@@ -107,6 +113,12 @@ public:
 	virtual bool is_numeric() const {
 		return true;
 	}
+
+    virtual bool is_negative() const {
+        return value < 0;
+    }
+
+    virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {

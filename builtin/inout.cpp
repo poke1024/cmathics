@@ -156,6 +156,11 @@ public:
         builtin("MakeBoxes[FullForm[expr_], StandardForm|TraditionalForm|OutputForm]",
 		    "StyleBox[MakeBoxes[expr, FullForm], ShowStringCharacters->True]");
 
+        /*builtin(R"(
+            MakeBoxes[Infix[expr_, h_, prec_:None, grouping_:None],
+            f:StandardForm|TraditionalForm|OutputForm|InputForm]
+            )", &MakeBoxes::apply_infix);*/
+
         builtin(&MakeBoxes::apply);
 
         m_parentheses[0][0].initialize(Pool::String("("));
@@ -238,6 +243,17 @@ public:
         } else {
             return expr->make_boxes(form, evaluation);
         }
+    }
+
+    inline BaseExpressionRef apply_infix(
+        BaseExpressionPtr expr,
+        BaseExpressionPtr h,
+        BaseExpressionPtr prec,
+        BaseExpressionPtr grouping,
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) {
+
+        return Pool::String("Infix not implemented");
     }
 };
 

@@ -423,15 +423,80 @@ public:
 	}
 };
 
-constexpr auto Plus0 = NewRule<EmptyConstantRule<0>>;
+/*constexpr auto Plus0 = NewRule<EmptyConstantRule<0>>;
 constexpr auto Plus1 = NewRule<IdentityRule>;
 constexpr auto Plus2 = NewRule<BinaryOperatorRule<BinaryArithmetic<plus>>>;
-constexpr auto PlusN = NewRule<PlusNRule>;
+constexpr auto PlusN = NewRule<PlusNRule>;*/
 
 constexpr auto Times0 = NewRule<EmptyConstantRule<1>>;
 constexpr auto Times1 = NewRule<IdentityRule>;
 constexpr auto Times2 = NewRule<BinaryOperatorRule<TimesArithmetic>>;
 constexpr auto TimesN = NewRule<TimesNRule>;
+
+class Plus : public Builtin {
+public:
+	static constexpr const char *name = "Plus";
+
+	static constexpr const char *docs = R"(
+        >> 1 + 2
+         = 3
+	)";
+
+private:
+    CachedBaseExpressionRef m_plus;
+    CachedBaseExpressionRef m_minus;
+    CachedBaseExpressionRef m_310;
+
+public:
+	using Builtin::Builtin;
+
+	static constexpr auto attributes =
+		Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +
+        Attributes::OneIdentity + Attributes::Orderless + Attributes::Protected;
+
+
+	inline BaseExpressionRef do_format(
+		const BaseExpressionRef *leaves,
+        size_t n,
+        const Evaluation &evaluation) {
+
+        const ExpressionRef ops = expression(evaluation.List, sequential(
+            [this, leaves, n, &evaluation] (auto &store) {
+                for (size_t i = 0; i < n; i++) {
+                    store(leaves[i]->is_negative() ? m_minus : m_plus);
+                }
+            }, n));
+
+        const BaseExpressionRef values = ops->with_slice(
+            [this, leaves, n, &evaluation] (const auto &ops) {
+                return expression(evaluation.List, sequential(
+                    [this, leaves, n, &evaluation, &ops] (auto &store) {
+                        for (size_t i = 0; i < n; i++) {
+                            store(expression(
+                                evaluation.HoldForm,
+                                ops[i] == m_plus ?
+                                    leaves[i] :
+                                    leaves[i]->negate(evaluation)));
+                        }
+                    }, n));
+                });
+
+        return expression(evaluation.Infix, values, ops, m_310, evaluation.Left);
+    }
+
+	void build(Runtime &runtime) {
+        m_plus.initialize(Pool::String(std::string("+")));
+        m_minus.initialize(Pool::String(std::string("-")));
+        m_310.initialize(Pool::MachineInteger(310));
+
+        builtin<EmptyConstantRule<0>>();
+        builtin<IdentityRule>();
+        builtin<BinaryOperatorRule<BinaryArithmetic<plus>>>();
+        builtin<PlusNRule>();
+
+        format(&Plus::do_format, runtime.symbols().All);
+	}
+};
 
 class Divide : public Builtin {
 public:
@@ -1436,17 +1501,7 @@ public:
 
 void Builtins::Arithmetic::initialize() {
 
-	add("Plus",
-	    Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +
-		    Attributes::OneIdentity + Attributes::Orderless + Attributes::Protected, {
-			Plus0,
-		    Plus1,
-		    Plus2,
-		    PlusN
-	    }, R"(
-			>> 1 + 2
-			 = 3
-		)");
+    add<Plus>();
 
 	add("Times",
 		Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +

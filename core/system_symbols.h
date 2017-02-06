@@ -86,6 +86,9 @@ SYMBOL(SuperscriptBox)
 SYMBOL(StyleBox)
 
 SYMBOL(HoldForm)
+SYMBOL(Infix)
+SYMBOL(Left)
+SYMBOL(Right)
 
 SYMBOL(StartOfString)
 SYMBOL(EndOfString)

@@ -122,8 +122,20 @@ void SymbolState::add_rule(const RuleRef &rule) {
 	}
 }
 
-void SymbolState::add_format(const RuleRef &rule, const SymbolRef &form) {
-    mutable_rules()->format_values.add(FormatRuleRef(new FormatRule(rule, form)));
+void SymbolState::add_format(
+    const RuleRef &rule,
+    const SymbolRef &form,
+    const Definitions &definitions) {
+
+    FormatRule *format_rule;
+
+    if (form == definitions.symbols().All) {
+        format_rule = new FormatRule(rule);
+    } else {
+        format_rule = new FormatRule(rule, form);
+    }
+
+    mutable_rules()->format_values.add(FormatRuleRef(format_rule));
 }
 
 Definitions::Definitions() : _symbols(*this) {

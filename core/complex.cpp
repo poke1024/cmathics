@@ -50,6 +50,10 @@ BaseExpressionPtr MachineComplex::head(const Symbols &symbols) const {
     return symbols.Complex;
 }
 
+BaseExpressionRef MachineComplex::negate(const Evaluation &evaluation) const {
+    return Pool::MachineComplex(-value.real(), -value.imag());
+}
+
 BaseExpressionRef BigComplex::custom_format(
 	const BaseExpressionRef &form,
 	const Evaluation &evaluation) const {
@@ -96,3 +100,12 @@ BaseExpressionPtr BigComplex::head(const Symbols &symbols) const {
     return symbols.Complex;
 }
 
+BaseExpressionRef BigComplex::negate(const Evaluation &evaluation) const {
+    const SymEngine::Integer &minus_one = *SymEngine::minus_one;
+
+    SymEngine::RCP<const SymEngine::Number> real = m_value->real_part()->mul(minus_one);
+    SymEngine::RCP<const SymEngine::Number> imag = m_value->imaginary_part()->mul(minus_one);
+
+    return Pool::BigComplex(SymEngine::rcp_static_cast<const SymEngine::Complex>(
+        SymEngine::Complex::from_two_nums(*real, *imag)));
+}

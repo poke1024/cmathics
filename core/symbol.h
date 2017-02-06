@@ -173,7 +173,10 @@ public:
 
 	void add_rule(const RuleRef &rule);
 
-    void add_format(const RuleRef &rule, const SymbolRef &form);
+    void add_format(
+        const RuleRef &rule,
+        const SymbolRef &form,
+        const Definitions &definitions);
 
 	template<typename Expression>
 	BaseExpressionRef format(

@@ -18,6 +18,10 @@ BaseExpressionPtr MachineInteger::head(const Symbols &symbols) const {
     return symbols.Integer;
 }
 
+BaseExpressionRef MachineInteger::negate(const Evaluation &evaluation) const {
+    return from_primitive(Numeric::Z(value) * Numeric::Z(-1));
+}
+
 BaseExpressionRef BigInteger::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {
@@ -31,4 +35,9 @@ BaseExpressionPtr BigInteger::head(const Symbols &symbols) const {
 
 std::string BigInteger::boxes_to_text(const Evaluation &evaluation) const {
 	return value.get_str();;
+}
+
+BaseExpressionRef BigInteger::negate(const Evaluation &evaluation) const {
+    mpz_class negated(-value);
+    return from_primitive(std::move(negated));
 }

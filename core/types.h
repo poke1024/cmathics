@@ -453,6 +453,12 @@ public:
         return false;
     }
 
+    virtual bool is_negative() const {
+        return false;
+    }
+
+    virtual BaseExpressionRef negate(const Evaluation &evaluation) const;
+
 	inline const Symbol *lookup_name() const;
 
 	inline optional<hash_t> match_hash() const {
@@ -784,6 +790,8 @@ protected:
 	inline PatternMatcherRef string_matcher() const;
 
 	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const = 0;
+
+    virtual BaseExpressionRef custom_format(const BaseExpressionRef &form, const Evaluation &evaluation) const;
 };
 
 inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {

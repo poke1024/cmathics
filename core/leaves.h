@@ -610,6 +610,8 @@ struct create_using_generator {
 template<int N>
 class StaticSlice : protected std::array<BaseExpressionRef, N>, public BaseRefsSlice<static_slice_code(N)> {
 private:
+    static_assert(N <= MaxStaticSliceSize, "N must not be greater than MaxStaticSliceSize");
+
 	typedef BaseRefsSlice<static_slice_code(N)> BaseSlice;
 
 	typedef std::array<BaseExpressionRef, N> Array;

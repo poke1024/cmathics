@@ -96,9 +96,15 @@ public:
         return true;
     }
 
+    virtual bool is_negative() const {
+        return value < 0.;
+    }
+
     virtual bool is_inexact() const final {
         return true;
     }
+
+    virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
@@ -171,9 +177,15 @@ public:
         return true;
     }
 
+    virtual bool is_negative() const {
+        return arb_is_negative(value);
+    }
+
     virtual bool is_inexact() const final {
         return true;
     }
+
+    virtual BaseExpressionRef negate(const Evaluation &evaluation) const;
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {

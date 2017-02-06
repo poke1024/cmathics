@@ -37,3 +37,7 @@ BaseExpressionRef BigRational::custom_format(
 BaseExpressionPtr BigRational::head(const Symbols &symbols) const {
     return symbols.Rational;
 }
+
+BaseExpressionRef BigRational::negate(const Evaluation &evaluation) const {
+    return from_primitive(-value);
+}

@@ -34,7 +34,7 @@ protected:
 	}
 
 public:
-	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const;
+	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const final;
 
 public:
 	const Slice _leaves;
@@ -540,6 +540,16 @@ public:
 
         throw std::runtime_error("box error");
     }
+
+    virtual bool is_negative() const final {
+        if (head()->extended_type() == SymbolTimes && size() >= 1) {
+            return _leaves[0]->is_negative();
+        } else {
+            return false;
+        }
+    }
+
+    virtual inline BaseExpressionRef negate(const Evaluation &evaluation) const final;
 };
 
 #include "leaves.tcc"
@@ -641,6 +651,25 @@ inline ExpressionRef expression(
 }
 
 inline ExpressionRef expression(
+    const BaseExpressionRef &head,
+    const BaseExpressionRef &a,
+    const BaseExpressionRef &b,
+    const BaseExpressionRef &c) {
+
+    return Pool::StaticExpression<3>(head, StaticSlice<3>({a, b, c}));
+}
+
+inline ExpressionRef expression(
+    const BaseExpressionRef &head,
+    const BaseExpressionRef &a,
+    const BaseExpressionRef &b,
+    const BaseExpressionRef &c,
+    const BaseExpressionRef &d) {
+
+    return Pool::StaticExpression<4>(head, StaticSlice<4>({a, b, c, d}));
+}
+
+inline ExpressionRef expression(
 	const BaseExpressionRef &head,
 	const std::initializer_list<BaseExpressionRef> &leaves) {
 
@@ -678,7 +707,7 @@ inline ExpressionRef expression(const BaseExpressionRef &head, const VCallSlice 
 }
 
 template<typename Slice>
-ExpressionRef ExpressionImplementation<Slice>::slice(
+inline ExpressionRef ExpressionImplementation<Slice>::slice(
 	const BaseExpressionRef &head, index_t begin, index_t end) const {
 
 	const index_t size = index_t(_leaves.size());
@@ -1049,6 +1078,36 @@ inline BaseExpressionRef apply_symengine(
 	}
 
 	return BaseExpressionRef();
+}
+
+template<typename Slice>
+inline BaseExpressionRef ExpressionImplementation<Slice>::negate(const Evaluation &evaluation) const {
+    if (head()->extended_type() == SymbolTimes && size() >= 1) {
+        const BaseExpressionRef &leaf = _leaves[0];
+        if (leaf->is_number()) {
+            const BaseExpressionRef negated = leaf->negate(evaluation);
+            if (negated->is_one()) {
+                if (size() == 1) {
+                    return negated;
+                } else {
+                    return slice(evaluation.Times, 1);
+                }
+            } else {
+                return expression(evaluation.Times, sequential(
+                    [this, &negated] (auto &store) {
+                        store(BaseExpressionRef(negated));
+                        const size_t n = size();
+                        for (size_t i = 0; i < n; i++) {
+                            store(BaseExpressionRef(_leaves[i]));
+                        }
+                    }, 1 + size()));
+            }
+        } else {
+            return expression(evaluation.Times, evaluation.minus_one, leaf);
+        }
+    } else {
+        return BaseExpression::negate(evaluation);
+    }
 }
 
 #endif

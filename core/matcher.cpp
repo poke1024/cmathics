@@ -348,13 +348,15 @@ public:
 
 	template<typename Element, typename F>
 	inline index_t operator()(MatchContext &context, Element &element, const F &f) const {
-		if (!context.match->assign(m_slot_index, *element)) {
+        bool is_owner;
+
+		if (!context.match->assign(m_slot_index, *element, is_owner)) {
 			return -1;
 		}
 
 		const index_t match = f();
 
-		if (match < 0) {
+		if (match < 0 && is_owner) {
 			context.match->unassign(m_slot_index);
 		}
 

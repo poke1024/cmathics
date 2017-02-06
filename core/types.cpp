@@ -56,7 +56,7 @@ MatchSize Rule::leaf_match_size() const {
 }
 
 BaseExpressionRef BaseExpression::format(const BaseExpressionRef &form, const Evaluation &evaluation) const {
-	BaseExpressionRef expr = custom_format(form, evaluation);
+	BaseExpressionRef expr = coalesce(custom_format(form, evaluation), BaseExpressionRef(this));
 	return expression(evaluation.MakeBoxes, expr, form)->evaluate_or_copy(evaluation);
 }
 
@@ -441,6 +441,10 @@ BaseExpressionRef Expression::symbolic_evaluate_binary(
 			return BaseExpressionRef();
 		}
 	}
+}
+
+BaseExpressionRef BaseExpression::negate(const Evaluation &evaluation) const {
+    return expression(evaluation.Times, evaluation.minus_one, BaseExpressionRef(this));
 }
 
 std::string BaseExpression::debug(const Evaluation &evaluation) const {

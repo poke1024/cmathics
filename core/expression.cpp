@@ -44,3 +44,14 @@ BaseExpressionRef Expression::evaluate_expression(
 SymbolicFormRef Expression::instantiate_symbolic_form() const {
     return fast_symbolic_form(this);
 }
+
+BaseExpressionRef Expression::custom_format(
+    const BaseExpressionRef &form,
+    const Evaluation &evaluation) const {
+
+    if (form->type() == SymbolType && head()->type() == SymbolType) {
+        return head()->as_symbol()->state().format(this, SymbolRef(form->as_symbol()), evaluation);
+    } else {
+        return BaseExpressionRef();
+    }
+}

@@ -129,6 +129,10 @@ tribool MachineReal::equals(const BaseExpression &expr) const {
 	}
 }
 
+BaseExpressionRef MachineReal::negate(const Evaluation &evaluation) const {
+    return from_primitive(-value);
+}
+
 BaseExpressionRef BigReal::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {
@@ -194,3 +198,9 @@ tribool BigReal::equals(const BaseExpression &expr) const {
 	}
 }
 
+BaseExpressionRef BigReal::negate(const Evaluation &evaluation) const {
+    arb_t negated;
+    arb_init(negated);
+    arb_neg(negated, value);
+    return Pool::BigReal(negated, prec);
+}

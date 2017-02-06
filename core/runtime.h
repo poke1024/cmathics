@@ -246,6 +246,15 @@ protected:
         BaseExpressionPtr,
         const Evaluation &);
 
+    template<typename T>
+    using F5 = BaseExpressionRef (T::*) (
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        const Evaluation &);
+
 	template<typename T, typename Options>
 	using OptionsF2 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
@@ -385,6 +394,11 @@ private:
         return internal_add_arguments_rule<T, Add, decltype(function), 4, ExtendedArgumentsBridge>(function, add);
     }*/
 
+    template<typename T, typename Add>
+    inline void add_rule(F5<T> function, const Add &add) {
+        return internal_add_arguments_rule<T, Add, decltype(function), 5, ArgumentsBridge>(function, add);
+    }
+
     template<typename T, typename Add, typename F, int N, template<typename, typename, int> class B>
     inline void internal_add_pattern_rule(const char *pattern, F function, const Add &add) {
         const auto bridge = B<T, F, N>(this, function);
@@ -405,6 +419,16 @@ private:
     template<typename T, typename Add>
     inline void add_rule(const char *pattern, F3<T> function, const Add &add) {
         internal_add_pattern_rule<T, Add, decltype(function), 3, ArgumentsBridge>(pattern, function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(const char *pattern, F4<T> function, const Add &add) {
+        internal_add_pattern_rule<T, Add, decltype(function), 4, ArgumentsBridge>(pattern, function, add);
+    }
+
+    template<typename T, typename Add>
+    inline void add_rule(const char *pattern, F5<T> function, const Add &add) {
+        internal_add_pattern_rule<T, Add, decltype(function), 5, ArgumentsBridge>(pattern, function, add);
     }
 
     /*template<typename T, typename Add>
@@ -455,7 +479,7 @@ protected:
 	template<typename F>
 	inline void format(F function, const SymbolRef &form) {
 		add_rule(function, [this, &form] (const RuleRef &rule) {
-			m_symbol->state().add_format(rule, form);
+			m_symbol->state().add_format(rule, form, m_runtime.definitions());
 		});
 	}
 

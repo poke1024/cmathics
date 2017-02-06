@@ -1,3 +1,5 @@
+// @formatter:off
+
 #ifndef EVALUATION_H
 #define EVALUATION_H
 

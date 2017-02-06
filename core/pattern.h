@@ -235,15 +235,17 @@ public:
         m_slots_fixed = 0;
     }
 
-    inline bool assign(const index_t slot_index, const BaseExpressionRef &value) {
+    inline bool assign(const index_t slot_index, const BaseExpressionRef &value, bool &is_owner) {
 	    assert(slot_index >= 0 && slot_index < m_slots.size());
         Slot &slot = m_slots[slot_index];
         if (slot.value) {
+            is_owner = false;
             return slot.value->same(value);
         } else {
             slot.value = value;
 	        assert(m_slots_fixed < m_slots.size());
             m_slots[m_slots_fixed++].index_to_ith = slot_index;
+            is_owner = true;
             return true;
         }
     }

@@ -209,6 +209,7 @@ public:
 
 private:
 	const RuleRef m_rule;
+    const bool m_all_forms;
 	const Forms m_forms;
 
 public:
@@ -216,12 +217,16 @@ public:
 		return m_rule;
 	}
 
+    FormatRule(const RuleRef &rule) :
+        m_rule(rule), m_all_forms(true) {
+    }
+
 	FormatRule(const RuleRef &rule, const SymbolRef &form) :
-		m_rule(rule), m_forms(&form, &form + 1) {
+		m_rule(rule), m_all_forms(false), m_forms(&form, &form + 1) {
 	}
 
 	FormatRule(const RuleRef &rule, const Forms &forms) :
-		m_rule(rule), m_forms(forms) {
+		m_rule(rule), m_all_forms(false), m_forms(forms) {
 	}
 
 	FormatRuleRef merge(FormatRule *rule) {
@@ -234,7 +239,7 @@ public:
 	}
 
 	inline bool has_form(const SymbolRef &form) const {
-		return m_forms.find(form) != m_forms.end();
+		return m_all_forms || m_forms.find(form) != m_forms.end();
 	}
 };
 
