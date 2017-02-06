@@ -10,6 +10,65 @@ typedef std::pair<size_t, size_t> eval_range;
 
 typedef Slice GenericSlice;
 
+template<typename IntermediateExpression, typename Slice, typename ReducedAttributes>
+BaseExpressionRef evaluate_intermediate_form(
+    const IntermediateExpression *expr,
+    const Slice &slice,
+    const ReducedAttributes &attributes,
+    const Evaluation &evaluation) {
+
+    if (attributes & Attributes::Listable) {
+        bool done;
+        UnsafeExpressionRef threaded;
+        std::tie(done, threaded) = expr->thread(evaluation);
+        if (done) {
+            return threaded;
+        }
+    }
+
+    // Step 3
+    // Apply UpValues for leaves
+
+    if ((attributes & Attributes::HoldAllComplete) == 0 &&
+        slice.type_mask() & make_type_mask(SymbolType, ExpressionType)) {
+
+        const size_t n = slice.size();
+        for (size_t i = 0; i < n; i++) {
+            // FIXME do not check symbols twice
+            const Symbol * const up_name = slice[i]->lookup_name();
+            if (up_name == nullptr) {
+                continue;
+            }
+            const SymbolRules *const up_rules = up_name->state().rules();
+            if (up_rules) {
+                const BaseExpressionRef up_form = up_rules->up_rules.apply(
+                    expr, evaluation);
+                if (up_form) {
+                    return up_form;
+                }
+            }
+        }
+    }
+
+    assert(expr->head()->type() == SymbolType);
+    const Symbol * const head_symbol = static_cast<const Symbol*>(expr->head());
+
+    const SymbolRules * const rules = head_symbol->state().rules();
+
+    if (rules) {
+        // Step 4
+        // Evaluate the head with leaves. (DownValue)
+
+        const BaseExpressionRef down_form = rules->down_rules.apply(
+            expr, evaluation);
+        if (down_form) {
+            return down_form;
+        }
+    }
+
+    return BaseExpressionRef();
+}
+
 template<typename Slice, typename ReducedAttributes>
 BaseExpressionRef evaluate(
     const Expression *generic_self,
@@ -18,7 +77,9 @@ BaseExpressionRef evaluate(
     const Attributes full_attributes,
     const Evaluation &evaluation) {
 
-    const ExpressionImplementation<Slice> * const self =
+    using Implementation = const ExpressionImplementation<Slice>;
+
+    const Implementation * const self =
 		static_cast<const ExpressionImplementation<Slice>*>(generic_self);
 
     const Slice &slice = static_cast<const Slice&>(generic_slice);
@@ -42,14 +103,12 @@ BaseExpressionRef evaluate(
         eval_leaf = eval_range(0, slice.size());
     }
 
-    const Symbol * const head_symbol = static_cast<const Symbol*>(head.get());
-
     assert(0 <= eval_leaf.first);
     assert(eval_leaf.first <= eval_leaf.second);
     assert(eval_leaf.second <= slice.size());
 
     const ExpressionRef intermediate_form =
-        conditional_map<ExpressionType,SymbolType>(
+        conditional_map<ExpressionType, SymbolType>(
             head,
             head != self->_head,
             lambda([&evaluation] (const BaseExpressionRef &leaf) {
@@ -67,58 +126,30 @@ BaseExpressionRef evaluate(
         << " TO " << intermediate_form << std::endl;
 #endif
 
-    const ExpressionImplementation<Slice> * const safe_intermediate_form =
-        intermediate_form ?
-        static_cast<const ExpressionImplementation<Slice>*>(intermediate_form.get()) :
-        self;
+    if (intermediate_form) {
+        if (is_static_slice(Slice::code())) { // static slices always produce static slices
+            assert(intermediate_form->slice_code() == Slice::code());
+            const auto *expr = static_cast<const Implementation*>(intermediate_form.get());
 
-    if (attributes & Attributes::Listable) {
-        bool done;
-        UnsafeExpressionRef threaded;
-        std::tie(done, threaded) = safe_intermediate_form->thread(evaluation);
-        if (done) {
-            return threaded;
+            return coalesce(evaluate_intermediate_form(
+                expr,
+                expr->slice(),
+                attributes,
+                evaluation), intermediate_form);
+        } else { // non-static slices might produce a variety of slice types; we need to check
+            return coalesce(intermediate_form->with_slice<CompileToSliceType>(
+                [&intermediate_form, &attributes, &evaluation] (const auto &slice) {
+                    return evaluate_intermediate_form(
+                        intermediate_form.get(),
+                        slice,
+                        attributes,
+                        evaluation);
+                }), intermediate_form);
         }
+    } else {
+        return evaluate_intermediate_form(
+            self, slice, attributes, evaluation);
     }
-
-    // Step 3
-    // Apply UpValues for leaves
-
-    if ((attributes & Attributes::HoldAllComplete) == 0 &&
-        slice.type_mask() & make_type_mask(SymbolType, ExpressionType)) {
-
-        const size_t n = slice.size();
-        for (size_t i = 0; i < n; i++) {
-            // FIXME do not check symbols twice
-            const Symbol * const up_name = slice[i]->lookup_name();
-            if (up_name == nullptr) {
-                continue;
-            }
-            const SymbolRules *const up_rules = up_name->state().rules();
-            if (up_rules) {
-                const BaseExpressionRef up_form = up_rules->up_rules.apply(
-                    safe_intermediate_form, evaluation);
-                if (up_form) {
-                    return up_form;
-                }
-            }
-        }
-    }
-
-    const SymbolRules * const rules = head_symbol->state().rules();
-
-    if (rules) {
-        // Step 4
-        // Evaluate the head with leaves. (DownValue)
-
-        const BaseExpressionRef down_form = rules->down_rules.apply(
-            safe_intermediate_form, evaluation);
-        if (down_form) {
-            return down_form;
-        }
-    }
-
-    return intermediate_form;
 }
 
 template<Attributes fixed_attributes>

@@ -63,6 +63,10 @@ public:
 		Expression(head, Slice::code(), &_leaves), _leaves(generator) {
 	}
 
+    inline const auto &slice() const {
+        return _leaves;
+    }
+
 	inline auto leaves() const {
 		return _leaves.leaves();
 	}

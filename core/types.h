@@ -575,8 +575,13 @@ public:
     }
 };
 
-inline BaseExpressionRef coalesce(const BaseExpressionRef &a, const BaseExpressionRef &b) {
-    return a ? a : b;
+template<typename A, typename B>
+inline auto coalesce(const A &a, const B &b) {
+    if (a) {
+        return a;
+    } else {
+        return A(b);
+    }
 }
 
 #include "heap.h"
