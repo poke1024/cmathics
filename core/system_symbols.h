@@ -89,6 +89,7 @@ SYMBOL(HoldForm)
 SYMBOL(Infix)
 SYMBOL(Left)
 SYMBOL(Right)
+SYMBOL(None)
 
 SYMBOL(StartOfString)
 SYMBOL(EndOfString)

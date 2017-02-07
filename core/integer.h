@@ -154,4 +154,12 @@ inline bool BaseExpression::is_one() const {
     }
 }
 
+inline bool BaseExpression::is_minus_one() const {
+    if (type() == MachineIntegerType) {
+        return static_cast<const MachineInteger*>(this)->value == -1;
+    } else {
+        return false;
+    }
+}
+
 #endif

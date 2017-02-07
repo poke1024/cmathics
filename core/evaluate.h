@@ -137,8 +137,7 @@ public:
         const size_t end = base::m_end;
         const FReference f = base::m_f;
 
-        std::vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>> v(
-            Pool::ref_vector_allocator());
+        TempVector v;
 
         std::atomic_flag lock = ATOMIC_FLAG_INIT;
         bool changed = false;
@@ -161,7 +160,7 @@ public:
                     changed = true;
                 }
                 new_type_mask |= leaf->base_type_mask();
-                v[i].unsafe_mutate(std::move(leaf));
+                v[i] = std::move(leaf);
                 lock.clear();
             }
         }, end - begin);
@@ -289,6 +288,43 @@ inline ExpressionRef ExpressionImplementation<Slice>::conditional_map(
 
 	return ::conditional_map<Types...>(
 		head, head.get() != _head.get(), lambda(f), _leaves, 0, _leaves.size(), evaluation);
+}
+
+template<typename Slice>
+template<typename F>
+inline ExpressionRef ExpressionImplementation<Slice>::conditional_map_all(
+    const BaseExpressionRef &head,
+    const F &f,
+    const Evaluation &evaluation) const {
+
+    return ::conditional_map_all(
+        head, head.get() != _head.get(), lambda(f), _leaves, 0, _leaves.size(), evaluation);
+}
+
+template<typename Slice>
+BaseExpressionRef ExpressionImplementation<Slice>::custom_format(
+    const BaseExpressionRef &form,
+    const Evaluation &evaluation) const {
+
+    // see BaseExpression.do_format in PyMathics
+
+    if (form->type() != SymbolType) {
+        return BaseExpressionRef();
+    }
+
+    if (head()->type() == SymbolType) {
+        const BaseExpressionRef formatted = head()->as_symbol()->state().format(
+            this, SymbolRef(form->as_symbol()), evaluation);
+        if (formatted) {
+            return formatted->custom_format(form, evaluation);
+        }
+    }
+
+    const BaseExpressionRef new_head = head()->custom_format(form, evaluation);
+
+    return conditional_map_all(new_head, [&form, &evaluation] (const BaseExpressionRef &leaf) {
+        return leaf->custom_format(form, evaluation);
+    }, evaluation);
 }
 
 using EvaluateFunction = std::function<BaseExpressionRef(

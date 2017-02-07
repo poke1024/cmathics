@@ -365,10 +365,12 @@ BaseExpressionRef SymbolState::format(
 	const Symbol * const name = expr->lookup_name();
 	const SymbolRules * const rules = name->state().rules();
 	if (rules) {
-		return rules->format_values.apply(expr, form, evaluation);
-	} else {
-		return BaseExpressionRef();
-	}
+        BaseExpressionRef result = rules->format_values.apply(expr, form, evaluation);
+        if (result) {
+            return result->evaluate_or_copy(evaluation);
+        }
+    }
+    return BaseExpressionRef();
 }
 
 inline SymbolState &EvaluationContext::state(const Symbol *symbol) {

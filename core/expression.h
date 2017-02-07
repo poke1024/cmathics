@@ -488,6 +488,14 @@ public:
 	inline ExpressionRef conditional_map(
 		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
 
+	template<typename F>
+	inline ExpressionRef conditional_map_all(
+		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
+
+    virtual BaseExpressionRef custom_format(
+        const BaseExpressionRef &form,
+        const Evaluation &evaluation) const;
+
     virtual std::string boxes_to_text(const Evaluation &evaluation) const {
         switch (head()->extended_type()) {
 	        case SymbolStyleBox: {
@@ -1122,6 +1130,16 @@ inline BaseExpressionRef ExpressionImplementation<Slice>::negate(const Evaluatio
     } else {
         return BaseExpression::negate(evaluation);
     }
+}
+
+inline ExpressionRef TempVector::to_list(const Evaluation &evaluation) const {
+    const auto &v = *this;
+    return expression(evaluation.List, sequential([&v] (auto &store) {
+        const size_t n = v.size();
+        for (size_t i = 0; i < n; i++) {
+            store(BaseExpressionRef(v[i]));
+        }
+    }, size()));
 }
 
 #endif

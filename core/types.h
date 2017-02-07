@@ -435,6 +435,20 @@ public:
 		return ((TypeMask)1) << type();
 	}
 
+    inline bool is_non_complex_number() const {
+        switch (type()) {
+            case MachineIntegerType:
+            case BigIntegerType:
+            case MachineRealType:
+            case BigRealType:
+            case MachineRationalType:
+            case BigRationalType:
+                return true;
+            default:
+                return false;
+        }
+    }
+
 	inline bool is_number() const {
 		switch (type()) {
 			case MachineIntegerType:
@@ -550,7 +564,9 @@ public:
 
 	inline bool is_one() const;
 
-	inline Symbol *as_symbol() const;
+    inline bool is_minus_one() const;
+
+    inline Symbol *as_symbol() const;
 
 	inline const Expression *as_expression() const;
 
@@ -792,8 +808,6 @@ protected:
 	inline PatternMatcherRef string_matcher() const;
 
 	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const = 0;
-
-    virtual BaseExpressionRef custom_format(const BaseExpressionRef &form, const Evaluation &evaluation) const;
 };
 
 inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {

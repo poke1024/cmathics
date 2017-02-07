@@ -423,16 +423,6 @@ public:
 	}
 };
 
-/*constexpr auto Plus0 = NewRule<EmptyConstantRule<0>>;
-constexpr auto Plus1 = NewRule<IdentityRule>;
-constexpr auto Plus2 = NewRule<BinaryOperatorRule<BinaryArithmetic<plus>>>;
-constexpr auto PlusN = NewRule<PlusNRule>;*/
-
-constexpr auto Times0 = NewRule<EmptyConstantRule<1>>;
-constexpr auto Times1 = NewRule<IdentityRule>;
-constexpr auto Times2 = NewRule<BinaryOperatorRule<TimesArithmetic>>;
-constexpr auto TimesN = NewRule<TimesNRule>;
-
 class Plus : public Builtin {
 public:
 	static constexpr const char *name = "Plus";
@@ -453,7 +443,6 @@ public:
 	static constexpr auto attributes =
 		Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +
         Attributes::OneIdentity + Attributes::Orderless + Attributes::Protected;
-
 
 	inline BaseExpressionRef do_format(
 		const BaseExpressionRef *leaves,
@@ -500,6 +489,175 @@ public:
 
         format(&Plus::do_format, runtime.symbols().All);
 	}
+};
+
+class Times : public Builtin {
+public:
+	static constexpr const char *name = "Times";
+
+	static constexpr const char *docs = R"(
+	)";
+
+private:
+    CachedBaseExpressionRef m_space;
+    CachedBaseExpressionRef m_asterisk;
+    CachedBaseExpressionRef m_precedence;
+
+    inline BaseExpressionRef create_infix(
+        const TempVector &items,
+        const BaseExpressionRef &op,
+        const BaseExpressionRef &precedence,
+        const SymbolRef &grouping,
+        const Evaluation &evaluation) const {
+
+        if (items.size() == 1) {
+            return items[0];
+        } else {
+            return expression(evaluation.Infix, items.to_list(evaluation), op, precedence, grouping);
+        }
+    }
+
+public:
+	using Builtin::Builtin;
+
+	static constexpr auto attributes =
+		Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +
+        Attributes::OneIdentity + Attributes::Orderless + Attributes::Protected;
+
+	void build(Runtime &runtime) {
+        builtin<EmptyConstantRule<1>>();
+        builtin<IdentityRule>();
+        builtin<BinaryOperatorRule<TimesArithmetic>>();
+        builtin<TimesNRule>();
+
+        const auto &symbols = runtime.symbols();
+
+        format(&Times::input_form, symbols.InputForm);
+        format(&Times::standard_form, symbols.StandardForm);
+        format(&Times::output_form, symbols.OutputForm);
+
+        m_space.initialize(Pool::String(" "));
+        m_asterisk.initialize(Pool::String("*"));
+        m_precedence.initialize(Pool::MachineInteger(400));
+    }
+
+    inline BaseExpressionRef format_times(
+        const BaseExpressionRef *leaves,
+        size_t n,
+        const Evaluation &evaluation,
+        const BaseExpressionRef &op) {
+
+        TempVector positive;
+        TempVector negative;
+        positive.reserve(n);
+
+        for (size_t i = 0; i < n; i++) {
+            const BaseExpressionRef &leaf = leaves[i];
+            switch (leaf->type()) {
+                case MachineRationalType:
+                    assert(false); // FIXME not implemented
+
+                case BigRationalType: {
+                    const auto *q = static_cast<const BigRational*>(leaf.get());
+                    if (!q->is_numerator_one()) {
+                        positive.push_back(q->numerator());
+                    }
+                    negative.push_back(q->denominator());
+                    break;
+                }
+
+                case ExpressionType:
+                    if (leaf->has_form<SymbolPower, 2>(evaluation)) {
+                        const auto * const operands = leaf->as_expression()->static_leaves<2>();
+                        const auto &exponent = operands[1];
+                        if (exponent->is_non_complex_number() && exponent->is_negative()) {
+                            const auto &base = operands[0];
+                            if (exponent->is_minus_one()) {
+                                negative.push_back(base);
+                            } else {
+                                negative.push_back(expression(
+                                    evaluation.Power, base, exponent->negate(evaluation)));
+                            }
+                            break;
+                        }
+                    }
+                    // fall through
+
+                default:
+                    positive.push_back(leaf);
+                    break;
+            }
+        }
+
+        bool minus;
+
+        if (!positive.empty() && positive[0]->is_minus_one()) {
+            positive.erase(positive.begin());
+            minus = true;
+        } else {
+            minus = false;
+        }
+
+        for (auto i = positive.begin(); i != positive.end(); i++) {
+            *i = expression(evaluation.HoldForm, *i);
+        }
+
+        for (auto i = negative.begin(); i != negative.end(); i++) {
+            *i = expression(evaluation.HoldForm, *i);
+        }
+
+        UnsafeBaseExpressionRef positive_expression;
+        UnsafeBaseExpressionRef result;
+
+        if (!positive.empty()) {
+            positive_expression = create_infix(
+                positive, op, m_precedence, evaluation.None, evaluation);
+        } else {
+            positive_expression = evaluation.one;
+        }
+
+        if (!negative.empty()) {
+            BaseExpressionRef negative_expression = create_infix(
+                negative, op, m_precedence, evaluation.None, evaluation);
+            result = expression(
+                evaluation.Divide,
+                expression(evaluation.HoldForm, positive_expression),
+                expression(evaluation.HoldForm, negative_expression));
+        } else {
+            result = positive_expression;
+        }
+
+        if (minus) {
+            result = expression(evaluation.Minus, result);
+        }
+
+        return expression(evaluation.HoldForm, result);
+    }
+
+	inline BaseExpressionRef input_form(
+		const BaseExpressionRef *leaves,
+        size_t n,
+        const Evaluation &evaluation) {
+
+        return format_times(leaves, n, evaluation, m_asterisk);
+    }
+
+	inline BaseExpressionRef standard_form(
+		const BaseExpressionRef *leaves,
+        size_t n,
+        const Evaluation &evaluation) {
+
+        return format_times(leaves, n, evaluation, m_space);
+    }
+
+	inline BaseExpressionRef output_form(
+		const BaseExpressionRef *leaves,
+        size_t n,
+        const Evaluation &evaluation) {
+
+        return format_times(leaves, n, evaluation, m_space);
+    }
+
 };
 
 class Divide : public Builtin {
@@ -1507,14 +1665,7 @@ void Builtins::Arithmetic::initialize() {
 
     add<Plus>();
 
-	add("Times",
-		Attributes::Flat + Attributes::Listable + Attributes::NumericFunction +
-			Attributes::OneIdentity + Attributes::Orderless + Attributes::Protected, {
-		    Times0,
-		    Times1,
-			Times2,
-			TimesN
-	    });
+    add<Times>();
 
     add<Divide>();
 

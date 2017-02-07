@@ -183,7 +183,8 @@ public:
 
 	inline const auto &pattern() const;
 
-	void merge(const RuleEntry &entry) {
+    template<typename Entries, typename Iterator>
+	void merge(const Entries &entries, const Iterator &i, const RuleEntry &entry) {
 		*this = entry;
 	}
 };
@@ -213,10 +214,6 @@ private:
 	const Forms m_forms;
 
 public:
-	const RuleRef &rule() const {
-		return m_rule;
-	}
-
     FormatRule(const RuleRef &rule) :
         m_rule(rule), m_all_forms(true) {
     }
@@ -229,14 +226,15 @@ public:
 		m_rule(rule), m_all_forms(false), m_forms(forms) {
 	}
 
-	FormatRuleRef merge(FormatRule *rule) {
-		assert(m_rule.get() == rule->m_rule.get());
-		Forms forms(m_forms);
-		for (const SymbolRef &symbol : rule->m_forms) {
-			forms.insert(symbol);
-		}
-		return FormatRuleRef(new FormatRule(m_rule, forms));
-	}
+    const RuleRef &rule() const {
+        return m_rule;
+    }
+
+	inline FormatRuleRef merge(FormatRule *rule);
+
+    inline bool all_forms() const {
+        return m_all_forms;
+    }
 
 	inline bool has_form(const SymbolRef &form) const {
 		return m_all_forms || m_forms.find(form) != m_forms.end();
@@ -260,8 +258,16 @@ public:
 
 	inline const auto &pattern() const;
 
-	void merge(const FormatRuleEntry &entry) {
-		m_rule = m_rule->merge(entry.m_rule.get());
+    template<typename Entries, typename Iterator>
+    void merge(Entries &entries, const Iterator &i, const FormatRuleEntry &entry) {
+        if (m_rule->all_forms()) {
+            m_rule = m_rule->merge(entry.m_rule.get());
+        } else {
+            // FIXME detect if there's intersection in the forms. in that case we need
+            // to remove the conflicting forms from the old FormatRuleEntry so that the
+            // new FormatRuleEntry cleanly overrides them.
+            entries.insert(i, entry);
+        }
 	}
 
 	inline bool has_form(const SymbolRef &form) const {
@@ -472,7 +478,8 @@ private:
 	UnsafeSymbolicFormRef _no_symbolic_form;
 
     SlotAllocator _slots;
-    VectorAllocator<UnsafeBaseExpressionRef> _ref_vector_allocator;
+    VectorAllocator<UnsafeBaseExpressionRef> _unsafe_ref_vector_allocator;
+    VectorAllocator<BaseExpressionRef> _ref_vector_allocator;
 
 	ObjectAllocator<VariableMap::value_type> _variable_map;
 	ObjectAllocator<SymbolStateMap::value_type> _symbol_state_map;
@@ -496,7 +503,11 @@ public:
 		return _s_instance->_slots;
 	}
 
-    static inline auto &ref_vector_allocator() {
+    static inline auto &unsafe_ref_vector_allocator() {
+        return _s_instance->_unsafe_ref_vector_allocator;
+    }
+
+    static inline auto &safe_ref_vector_allocator() {
         return _s_instance->_ref_vector_allocator;
     }
 

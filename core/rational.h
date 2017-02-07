@@ -48,15 +48,17 @@ public:
         }
     }
 
-    /*// copies denominator to a new Integer
-    inline BaseExpressionRef numer() const {
+    inline bool is_numerator_one() const {
+        return value.get_num() == 1;
+    }
+
+    inline BaseExpressionRef numerator() const {
         return from_primitive(value.get_num());
     }
 
-    // copies numerator to a new Integer
-    inline BaseExpressionRef denom() const {
+    inline BaseExpressionRef denominator() const {
         return from_primitive(value.get_den());
-    };*/
+    };
 
     virtual double round_to_float() const {
         return value.get_d();

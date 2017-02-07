@@ -179,7 +179,7 @@ void RulesVector<Entry>::insert_rule(std::vector<Entry> &entries, const Entry &e
 	const auto i = std::lower_bound(
 		entries.begin(), entries.end(), key, CompareSortKey);
 	if (i != entries.end() && i->pattern()->same(entry.pattern())) {
-		i->merge(entry);
+		i->merge(entries, i, entry);
 	} else {
 		entries.insert(i, entry);
 	}
@@ -222,6 +222,15 @@ inline BaseExpressionRef Rules::apply(
 
 	NoRulesVectorFilter filter;
 	return RulesVector<RuleEntry>::apply(expr, filter, evaluation);
+}
+
+inline FormatRuleRef FormatRule::merge(FormatRule *rule) {
+    assert(m_rule->pattern->same(rule->m_rule->pattern));
+    Forms forms(m_forms);
+    for (const SymbolRef &symbol : rule->m_forms) {
+        forms.insert(symbol);
+    }
+    return FormatRuleRef(new FormatRule(m_rule, forms));
 }
 
 inline FormatRuleEntry::FormatRuleEntry(

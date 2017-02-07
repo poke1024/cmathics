@@ -130,20 +130,21 @@ namespace std {
 	};
 }
 
-class LeafVector {
+template<typename Allocator>
+class LeafVectorBase {
 private:
-	std::vector<BaseExpressionRef> m_leaves;
+	std::vector<BaseExpressionRef, Allocator> m_leaves;
 	TypeMask m_mask;
 
 public:
-	inline LeafVector() : m_mask(0) {
+	inline LeafVectorBase() : m_mask(0) {
 	}
 
-	inline LeafVector(std::vector<BaseExpressionRef> &&leaves, TypeMask mask) :
+	inline LeafVectorBase(std::vector<BaseExpressionRef, Allocator> &&leaves, TypeMask mask) :
 		m_leaves(leaves), m_mask(mask) {
 	}
 
-	inline LeafVector(std::vector<BaseExpressionRef> &&leaves) :
+	inline LeafVectorBase(std::vector<BaseExpressionRef, Allocator> &&leaves) :
 		m_leaves(leaves), m_mask(0) {
 
 		for (size_t i = 0; i < m_leaves.size(); i++) {
@@ -151,7 +152,7 @@ public:
 		}
 	}
 
-	inline LeafVector(LeafVector &&v) :
+	inline LeafVectorBase(LeafVectorBase<Allocator> &&v) :
 		m_leaves(std::move(v.m_leaves)), m_mask(v.m_mask) {
 	}
 
@@ -204,6 +205,17 @@ public:
 				return x->sort_key().compare(y->sort_key()) < 0;
 			});
 	}
+};
+
+using LeafVector = LeafVectorBase<std::allocator<BaseExpressionRef>>;
+
+class TempVector : public std::vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>> {
+public:
+    inline TempVector() : vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>>(
+        Pool::unsafe_ref_vector_allocator()) {
+    }
+
+    inline ExpressionRef to_list(const Evaluation &evaluation) const;
 };
 
 template<typename FReference, typename R>
