@@ -62,6 +62,8 @@ public:
         BaseExpression(MachineRealExtendedType), value(eval_to_machine_real(form)) {
     }
 
+    virtual std::string debugform() const;
+
     virtual BaseExpressionRef make_boxes(
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
@@ -142,6 +144,8 @@ public:
     virtual ~BigReal() {
         arb_clear(value);
     }
+
+    virtual std::string debugform() const;
 
     virtual BaseExpressionRef make_boxes(
         BaseExpressionPtr form,

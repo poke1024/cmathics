@@ -445,7 +445,7 @@ public:
 private:
     CachedBaseExpressionRef m_plus;
     CachedBaseExpressionRef m_minus;
-    CachedBaseExpressionRef m_310;
+    CachedBaseExpressionRef m_precedence;
 
 public:
 	using Builtin::Builtin;
@@ -462,32 +462,36 @@ public:
 
         const ExpressionRef ops = expression(evaluation.List, sequential(
             [this, leaves, n, &evaluation] (auto &store) {
-                for (size_t i = 0; i < n; i++) {
+                for (size_t i = 1; i < n; i++) {
                     store(leaves[i]->is_negative() ? m_minus : m_plus);
                 }
-            }, n));
+            }, std::max(index_t(0), index_t(n) - 1)));
 
         const BaseExpressionRef values = ops->with_slice(
             [this, leaves, n, &evaluation] (const auto &ops) {
                 return expression(evaluation.List, sequential(
                     [this, leaves, n, &evaluation, &ops] (auto &store) {
-                        for (size_t i = 0; i < n; i++) {
+	                    if (n > 0) {
+		                    store(expression(evaluation.HoldForm, leaves[0]));
+	                    }
+
+                        for (size_t i = 1; i < n; i++) {
                             store(expression(
                                 evaluation.HoldForm,
-                                ops[i] == m_plus ?
+                                ops[i - 1] == m_plus ?
                                     leaves[i] :
                                     leaves[i]->negate(evaluation)));
                         }
                     }, n));
                 });
 
-        return expression(evaluation.Infix, values, ops, m_310, evaluation.Left);
+        return expression(evaluation.Infix, values, ops, m_precedence, evaluation.Left);
     }
 
 	void build(Runtime &runtime) {
         m_plus.initialize(Pool::String(std::string("+")));
         m_minus.initialize(Pool::String(std::string("-")));
-        m_310.initialize(Pool::MachineInteger(310));
+		m_precedence.initialize(Pool::MachineInteger(310));
 
         builtin<EmptyConstantRule<0>>();
         builtin<IdentityRule>();

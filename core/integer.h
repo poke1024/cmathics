@@ -24,6 +24,8 @@ public:
 	    Integer(MachineIntegerExtendedType), value(new_value) {
     }
 
+	virtual std::string debugform() const;
+
     virtual BaseExpressionRef make_boxes(
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
@@ -82,6 +84,8 @@ public:
 	inline BigInteger(mpz_class &&new_value) :
 	    Integer(BigIntegerExtendedType), value(new_value) {
     }
+
+	virtual std::string debugform() const;
 
     virtual BaseExpressionRef make_boxes(
         BaseExpressionPtr form,

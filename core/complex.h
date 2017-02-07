@@ -26,6 +26,8 @@ public:
         BaseExpression(MachineComplexExtendedType), value(real, imag) {
     }
 
+    virtual std::string debugform() const;
+
     virtual BaseExpressionRef custom_format(
         const BaseExpressionRef &form,
         const Evaluation &evaluation) const;
@@ -86,6 +88,8 @@ public:
     explicit inline BigComplex(const SymEngineComplexRef &value) :
         BaseExpression(BigComplexExtendedType), m_value(value) {
     }
+
+	virtual std::string debugform() const;
 
     virtual BaseExpressionRef custom_format(
         const BaseExpressionRef &form,

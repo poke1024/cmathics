@@ -277,6 +277,8 @@ public:
         m_length(length) {
     }
 
+	virtual std::string debugform() const;
+
     virtual BaseExpressionRef make_boxes(
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;

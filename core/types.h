@@ -420,6 +420,8 @@ public:
 
     std::string debug(const Evaluation &evaluation) const;
 
+	virtual std::string debugform() const = 0;
+
     inline Type type() const {
 	    // basic type, e.g. MachineIntegerType, SymbolType, ...
 	    return Type(_extended_type >> CoreTypeShift);

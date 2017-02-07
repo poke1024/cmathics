@@ -2,6 +2,12 @@
 #include "expression.h"
 #include "rational.h"
 
+std::string BigRational::debugform() const {
+	std::ostringstream s;
+	s << "Rational[" << value.get_num().get_str() << ", " << value.get_den().get_str() << "]";
+	return s.str();
+}
+
 BaseExpressionRef BigRational::custom_format(
 	const BaseExpressionRef &form,
 	const Evaluation &evaluation) const {

@@ -249,6 +249,8 @@ public:
 
 	~Symbol();
 
+	virtual std::string debugform() const;
+
 	inline SymbolState &state() const {
 		EvaluationContext *context = EvaluationContext::current();
 		if (context == nullptr) {

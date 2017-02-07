@@ -147,6 +147,24 @@ private:
     CachedBaseExpressionRef m_parentheses[2][2];
     CachedBaseExpressionRef m_separators[2];
 
+    BaseExpressionRef parenthesize(
+        BaseExpressionPtr precedence,
+        const BaseExpressionRef &leaf,
+        const BaseExpressionRef &leaf_boxes,
+        bool when_equal) const {
+
+        UnsafeBaseExpressionRef unpackaged = leaf;
+
+        while (unpackaged->type() == ExpressionType &&
+            unpackaged->as_expression()->head()->extended_type() == SymbolHoldForm &&
+            unpackaged->as_expression()->size() == 1) {
+
+            unpackaged = unpackaged->as_expression()->static_leaves<1>()[0];
+        }
+
+        return leaf_boxes;
+    }
+
 public:
     using Builtin::Builtin;
 
@@ -248,12 +266,98 @@ public:
     inline BaseExpressionRef apply_infix(
         BaseExpressionPtr expr,
         BaseExpressionPtr h,
-        BaseExpressionPtr prec,
+        BaseExpressionPtr precedence,
         BaseExpressionPtr grouping,
         BaseExpressionPtr form,
         const Evaluation &evaluation) {
 
-        return Pool::String("Infix not implemented");
+	    if (expr->type() != ExpressionType) {
+		    return expression(evaluation.MakeBoxes, expr, form);
+	    }
+
+        auto get_op = [&form, &evaluation] (const BaseExpressionRef &op) -> BaseExpressionRef {
+            if (op->type() != StringType) {
+                return expression(evaluation.MakeBoxes, op, form);
+            } else {
+                std::string s(op->as_string()->utf8());
+
+                switch (form->extended_type()) {
+                    case SymbolInputForm:
+                        if (s == "*" || s == "^") {
+                            break;
+                        }
+                        // fallthrough
+
+                    case SymbolOutputForm:
+                        if (s.length() > 0 && s[0] != ' ' && s[s.length() - 1] != ' ') {
+	                        std::ostringstream t;
+	                        t << " " << s << " ";
+                            return Pool::String(t.str());
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+
+                return op;
+            }
+        };
+
+	    ExpressionPtr t_expr = expr->as_expression();
+
+	    const size_t n = t_expr->size();
+	    if (n > 1) {
+            UnsafeExpressionRef ops;
+
+			if (h->type() == ExpressionType &&
+                h->as_expression()->head()->extended_type() == SymbolList &&
+                h->as_expression()->size() == n - 1) {
+
+                ops = expression(evaluation.List, sequential([&h, &get_op, n] (auto &store) {
+                    return h->as_expression()->with_slice([&store, &get_op, n] (const auto &slice) {
+                        for (size_t i = 0; i < n - 1; i++) {
+                            store(get_op(slice[i]));
+                        }
+                    });
+                }, n - 1));
+            } else {
+                const BaseExpressionRef h2 = get_op(h);
+
+                ops = expression(evaluation.List, sequential([n, &h2] (auto &store) {
+                    for (size_t i = 0; i < n - 1; i++) {
+                        store(BaseExpressionRef(h2));
+                    }
+                }, n - 1));
+            }
+
+            return ops->with_slice([this, t_expr, n, &precedence, &form, &evaluation] (const auto &ops) {
+                return t_expr->with_slice([this, n, &ops, &precedence, &form, &evaluation] (const auto &leaves) {
+                    return expression(evaluation.RowBox, expression(evaluation.List,
+                            sequential([this, n, &ops, &leaves, &precedence, &form, &evaluation] (auto &store) {
+                                for (size_t i = 0; i < n; i++) {
+                                    BaseExpressionRef leaf = leaves[i];
+
+                                    if (i > 0) {
+                                        store(BaseExpressionRef(ops[i - 1]));
+                                    }
+
+                                    bool parenthesized = false;
+
+                                    store(parenthesize(
+                                        precedence,
+                                        leaf,
+                                        expression(evaluation.MakeBoxes, leaf, form),
+                                        parenthesized));
+                                }
+                            }, (n - 1) + n)));
+                    });
+            });
+	    } else if (n == 1) {
+		    return expression(evaluation.MakeBoxes, t_expr->static_leaves<1>()[0], form);
+	    } else {
+		    return expression(evaluation.MakeBoxes, expr, form);
+	    }
     }
 };
 

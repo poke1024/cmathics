@@ -1285,6 +1285,14 @@ public:
 		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), PatternMatcherRef(), m_shortest, anchored);
 	}
 
+	PatternFactory alternative() const {
+		return PatternFactory(m_variables, m_test, m_variable, m_next, m_shortest, true);
+	}
+
+	PatternFactory unbound() const {
+		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), PatternMatcherRef(), m_shortest, true);
+	}
+
 	template<template<typename, typename> class Matcher, typename Parameter>
     PatternMatcherRef create(const Parameter &parameter) const {
         if (m_test) {
@@ -1668,9 +1676,9 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			std::vector<PatternMatcherRef> matchers;
 			matchers.reserve(patt_end - patt_begin);
 			for (const BaseExpressionRef *patt = patt_begin; patt < patt_end; patt++) {
-				matchers.push_back(compile(*patt, size.from_here(), factory.stripped()));
+				matchers.push_back(compile(*patt, size.from_here(), factory.alternative()));
 			}
-			return factory.create<AlternativesMatcher>(matchers);
+			return factory.unbound().create<AlternativesMatcher>(matchers);
 		}
 
         case SymbolExcept:

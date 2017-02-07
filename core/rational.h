@@ -24,6 +24,8 @@ public:
         BaseExpression(BigRationalExtendedType), value(new_value) {
     }
 
+	virtual std::string debugform() const;
+
 	virtual BaseExpressionRef custom_format(
 		const BaseExpressionRef &form,
 		const Evaluation &evaluation) const final;

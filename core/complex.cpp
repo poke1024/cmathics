@@ -9,6 +9,12 @@
 
 const std::hash<machine_real_t> MachineComplex::hash_function = std::hash<machine_real_t>();
 
+std::string MachineComplex::debugform() const {
+	std::ostringstream s;
+	s << "Complex[" << value.real() << ", " << value.imag() << "]";
+	return s.str();
+}
+
 BaseExpressionRef MachineComplex::custom_format(
 	const BaseExpressionRef &form,
 	const Evaluation &evaluation) const {
@@ -52,6 +58,12 @@ BaseExpressionPtr MachineComplex::head(const Symbols &symbols) const {
 
 BaseExpressionRef MachineComplex::negate(const Evaluation &evaluation) const {
     return Pool::MachineComplex(-value.real(), -value.imag());
+}
+
+std::string BigComplex::debugform() const {
+	std::ostringstream s;
+	s << "Complex[" << m_value->real_part()->__str__() << ", " << m_value->imaginary_part()->__str__() << "]";
+	return s.str();
 }
 
 BaseExpressionRef BigComplex::custom_format(

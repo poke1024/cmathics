@@ -32,6 +32,10 @@ StringRef Messages::lookup(
     return StringRef();
 }
 
+std::string Symbol::debugform() const {
+	return std::string(name());
+}
+
 BaseExpressionPtr Symbol::head(const Symbols &symbols) const {
     return symbols._Symbol;
 }

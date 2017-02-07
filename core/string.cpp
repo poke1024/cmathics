@@ -6,6 +6,10 @@
 #include "unicode/normalizer2.h"
 #include "unicode/errorcode.h"
 
+std::string String::debugform() const {
+	return utf8();
+}
+
 BaseExpressionRef String::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {

@@ -550,6 +550,20 @@ public:
     }
 
     virtual inline BaseExpressionRef negate(const Evaluation &evaluation) const final;
+
+	virtual std::string debugform() const {
+		std::ostringstream s;
+		s << head()->debugform();
+		s << "[";
+		for (size_t i = 0; i < size(); i++) {
+			if (i > 0) {
+				s << ", ";
+			}
+			s << _leaves[i]->debugform();
+		}
+		s << "]";
+		return s.str();
+	}
 };
 
 #include "leaves.tcc"

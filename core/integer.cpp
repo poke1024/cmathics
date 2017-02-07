@@ -3,6 +3,10 @@
 #include "integer.h"
 #include "evaluation.h"
 
+std::string MachineInteger::debugform() const {
+	return std::to_string(value);
+}
+
 BaseExpressionRef MachineInteger::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {
@@ -22,6 +26,10 @@ BaseExpressionRef MachineInteger::negate(const Evaluation &evaluation) const {
     return from_primitive(Numeric::Z(value) * Numeric::Z(-1));
 }
 
+std::string BigInteger::debugform() const {
+	return value.get_str();
+}
+
 BaseExpressionRef BigInteger::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {
@@ -34,7 +42,7 @@ BaseExpressionPtr BigInteger::head(const Symbols &symbols) const {
 }
 
 std::string BigInteger::boxes_to_text(const Evaluation &evaluation) const {
-	return value.get_str();;
+	return value.get_str();
 }
 
 BaseExpressionRef BigInteger::negate(const Evaluation &evaluation) const {
