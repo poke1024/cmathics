@@ -184,8 +184,8 @@ public:
 	inline const auto &pattern() const;
 
     template<typename Entries, typename Iterator>
-	void merge(const Entries &entries, const Iterator &i, const RuleEntry &entry) {
-		*this = entry;
+	static void merge(const Entries &entries, const Iterator &i, const RuleEntry &entry) {
+		*i = entry;
 	}
 };
 
@@ -211,7 +211,7 @@ public:
 private:
 	const RuleRef m_rule;
     const bool m_all_forms;
-	const Forms m_forms;
+	Forms m_forms;
 
 public:
     FormatRule(const RuleRef &rule) :
@@ -236,8 +236,23 @@ public:
         return m_all_forms;
     }
 
+	inline const Forms &forms() const {
+		return m_forms;
+	}
+
 	inline bool has_form(const SymbolRef &form) const {
 		return m_all_forms || m_forms.find(form) != m_forms.end();
+	}
+
+	inline bool remove_forms(const Forms &forms) {
+		if (m_all_forms) {
+			return false;
+		} else {
+			for (const auto &form : forms) {
+				m_forms.erase(form);
+			}
+			return m_forms.empty();
+		}
 	}
 };
 
@@ -259,16 +274,7 @@ public:
 	inline const auto &pattern() const;
 
     template<typename Entries, typename Iterator>
-    void merge(Entries &entries, const Iterator &i, const FormatRuleEntry &entry) {
-        if (m_rule->all_forms()) {
-            m_rule = m_rule->merge(entry.m_rule.get());
-        } else {
-            // FIXME detect if there's intersection in the forms. in that case we need
-            // to remove the conflicting forms from the old FormatRuleEntry so that the
-            // new FormatRuleEntry cleanly overrides them.
-            entries.insert(i, entry);
-        }
-	}
+    static void merge(Entries &entries, const Iterator &i, const FormatRuleEntry &entry);
 
 	inline bool has_form(const SymbolRef &form) const {
 		return m_rule->has_form(form);

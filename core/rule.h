@@ -179,7 +179,7 @@ void RulesVector<Entry>::insert_rule(std::vector<Entry> &entries, const Entry &e
 	const auto i = std::lower_bound(
 		entries.begin(), entries.end(), key, CompareSortKey);
 	if (i != entries.end() && i->pattern()->same(entry.pattern())) {
-		i->merge(entries, i, entry);
+		Entry::merge(entries, i, entry);
 	} else {
 		entries.insert(i, entry);
 	}
@@ -252,6 +252,37 @@ inline const auto &FormatRuleEntry::key() const {
 
 inline const auto &FormatRuleEntry::pattern() const {
 	return m_rule->rule()->pattern;
+}
+
+template<typename Entries, typename Iterator>
+void FormatRuleEntry::merge(Entries &entries, const Iterator &i, const FormatRuleEntry &entry) {
+	auto j = entries.insert(i, entry);
+	j++;
+
+	const BaseExpressionRef pattern = i->pattern();
+
+	if (entry.m_rule->all_forms()) {
+		// new rule replaces all existing other rules
+		while (j != entries.end()) {
+			if (!pattern->same(j->pattern())) {
+				break;
+			}
+			j = entries.erase(j);
+		}
+	} else {
+		// new rule erases forms from existing rules
+		while (j != entries.end()) {
+			if (!pattern->same(j->pattern())) {
+				break;
+			}
+			if (j->m_rule->remove_forms(entry.m_rule->forms())) {
+				j = entries.erase(j);
+			} else {
+				j++;
+			}
+		}
+
+	}
 }
 
 class FormFilter {
