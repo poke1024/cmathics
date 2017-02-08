@@ -464,7 +464,7 @@ protected:
     template<typename F>
     inline void builtin(const char *pattern, F function) {
         add_rule(pattern, function, [this] (const RuleRef &rule) {
-            m_symbol->state().add_rule(rule);
+	        rule_owner(rule->pattern).add_rule(rule);
         });
     }
 
