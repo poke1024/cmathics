@@ -162,4 +162,40 @@ public:
     }
 };
 
+class BinaryOperatorBuiltin : public Builtin {
+protected:
+    void add_binary_operator_formats() {
+        builtin(
+            m_runtime.parse(
+                "MakeBoxes[%s[x_, y_], form:StandardForm|TraditionalForm]",
+                m_symbol->name()),
+            m_runtime.parse(
+                "MakeBoxes[Infix[{x, y}, \"%s\", %d, %s], form]",
+                operator_name(),
+                int(precedence()),
+                grouping())
+        );
+
+        builtin(
+            m_runtime.parse(
+                "MakeBoxes[%s[x_, y_], form:InputForm|OutputForm]",
+                m_symbol->name()),
+            m_runtime.parse(
+                "MakeBoxes[Infix[{x, y}, \" %s \", %d, %s], form]",
+                operator_name(),
+                int(precedence()),
+                grouping())
+        );
+    }
+
+public:
+    using Builtin::Builtin;
+
+    virtual const char *operator_name() const = 0;
+
+    virtual int precedence() const = 0;
+
+    virtual const char *grouping() const = 0;
+};
+
 #endif //CMATHICS_BINARY_H

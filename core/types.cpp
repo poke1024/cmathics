@@ -25,6 +25,7 @@ BaseExpressionRef at_least_n_pattern(
 	const SymbolRef &head, size_t n, const Definitions &definitions) {
 
 	const auto &symbols = definitions.symbols();
+
 	const auto &Blank = symbols.Blank;
 	const auto &BlankNullSequence = symbols.BlankNullSequence;
 

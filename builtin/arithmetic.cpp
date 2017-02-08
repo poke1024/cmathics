@@ -660,7 +660,7 @@ public:
 
 };
 
-class Divide : public Builtin {
+class Divide : public BinaryOperatorBuiltin {
 public:
 	static constexpr const char *name = "Divide";
 
@@ -703,13 +703,26 @@ public:
      = Times[a, Power[b, -1]]
 	)";
 
+    virtual const char *operator_name() const {
+        return "/";
+    }
+
+    virtual int precedence() const {
+        return 470;
+    }
+
+    virtual const char *grouping() const {
+        return "Left";
+    }
+
 public:
-	using Builtin::Builtin;
+	using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
 
 	static constexpr auto attributes =
 		Attributes::Listable + Attributes::NumericFunction;
 
 	void build(Runtime &runtime) {
+        add_binary_operator_formats();
 		builtin("Divide[x_, y_]", "Times[x, Power[y, -1]]");
 	}
 };

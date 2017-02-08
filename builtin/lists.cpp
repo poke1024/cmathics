@@ -3,6 +3,100 @@
 #include "lists.h"
 #include "../core/definitions.h"
 
+class ListBoxes {
+private:
+    CachedBaseExpressionRef m_comma;
+    CachedBaseExpressionRef m_comma_space;
+
+public:
+    ListBoxes() {
+        m_comma.initialize(Pool::String(","));
+        m_comma_space.initialize(Pool::String(", "));
+    }
+
+    inline BaseExpressionRef operator()(
+        const BaseExpressionPtr items,
+        const BaseExpressionPtr form,
+        const Evaluation &evaluation) const {
+
+        assert(items->type() == ExpressionType); // must be a Sequence
+        const size_t n = items->as_expression()->size();
+
+        if (n > 1) {
+            BaseExpressionPtr sep;
+
+            switch (form->extended_type()) {
+                case SymbolOutputForm:
+                case SymbolInputForm:
+                    sep = m_comma_space.get();
+                    break;
+                default:
+                    sep = m_comma.get();
+                    break;
+            }
+
+           BaseExpressionRef list = items->as_expression()->with_slice(
+                [n, form, sep, &evaluation] (const auto &slice) {
+                return expression(evaluation.List, sequential(
+                    [&slice, form, sep, &evaluation] (auto &store) {
+                        const size_t n = slice.size();
+                        for (size_t i = 0; i < n; i++) {
+                            if (i > 0) {
+                                store(BaseExpressionRef(sep));
+                            }
+                            store(expression(evaluation.MakeBoxes, slice[i], form));
+                        }
+
+                    }, n + (n - 1)));
+                });
+
+            return expression(evaluation.RowBox, list);
+        } else if (n == 1) {
+            const auto * const leaves = items->as_expression()->static_leaves<1>();
+            return expression(evaluation.MakeBoxes, leaves[0], form);
+        } else {
+            return BaseExpressionRef();
+        }
+    }
+};
+
+class List : public Builtin {
+private:
+    CachedBaseExpressionRef m_open;
+    CachedBaseExpressionRef m_close;
+    ListBoxes m_boxes;
+
+public:
+    static constexpr const char *name = "List";
+
+public:
+    using Builtin::Builtin;
+
+    inline BaseExpressionRef apply_makeboxes(
+        const BaseExpressionPtr items,
+        const BaseExpressionPtr form,
+        const Evaluation &evaluation) {
+
+        return expression(evaluation.RowBox, expression(evaluation.List, sequential(
+            [this, items, form, &evaluation] (auto &store) {
+                store(BaseExpressionRef(m_open));
+                BaseExpressionRef item = m_boxes(items, form, evaluation);
+                if (item) {
+                    store(std::move(item));
+                }
+                store(BaseExpressionRef(m_close));
+            })));
+    }
+
+    void build(Runtime &runtime) {
+        m_open.initialize(Pool::String("{"));
+        m_close.initialize(Pool::String("}"));
+	    builtin(
+            "MakeBoxes[{items___}, f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+            &List::apply_makeboxes);
+    }
+};
+
 inline const Expression *if_list(const BaseExpressionPtr item) {
     if (item->type() == ExpressionType) {
         const Expression *expr =item->as_expression();
@@ -1067,6 +1161,7 @@ NewRuleRef make_iteration_function_rule() {
 }
 
 void Builtins::Lists::initialize() {
+    add<List>();
 
     add<Level>();
 

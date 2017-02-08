@@ -41,8 +41,16 @@ public:
 		return _definitions.symbols();
 	}
 
-	BaseExpressionRef parse(const char *s) {
-		return _parser.parse(s);
+    template<typename... Args>
+	BaseExpressionRef parse(const char *format, const Args&... args) {
+        UnsafeBaseExpressionRef result;
+        STATIC_IF (sizeof...(args) == 0) {
+    		result = _parser.parse(format);
+        } STATIC_ELSE {
+            std::string s(string_format(format, args...));
+            result = _parser.parse(s.c_str());
+        } STATIC_ENDIF
+        return result;
 	}
 
 	void add(
@@ -52,8 +60,8 @@ public:
 
 	template<typename T>
 	void add() {
-		const std::string full_down = std::string("System`") + T::name;
-		const SymbolRef symbol = _definitions.lookup(full_down.c_str());
+		const std::string full_name = std::string("System`") + T::name;
+		const SymbolRef symbol = _definitions.lookup(full_name.c_str());
 		symbol->state().set_attributes(T::attributes);
 
         Runtime &runtime_ref = *this;
@@ -471,6 +479,10 @@ protected:
 		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
 	}
 
+	inline void builtin(const BaseExpressionRef &lhs, const BaseExpressionRef &rhs) {
+		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
+	}
+
     template<typename T>
     inline void builtin() {
         m_symbol->state().add_rule(RuleRef(new T(m_symbol, m_runtime.definitions())));
@@ -497,6 +509,9 @@ public:
     Builtin(Runtime &runtime, const SymbolRef &symbol, Definitions &definitions) :
 		m_runtime(runtime), m_symbol(symbol) {
 	}
+
+    virtual ~Builtin() {
+    }
 };
 
 typedef ConstSharedPtr<Builtin> BuiltinRef;

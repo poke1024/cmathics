@@ -363,11 +363,12 @@ public:
 };
 
 template<typename T>
-class ComparisonBuiltin : public Builtin {
+class ComparisonBuiltin : public BinaryOperatorBuiltin {
 public:
-    using Builtin::Builtin;
+    using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
 
     void build(Runtime &runtime) {
+        add_binary_operator_formats();
         builtin<ConstantTrueRule<0>>();
         builtin<ConstantTrueRule<1>>();
         builtin<BinaryOperatorRule<T>>();
@@ -375,7 +376,7 @@ public:
     }
 };
 
-class Equal : public Builtin {
+class Equal : public BinaryOperatorBuiltin {
 public:
     static constexpr const char *name = "Equal";
 
@@ -460,10 +461,23 @@ public:
      = {True, True, True}
     )";
 
+    virtual const char *operator_name() const {
+        return "==";
+    }
+
+    virtual int precedence() const {
+        return 290;
+    }
+
+    virtual const char *grouping() const {
+        return "NonAssociative";
+    }
+
 public:
-    using Builtin::Builtin;
+    using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
 
     void build(Runtime &runtime) {
+        add_binary_operator_formats();
         builtin<ConstantTrueRule<0>>();
         builtin<ConstantTrueRule<1>>();
         builtin<BinaryOperatorRule<EqualComparison<false>>>();
@@ -471,7 +485,7 @@ public:
     }
 };
 
-class Unequal : public Builtin {
+class Unequal : public BinaryOperatorBuiltin {
 public:
     static constexpr const char *name = "Unequal";
 
@@ -521,10 +535,23 @@ public:
      = {True, True, True}
     )";
 
+    virtual const char *operator_name() const {
+        return "!=";
+    }
+
+    virtual int precedence() const {
+        return 290;
+    }
+
+    virtual const char *grouping() const {
+        return "NonAssociative";
+    }
+
 public:
-    using Builtin::Builtin;
+    using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
 
     void build(Runtime &runtime) {
+        add_binary_operator_formats();
         builtin<ConstantTrueRule<0>>();
         builtin<ConstantTrueRule<1>>();
         builtin<BinaryOperatorRule<EqualComparison<true>>>();
@@ -532,9 +559,21 @@ public:
     }
 };
 
-using LessBase = ComparisonBuiltin<BinaryArithmetic<less>>;
+template<typename Operator>
+class InequalityOperator : public ComparisonBuiltin<BinaryArithmetic<Operator>> {
+public:
+    virtual int precedence() const {
+        return 290;
+    }
 
-class Less : public LessBase {
+    virtual const char *grouping() const {
+        return "NonAssociative";
+    }
+
+    using ComparisonBuiltin<BinaryArithmetic<Operator>>::ComparisonBuiltin;
+};
+
+class Less : public InequalityOperator<less> {
 public:
     static constexpr const char *name = "Less";
 
@@ -551,13 +590,15 @@ public:
      = {True, True, True}
     )";
 
+    virtual const char *operator_name() const {
+        return "<";
+    }
+
 public:
-    using LessBase::LessBase;
+    using InequalityOperator<less>::InequalityOperator;
 };
 
-using LessEqualBase = ComparisonBuiltin<BinaryArithmetic<less_equal>>;
-
-class LessEqual : public LessEqualBase {
+class LessEqual : public InequalityOperator<less_equal> {
 public:
     static constexpr const char *name = "LessEqual";
 
@@ -571,13 +612,15 @@ public:
     </dl>
     )";
 
+    virtual const char *operator_name() const {
+        return "<=";
+    }
+
 public:
-    using LessEqualBase::LessEqualBase;
+    using InequalityOperator<less_equal>::InequalityOperator;
 };
 
-using GreaterBase = ComparisonBuiltin<BinaryArithmetic<greater>>;
-
-class Greater : public GreaterBase {
+class Greater : public InequalityOperator<greater> {
 public:
     static constexpr const char *name = "Greater";
 
@@ -595,13 +638,15 @@ public:
      = True
     )";
 
+    virtual const char *operator_name() const {
+        return ">";
+    }
+
 public:
-    using GreaterBase::GreaterBase;
+    using InequalityOperator<greater>::InequalityOperator;
 };
 
-using GreaterEqualBase = ComparisonBuiltin<BinaryArithmetic<greater_equal>>;
-
-class GreaterEqual : public GreaterEqualBase {
+class GreaterEqual : public InequalityOperator<greater_equal> {
 public:
     static constexpr const char *name = "GreaterEqual";
 
@@ -616,8 +661,12 @@ public:
     </dl>
     )";
 
+    virtual const char *operator_name() const {
+        return ">=";
+    }
+
 public:
-    using GreaterEqualBase::GreaterEqualBase;
+    using InequalityOperator<greater_equal>::InequalityOperator;
 };
 
 void Builtins::Comparison::initialize() {
