@@ -1119,10 +1119,10 @@ inline BaseExpressionRef ExpressionImplementation<Slice>::negate(const Evaluatio
                     [this, &negated] (auto &store) {
                         store(BaseExpressionRef(negated));
                         const size_t n = size();
-                        for (size_t i = 0; i < n; i++) {
+                        for (size_t i = 1; i < n; i++) {
                             store(BaseExpressionRef(_leaves[i]));
                         }
-                    }, 1 + size()));
+                    }, size()));
             }
         } else {
             return expression(evaluation.Times, evaluation.minus_one, leaf);
