@@ -340,6 +340,8 @@ typedef SharedPtr<const Symbol> MutableSymbolRef;
 typedef ConstSharedPtr<const Symbol> ConstSymbolRef;
 typedef UnsafeSharedPtr<const Symbol> UnsafeSymbolRef;
 
+using SymbolPtr = const Symbol*;
+
 class String;
 
 typedef ConstSharedPtr<const String> StringRef;

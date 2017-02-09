@@ -495,15 +495,25 @@ protected:
 		});
 	}
 
-    inline void format(const BaseExpressionRef &lhs, const char *into) {
+    inline void format(const BaseExpressionRef &lhs, const char *into, const std::initializer_list<SymbolPtr> &forms) {
 		const BaseExpressionRef rhs = m_runtime.parse(into);
 		assert(lhs->type() == ExpressionType && lhs->as_expression()->head() == m_symbol.get());
-		m_symbol->state().add_format(new DownRule(lhs, rhs), m_runtime.symbols().All, m_runtime.definitions());
+	    for (SymbolPtr form : forms) {
+		    m_symbol->state().add_format(new DownRule(lhs, rhs), form, m_runtime.definitions());
+	    }
 	}
 
-    inline void format(const char *pattern, const char *into) {
+	inline void format(const BaseExpressionRef &lhs, const char *into) {
+		return format(lhs, into, {m_runtime.symbols().All});
+	}
+
+	inline void format(const char *pattern, const char *into, const std::initializer_list<SymbolPtr> &forms) {
 		const BaseExpressionRef lhs = m_runtime.parse(pattern);
-        format(lhs, into);
+		format(lhs, into);
+	}
+
+	inline void format(const char *pattern, const char *into) {
+		return format(pattern, into, {m_runtime.symbols().All});
 	}
 
 	inline void message(const char *tag, const char *text) {

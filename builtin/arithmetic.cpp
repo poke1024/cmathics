@@ -723,7 +723,16 @@ public:
 
 	void build(Runtime &runtime) {
         add_binary_operator_formats();
-		builtin("Divide[x_, y_]", "Times[x, Power[y, -1]]");
+
+		builtin("Divide[x_, y_]",
+			"Times[x, Power[y, -1]]");
+		builtin("MakeBoxes[Divide[x_, y_], f:StandardForm|TraditionalForm]",
+			"FractionBox[MakeBoxes[x, f], MakeBoxes[y, f]]");
+
+		const auto &symbols = runtime.symbols();
+		format("Divide[x_, y_]",
+			"Infix[{HoldForm[x], HoldForm[y]}, \"/\", 400, Left]", {
+			symbols.InputForm,  symbols.OutputForm});
 	}
 };
 

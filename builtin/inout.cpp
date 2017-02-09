@@ -192,7 +192,7 @@ private:
     }
 
     BaseExpressionRef parenthesize(
-        optional<machine_integer_t> precedence,
+        const optional<machine_integer_t> &precedence,
         const BaseExpressionRef &leaf,
         const BaseExpressionRef &leaf_boxes,
         bool when_equal,
