@@ -980,7 +980,7 @@ inline BaseExpressionRef RewriteExpression::rewrite_or_copy(
 
 			return ExpressionRef(expression(
 				head.rewrite_or_copy(body->head(), args),
-				slice.create(generate, slice.size())));
+				sequential(generate, slice.size())))->flatten_sequence_or_copy();
 		});
 }
 
@@ -1144,7 +1144,7 @@ inline ExpressionRef TempVector::to_list(const Evaluation &evaluation) const {
 
 inline ExpressionRef Expression::flatten_sequence() const {
 	return with_slice([this] (const auto &slice) -> ExpressionRef {
-		if ((slice.type_mask() & make_type_mask(ExpressionType)) == 0) {
+		if ((slice.type_mask() & TypeMaskSequence) == 0) {
 			return ExpressionRef();
 		}
 
@@ -1192,6 +1192,10 @@ inline ExpressionRef BaseExpression::flatten_sequence() const {
 	} else {
 		return ExpressionRef();
 	}
+}
+
+inline ExpressionRef Expression::flatten_sequence_or_copy() const {
+    return coalesce(as_expression()->flatten_sequence(), ExpressionRef(this));
 }
 
 #endif

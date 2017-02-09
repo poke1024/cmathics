@@ -72,12 +72,15 @@ enum Type : uint8_t { // values represented as bits in TypeMasks
 	MachineComplexType = 7,
     BigComplexType = 8,
 	ExpressionType = 9,
-	StringType = 10
+	StringType = 10,
+    TypeCount
 };
 
 // CoreTypeBits is the number of bits needed to represent every value in
 // Type, i.e. SymbolType, MachineIntegerType, ..., StringType
 constexpr int CoreTypeBits = 4;
+
+static_assert(TypeCount < (1 << CoreTypeBits), "CoreTypeBits too small");
 
 // CoreTypeShift is the number of bits needed to represent the additional
 // extended type information attached to a core type.
@@ -120,6 +123,13 @@ typedef uint32_t TypeMask;
 // bits (types) that are not actually present (it will never miss a type though,
 // i.e. not contain a bit for the type that is present).
 constexpr TypeMask TypeMaskIsInexact = 1 << 31;
+
+// TypeMaskSequence indicates that there might be at least one Sequence[...] element
+// in the corresponding slice. If it's not set, it's safe to say that there is no
+// such element in the slice.
+constexpr TypeMask TypeMaskSequence = 1 << 30;
+
+static_assert(TypeCount < 24, "too many bits needed to represent type in type mask");
 
 constexpr TypeMask UnknownTypeMask = TypeMask(-1); // inexact, all type bits set
 
@@ -431,9 +441,7 @@ public:
 		return _extended_type; // extended type, e.g. SymbolBlank
 	}
 
-	inline TypeMask base_type_mask() const {
-		return ((TypeMask)1) << type();
-	}
+	inline TypeMask base_type_mask() const;
 
     inline bool is_non_complex_number() const {
         switch (type()) {
@@ -807,6 +815,8 @@ protected:
 	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const = 0;
 
 	inline ExpressionRef flatten_sequence() const;
+
+    inline ExpressionRef flatten_sequence_or_copy() const;
 };
 
 inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
@@ -850,6 +860,16 @@ inline const Expression *BaseExpression::as_expression() const {
 
 inline bool BaseExpression::is_sequence() const {
 	return type() == ExpressionType && as_expression()->head()->extended_type() == SymbolSequence;
+}
+
+inline TypeMask BaseExpression::base_type_mask() const {
+    const Type t = type();
+    TypeMask mask = ((TypeMask)1) << t;
+    if (t == ExpressionType &&
+        as_expression()->head()->extended_type() == SymbolSequence) {
+        mask |= TypeMaskSequence;
+    }
+    return mask;
 }
 
 class Precision {
