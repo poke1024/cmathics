@@ -70,8 +70,6 @@ BaseExpressionRef BigComplex::custom_format(
 	const BaseExpressionRef &form,
 	const Evaluation &evaluation) const {
 
-    return Pool::String("?");
-
 	switch (form->extended_type()) {
 		case SymbolFullForm:
 			return expression(

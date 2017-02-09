@@ -935,6 +935,11 @@ public:
 	void build(Runtime &runtime) {
 		builtin(&DirectedInfinity::apply_0);
 		builtin(&DirectedInfinity::apply_1);
+
+		format("DirectedInfinity[1]", "HoldForm[Infinity]");
+		format("DirectedInfinity[-1]", "HoldForm[-Infinity]");
+		format("DirectedInfinity[]", "HoldForm[ComplexInfinity]");
+		format("DirectedInfinity[z_?NumericQ]", "HoldForm[z Infinity]");
 	}
 
 	inline BaseExpressionRef apply_0(

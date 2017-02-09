@@ -165,26 +165,41 @@ public:
 class BinaryOperatorBuiltin : public Builtin {
 protected:
     void add_binary_operator_formats() {
+	    std::string op_pattern;
+	    const char *replace_items;
+
+	    const char *group = grouping();
+
+	    if (strcmp(group, "None") == 0 || strcmp(group, "NonAssociative") == 0) {
+		    op_pattern = string_format("%s[items__]", m_symbol->name());
+		    replace_items = "items";
+	    } else {
+		    op_pattern = string_format("%s[x_, y_]", m_symbol->name());
+		    replace_items = "x, y";
+	    }
+
         builtin(
             m_runtime.parse(
-                "MakeBoxes[%s[x_, y_], form:StandardForm|TraditionalForm]",
-                m_symbol->name()),
+                "MakeBoxes[%s, form:StandardForm|TraditionalForm]",
+		        op_pattern.c_str()),
             m_runtime.parse(
-                "MakeBoxes[Infix[{x, y}, \"%s\", %d, %s], form]",
+                "MakeBoxes[Infix[{%s}, \"%s\", %d, %s], form]",
+		        replace_items,
                 operator_name(),
-                int(precedence()),
-                grouping())
+                precedence(),
+                group)
         );
 
         builtin(
             m_runtime.parse(
-                "MakeBoxes[%s[x_, y_], form:InputForm|OutputForm]",
-                m_symbol->name()),
+                "MakeBoxes[%s, form:InputForm|OutputForm]",
+		        op_pattern.c_str()),
             m_runtime.parse(
-                "MakeBoxes[Infix[{x, y}, \" %s \", %d, %s], form]",
+                "MakeBoxes[Infix[{%s}, \" %s \", %d, %s], form]",
+	            replace_items,
                 operator_name(),
-                int(precedence()),
-                grouping())
+                precedence(),
+                group)
         );
     }
 

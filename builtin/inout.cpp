@@ -271,6 +271,10 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) {
 
+	    // HACK. flatten needs to happen somewhere else.
+		BaseExpressionRef temp_expr = expr->evaluate_or_copy(evaluation);
+	    expr = temp_expr.get();
+
 	    if (expr->type() != ExpressionType) {
 		    return expression(evaluation.MakeBoxes, expr, form);
 	    }

@@ -444,6 +444,35 @@ public:
     }
 };
 
+template<typename MatchRest>
+class EmptyMatcher : public PatternMatcher {
+private:
+	const MatchRest m_rest;
+
+	template<typename Sequence>
+	inline index_t do_match(
+		const Sequence &sequence,
+		index_t begin,
+		index_t end) const {
+
+		return m_rest(sequence, begin, end);
+	}
+
+public:
+	DECLARE_MATCH_METHODS
+
+	inline EmptyMatcher(const MatchRest &next) :
+		m_rest(next) {
+	}
+
+	virtual std::string name(const MatchContext &context) const {
+		std::ostringstream s;
+		s << "EmptyMatcher(), ";
+		s << m_rest.name(context);
+		return s.str();
+	}
+};
+
 template<typename Match, typename MatchRest>
 class ElementMatcher : public PatternMatcher {
 private:
@@ -537,7 +566,6 @@ public:
         return std::make_tuple(Element(m_patt), sequence.same(begin, m_patt.get()));
     }
 };
-
 
 template<typename Test>
 class MatchCharacterBlank {
@@ -1301,6 +1329,11 @@ public:
             return create<Matcher>(parameter, NoPatternTest());
         }
     }
+
+	PatternMatcherRef create_empty() const {
+		const auto rest = RestMatcher<NoPatternTest, NoVariable, Terminate>(NoPatternTest(), NoVariable(), Terminate());
+		return new EmptyMatcher<decltype(rest)>(rest);
+	}
 };
 
 class PatternCompiler {
@@ -1491,7 +1524,10 @@ PatternMatcherRef PatternCompiler::compile(
 	const PatternFactory &factory) {
 
 	const index_t n = end - begin;
-	assert(n > 0); // FIXME; allow empty patterns
+
+	if (n == 0) {
+		return factory.create_empty();
+	}
 
 	std::vector<MatchSize> matchable;
 	matchable.reserve(n + 1);

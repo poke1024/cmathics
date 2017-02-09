@@ -126,7 +126,28 @@ BaseExpressionRef evaluate(
         << " TO " << intermediate_form << std::endl;
 #endif
 
+    const auto evaluate_unknown_size = [&attributes, &evaluation] (ExpressionPtr expr) {
+        return coalesce(expr->with_slice<CompileToSliceType>(
+            [expr, &attributes, &evaluation] (const auto &slice) {
+                return evaluate_intermediate_form(
+                    expr,
+                    slice,
+                    attributes,
+                    evaluation);
+            }), expr);
+    };
+
+    const bool should_flatten_sequence =
+        (attributes & (Attributes::SequenceHold + Attributes::HoldAllComplete)) == 0;
+
     if (intermediate_form) {
+        if (should_flatten_sequence) {
+            const ExpressionRef flattened = intermediate_form->flatten_sequence();
+            if (flattened) {
+                return evaluate_unknown_size(flattened.get());
+            }
+        }
+
         if (is_static_slice(Slice::code())) { // static slices always produce static slices
             assert(intermediate_form->slice_code() == Slice::code());
             const auto *expr = static_cast<const Implementation*>(intermediate_form.get());
@@ -137,16 +158,16 @@ BaseExpressionRef evaluate(
                 attributes,
                 evaluation), intermediate_form);
         } else { // non-static slices might produce a variety of slice types; we need to check
-            return coalesce(intermediate_form->with_slice<CompileToSliceType>(
-                [&intermediate_form, &attributes, &evaluation] (const auto &slice) {
-                    return evaluate_intermediate_form(
-                        intermediate_form.get(),
-                        slice,
-                        attributes,
-                        evaluation);
-                }), intermediate_form);
+            return evaluate_unknown_size(intermediate_form.get());
         }
     } else {
+        if (should_flatten_sequence) {
+            const ExpressionRef flattened = self->flatten_sequence();
+            if (flattened) {
+                return evaluate_unknown_size(flattened.get());
+            }
+        }
+
         return evaluate_intermediate_form(
             self, slice, attributes, evaluation);
     }

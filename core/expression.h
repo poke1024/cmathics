@@ -1142,4 +1142,56 @@ inline ExpressionRef TempVector::to_list(const Evaluation &evaluation) const {
     }, size()));
 }
 
+inline ExpressionRef Expression::flatten_sequence() const {
+	return with_slice([this] (const auto &slice) -> ExpressionRef {
+		if ((slice.type_mask() & make_type_mask(ExpressionType)) == 0) {
+			return ExpressionRef();
+		}
+
+		index_t first = -1;
+
+		const size_t n = slice.size();
+		for (size_t i = 0; i < n; i++) {
+			if (slice[i]->is_sequence()) {
+				first = i;
+				break;
+			}
+		}
+
+		if (first >= 0) {
+			LeafVector v;
+
+			for (size_t i = 0; i < first; i++) {
+				v.push_back_copy(slice[i]);
+			}
+
+			for (size_t i = first; i < n; i++) {
+				BaseExpressionRef leaf = slice[i];
+				if (leaf->is_sequence()) {
+					leaf->as_expression()->with_slice([&v] (const auto &sequence) {
+						const size_t n = sequence.size();
+						for (size_t i = 0; i < n; i++) {
+							v.push_back_copy(sequence[i]);
+						}
+					});
+				} else {
+					v.push_back(std::move(leaf));
+				}
+			}
+
+			return expression(head(), std::move(v));
+		}
+
+		return ExpressionRef();
+	});
+}
+
+inline ExpressionRef BaseExpression::flatten_sequence() const {
+	if (type() == ExpressionType) {
+		return as_expression()->flatten_sequence();
+	} else {
+		return ExpressionRef();
+	}
+}
+
 #endif

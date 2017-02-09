@@ -509,9 +509,8 @@ public:
 
     virtual BaseExpressionPtr head(const Symbols &symbols) const = 0;
 
-    virtual bool is_sequence() const {
-        return false;
-    }
+
+	inline bool is_sequence() const;
 
     virtual const char *get_string_value() const {
         return nullptr;
@@ -597,6 +596,8 @@ public:
 
 	    return format(form, evaluation);
     }
+
+	inline ExpressionRef flatten_sequence() const;
 };
 
 template<typename A, typename B>
@@ -765,10 +766,6 @@ protected:
         return _head.get();
     }
 
-    virtual inline bool is_sequence() const final {
-		return _head->extended_type() == SymbolSequence;
-	}
-
 	BaseExpressionRef evaluate_expression(
 		const Evaluation &evaluation) const;
 
@@ -808,6 +805,8 @@ protected:
 	inline PatternMatcherRef string_matcher() const;
 
 	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const = 0;
+
+	inline ExpressionRef flatten_sequence() const;
 };
 
 inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
@@ -847,6 +846,10 @@ inline auto with_slices(const Expression *a, const Expression *b, const F &f) {
 
 inline const Expression *BaseExpression::as_expression() const {
 	return static_cast<const Expression*>(this);
+}
+
+inline bool BaseExpression::is_sequence() const {
+	return type() == ExpressionType && as_expression()->head()->extended_type() == SymbolSequence;
 }
 
 class Precision {
