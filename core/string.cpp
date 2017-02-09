@@ -7,7 +7,7 @@
 #include "unicode/errorcode.h"
 
 std::string String::debugform() const {
-	return utf8();
+	return std::string("\"") + utf8() + std::string("\"");
 }
 
 BaseExpressionRef String::make_boxes(

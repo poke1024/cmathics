@@ -530,7 +530,7 @@ public:
     static inline BaseExpressionRef BigInteger(const mpz_class &value);
 	static inline BaseExpressionRef BigInteger(mpz_class &&value);
 
-	static inline BaseExpressionRef BigRational(machine_integer_t x, machine_integer_t y);
+	static inline BaseExpressionRef MachineRational(machine_integer_t x, machine_integer_t y);
 	static inline BaseExpressionRef BigRational(const mpq_class &value);
 
 	static inline BaseExpressionRef MachineReal(machine_real_t value);

@@ -53,8 +53,9 @@ inline BaseExpressionRef Pool::BigReal(arb_t value, const Precision &prec) {
 	return BaseExpressionRef(_s_instance->_big_reals.construct(value, prec));
 }
 
-inline BaseExpressionRef Pool::BigRational(machine_integer_t x, machine_integer_t y) {
-	assert(_s_instance);
+inline BaseExpressionRef Pool::MachineRational(machine_integer_t x, machine_integer_t y) {
+	// FIXME. should create a MachineRational.
+    assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_rationals.construct(x, y));
 }
 

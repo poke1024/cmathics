@@ -162,4 +162,12 @@ inline bool BaseExpression::is_minus_one() const {
     }
 }
 
+inline optional<machine_integer_t> BaseExpression::get_int_value() const {
+    if (type() == MachineIntegerType) {
+        return static_cast<const MachineInteger*>(this)->value;
+    } else {
+        return optional<machine_integer_t>();
+    }
+}
+
 #endif

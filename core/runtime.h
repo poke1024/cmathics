@@ -495,11 +495,15 @@ protected:
 		});
 	}
 
-	inline void format(const char *pattern, const char *into) {
-		const BaseExpressionRef lhs = m_runtime.parse(pattern);
+    inline void format(const BaseExpressionRef &lhs, const char *into) {
 		const BaseExpressionRef rhs = m_runtime.parse(into);
 		assert(lhs->type() == ExpressionType && lhs->as_expression()->head() == m_symbol.get());
 		m_symbol->state().add_format(new DownRule(lhs, rhs), m_runtime.symbols().All, m_runtime.definitions());
+	}
+
+    inline void format(const char *pattern, const char *into) {
+		const BaseExpressionRef lhs = m_runtime.parse(pattern);
+        format(lhs, into);
 	}
 
 	inline void message(const char *tag, const char *text) {

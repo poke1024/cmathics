@@ -747,9 +747,43 @@ public:
 	}
 };
 
-constexpr auto Power = NewRule<PowerRule>;
+class Power : public BinaryOperatorBuiltin {
+public:
+	static constexpr const char *name = "Power";
 
-class Subtract : public Builtin {
+	static constexpr const char *docs = R"(
+	)";
+
+    virtual const char *operator_name() const {
+        return "^";
+    }
+
+    virtual int precedence() const {
+        return 590;
+    }
+
+    virtual const char *grouping() const {
+        return "Right";
+    }
+
+public:
+	using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
+
+	static constexpr auto attributes =
+        Attributes::Listable + Attributes::NumericFunction + Attributes::OneIdentity;
+
+    void build(Runtime &runtime) {
+        add_binary_operator_formats();
+        builtin<EmptyConstantRule<1>>();
+        builtin<IdentityRule>();
+        builtin<PowerRule>();
+
+        format(expression(m_symbol, runtime.parse("x_"), Pool::MachineRational(1, 2)),
+            "HoldForm[Sqrt[x]]");
+	}
+};
+
+class Subtract : public BinaryOperatorBuiltin {
 public:
 	static constexpr const char *name = "Subtract";
 
@@ -770,8 +804,20 @@ public:
      = a - b + c
 	)";
 
+    virtual const char *operator_name() const {
+        return "-";
+    }
+
+    virtual int precedence() const {
+        return 310;
+    }
+
+    virtual const char *grouping() const {
+        return "Left";
+    }
+
 public:
-	using Builtin::Builtin;
+	using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
 
 	static constexpr auto attributes =
 		Attributes::Listable + Attributes::NumericFunction;
@@ -811,6 +857,7 @@ public:
 
 	void build(Runtime &runtime) {
 		builtin("Minus[x_]", "Times[-1, x]");
+        format("Minus[x_]", "Prefix[{HoldForm[x]}, \"-\", 480]");
 	}
 };
 
@@ -1686,12 +1733,7 @@ void Builtins::Arithmetic::initialize() {
     add<Times>();
 
     add<Divide>();
-
-	add("Power",
-		Attributes::Listable + Attributes::NumericFunction + Attributes::OneIdentity, {
-			Power
-	    });
-
+    add<Power>();
     add<Subtract>();
 	add<Minus>();
 

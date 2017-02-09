@@ -147,11 +147,60 @@ private:
     CachedBaseExpressionRef m_parentheses[2][2];
     CachedBaseExpressionRef m_separators[2];
 
-    BaseExpressionRef parenthesize(
-        BaseExpressionPtr precedence,
+    BaseExpressionRef parenthesize_unpackaged(
+        machine_integer_t precedence,
         const BaseExpressionRef &leaf,
         const BaseExpressionRef &leaf_boxes,
-        bool when_equal) const {
+        bool when_equal,
+        const Evaluation &evaluation) const {
+
+        if (leaf->type() != ExpressionType) {
+            return leaf_boxes;
+        }
+
+        optional<machine_integer_t> leaf_precedence;
+
+        switch (leaf->as_expression()->head()->extended_type()) {
+            case SymbolInfix:
+            case SymbolPrefix:
+            case SymbolPostfix:
+                if (leaf->as_expression()->size() >= 3) {
+                    leaf_precedence = leaf->as_expression()->leaf(2)->get_int_value();
+                }
+                break;
+
+            case SymbolPrecedenceForm:
+                if (leaf->as_expression()->size() == 2) {
+                    leaf_precedence = leaf->as_expression()->leaf(1)->get_int_value();
+                }
+                break;
+
+            default:
+                // FIXME get builtin precedence
+                break;
+        }
+
+        if (leaf_precedence) {
+            if (precedence > *leaf_precedence ||
+                (when_equal && precedence == *leaf_precedence)) {
+                return expression(evaluation.RowBox, expression(
+                    evaluation.List, m_parentheses[0][0], leaf_boxes, m_parentheses[0][1]));
+            }
+        }
+
+        return leaf_boxes;
+    }
+
+    BaseExpressionRef parenthesize(
+        optional<machine_integer_t> precedence,
+        const BaseExpressionRef &leaf,
+        const BaseExpressionRef &leaf_boxes,
+        bool when_equal,
+        const Evaluation &evaluation) const {
+
+        if (!precedence) {
+            return leaf_boxes;
+        }
 
         UnsafeBaseExpressionRef unpackaged = leaf;
 
@@ -162,7 +211,8 @@ private:
             unpackaged = unpackaged->as_expression()->static_leaves<1>()[0];
         }
 
-        return leaf_boxes;
+        return parenthesize_unpackaged(
+            *precedence, unpackaged, leaf_boxes, when_equal, evaluation);
     }
 
 public:
@@ -178,6 +228,11 @@ public:
             MakeBoxes[Infix[expr_, h_, prec_:None, grouping_:None],
             f:StandardForm|TraditionalForm|OutputForm|InputForm]
             )", &MakeBoxes::apply_infix);
+
+        builtin(R"(
+            MakeBoxes[(p:Prefix|Postfix)[expr_, h_, prec_:None],
+            f:StandardForm|TraditionalForm|OutputForm|InputForm]
+            )", &MakeBoxes::apply_postprefix);
 
         builtin(&MakeBoxes::apply);
 
@@ -263,6 +318,48 @@ public:
         }
     }
 
+    inline BaseExpressionRef apply_postprefix(
+        BaseExpressionPtr p,
+        BaseExpressionPtr expr,
+        BaseExpressionPtr h,
+        BaseExpressionPtr precedence,
+        BaseExpressionPtr form,
+        const Evaluation &evaluation) {
+
+        if (expr->type() == ExpressionType &&
+            expr->as_expression()->size() == 1) {
+
+            UnsafeBaseExpressionRef new_h;
+
+            if (h->type() != StringType) {
+                new_h = expression(evaluation.MakeBoxes, h, form);
+                h = new_h.get();
+            }
+
+            const BaseExpressionRef pure_leaf =
+                expr->as_expression()->static_leaves<1>()[0];
+
+            const BaseExpressionRef leaf = parenthesize(
+                precedence->get_int_value(),
+                pure_leaf,
+                expression(evaluation.MakeBoxes, pure_leaf, form),
+                true,
+                evaluation);
+
+            UnsafeBaseExpressionRef list;
+
+            if (p->extended_type() == SymbolPostfix) {
+                list = expression(evaluation.List, leaf, h);
+            } else {
+                list = expression(evaluation.List, h, leaf);
+            }
+
+            return expression(evaluation.RowBox, list);
+        } else {
+            return expression(evaluation.MakeBoxes, expr, form);
+        }
+    }
+
     inline BaseExpressionRef apply_infix(
         BaseExpressionPtr expr,
         BaseExpressionPtr h,
@@ -331,26 +428,44 @@ public:
                 }, n - 1));
             }
 
-            return ops->with_slice([this, t_expr, n, &precedence, &form, &evaluation] (const auto &ops) {
-                return t_expr->with_slice([this, n, &ops, &precedence, &form, &evaluation] (const auto &leaves) {
+            const auto precedence_int = precedence->get_int_value();
+
+            return ops->with_slice([this, t_expr, n, precedence_int, grouping, form, &evaluation] (const auto &ops) {
+                return t_expr->with_slice([this, n, &ops, precedence_int, grouping, form, &evaluation] (const auto &leaves) {
                     return expression(evaluation.RowBox, expression(evaluation.List,
-                            sequential([this, n, &ops, &leaves, &precedence, &form, &evaluation] (auto &store) {
-                                for (size_t i = 0; i < n; i++) {
-                                    BaseExpressionRef leaf = leaves[i];
-
-                                    if (i > 0) {
-                                        store(BaseExpressionRef(ops[i - 1]));
-                                    }
-
-                                    bool parenthesized = false;
-
-                                    store(parenthesize(
-                                        precedence,
-                                        leaf,
-                                        expression(evaluation.MakeBoxes, leaf, form),
-                                        parenthesized));
+                        sequential([this, n, &ops, &leaves, precedence_int, grouping, form, &evaluation] (auto &store) {
+                            for (size_t i = 0; i < n; i++) {
+                                if (i > 0) {
+                                    store(BaseExpressionRef(ops[i - 1]));
                                 }
-                            }, (n - 1) + n)));
+
+                                bool parenthesized;
+
+                                switch (grouping->extended_type()) {
+                                    case SymbolNonAssociative:
+                                        parenthesized = true;
+                                        break;
+                                    case SymbolLeft:
+                                        parenthesized = i > 0;
+                                        break;
+                                    case SymbolRight:
+                                        parenthesized = i == 0;
+                                        break;
+                                    default:
+                                        parenthesized = false;
+                                        break;
+                                }
+
+                                BaseExpressionRef leaf = leaves[i];
+
+                                store(parenthesize(
+                                    precedence_int,
+                                    leaf,
+                                    expression(evaluation.MakeBoxes, leaf, form),
+                                    parenthesized,
+                                    evaluation));
+                            }
+                        }, (n - 1) + n)));
                     });
             });
 	    } else if (n == 1) {

@@ -573,6 +573,8 @@ public:
 
     inline bool is_minus_one() const;
 
+    inline optional<machine_integer_t> get_int_value() const;
+
     inline Symbol *as_symbol() const;
 
 	inline const Expression *as_expression() const;
