@@ -4,7 +4,7 @@ template<typename Slice>
 inline BaseExpressionRef add_only_integers(const Slice &slice) {
 	// sums an all MachineInteger/BigInteger expression
 
-	Numeric::Z result(0);
+	Numeric::Z result(machine_integer_t(0));
 
 	for (auto value : slice.template primitives<Numeric::Z>()) {
 		result += value;

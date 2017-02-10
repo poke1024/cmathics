@@ -76,6 +76,18 @@ namespace Numeric {
 		inline explicit Z(machine_integer_t value) : machine_value(value), is_big(false) {
 		}
 
+        inline explicit Z(const char *s) {
+            mpz_init(big_value);
+            mpz_set_str(big_value, s, 10);
+            if (mpz_fits_slong_p(big_value)) {
+                is_big = false;
+                machine_value = mpz_get_si(big_value);
+                mpz_clear(big_value);
+            } else {
+                is_big = true;
+            }
+        }
+
 		inline Z(Z &&x) {
 			if (x.is_big) {
 				is_big = true;

@@ -390,6 +390,30 @@ class Expression;
 
 BaseExpressionRef from_symbolic_form(const SymEngineRef &ref, const Evaluation &evaluation);
 
+struct SExp {
+    inline SExp(
+        SExp &&other) :
+
+        s(other.s),
+        exp(other.exp),
+        non_negative(other.non_negative) {
+    }
+
+    inline SExp(
+        std::string &&s_,
+        size_t exp_,
+        int non_negative_) :
+
+        s(s_),
+        exp(exp_),
+        non_negative(non_negative_) {
+    }
+
+    std::string s;
+    size_t exp;
+    uint8_t non_negative;
+};
+
 class BaseExpression : public Shared<BaseExpression, SharedPool> {
 protected:
     const ExtendedType _extended_type;
