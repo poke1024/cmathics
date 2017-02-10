@@ -376,22 +376,27 @@ public:
             if (op->type() != StringType) {
                 return expression(evaluation.MakeBoxes, op, form);
             } else {
-                std::string s(op->as_string()->utf8());
+	            const String * const s = op->as_string();
+				const size_t n = s->length();
 
-                switch (form->extended_type()) {
-                    case SymbolInputForm:
-                        if (s == "*" || s == "^") {
-                            break;
-                        }
-                        // fallthrough
+                switch (form->extended_type())
+                    case SymbolInputForm: {
+	                    if (n == 1) {
+		                    const auto c = s->ascii_char_at(0);
+		                    if (c == '*' || c == '^') {
+			                    break;
+		                    }
+	                    }
+	                    // fallthrough
 
-                    case SymbolOutputForm:
-                        if (s.length() > 0 && s[0] != ' ' && s[s.length() - 1] != ' ') {
+                    case SymbolOutputForm: {
+                        if (n > 0 && s->ascii_char_at(0) != ' ' && s->ascii_char_at(n - 1) != ' ') {
 	                        std::ostringstream t;
-	                        t << " " << s << " ";
+	                        t << " " << op->as_string()->utf8() << " ";
                             return Pool::String(t.str());
                         }
                         break;
+                    }
 
                     default:
                         break;

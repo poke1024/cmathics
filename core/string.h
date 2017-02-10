@@ -33,6 +33,8 @@ public:
 
     virtual size_t length() const = 0; // length in characters (i.e. glyphs)
 
+	virtual char ascii_char_at(size_t offset) const = 0;
+
 	virtual size_t number_of_code_points(size_t offset, size_t length) const = 0;
 
 	virtual std::string utf8(size_t offset, size_t length) const = 0;
@@ -89,6 +91,8 @@ public:
 
 	virtual size_t length() const;
 
+	virtual char ascii_char_at(size_t offset) const;
+
 	virtual size_t number_of_code_points(size_t offset, size_t length) const;
 
     virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n) const;
@@ -136,6 +140,8 @@ public:
 	virtual UnicodeString unicode(size_t offset, size_t length) const;
 
     virtual size_t length() const;
+
+	virtual char ascii_char_at(size_t offset) const;
 
 	virtual size_t number_of_code_points(size_t offset, size_t length) const;
 
@@ -194,6 +200,8 @@ public:
 	virtual UnicodeString unicode(size_t offset, size_t length) const;
 
 	virtual size_t length() const;
+
+	virtual char ascii_char_at(size_t offset) const;
 
 	virtual size_t number_of_code_points(size_t offset, size_t length) const;
 
@@ -341,8 +349,12 @@ public:
 		if (m_extent->type() == StringExtent::ascii) {
 			return static_cast<AsciiStringExtent*>(m_extent.get())->data() + m_offset;
 		} else {
-			throw std::runtime_error("ascii not supported");
+			return nullptr;
 		}
+	}
+	inline char ascii_char_at(index_t index) const {
+		assert(index >= 0 && index < m_length);
+		return m_extent->ascii_char_at(index + m_offset);
 	}
 
     virtual std::string format(const SymbolRef &form, const Evaluation &evaluation) const final;

@@ -126,7 +126,9 @@ public:
 		    text.reserve(number_of_code_points);
 		    for (size_t i = 0; i < n; i++) {
 			    const String *s = leaves[i]->as_string();
-			    text.append(s->ascii(), s->length());
+			    const char *ascii = s->ascii();
+			    assert(ascii);
+			    text.append(ascii, s->length());
 		    }
 	        return Pool::String(new AsciiStringExtent(std::move(text)));
 	    } else {

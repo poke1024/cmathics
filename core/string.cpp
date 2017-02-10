@@ -200,6 +200,10 @@ size_t AsciiStringExtent::length() const {
     return m_ascii.size();
 }
 
+char AsciiStringExtent::ascii_char_at(size_t offset) const {
+	return m_ascii.data()[offset];
+}
+
 size_t AsciiStringExtent::number_of_code_points(size_t offset, size_t length) const {
 	return length;
 }
@@ -256,11 +260,16 @@ std::string SimpleStringExtent::utf8(size_t offset, size_t length) const {
 }
 
 UnicodeString SimpleStringExtent::unicode(size_t offset, size_t length) const {
-	return unicode().tempSubString(offset, length);
+	return m_string.tempSubString(offset, length);
 }
 
 size_t SimpleStringExtent::length() const {
     return m_string.length();
+}
+
+char SimpleStringExtent::ascii_char_at(size_t offset) const {
+	const auto c = m_string.char32At(offset);
+	return (c >= 0 && c < 128) ? (char)c : -1;
 }
 
 size_t SimpleStringExtent::number_of_code_points(size_t offset, size_t length) const {
@@ -319,11 +328,19 @@ std::string ComplexStringExtent::utf8(size_t offset, size_t length) const {
 
 UnicodeString ComplexStringExtent::unicode(size_t offset, size_t length) const {
 	const size_t cp_offset = m_offsets[offset];
-	return unicode().tempSubString(cp_offset, m_offsets[offset + length] - cp_offset);
+	return m_string.tempSubString(cp_offset, m_offsets[offset + length] - cp_offset);
 }
 
 size_t ComplexStringExtent::length() const {
 	return m_offsets.size() - 1;
+}
+
+char ComplexStringExtent::ascii_char_at(size_t offset) const {
+	if (m_offsets[offset + 1] - m_offsets[offset] != 1) {
+		return -1;
+	}
+	const auto c = m_string.char32At(m_offsets[offset]);
+	return (c >= 0 && c < 128) ? (char)c : -1;
 }
 
 size_t ComplexStringExtent::number_of_code_points(size_t offset, size_t length) const {
