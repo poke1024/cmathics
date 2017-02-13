@@ -145,7 +145,19 @@ inline SExp real_to_s_exp(
 }
 
 SExp MachineReal::to_s_exp(const optional<size_t> &n) const {
-    return real_to_s_exp(std::to_string(value), n, true);
+	std::string s;
+	if (n) {
+		const std::string format(
+			std::string("%.") + std::to_string(*n - 1) + std::string("e"));
+
+		const size_t k = snprintf(nullptr, 0, format.c_str(), value);
+		std::unique_ptr<char[]> buffer(new char[k + 1]);
+		snprintf(buffer.get(), k + 1, format.c_str(), value);
+		s = buffer.get();
+	} else {
+		s = std::to_string(value);
+	}
+    return real_to_s_exp(s, n, true);
 }
 
 std::string MachineReal::debugform() const {
@@ -292,18 +304,17 @@ BaseExpressionRef BigReal::negate(const Evaluation &evaluation) const {
 SExp BigReal::to_s_exp(const size_t n) const {
     std::string s;
     const std::string format(
-        std::string("%.") + std::to_string(n) + std::string("Rg"));
+        std::string("%.") + std::to_string(n) + std::string("RNg"));
 
     mpfr_t x;
     mpfr_init(x);
     arf_get_mpfr(x, arb_midref(value), MPFR_RNDN);
 
     const size_t k = mpfr_snprintf(nullptr, 0, format.c_str(), x);
-    char *buffer = nullptr;
 
     try {
         std::unique_ptr<char[]> buffer(new char[k + 1]);
-        mpfr_snprintf(buffer.get(), k, format.c_str(), x);
+        mpfr_snprintf(buffer.get(), k + 1, format.c_str(), x);
         s = buffer.get();
     } catch(...) {
         mpfr_clear(x);

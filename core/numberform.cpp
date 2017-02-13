@@ -227,14 +227,18 @@ BaseExpressionRef NumberForm::operator()(
         optional<machine_integer_t> value;
 
         if (options.ExponentFunction->extended_type() == SymbolAutomatic) {
-            value = rexp;
+            if (rexp >= -5 && rexp <= 5) {
+                // ignore
+            } else {
+                value = rexp;
+            }
         } else {
             value = expression(
                 options.ExponentFunction,
                 from_primitive(rexp))->evaluate(evaluation)->get_int_value();
         }
 
-        if (value && *value != 0) {
+        if (value) {
             exp -= *value;
             pexp = Pool::String(std::to_string(*value));
         } else {
@@ -243,7 +247,7 @@ BaseExpressionRef NumberForm::operator()(
     }
 
     // pad right with '0'.
-    if (s->length() < exp + 1) {
+    if (machine_integer_t(s->length()) < exp + 1) {
         evaluation.message(m_number_form, "sigz");
         s = string_join(s, m_zero_digit->repeat(1 + exp - s->length()));
     }
