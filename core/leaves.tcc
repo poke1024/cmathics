@@ -139,6 +139,14 @@ public:
 		return m_expr->size();
 	}
 
+    inline const BaseExpressionRef *begin() const {
+        return m_leaves;
+    }
+
+    inline const BaseExpressionRef *end() const {
+        return m_leaves + size();
+    }
+
 	inline TypeMask type_mask() const {
 		return m_expr->materialize_type_mask();
 	}
@@ -226,9 +234,111 @@ public:
 };
 #endif
 
+class VCallSliceIterator;
+
 class VCallSlice {
 private:
 	const Expression * const m_expr;
+
+    class Iterator {
+    private:
+        const Expression *m_expr;
+        index_t m_index;
+
+    public:
+        inline Iterator() {
+        }
+
+        inline Iterator(const Iterator &iterator) :
+            m_expr(iterator.m_expr), m_index(iterator.m_index) {
+        }
+
+        inline Iterator(const Expression *expr, size_t index) :
+            m_expr(expr), m_index(index) {
+        }
+
+        inline Iterator &operator=(const Iterator &i) {
+            m_expr = i.m_expr;
+            m_index = i.m_index;
+            return *this;
+        }
+
+        inline bool operator==(const Iterator &i) const {
+            return m_expr == i.m_expr && m_index == i.m_index;
+        }
+
+        inline bool operator!=(const Iterator &i) const {
+            return m_expr != i.m_expr || m_index != i.m_index;
+        }
+
+        inline bool operator>=(const Iterator &i) const {
+            return m_index >= i.m_index;
+        }
+
+        inline bool operator>(const Iterator &i) const {
+            return m_index > i.m_index;
+        }
+
+        inline bool operator<=(const Iterator &i) const {
+            return m_index <= i.m_index;
+        }
+
+        inline bool operator<(const Iterator &i) const {
+            return m_index < i.m_index;
+        }
+
+        inline BaseExpressionRef operator[](size_t i) const {
+            return m_expr->materialize_leaf(m_index + i);
+        }
+
+        inline BaseExpressionRef operator*() const {
+            return m_expr->materialize_leaf(m_index);
+        }
+
+        inline auto operator-(const Iterator &i) const {
+            return m_index - i.m_index;
+        }
+
+        inline Iterator operator--(int) {
+            Iterator previous(*this);
+            --m_index;
+            return previous;
+        }
+
+        inline Iterator &operator--() {
+            --m_index;
+            return *this;
+        }
+
+        inline Iterator operator++(int) {
+            Iterator previous(*this);
+            ++m_index;
+            return previous;
+        }
+
+        inline Iterator &operator++() {
+            ++m_index;
+            return *this;
+        }
+
+        inline Iterator operator+(size_t i) const {
+            return Iterator(m_expr, m_index + i);
+        }
+
+        inline Iterator &operator+=(size_t i) {
+            m_index += i;
+            return *this;
+        }
+
+        inline Iterator operator-(size_t i) const {
+            return Iterator(m_expr, m_index - i);
+        }
+
+        inline Iterator &operator-=(size_t i) {
+            m_index -= i;
+            return *this;
+        }
+    };
 
 public:
 	inline VCallSlice(const Expression *expr) : m_expr(expr) {
@@ -241,6 +351,14 @@ public:
 	inline size_t size() const {
 		return m_expr->size();
 	}
+
+    inline Iterator begin() const {
+        return Iterator(m_expr, 0);
+    }
+
+    inline Iterator end() const {
+        return Iterator(m_expr, size());
+    }
 
 	inline TypeMask type_mask() const {
 		return m_expr->materialize_type_mask();

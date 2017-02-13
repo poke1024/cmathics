@@ -344,6 +344,7 @@ using SymbolPtr = const Symbol*;
 
 class String;
 
+typedef const String *StringPtr;
 typedef ConstSharedPtr<const String> StringRef;
 typedef UnsafeSharedPtr<const String> UnsafeStringRef;
 
@@ -390,29 +391,7 @@ class Expression;
 
 BaseExpressionRef from_symbolic_form(const SymEngineRef &ref, const Evaluation &evaluation);
 
-struct SExp {
-    inline SExp(
-        SExp &&other) :
-
-        s(other.s),
-        exp(other.exp),
-        non_negative(other.non_negative) {
-    }
-
-    inline SExp(
-        std::string &&s_,
-        size_t exp_,
-        int non_negative_) :
-
-        s(s_),
-        exp(exp_),
-        non_negative(non_negative_) {
-    }
-
-    std::string s;
-    size_t exp;
-    uint8_t non_negative;
-};
+using SExp = std::tuple<StringRef, machine_integer_t, int>;
 
 class BaseExpression : public Shared<BaseExpression, SharedPool> {
 protected:

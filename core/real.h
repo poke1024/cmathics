@@ -193,7 +193,7 @@ public:
 
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const;
 
-    SExp to_s_exp(const optional<size_t> &n) const;
+    SExp to_s_exp(const size_t n) const;
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {

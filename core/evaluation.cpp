@@ -19,7 +19,9 @@ Evaluation::Evaluation(
 	definitions(new_definitions),
 	zero(Pool::MachineInteger(0)),
 	one(Pool::MachineInteger(1)),
-	minus_one(Pool::MachineInteger(-1)) {
+	minus_one(Pool::MachineInteger(-1)),
+    empty_list(expression(this->List)),
+    number_form(*this) {
 
     recursion_depth = 0;
     timeout = false;

@@ -1,5 +1,6 @@
 #include "inout.h"
 
+
 class Print : public Builtin {
 public:
     static constexpr const char *name = "Print";

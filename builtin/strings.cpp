@@ -95,6 +95,34 @@ class StringJoin : public Builtin {
 public:
     static constexpr const char *name = "StringJoin";
 
+private:
+    class StringArray {
+    private:
+        const BaseExpressionRef * const m_leaves;
+        const size_t m_n;
+
+    public:
+        inline StringArray(const BaseExpressionRef *leaves, size_t n) :
+            m_leaves(leaves), m_n(n) {
+        }
+
+        inline size_t size() const {
+            return m_n;
+        }
+
+        inline const BaseExpressionRef &operator[](size_t i) const {
+            return m_leaves[i];
+        }
+
+        inline const BaseExpressionRef *begin() const {
+            return m_leaves;
+        }
+
+        inline const BaseExpressionRef *end() const {
+            return m_leaves + m_n;
+        }
+    };
+
 public:
     using Builtin::Builtin;
 
@@ -107,41 +135,7 @@ public:
         size_t n,
         const Evaluation &evaluation) {
 
-	    StringExtent::Type extent_type = StringExtent::ascii;
-	    size_t number_of_code_points = 0;
-
-	    for (size_t i = 0; i < n; i++) {
-		    const BaseExpressionRef &leaf = leaves[i];
-		    if (leaf->type() != StringType) {
-			    return BaseExpressionRef(); // FIXME
-		    }
-		    extent_type = std::max(extent_type,
-				leaf->as_string()->extent_type());
-		    number_of_code_points +=
-			    leaf->as_string()->number_of_code_points();
-	    }
-
-	    if (extent_type == StringExtent::ascii) {
-			std::string text;
-		    text.reserve(number_of_code_points);
-		    for (size_t i = 0; i < n; i++) {
-			    const String *s = leaves[i]->as_string();
-			    const char *ascii = s->ascii();
-			    assert(ascii);
-			    text.append(ascii, s->length());
-		    }
-	        return Pool::String(new AsciiStringExtent(std::move(text)));
-	    } else {
-			UnicodeString text(number_of_code_points, 0, 0);
-		    for (size_t i = 0; i < n; i++) {
-			    text.append(leaves[i]->as_string()->unicode());
-		    }
-	        if (extent_type == StringExtent::simple) {
-		        return Pool::String(new SimpleStringExtent(text));
-	        } else {
-		        return Pool::String(new ComplexStringExtent(text));
-	        }
-	    }
+	    return string_array_join(StringArray(leaves, n));
     }
 };
 

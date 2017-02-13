@@ -115,7 +115,7 @@ inline SExp real_to_s_exp(
         non_negative = 1;
     }
 
-    size_t exp;
+    machine_integer_t exp;
 
     const auto e_pos = s.find('e');
     if (e_pos != std::string::npos) {
@@ -125,7 +125,7 @@ inline SExp real_to_s_exp(
             s = s[0] + rstrip(s.substr(2), '0');
         }
     } else {
-        size_t exp = index_t(s.find('.')) - 1;
+        exp = machine_integer_t(s.find('.')) - 1;
         s = s.substr(0, exp + 1) + rstrip(s.substr(exp + 2), '0');
 
         // consume leading '0's.
@@ -141,7 +141,7 @@ inline SExp real_to_s_exp(
         s = s + std::string(*n - s.length(), '0');
     }
 
-    return SExp(std::move(s), exp, non_negative);
+    return SExp(Pool::String(std::move(s)), exp, non_negative);
 }
 
 SExp MachineReal::to_s_exp(const optional<size_t> &n) const {
@@ -156,9 +156,27 @@ BaseExpressionRef MachineReal::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {
 
-    std::ostringstream s;
-    s << std::showpoint << std::setprecision(6) << value;
-    return Pool::String(s.str());
+    optional<size_t> optional_n;
+
+    switch (form->extended_type()) {
+        case SymbolInputForm:
+        case SymbolFullForm:
+            break;
+        default:
+            optional_n = 6;
+            break;
+    }
+
+    const SExp s_exp = to_s_exp(optional_n);
+    size_t n;
+
+    if (optional_n) {
+        n = *optional_n;
+    } else {
+        n = std::get<0>(s_exp)->length();
+    }
+
+    return evaluation.number_form(s_exp, evaluation.empty_list, n, evaluation);
 }
 
 std::string MachineReal::boxes_to_text(const Evaluation &evaluation) const {
@@ -203,9 +221,9 @@ BaseExpressionRef BigReal::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {
 
-    std::ostringstream s;
-    s << arb_get_str(value, long(floor(prec.decimals)), ARB_STR_NO_RADIUS);
-    return Pool::String(s.str());
+    const size_t n = std::floor(prec.decimals);
+    const SExp s_exp = to_s_exp(n);
+    return evaluation.number_form(s_exp, evaluation.empty_list, n, evaluation);
 }
 
 std::string BigReal::boxes_to_text(const Evaluation &evaluation) const {
@@ -271,20 +289,27 @@ BaseExpressionRef BigReal::negate(const Evaluation &evaluation) const {
     return Pool::BigReal(negated, prec);
 }
 
-SExp BigReal::to_s_exp(const optional<size_t> &n) const {
-    // FIXME
-    assert(*n); // FIXME
+SExp BigReal::to_s_exp(const size_t n) const {
     std::string s;
+    const std::string format(
+        std::string("%.") + std::to_string(n) + std::string("Rg"));
+
     mpfr_t x;
+    mpfr_init(x);
     arf_get_mpfr(x, arb_midref(value), MPFR_RNDN);
-    mpfr_exp_t exp;
-    char *t = mpfr_get_str(nullptr, &exp, 10, *n, x, MPFR_RNDN);
+
+    const size_t k = mpfr_snprintf(nullptr, 0, format.c_str(), x);
+    char *buffer = nullptr;
+
     try {
-        s = t;
+        std::unique_ptr<char[]> buffer(new char[k + 1]);
+        mpfr_snprintf(buffer.get(), k, format.c_str(), x);
+        s = buffer.get();
     } catch(...) {
-        mpfr_free_str(t);
+        mpfr_clear(x);
         throw;
     }
-    mpfr_free_str(t);
+
+    mpfr_clear(x);
     return real_to_s_exp(std::move(s), n, true);
 }

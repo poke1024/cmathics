@@ -371,7 +371,7 @@ public:
         return m_length;
     }
 
-	inline StringRef substr(index_t begin, index_t end) const {
+	inline StringRef substr(index_t begin, index_t end = INDEX_MAX) const {
 		assert(begin >= 0);
 		return Pool::String(
 			m_extent,
@@ -553,5 +553,51 @@ public:
         CharacterSequence<ComplexStringExtent>(context, string) {
     }
 };
+
+template<typename StringArray>
+StringRef string_array_join(const StringArray &array) {
+    const size_t n = array.size();
+
+    StringExtent::Type extent_type = StringExtent::ascii;
+    size_t number_of_code_points = 0;
+
+    for (const auto &leaf : array) {
+        if (leaf->type() != StringType) {
+            return StringRef();
+        }
+        extent_type = std::max(extent_type,
+            leaf->as_string()->extent_type());
+        number_of_code_points +=
+            leaf->as_string()->number_of_code_points();
+    }
+
+    if (extent_type == StringExtent::ascii) {
+        std::string text;
+        text.reserve(number_of_code_points);
+        for (const auto &leaf : array) {
+            const String *s = leaf->as_string();
+            const char *ascii = s->ascii();
+            assert(ascii);
+            text.append(ascii, s->length());
+        }
+        return Pool::String(new AsciiStringExtent(std::move(text)));
+    } else {
+        UnicodeString text(number_of_code_points, 0, 0);
+        for (const auto &leaf : array) {
+            text.append(leaf->as_string()->unicode());
+        }
+        if (extent_type == StringExtent::simple) {
+            return Pool::String(new SimpleStringExtent(text));
+        } else {
+            return Pool::String(new ComplexStringExtent(text));
+        }
+    }
+}
+
+template<typename... String>
+inline StringRef string_join(const String&... rest) {
+    const std::initializer_list<StringRef> strings = {rest...};
+    return string_array_join(strings);
+}
 
 #endif

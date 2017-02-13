@@ -133,6 +133,8 @@ public:
     }
 };
 
+#include "numberform.h"
+
 class Evaluation : public Symbols {
 public:
     Definitions &definitions;
@@ -152,6 +154,10 @@ public:
     const BaseExpressionRef zero;
     const BaseExpressionRef one;
     const BaseExpressionRef minus_one;
+
+    const BaseExpressionRef empty_list;
+
+    class NumberForm number_form;
 
     Evaluation(
         const OutputRef &output,
