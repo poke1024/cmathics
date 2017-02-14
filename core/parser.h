@@ -58,7 +58,7 @@ public:
                 const Precision prec(prec_10);
 	            mpfr_t x;
 	            mpfr_init2(x, prec.bits);
-	            mpfr_set_str(x, decimals.c_str(), prec.bits, MPFR_RNDN);
+	            mpfr_set_str(x, decimals.c_str(), 10, MPFR_RNDN);
                 return Pool::BigReal(x, prec);
             } else {
                 throw std::runtime_error("unsupported PrecisionReal");
