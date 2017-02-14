@@ -65,7 +65,7 @@ public:
                 if (p <= Precision::machine_precision.decimals) {
                     return Pool::MachineReal(form);
                 } else {
-                    return Pool::BigReal(form, Precision(p));
+                    return eval(form, Precision(p), evaluation);
                 }
             }
         } catch (const SymEngine::SymEngineException &e) {

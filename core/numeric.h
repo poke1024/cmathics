@@ -177,24 +177,24 @@ namespace Numeric {
 
 	class R {
 	private:
-		arb_t m_value;
+		mpfr_t m_value;
         bool m_owned;
 
 	public:
-        inline explicit R(const arb_t value) {
+        inline explicit R(const mpfr_t value) {
             std::memcpy(m_value, value, sizeof(arb_t));
             m_owned = false;
         }
 
 		inline explicit R(machine_integer_t value) {
-			arb_init(m_value);
-			arb_set_si(m_value, value);
+			mpfr_init(m_value);
+			mpfr_set_si(m_value, value, MPFR_RNDN);
             m_owned = true;
 		}
 
 		inline explicit R(machine_real_t value) {
-			arb_init(m_value);
-			arb_set_d(m_value, value);
+			mpfr_init(m_value);
+			mpfr_set_d(m_value, value, MPFR_RNDN);
             m_owned = true;
 		}
 
@@ -210,19 +210,13 @@ namespace Numeric {
 		}
 
 		inline R(const mpz_class &value) {
-			arf_t temp;
-			arf_init(temp);
-			arf_set_mpz(temp, value.get_mpz_t());
-
-			arb_init(m_value);
-			arb_set_arf(m_value, temp);
+			mpfr_init(m_value);
+			mpfr_set_z(m_value, value.get_mpz_t(), MPFR_RNDN);
 			m_owned = true;
-
-			arf_clear(temp);
 		}
 
 		inline R(const mpq_class &value, const Precision &prec) {
-			arf_t num;
+			/*arf_t num;
 			arf_init(num);
 			arf_set_mpz(num, value.get_num().get_mpz_t());
 
@@ -232,45 +226,45 @@ namespace Numeric {
 
 			arf_t q;
 			arf_init(q);
-			arf_div(q, num, den, prec.bits, ARF_RND_DOWN);
+			arf_div(q, num, den, prec.bits, ARF_RND_DOWN);*/
 
-			arb_init(m_value);
-			arb_set_arf(m_value, q);
+			mpfr_init2(m_value, prec.bits);
+			mpfr_set_q(m_value, value.get_mpq_t(), MPFR_RNDN);
 			m_owned = true;
 
-			arf_clear(num);
+			/*arf_clear(num);
 			arf_clear(den);
-			arf_clear(q);
+			arf_clear(q);*/
 		}
 
 		inline ~R() {
             if (m_owned) {
-                arb_clear(m_value);
+                mpfr_clear(m_value);
             }
 		}
 
         inline bool operator==(const R &r) const {
-            return arb_eq(m_value, r.m_value);
+            return mpfr_cmp(m_value, r.m_value) == 0;
         }
 
         inline bool operator!=(const R &r) const {
-            return arb_ne(m_value, r.m_value);
+            return mpfr_cmp(m_value, r.m_value) != 0;
         }
 
         inline bool operator<(const R &r) const {
-            return arb_lt(m_value, r.m_value);
+            return mpfr_cmp(m_value, r.m_value) < 0;
         }
 
         inline bool operator<=(const R &r) const {
-            return arb_le(m_value, r.m_value);
+            return mpfr_cmp(m_value, r.m_value) <= 0;
         }
 
         inline bool operator>(const R &r) const {
-            return arb_gt(m_value, r.m_value);
+            return mpfr_cmp(m_value, r.m_value) > 0;
         }
 
         inline bool operator>=(const R &r) const {
-            return arb_ge(m_value, r.m_value);
+            return mpfr_cmp(m_value, r.m_value) >= 0;
         }
 	};
 

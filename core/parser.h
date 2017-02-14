@@ -55,10 +55,10 @@ public:
             if (o[1][0] == _decimal_string) {
                 const std::string decimals = o[1][1].as_string();
                 const double prec_10 = o[2].as_float();
-                arb_t x;
-                arb_init(x);
                 const Precision prec(prec_10);
-                arb_set_str(x, decimals.c_str(), prec.bits);
+	            mpfr_t x;
+	            mpfr_init2(x, prec.bits);
+	            mpfr_set_str(x, decimals.c_str(), prec.bits, MPFR_RNDN);
                 return Pool::BigReal(x, prec);
             } else {
                 throw std::runtime_error("unsupported PrecisionReal");

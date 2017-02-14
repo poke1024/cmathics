@@ -157,21 +157,11 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 		}
 
 		case SymEngine::REAL_MPFR: {
-			// FIXME; same problem as in BigReal::instantiate_symbolic_form; we lose arb's radius
-
 			const SymEngine::mpfr_class &value(static_cast<const SymEngine::RealMPFR*>(form.get())->i);
-
-			arf_t temp;
-			arf_init(temp);
-			arf_set_mpfr(temp, value.get_mpfr_t());
-
-			arb_t r;
-			arb_init(r);
-			arb_set_arf(r, temp);
-
-			arf_clear(temp);
-
-			expr = Pool::BigReal(r, Precision(value.get_prec()));
+			mpfr_t copy;
+			mpfr_init2(copy, mpfr_get_prec(value.get_mpfr_t()));
+			mpfr_set(copy, value.get_mpfr_t(), MPFR_RNDN);
+			expr = Pool::BigReal(copy, Precision(value.get_prec()));
 			break;
 		}
 

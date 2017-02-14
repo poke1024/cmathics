@@ -6,7 +6,7 @@
 #include <iomanip>
 
 #include <arb.h>
-#include <symengine/eval_arb.h>
+#include <symengine/eval.h>
 #include <symengine/eval_double.h>
 #include <symengine/real_double.h>
 #include <symengine/real_mpfr.h>
@@ -36,12 +36,8 @@ inline machine_real_t eval_to_machine_real(const SymbolicFormRef &form) {
     if (sizeof(machine_real_t) == sizeof(double)) {
         return SymEngine::eval_double(*form->get().get());
     } else {
-        arb_t value;
-        arb_init(value);
-        SymEngine::eval_arb(value, *form->get().get(), std::numeric_limits<machine_real_t>::digits);
-        const machine_real_t real = arf_get_d(arb_midref(value), ARF_RND_NEAR);
-        arb_clear(value);
-        return real;
+	    assert(false);
+        // SymEngine::evalf(*form->get().get(), std::numeric_limits<machine_real_t>::digits, true);
     }
 }
 
@@ -120,31 +116,24 @@ class BigReal : public BaseExpression {
 public:
 	static constexpr Type Type = BigRealType;
 
-    arb_t value;
+    mpfr_t value;
     const Precision prec;
 
-    explicit inline BigReal(arb_t value_, const Precision &prec_) :
+    explicit inline BigReal(mpfr_t value_, const Precision &prec_) :
         BaseExpression(BigRealExtendedType), prec(prec_) {
 
-        arb_swap(value, value_);
+	    mpfr_swap(value, value_);
     }
 
 	explicit inline BigReal(double value_, const Precision &prec_) :
 		BaseExpression(BigRealExtendedType), prec(prec_) {
 
-        arb_init(value);
-        arb_set_d(value, value_);
-    }
-
-    explicit inline BigReal(const SymbolicFormRef &form, const Precision &prec_) :
-        BaseExpression(BigRealExtendedType), prec(prec_) {
-
-        arb_init(value);
-        SymEngine::eval_arb(value, *form->get().get(), prec.bits);
+		mpfr_init2(value, prec.bits);
+        mpfr_set_d(value, value_, MPFR_RNDN);
     }
 
     virtual ~BigReal() {
-        arb_clear(value);
+        mpfr_clear(value);
     }
 
     virtual std::string debugform() const;
@@ -159,7 +148,7 @@ public:
 
 	virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.type() == BigRealType) {
-            return arb_equal(value, static_cast<const BigReal*>(&expr)->value); // FIXME
+            return mpfr_cmp(value, static_cast<const BigReal*>(&expr)->value) == 0;
         } else {
             return false;
         }
@@ -172,7 +161,7 @@ public:
     }
 
     inline double as_double() const {
-        return arf_get_d(arb_midref(value), ARF_RND_DOWN); // FIXME
+        return mpfr_get_d(value, MPFR_RNDN);
     }
 
     virtual double round_to_float() const {
@@ -184,7 +173,7 @@ public:
     }
 
     virtual bool is_negative() const {
-        return arb_is_negative(value);
+        return mpfr_cmp_si(value, 0) < 0;
     }
 
     virtual bool is_inexact() const final {
@@ -197,12 +186,17 @@ public:
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        // FIXME; this is inexact, as we only use the midpoint
-
-        SymEngine::mpfr_class x;
-        arf_get_mpfr(x.get_mpfr_t(), arb_midref(value), MPFR_RNDN);
+        SymEngine::mpfr_class x(value);
         return Pool::SymbolicForm(SymEngine::real_mpfr(x));
     }
 };
+
+inline BaseExpressionRef eval(
+	const SymbolicFormRef &form,
+	const Precision &prec,
+	const Evaluation &evaluation) {
+
+	return from_symbolic_form(SymEngine::evalf(*form->get().get(), prec.bits + 2, true), evaluation);
+}
 
 #endif

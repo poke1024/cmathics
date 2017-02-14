@@ -43,12 +43,7 @@ inline BaseExpressionRef Pool::BigReal(machine_real_t value, const Precision &pr
 	return BaseExpressionRef(_s_instance->_big_reals.construct(value, prec));
 }
 
-inline BaseExpressionRef Pool::BigReal(const SymbolicFormRef &form, const Precision &prec) {
-	assert(_s_instance);
-	return BaseExpressionRef(_s_instance->_big_reals.construct(form, prec));
-}
-
-inline BaseExpressionRef Pool::BigReal(arb_t value, const Precision &prec) {
+inline BaseExpressionRef Pool::BigReal(mpfr_t value, const Precision &prec) {
 	assert(_s_instance);
 	return BaseExpressionRef(_s_instance->_big_reals.construct(value, prec));
 }

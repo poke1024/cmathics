@@ -52,15 +52,15 @@ inline BaseExpressionRef operator+(const MachineReal &x, const BigInteger &y) {
 }
 
 inline BaseExpressionRef operator+(const BigInteger &x, const BigReal &y) {
-	arf_t temp;
-	arf_init(temp);
-	arf_set_mpz(temp, x.value.get_mpz_t());
+	mpfr_t temp;
+	mpfr_init2(temp, y.prec.bits);
+	mpfr_set_z(temp, x.value.get_mpz_t(), MPFR_RNDN);
 
-	arb_t r;
-	arb_init(r);
-	arb_add_arf(r, y.value, temp, y.prec.bits);
+	mpfr_t r;
+	mpfr_init2(r, y.prec.bits);
+	mpfr_add(r, y.value, temp, MPFR_RNDN);
 
-	arf_clear(temp);
+	mpfr_clear(temp);
 
 	return Pool::BigReal(r, y.prec);
 }
@@ -102,9 +102,9 @@ inline BaseExpressionRef operator+(const MachineInteger &x, const MachineReal &y
 }
 
 inline BaseExpressionRef operator+(const MachineInteger &x, const BigReal &y) {
-	arb_t r;
-	arb_init(r);
-	arb_add_si(r, y.value, long(x.value), y.prec.bits);
+	mpfr_t r;
+	mpfr_init2(r, y.prec.bits);
+	mpfr_add_si(r, y.value, x.value, MPFR_RNDN);
 	return Pool::BigReal(r, y.prec);
 }
 
@@ -121,32 +121,22 @@ inline BaseExpressionRef operator+(const BigReal &x, const MachineReal &y) {
 }
 
 inline BaseExpressionRef operator+(const BigReal &x, const BigReal &y) {
-	arb_t r;
-	arb_init(r);
-	arb_add(r, x.value, y.value, std::min(x.prec.bits, y.prec.bits));
+	mpfr_t r;
+	mpfr_init2(r, std::min(x.prec.bits, y.prec.bits));
+	mpfr_add(r, x.value, y.value, MPFR_RNDN);
 	return Pool::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
 }
 
 inline BaseExpressionRef operator+(const BigRational &x, const BigReal &y) {
-	arf_t num;
-	arf_init(num);
-	arf_set_mpz(num, x.value.get_num().get_mpz_t());
+	mpfr_t q;
+	mpfr_init2(q, y.prec.bits);
+	mpfr_set_q(q, x.value.get_mpq_t(), MPFR_RNDN);
 
-	arf_t den;
-	arf_init(den);
-	arf_set_mpz(den, x.value.get_den().get_mpz_t());
+	mpfr_t r;
+	mpfr_init2(r, y.prec.bits);
+	mpfr_add(r, y.value, q, MPFR_RNDN);
 
-	arf_t q;
-	arf_init(q);
-	arf_div(q, num, den, y.prec.bits, ARF_RND_DOWN);
-
-	arb_t r;
-	arb_init(r);
-	arb_add_arf(r, y.value, q, y.prec.bits);
-
-	arf_clear(num);
-	arf_clear(den);
-	arf_clear(q);
+	mpfr_clear(q);
 
 	return Pool::BigReal(r, y.prec);
 }
@@ -218,9 +208,9 @@ inline BaseExpressionRef operator*(const MachineReal &x, const MachineReal &y) {
 }
 
 inline BaseExpressionRef operator*(const MachineInteger &x, const BigReal &y) {
-	arb_t r;
-	arb_init(r);
-	arb_mul_si(r, y.value, long(x.value), y.prec.bits);
+	mpfr_t r;
+	mpfr_init2(r, y.prec.bits);
+	mpfr_mul_si(r, y.value, x.value, MPFR_RNDN);
 	return Pool::BigReal(r, y.prec);
 }
 
@@ -245,22 +235,22 @@ inline BaseExpressionRef operator*(const BigReal &x, const MachineReal &y) {
 }
 
 inline BaseExpressionRef operator*(const BigReal &x, const BigReal &y) {
-	arb_t r;
-	arb_init(r);
-	arb_mul(r, x.value, y.value, std::min(x.prec.bits, y.prec.bits));
+	mpfr_t r;
+	mpfr_init2(r, std::min(x.prec.bits, y.prec.bits));
+	mpfr_mul(r, x.value, y.value, MPFR_RNDN);
 	return Pool::BigReal(r, x.prec.bits < y.prec.bits ? x.prec : y.prec);
 }
 
 inline BaseExpressionRef operator*(const BigInteger &x, const BigReal &y) {
-	arf_t temp;
-	arf_init(temp);
-	arf_set_mpz(temp, x.value.get_mpz_t());
+	mpfr_t z;
+	mpfr_init2(z, y.prec.bits);
+	mpfr_set_z(z, x.value.get_mpz_t(), MPFR_RNDN);
 
-	arb_t r;
-	arb_init(r);
-	arb_mul_arf(r, y.value, temp, y.prec.bits);
+	mpfr_t r;
+	mpfr_init2(r, y.prec.bits);
+	mpfr_mul(r, y.value, z, MPFR_RNDN);
 
-	arf_clear(temp);
+	mpfr_clear(z);
 
 	return Pool::BigReal(r, y.prec);
 }
@@ -270,25 +260,15 @@ inline BaseExpressionRef operator*(const BigReal &x, const BigInteger &y) {
 }
 
 inline BaseExpressionRef operator*(const BigRational &x, const BigReal &y) {
-	arf_t num;
-	arf_init(num);
-	arf_set_mpz(num, x.value.get_num().get_mpz_t());
+	mpfr_t q;
+	mpfr_init2(q, y.prec.bits);
+	mpfr_set_q(q, x.value.get_mpq_t(), MPFR_RNDN);
 
-	arf_t den;
-	arf_init(den);
-	arf_set_mpz(den, x.value.get_den().get_mpz_t());
+	mpfr_t r;
+	mpfr_init2(r, y.prec.bits);
+	mpfr_mul(r, y.value, q, MPFR_RNDN);
 
-	arf_t q;
-	arf_init(q);
-	arf_div(q, num, den, y.prec.bits, ARF_RND_DOWN);
-
-	arb_t r;
-	arb_init(r);
-	arb_mul_arf(r, y.value, q, y.prec.bits);
-
-	arf_clear(num);
-	arf_clear(den);
-	arf_clear(q);
+	mpfr_clear(q);
 
 	return Pool::BigReal(r, y.prec);
 }

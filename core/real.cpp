@@ -24,38 +24,38 @@ inline bool is_almost_equal(machine_real_t s, machine_real_t t, machine_real_t r
 	return err <= rel_eps;
 }
 
-inline bool is_almost_equal(const arf_t &s, const arf_t &t, const arf_t &rel_eps, int prec) {
+inline bool is_almost_equal(const mpfr_t &s, const mpfr_t &t, const mpfr_t &rel_eps, int prec) {
 	// adapted from mpmath.almosteq()
 
-	arf_t diff;
-	arf_init(diff);
-	arf_sub(diff, s, t, prec, ARF_RND_NEAR);
-	arf_abs(diff, diff);
+	mpfr_t diff;
+	mpfr_init2(diff, prec);
+	mpfr_sub(diff, s, t, MPFR_RNDN);
+	mpfr_abs(diff, diff, MPFR_RNDN);
 
-	arf_t abss;
-	arf_init(abss);
-	arf_abs(abss, s);
+	mpfr_t abss;
+	mpfr_init2(abss, prec);
+	mpfr_abs(abss, s, MPFR_RNDN);
 
-	arf_t abst;
-	arf_init(abst);
-	arf_abs(abst, t);
+	mpfr_t abst;
+	mpfr_init2(abst, prec);
+	mpfr_abs(abst, t, MPFR_RNDN);
 
-	arf_t err;
-	arf_init(err);
+	mpfr_t err;
+	mpfr_init2(err, prec);
 
-	if (arf_cmp(abss, abst) < 0) {
-		arf_div(err, diff, abst, prec, ARF_RND_NEAR);
+	if (mpfr_cmp(abss, abst) < 0) {
+		mpfr_div(err, diff, abst, MPFR_RNDN);
 	} else {
-		arf_div(err, diff, abss, prec, ARF_RND_NEAR);
+		mpfr_div(err, diff, abss, MPFR_RNDN);
 	}
 
-	arf_clear(diff);
-	arf_clear(abss);
-	arf_clear(abst);
+	mpfr_clear(diff);
+	mpfr_clear(abss);
+	mpfr_clear(abst);
 
-	const bool eq = arf_cmp(err, rel_eps) <= 0;
+	const bool eq = mpfr_cmp(err, rel_eps) <= 0;
 
-	arf_clear(err);
+	mpfr_clear(err);
 
 	return eq;
 }
@@ -65,27 +65,19 @@ inline bool is_almost_equal(machine_real_t s, const BigReal &t) {
 	const int t_prec = t.prec.bits;
 	const int prec = std::min(s_prec, t_prec);
 
-	arf_t rel_eps;
-	arf_init(rel_eps);
-	arf_set_si_2exp_si(rel_eps, 1, -(prec - 7));
+	mpfr_t rel_eps;
+	mpfr_init2(rel_eps, prec);
+	mpfr_set_si_2exp(rel_eps, 1, -(prec - 7), MPFR_RNDN);
 
-	arf_t su;
-	arf_init(su);
-	arf_set_d(su, s);
+	mpfr_t su;
+	mpfr_init2(su, prec);
+	mpfr_set_d(su, s, MPFR_RNDN);
 
-	arf_t tu, tv;
-	arf_init(tu);
-	arf_init(tv);
-	arb_get_interval_arf(tu, tv, t.value, prec);
+	const bool eq = is_almost_equal(su, t.value, rel_eps, prec);
 
-	const bool eq = is_almost_equal(su, tu, rel_eps, prec) &&
-		is_almost_equal(su, tv, rel_eps, prec);
+	mpfr_clear(su);
 
-	arf_clear(tu);
-	arf_clear(tv);
-	arf_clear(su);
-
-	arf_clear(rel_eps);
+	mpfr_clear(rel_eps);
 
 	return eq;
 }
@@ -147,12 +139,11 @@ inline SExp real_to_s_exp(
 SExp MachineReal::to_s_exp(const optional<size_t> &n) const {
 	std::string s;
 	if (n) {
-		const std::string format(
-			std::string("%.") + std::to_string(*n - 1) + std::string("e"));
-
-		const size_t k = snprintf(nullptr, 0, format.c_str(), value);
+		assert(*n == 6);
+		const char * const format = "%.5e";
+		const size_t k = snprintf(nullptr, 0, format, value);
 		std::unique_ptr<char[]> buffer(new char[k + 1]);
-		snprintf(buffer.get(), k + 1, format.c_str(), value);
+		snprintf(buffer.get(), k + 1, format, value);
 		s = buffer.get();
 	} else {
 		s = std::to_string(value);
@@ -226,7 +217,13 @@ BaseExpressionRef MachineReal::negate(const Evaluation &evaluation) const {
 }
 
 std::string BigReal::debugform() const {
-	return std::string(arb_get_str(value, long(floor(prec.decimals)), ARB_STR_NO_RADIUS));
+	const char * const format = "%RNg";
+
+	const size_t k = mpfr_snprintf(nullptr, 0, format, value);
+	std::unique_ptr<char[]> buffer(new char[k + 1]);
+	mpfr_snprintf(buffer.get(), k + 1, format, value);
+
+	return std::string(buffer.get());
 }
 
 BaseExpressionRef BigReal::make_boxes(
@@ -257,29 +254,13 @@ tribool BigReal::equals(const BaseExpression &expr) const {
 			const int t_prec = t.prec.bits;
 			const int prec = std::min(s_prec, t_prec);
 
-			arf_t rel_eps;
-			arf_init(rel_eps);
-			arf_set_si_2exp_si(rel_eps, 1, -(prec - 7));
+			mpfr_t rel_eps;
+			mpfr_init2(rel_eps, prec);
+			mpfr_set_si_2exp(rel_eps, 1, -(prec - 7), MPFR_RNDN);
 
-			arf_t su, sv;
-			arf_init(su);
-			arf_init(sv);
-			arb_get_interval_arf(su, sv, s.value, prec);
+			const bool eq = is_almost_equal(s.value, t.value, rel_eps, prec);
 
-			arf_t tu, tv;
-			arf_init(tu);
-			arf_init(tv);
-			arb_get_interval_arf(tu, tv, t.value, prec);
-
-			const bool eq = is_almost_equal(su, tu, rel_eps, prec) &&
-				is_almost_equal(sv, tv, rel_eps, prec);
-
-			arf_clear(su);
-			arf_clear(sv);
-			arf_clear(tu);
-			arf_clear(tv);
-
-			arf_clear(rel_eps);
+			mpfr_clear(rel_eps);
 
 			return eq;
 		}
@@ -295,9 +276,9 @@ tribool BigReal::equals(const BaseExpression &expr) const {
 }
 
 BaseExpressionRef BigReal::negate(const Evaluation &evaluation) const {
-    arb_t negated;
-    arb_init(negated);
-    arb_neg(negated, value);
+    mpfr_t negated;
+	mpfr_init2(negated, prec.bits);
+	mpfr_neg(negated, value, MPFR_RNDN);
     return Pool::BigReal(negated, prec);
 }
 
@@ -306,21 +287,11 @@ SExp BigReal::to_s_exp(const size_t n) const {
     const std::string format(
         std::string("%.") + std::to_string(n) + std::string("RNg"));
 
-    mpfr_t x;
-    mpfr_init(x);
-    arf_get_mpfr(x, arb_midref(value), MPFR_RNDN);
+    const size_t k = mpfr_snprintf(nullptr, 0, format.c_str(), value);
 
-    const size_t k = mpfr_snprintf(nullptr, 0, format.c_str(), x);
+    std::unique_ptr<char[]> buffer(new char[k + 1]);
+    mpfr_snprintf(buffer.get(), k + 1, format.c_str(), value);
+    s = buffer.get();
 
-    try {
-        std::unique_ptr<char[]> buffer(new char[k + 1]);
-        mpfr_snprintf(buffer.get(), k + 1, format.c_str(), x);
-        s = buffer.get();
-    } catch(...) {
-        mpfr_clear(x);
-        throw;
-    }
-
-    mpfr_clear(x);
     return real_to_s_exp(std::move(s), n, true);
 }

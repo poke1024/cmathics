@@ -537,8 +537,7 @@ public:
     static inline BaseExpressionRef MachineReal(const SymbolicFormRef &form);
 
     static inline BaseExpressionRef BigReal(machine_real_t value, const Precision &prec);
-	static inline BaseExpressionRef BigReal(const SymbolicFormRef &form, const Precision &prec);
-	static inline BaseExpressionRef BigReal(arb_t value, const Precision &prec);
+	static inline BaseExpressionRef BigReal(mpfr_t value, const Precision &prec);
 
     static inline BaseExpressionRef MachineComplex(machine_real_t real, machine_real_t imag);
     static inline BaseExpressionRef BigComplex(const SymEngineComplexRef &value);
