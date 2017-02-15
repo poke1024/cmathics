@@ -1526,7 +1526,9 @@ PatternMatcherRef PatternCompiler::compile(
 	const index_t n = end - begin;
 
 	if (n == 0) {
-		return factory.create_empty();
+		UnsafePatternMatcherRef matcher = factory.create_empty();
+		matcher->set_size(PatternMatcherSize(size_from_here, size_from_here));
+		return matcher;
 	}
 
 	std::vector<MatchSize> matchable;

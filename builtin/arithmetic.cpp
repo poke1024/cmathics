@@ -1221,8 +1221,25 @@ public:
 				return Pool::MachineInteger(std::abs(static_cast<const MachineInteger*>(x)->value));
 			case MachineRealType:
 				return Pool::MachineReal(std::abs(static_cast<const MachineReal*>(x)->value));
-			default:
-				return expr->symbolic_evaluate_unary(SymEngine::abs, evaluation);
+			default: {
+				const BaseExpressionRef result = expr->symbolic_evaluate_unary(SymEngine::abs, evaluation);
+
+				// temporary work around for https://github.com/symengine/symengine/issues/1212
+				if (result && result->has_form<SymbolAbs, 1>(evaluation)) {
+					const auto old_form = symbolic_form(x, evaluation);
+					const auto new_form = symbolic_form(result->as_expression()->static_leaves<1>()[0], evaluation);
+					if (!old_form->is_none() && !new_form->is_none()) {
+						const auto z = SymEngine::add(old_form->get(), new_form->get());
+						if (SymEngine::is_a_sub<SymEngine::Number>(*z)) {
+							if (SymEngine::rcp_static_cast<const SymEngine::Number>(z)->is_zero()) {
+								return BaseExpressionRef();
+							}
+						}
+					}
+				}
+
+				return result;
+			}
 		}
 	}
 };

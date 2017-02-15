@@ -313,7 +313,7 @@ BaseExpressionRef ExpressionImplementation<Slice>::expression_custom_format(
     if (form->extended_type() != SymbolFullForm) {
         if (head()->type() == SymbolType) {
             const BaseExpressionRef formatted = head()->as_symbol()->state().format(
-                    this, SymbolRef(form->as_symbol()), evaluation);
+                this, SymbolRef(form->as_symbol()), evaluation);
             if (formatted) {
                 return formatted->custom_format_or_copy(form, evaluation);
             }
