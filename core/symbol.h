@@ -356,8 +356,8 @@ BaseExpressionRef SymbolState::format(
 	const SymbolRef &form,
 	const Evaluation &evaluation) const {
 
-	if (expr->type() == ExpressionType &&
-	    expr->as_expression()->head()->type() == ExpressionType) {
+	if (expr->is_expression() &&
+	    expr->as_expression()->head()->is_expression()) {
 		// expr is of the form f[...][...]
 		return BaseExpressionRef();
 	}
@@ -532,7 +532,7 @@ inline std::size_t SymbolHash::operator()(const SymbolRef &symbol) const {
 }
 
 inline SlotDirective CompiledArguments::operator()(const BaseExpressionRef &item) const {
-	if (item->type() == SymbolType) {
+	if (item->is_symbol()) {
 		const index_t index = m_variables.find(
 			static_cast<const Symbol*>(item.get()));
 		if (index >= 0) {

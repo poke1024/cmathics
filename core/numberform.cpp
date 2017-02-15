@@ -34,7 +34,7 @@ inline BaseExpressionRef NumberForm::default_number_format(
     const NumberFormatOptions &options,
     const Evaluation &evaluation) const {
 
-    if (exp->type() == StringType && exp->as_string()->length() > 0) {
+    if (exp->is_string() && exp->as_string()->length() > 0) {
         const BaseExpressionPtr mul = options.NumberMultiplier;
         return expression(evaluation.RowBox, expression(
                 evaluation.List, man, mul, expression(evaluation.SuperscriptBox, base, exp)));
@@ -53,7 +53,7 @@ void NumberForm::parse_options(
 
     std::memcpy(&options, &m_default_options, sizeof(NumberFormatOptions));
 
-    if (options_list->type() != ExpressionType) {
+    if (!options_list->is_expression()) {
         return;
     }
 
@@ -68,7 +68,7 @@ void NumberForm::parse_options(
                 const BaseExpressionRef &rhs = leaves[1];
 
                 const auto extract_string_pair = [&rhs] (StringPtr *ptr) {
-                    if (rhs->type() == ExpressionType &&
+                    if (rhs->is_expression() &&
                         rhs->as_expression()->size() == 2) {
 
                         const auto * const leaves =
@@ -76,7 +76,7 @@ void NumberForm::parse_options(
 
                         for (int i = 0; i < 2; i++) {
                             const BaseExpressionRef &leaf = leaves[i];
-                            if (leaf->type() == StringType) {
+                            if (leaf->is_string()) {
                                 ptr[i] = leaf->as_string();
                             }
                         }
@@ -102,7 +102,7 @@ void NumberForm::parse_options(
                         break;
 
                     case S::DigitBlock:
-                        if (rhs->type() == ExpressionType &&
+                        if (rhs->is_expression() &&
                             rhs->as_expression()->size() == 2) {
 
                             const auto * const leaves =
@@ -130,7 +130,7 @@ void NumberForm::parse_options(
                         break;
 
                     case S::NumberPoint:
-                        if (rhs->type() == StringType) {
+                        if (rhs->is_string()) {
                             options.NumberPoint = rhs->as_string();
                         }
                         break;

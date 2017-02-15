@@ -1,7 +1,7 @@
 #include "mul.h"
 
 inline bool is_plus(const BaseExpressionRef &expr) {
-	if (expr->type() != ExpressionType) {
+	if (!expr->is_expression()) {
 		return false;
 	}
 
@@ -14,7 +14,7 @@ inline bool times_number(
 	UnsafeBaseExpressionRef &result,
 	const Evaluation &evaluation) {
 
-	if (number->type() != MachineIntegerType) {
+	if (!number->is_machine_integer()) {
 		return false;
 	}
 

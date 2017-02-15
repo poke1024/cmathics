@@ -14,14 +14,14 @@ inline DefinitionsPos get_definitions_pos(
 	// see core/definitions.py:get_tag_position()
 	if (pattern == symbol) {
 		return DefinitionsPos::Own;
-	} else if (pattern->type() != ExpressionType) {
+	} else if (!pattern->is_expression()) {
 		return DefinitionsPos::None;
 	} else if (pattern->as_expression()->head() == symbol) {
 		return DefinitionsPos::Down;
 	} else if (pattern->lookup_name() == symbol) {
 		return DefinitionsPos::Sub;
 	} else {
-        if (pattern->type() == ExpressionType) {
+        if (pattern->is_expression()) {
             return pattern->as_expression()->with_slice([symbol] (const auto &slice) {
                 if (slice.type_mask() & make_type_mask(SymbolType, ExpressionType)) {
                     const size_t n = slice.size();

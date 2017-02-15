@@ -4,7 +4,7 @@
 #include "../core/runtime.h"
 
 inline bool is_minus_1(const BaseExpressionRef &expr) {
-	if (expr->type() == MachineIntegerType) {
+	if (expr->is_machine_integer()) {
 		return static_cast<const MachineInteger*>(expr.get())->value == -1;
 	} else {
 		return false;

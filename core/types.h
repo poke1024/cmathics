@@ -431,6 +431,10 @@ protected:
 		throw std::runtime_error(s.str());
 	}
 
+	inline ExtendedType extended_type() const {
+		return _extended_type; // extended type, e.g. SymbolBlank
+	}
+
 public:
     template<typename T>
     inline void set_symbolic_form(const SymEngine::RCP<const T> &ref) const;
@@ -451,20 +455,60 @@ public:
 
 	virtual std::string debugform() const = 0;
 
-    inline Type type() const {
-	    // basic type, e.g. MachineIntegerType, SymbolType, ...
-	    return Type(_extended_type >> CoreTypeShift);
-    }
-
-	inline ExtendedType extended_type() const {
-		return _extended_type; // extended type, e.g. SymbolBlank
+	inline Type type() const {
+		// basic type, e.g. MachineIntegerType, SymbolType, ...
+		return Type(_extended_type >> CoreTypeShift);
 	}
+
+	inline TypeMask type_mask() const;
 
 	inline SymbolName symbol() const {
 		return SymbolName(extended_type());
 	}
 
-	inline TypeMask base_type_mask() const;
+	inline bool is_symbol() const {
+		return type() == SymbolType;
+	}
+
+	inline bool is_expression() const {
+		return type() == ExpressionType;
+	}
+
+	inline bool is_machine_integer() const {
+		return type() == MachineIntegerType;
+	}
+
+	inline bool is_big_integer() const {
+		return type() == BigIntegerType;
+	}
+
+	inline bool is_machine_real() const {
+		return type() == MachineRealType;
+	}
+
+	inline bool is_big_real() const {
+		return type() == BigRealType;
+	}
+
+	inline bool is_machine_complex() const {
+		return type() == MachineComplexType;
+	}
+
+	inline bool is_big_complex() const {
+		return type() == BigComplexType;
+	}
+
+	inline bool is_machine_rational() const {
+		return type() == MachineRationalType;
+	}
+
+	inline bool is_big_rational() const {
+		return type() == BigRationalType;
+	}
+
+	inline bool is_string() const {
+		return type() == StringType;
+	}
 
     inline bool is_non_complex_number() const {
         switch (type()) {
@@ -509,7 +553,7 @@ public:
 	inline const Symbol *lookup_name() const;
 
 	inline optional<hash_t> match_hash() const {
-		if (type() == ExpressionType) {
+		if (is_expression()) {
 			return compute_match_hash();
 		} else {
 			return hash();
@@ -894,7 +938,7 @@ inline bool BaseExpression::is_sequence() const {
 	return type() == ExpressionType && as_expression()->head()->symbol() == S::Sequence;
 }
 
-inline TypeMask BaseExpression::base_type_mask() const {
+inline TypeMask BaseExpression::type_mask() const {
     const Type t = type();
     TypeMask mask = ((TypeMask)1) << t;
     if (t == ExpressionType &&

@@ -17,7 +17,7 @@ template<typename T>
 inline TypeMask exact_type_mask(const T &container) {
 	TypeMask mask = 0;
 	for (auto leaf : container) {
-		mask |= leaf->base_type_mask();
+		mask |= leaf->type_mask();
 	}
 	return mask;
 }
@@ -413,7 +413,7 @@ public:
 
 	        TypeMask new_mask = 0;
 	        while (p != p_end) {
-		        new_mask |= (*p++)->base_type_mask();
+		        new_mask |= (*p++)->type_mask();
 	        }
 
 	        m_type_mask = mask;

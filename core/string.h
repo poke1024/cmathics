@@ -315,7 +315,7 @@ public:
     }
 
     virtual inline bool same(const BaseExpression &expr) const final {
-        if (expr.type() == StringType) {
+        if (expr.is_string()) {
             const String * const other = static_cast<const String*>(&expr);
             const size_t n = m_length;
 
@@ -510,7 +510,7 @@ public:
     }
 
     inline index_t same(index_t begin, BaseExpressionPtr other) const {
-        assert(other->type() == StringType);
+        assert(other->is_string());
         const String * const other_string = other->as_string();
         const index_t n = other_string->length();
         if (n > m_length - begin) {
@@ -562,7 +562,7 @@ StringRef string_array_join(const StringArray &array) {
     size_t number_of_code_points = 0;
 
     for (const auto &leaf : array) {
-        if (leaf->type() != StringType) {
+        if (!leaf->is_string()) {
             return StringRef();
         }
         extent_type = std::max(extent_type,

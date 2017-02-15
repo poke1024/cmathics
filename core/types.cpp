@@ -49,7 +49,7 @@ BaseExpressionRef function_pattern(
 }
 
 MatchSize Rule::leaf_match_size() const {
-	if (pattern->type() != ExpressionType) {
+	if (!pattern->is_expression()) {
 		return MatchSize::exactly(0); // undefined
 	} else {
 		return pattern->as_expression()->leaf_match_size();

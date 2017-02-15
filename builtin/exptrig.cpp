@@ -28,7 +28,7 @@ public:
         BaseExpressionPtr x,
         const Evaluation &evaluation) {
 
-        if (x->type() == MachineRealType) {
+        if (x->is_machine_real()) {
             return Pool::MachineReal(m_machine_function(
                 static_cast<const MachineReal*>(x)->value));
         } else {
@@ -151,7 +151,7 @@ public:
         BaseExpressionPtr x,
         const Evaluation &evaluation) {
 
-        if (x->type() == MachineRealType) {
+        if (x->is_machine_real()) {
             return Pool::MachineReal(std::log2(
                 static_cast<const MachineReal*>(x)->value));
         } else {
@@ -198,7 +198,7 @@ public:
         BaseExpressionPtr x,
         const Evaluation &evaluation) {
 
-        if (x->type() == MachineRealType) {
+        if (x->is_machine_real()) {
             return Pool::MachineReal(std::log10(
                 static_cast<const MachineReal*>(x)->value));
         } else {

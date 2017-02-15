@@ -22,7 +22,7 @@ TEST_CASE("Plus") {
     Evaluation evaluation(output, definitions, false);
     BaseExpressionRef result_expr = plus_expr->evaluate_or_copy(evaluation);
 
-    CHECK(result_expr->type() == MachineIntegerType);
+    CHECK(result_expr->is_machine_integer());
     CHECK(static_pointer_cast<const MachineInteger>(result_expr)->value == 3);
     CHECK(output->test_empty() == true);
 }

@@ -104,7 +104,7 @@ inline RewriteBaseExpression RewriteBaseExpression::construct(
 		case SlotDirective::Copy:
 			return RewriteBaseExpression(-1);
 		case SlotDirective::Descend:
-			if (expr->type() == ExpressionType) {
+			if (expr->is_expression()) {
 				return RewriteBaseExpression(-1, RewriteExpressionRef(
 					new RewriteExpression(arguments, expr->as_expression())));
 			} else {

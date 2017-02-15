@@ -98,7 +98,7 @@ private:
 
         const auto item = *sequence.element(begin);
 
-        if (item->type() != ExpressionType) {
+        if (!item->is_expression()) {
             return -1;
         }
 
@@ -1565,7 +1565,7 @@ PatternMatcherRef PatternCompiler::compile(
     const MatchSize &size_from_here,
     const PatternFactory &factory) {
 
-	if (patt->type() == ExpressionType &&
+	if (patt->is_expression() &&
 		patt->as_expression()->head()->symbol() == S::StringExpression) {
 
 		PatternCompiler * const compiler = this;
@@ -1595,7 +1595,7 @@ public:
 	inline PatternMatcherRef matcher(const Make &make) const {
 		if (m_patt_end - m_patt_begin == 1) {
 			const BaseExpressionRef &head = *m_patt_begin;
-			if (head->type() == SymbolType) {
+			if (head->is_symbol()) {
 				return make(TestHead<SameSymbolHead>(head));
 			} else {
 				return make(TestHead<SameGenericHead>(head));
@@ -1740,7 +1740,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 
 		case S::Pattern:
 			if (patt_end - patt_begin == 2) { // 2 leaves?
-				if ((*patt_begin)->type() == SymbolType) {
+				if ((*patt_begin)->is_symbol()) {
 					const SymbolRef variable = const_pointer_cast<Symbol>(
 						static_pointer_cast<const Symbol>(patt_begin[0]));
 					const PatternMatcherRef matcher = compile(

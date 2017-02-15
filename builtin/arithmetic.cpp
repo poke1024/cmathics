@@ -995,7 +995,7 @@ public:
 		const Evaluation &evaluation) {
 
 		expr->symbolic_initialize([x] () {
-			if (x->type() == MachineIntegerType) {
+			if (x->is_machine_integer()) {
 				const machine_integer_t direction =
 					static_cast<const MachineInteger*>(x)->value;
 
@@ -1681,7 +1681,7 @@ public:
         BaseExpressionPtr expr,
         const Evaluation &evaluation) {
 
-        if (expr->type() == MachineIntegerType) {
+        if (expr->is_machine_integer()) {
             return from_symbolic_form(SymEngine::harmonic(
                 static_cast<const MachineInteger*>(expr)->value), evaluation);
         } else {

@@ -1,7 +1,7 @@
 #include "options.h"
 
 inline bool is_option(const BaseExpressionPtr x) {
-    if (x->type() != ExpressionType) {
+    if (!x->is_expression()) {
         return false;
     }
 
@@ -16,7 +16,7 @@ inline bool is_option(const BaseExpressionPtr x) {
 };
 
 inline bool option_q(const BaseExpressionPtr expr) {
-    if (expr->type() == ExpressionType &&
+    if (expr->is_expression() &&
         expr->as_expression()->head()->symbol() == S::List) {
         return expr->as_expression()->with_slice(
             [] (const auto &slice) {

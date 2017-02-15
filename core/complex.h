@@ -35,7 +35,7 @@ public:
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
-        if (expr.type() == MachineComplexType) {
+        if (expr.is_machine_complex()) {
             return value == static_cast<const MachineComplex*>(&expr)->value;
         } else {
             return false;
@@ -96,7 +96,7 @@ public:
         const Evaluation &evaluation) const;
 
     virtual bool same(const BaseExpression &expr) const {
-        if (expr.type() == BigComplexType) {
+        if (expr.is_big_complex()) {
             return m_value->__eq__(*static_cast<const BigComplex*>(&expr)->m_value.get());
         } else {
             return false;

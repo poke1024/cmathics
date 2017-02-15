@@ -50,7 +50,7 @@ BaseExpressionRef evaluate_intermediate_form(
         }
     }
 
-    assert(expr->head()->type() == SymbolType);
+    assert(expr->head()->is_symbol());
     const Symbol * const head_symbol = static_cast<const Symbol*>(expr->head());
 
     const SymbolRules * const rules = head_symbol->state().rules();

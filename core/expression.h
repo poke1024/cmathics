@@ -96,7 +96,7 @@ public:
 		if (this == &item) {
 			return true;
 		}
-		if (item.type() != ExpressionType) {
+		if (!item.is_expression()) {
 			return false;
 		}
 		const Expression *expr = item.as_expression();
@@ -127,7 +127,7 @@ public:
 		if (this == &item) {
 			return true;
 		}
-		if (item.type() != ExpressionType) {
+		if (!item.is_expression()) {
 			return false;
 		}
 		const Expression *expr = item.as_expression();
@@ -202,12 +202,12 @@ public:
 
 		// Step 4
 		// Apply SubValues
-		if (_head->type() == ExpressionType) {
+		if (_head->is_expression()) {
 			const BaseExpression * const head_head =
-				static_cast<const Expression*>(_head.get())->_head.get();
+				_head->as_expression()->_head.get();
 
-			if (head_head->type() == SymbolType) {
-				const Symbol * const head_symbol = static_cast<const Symbol *>(head_head);
+			if (head_head->is_symbol()) {
+				const Symbol * const head_symbol = head_head->as_symbol();
 
 				const SymbolRules * const rules = head_symbol->state().rules();
 
@@ -346,7 +346,7 @@ public:
 	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
 
 	virtual bool is_numeric() const final {
-		if (head()->type() == SymbolType &&
+		if (head()->is_symbol() &&
 		    head()->as_symbol()->state().has_attributes(Attributes::NumericFunction)) {
 
 			const size_t n = size();
@@ -371,7 +371,7 @@ public:
 				for (size_t i = 0; i < n; i++) {
 					const BaseExpressionRef leaf = _leaves[i];
 
-					if (leaf->type() == ExpressionType &&
+					if (leaf->is_expression() &&
 						leaf->as_expression()->head()->symbol() == S::Power &&
 						leaf->as_expression()->size() == 2) {
 
@@ -381,10 +381,10 @@ public:
 						const BaseExpressionRef &var = power[0];
 						const BaseExpressionRef &exp = power[1];
 
-						if (var->type() == SymbolType) {
+						if (var->is_symbol()) {
 							// FIXME
 						}
-					} else if (leaf->type() == SymbolType) {
+					} else if (leaf->is_symbol()) {
 						increment_monomial(m, leaf->as_symbol(), 1);
 					}
 				}
@@ -516,7 +516,7 @@ public:
                 }
 
                 const BaseExpressionRef &list = static_leaves<1>()[0];
-                if (list->type() != ExpressionType) {
+                if (!list->is_expression()) {
                     break;
                 }
                 if (list->as_expression()->head()->symbol() != S::List) {
@@ -906,7 +906,7 @@ public:
 	// RuleForm, i.e. item must be referenced at least as
 	// long as RuleForm lives.
 	inline RuleForm(BaseExpressionPtr item) {
-		if (item->type() != ExpressionType) {
+		if (!item->is_expression()) {
 			m_leaves = nullptr;
 		} else {
 			const auto expr = item->as_expression();
@@ -1161,7 +1161,7 @@ inline ExpressionRef Expression::flatten_sequence() const {
 }
 
 inline ExpressionRef BaseExpression::flatten_sequence() const {
-	if (type() == ExpressionType) {
+	if (is_expression()) {
 		return as_expression()->flatten_sequence();
 	} else {
 		return ExpressionRef();

@@ -148,7 +148,7 @@ public:
 		m_leaves(leaves), m_mask(0) {
 
 		for (size_t i = 0; i < m_leaves.size(); i++) {
-			m_mask |= m_leaves[i]->base_type_mask();
+			m_mask |= m_leaves[i]->type_mask();
 		}
 	}
 
@@ -157,7 +157,7 @@ public:
 	}
 
 	inline void push_back(BaseExpressionRef &&leaf) {
-		m_mask |= leaf->base_type_mask();
+		m_mask |= leaf->type_mask();
 		m_leaves.emplace_back(std::move(leaf));
 	}
 
@@ -258,7 +258,7 @@ struct FSGenerator : public FGenerator { // [f]ixed size [s]equential
 		size_t i = 0;
 		auto store = [&mask, &array, &i] (BaseExpressionRef &&leaf) mutable {
             assert(i < N);
-			mask |= leaf->base_type_mask();
+			mask |= leaf->type_mask();
 			array[i++].unsafe_mutate(std::move(leaf));
 		};
 		f(store);
@@ -348,7 +348,7 @@ public:
 		const F &f = m_generate;
 		parallelize([&array, &f, &mask] (size_t i) {
 			BaseExpressionRef leaf = f(i);
-			mask.fetch_or(leaf->base_type_mask(), std::memory_order_relaxed);
+			mask.fetch_or(leaf->type_mask(), std::memory_order_relaxed);
 			array[i].unsafe_mutate(std::move(leaf));
 		}, N);
 		return std::make_tuple(std::move(array), mask.load(std::memory_order_relaxed));
@@ -361,7 +361,7 @@ public:
 		const F &f = m_generate;
 		parallelize([&v, &f, &mask] (size_t i) {
 			BaseExpressionRef leaf = f(i);
-			mask.fetch_or(leaf->base_type_mask(), std::memory_order_relaxed);
+			mask.fetch_or(leaf->type_mask(), std::memory_order_relaxed);
 			v[i].unsafe_mutate(std::move(leaf));
 		}, n);
 		return LeafVector(std::move(v), mask.load(std::memory_order_relaxed));
@@ -387,7 +387,7 @@ public:
 		parallelize([&v, &f, &mask] (size_t i) {
 			BaseExpressionRef leaf = f(i);
 			if (leaf) {
-				mask.fetch_or(leaf->base_type_mask(), std::memory_order_relaxed);
+				mask.fetch_or(leaf->type_mask(), std::memory_order_relaxed);
 				v.emplace_back(std::move(leaf)); // FIXME
 			}
 		}, n);

@@ -19,7 +19,7 @@ public:
     }
 
     SlotDirective operator()(const BaseExpressionRef &item) {
-        if (item->type() != ExpressionType) {
+        if (!item->is_expression()) {
             return SlotDirective::copy();
         }
 
@@ -34,7 +34,7 @@ public:
                     const BaseExpressionRef *leaves = expr->static_leaves<1>();
                     const BaseExpressionRef &slot = leaves[0];
 
-                    if (slot->type() == MachineIntegerType) {
+                    if (slot->is_machine_integer()) {
                         const machine_integer_t slot_id =
                             static_cast<const MachineInteger *>(slot.get())->value;
                         if (slot_id < 1) {
@@ -74,7 +74,7 @@ private:
 
 public:
     inline void add(const BaseExpressionRef &var, index_t slot) {
-        if (var->type() != SymbolType) {
+        if (!var->is_symbol()) {
             throw InvalidVariable();
         }
 
@@ -82,9 +82,8 @@ public:
     }
 
     inline SlotDirective operator()(const BaseExpressionRef &item) {
-        if (item->type() == SymbolType) {
-            const auto i = m_arguments.find(
-                static_cast<const Symbol*>(item.get()));
+        if (item->is_symbol()) {
+            const auto i = m_arguments.find(item->as_symbol());
 
             if (i != m_arguments.end()) {
                 return SlotDirective::slot(i->second);
@@ -122,7 +121,7 @@ private:
         const Expression *args,
         const BaseExpressionRef &body) const {
 
-        if (body->type() != ExpressionType) {
+        if (!body->is_expression()) {
             return BaseExpressionRef();
         }
 
@@ -146,13 +145,13 @@ private:
         const BaseExpressionRef &vars,
         const BaseExpressionRef &body) const {
 
-        if (vars->type() != ExpressionType) {
+        if (!vars->is_expression()) {
             return BaseExpressionRef();
         }
         if (vars->as_expression()->size() != args->size()) {
             return BaseExpressionRef(); // exit early if vars don't match
         }
-        if (body->type() != ExpressionType) {
+        if (!body->is_expression()) {
             return BaseExpressionRef();
         }
 
@@ -192,7 +191,7 @@ public:
 
 	virtual BaseExpressionRef try_apply(const Expression *function, const Evaluation &evaluation) const {
 		const BaseExpressionRef &head = function->_head;
-		if (head->type() != ExpressionType) {
+		if (!head->is_expression()) {
 			return BaseExpressionRef();
 		}
 

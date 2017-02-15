@@ -202,7 +202,7 @@ public:
 
 						bool ok;
 
-						if (key->type() == StringType) {
+						if (key->is_string()) {
 							const BaseExpressionRef resolved_key =
 								static_cast<const String*>(key.get())->option_symbol(evaluation);
 							ok = options_definitions.set(options, resolved_key, value);

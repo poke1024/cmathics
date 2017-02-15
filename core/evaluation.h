@@ -231,7 +231,7 @@ inline bool BaseExpression::has_form(
     size_t n_leaves,
     const Evaluation &evaluation) const {
 
-    if (type() != ExpressionType) {
+    if (!is_expression()) {
         return false;
     }
     const Expression * const expr = as_expression();

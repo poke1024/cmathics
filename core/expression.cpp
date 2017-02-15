@@ -21,7 +21,7 @@ BaseExpressionRef Expression::evaluate_expression(
 
 	// Evaluate the leaves and apply rules.
 
-	if (head->type() != SymbolType) {
+	if (!head->is_symbol()) {
 		if (head.get() != _head.get()) {
 			const ExpressionRef new_head_expr = static_pointer_cast<const Expression>(clone(head));
 			const BaseExpressionRef result = new_head_expr->evaluate_expression_with_non_symbol_head(evaluation);
@@ -34,7 +34,7 @@ BaseExpressionRef Expression::evaluate_expression(
 			return evaluate_expression_with_non_symbol_head(evaluation);
 		}
 	} else {
-		const Symbol *head_symbol = static_cast<const Symbol*>(head.get());
+		const Symbol *head_symbol = head->as_symbol();
 
 		return head_symbol->state().dispatch(
 			this, slice_code(), *_slice_ptr, evaluation);

@@ -25,7 +25,7 @@ public:
 		BaseExpressionPtr patt,
 		const Evaluation &evaluation) {
 
-		if (text->type() != StringType) {
+		if (!text->is_string()) {
 			evaluation.message(m_symbol, "string");
 			return BaseExpressionRef();
 		}
@@ -60,7 +60,7 @@ public:
 		const StringCasesOptions &options,
 		const Evaluation &evaluation) {
 
-		if (text->type() != StringType) {
+		if (!text->is_string()) {
 			evaluation.message(m_symbol, "string");
 			return BaseExpressionRef();
 		}
@@ -155,7 +155,7 @@ public:
         BaseExpressionPtr n,
         const Evaluation &evaluation) {
 
-        if (n->type() != MachineIntegerType || str->type() != StringType) {
+        if (!n->is_machine_integer() || !str->is_string()) {
             return BaseExpressionRef();
         }
 
@@ -178,7 +178,7 @@ public:
         BaseExpressionPtr str,
         const Evaluation &evaluation) {
 
-        if (str->type() != StringType) {
+        if (!str->is_string()) {
             evaluation.message(m_symbol, "string");
             return BaseExpressionRef();
         }
@@ -204,12 +204,12 @@ public:
         BaseExpressionPtr n,
         const Evaluation &evaluation) {
 
-        if (str->type() != StringType) {
+        if (!str->is_string()) {
             evaluation.message(m_symbol, "string");
             return BaseExpressionRef();
         }
 
-        if (n->type() != MachineIntegerType) {
+        if (!n->is_machine_integer()) {
             return BaseExpressionRef();
         }
 
@@ -235,12 +235,12 @@ public:
         BaseExpressionPtr n,
         const Evaluation &evaluation) {
 
-        if (str->type() != StringType) {
+        if (!str->is_string()) {
             evaluation.message(m_symbol, "string");
             return BaseExpressionRef();
         }
 
-        if (n->type() != MachineIntegerType) {
+        if (!n->is_machine_integer()) {
             return BaseExpressionRef();
         }
 
@@ -265,7 +265,7 @@ public:
         BaseExpressionPtr str,
         const Evaluation &evaluation) {
 
-        if (str->type() != StringType) {
+        if (!str->is_string()) {
             evaluation.message(m_symbol, "string");
             return BaseExpressionRef();
         }

@@ -87,13 +87,13 @@ public:
         const BaseExpressionPtr form,
         const Evaluation &evaluation) {
 
-        assert(items->type() == ExpressionType); // must be a Sequence
+        assert(items->is_expression()); // must be a Sequence
         const ExpressionPtr items_seq = items->as_expression();
 
         const BaseExpressionRef MakeBoxes = evaluation.MakeBoxes;
 
         UnsafeBaseExpressionRef good_sep;
-        if (sep->type() == StringType) {
+        if (sep->is_string()) {
             if (sep->as_string()->length() > 0) {
                 good_sep = sep;
             }
@@ -155,7 +155,7 @@ private:
         bool when_equal,
         const Evaluation &evaluation) const {
 
-        if (leaf->type() != ExpressionType) {
+        if (!leaf->is_expression()) {
             return leaf_boxes;
         }
 
@@ -205,7 +205,7 @@ private:
 
         UnsafeBaseExpressionRef unpackaged = leaf;
 
-        while (unpackaged->type() == ExpressionType &&
+        while (unpackaged->is_expression() &&
             unpackaged->as_expression()->head()->symbol() == S::HoldForm &&
             unpackaged->as_expression()->size() == 1) {
 
@@ -252,7 +252,7 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) {
 
-        if (expr->type() == ExpressionType) {
+        if (expr->is_expression()) {
             const size_t n = expr->as_expression()->size();
             const size_t m = 1 /* head */ + 2 /* parentheses */ + (n >= 1 ? 1 : 0);
 
@@ -327,12 +327,12 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) {
 
-        if (expr->type() == ExpressionType &&
+        if (expr->is_expression() &&
             expr->as_expression()->size() == 1) {
 
             UnsafeBaseExpressionRef new_h;
 
-            if (h->type() != StringType) {
+            if (!h->is_string()) {
                 new_h = expression(evaluation.MakeBoxes, h, form);
                 h = new_h.get();
             }
@@ -369,12 +369,12 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) {
 
-	    if (expr->type() != ExpressionType) {
+	    if (!expr->is_expression()) {
 		    return expression(evaluation.MakeBoxes, expr, form);
 	    }
 
         auto get_op = [&form, &evaluation] (const BaseExpressionRef &op) -> BaseExpressionRef {
-            if (op->type() != StringType) {
+            if (!op->is_string()) {
                 return expression(evaluation.MakeBoxes, op, form);
             } else {
 	            const String * const s = op->as_string();
@@ -413,7 +413,7 @@ public:
 	    if (n > 1) {
             UnsafeExpressionRef ops;
 
-			if (h->type() == ExpressionType &&
+			if (h->is_expression() &&
                 h->as_expression()->head()->symbol() == S::List &&
                 h->as_expression()->size() == n - 1) {
 

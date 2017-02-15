@@ -19,7 +19,7 @@ public:
         const BaseExpressionPtr form,
         const Evaluation &evaluation) const {
 
-        assert(items->type() == ExpressionType); // must be a Sequence
+        assert(items->is_expression()); // must be a Sequence
         const size_t n = items->as_expression()->size();
 
         if (n > 1) {
@@ -98,7 +98,7 @@ public:
 };
 
 inline const Expression *if_list(const BaseExpressionPtr item) {
-    if (item->type() == ExpressionType) {
+    if (item->is_expression()) {
         const Expression *expr =item->as_expression();
         if (expr->head()->symbol() == S::List) {
             return expr;
@@ -259,7 +259,7 @@ public:
 	    size_t depth = 0;
 	    CallbackType modified_node;
 
-        if (node->type() == ExpressionType) {
+        if (node->is_expression()) {
             const Expression * const expr =
                 static_cast<const Expression*>(node.get());
 
@@ -407,7 +407,7 @@ public:
     }
 
     inline BaseExpressionRef apply(BaseExpressionPtr x, const Evaluation &evaluation) {
-        if (x->type() != ExpressionType) {
+        if (!x->is_expression()) {
             evaluation.message(m_symbol, "normal");
         } else {
             const Expression *expr = x->as_expression();
@@ -450,7 +450,7 @@ public:
     }
 
 	inline BaseExpressionRef apply(BaseExpressionPtr x, const Evaluation &evaluation) {
-        if (x->type() != ExpressionType) {
+        if (!x->is_expression()) {
             evaluation.message(m_symbol, "normal");
         } else {
             const Expression *expr = x->as_expression();
@@ -501,7 +501,7 @@ public:
     }
 
 	inline BaseExpressionRef apply(BaseExpressionPtr x, const Evaluation &evaluation) {
-        if (x->type() != ExpressionType) {
+        if (!x->is_expression()) {
             evaluation.message(m_symbol, "normal");
         } else {
             const Expression *expr = x->as_expression();
@@ -546,7 +546,7 @@ public:
     }
 
 	inline BaseExpressionRef apply(BaseExpressionPtr x, const Evaluation &evaluation) {
-        if (x->type() != ExpressionType) {
+        if (!x->is_expression()) {
             evaluation.message(m_symbol, "normal");
         } else {
             const Expression *expr = x->as_expression();
@@ -603,7 +603,7 @@ public:
         BaseExpressionPtr cond,
         const Evaluation &evaluation) {
 
-        if (list->type() != ExpressionType) {
+        if (!list->is_expression()) {
             evaluation.message(m_symbol, "normal");
         } else {
 	        return list->as_expression()->with_slice(
@@ -671,7 +671,7 @@ public:
         const CasesOptions &options,
         const Evaluation &evaluation) {
 
-        if (list->type() != ExpressionType) {
+        if (!list->is_expression()) {
             return expression(evaluation.List);
         }
 
@@ -910,9 +910,9 @@ public:
 		const Evaluation &evaluation) {
 
 		const TypeMask type_mask =
-			imin->base_type_mask() |
-			imax->base_type_mask() |
-			di->base_type_mask();
+			imin->type_mask() |
+			imax->type_mask() |
+			di->type_mask();
 
 		if (type_mask & make_type_mask(MachineRealType)) { // expression contains a MachineReal
 			return MachineReal(imin, imax, di, evaluation);
@@ -980,9 +980,9 @@ protected:
         BaseExpressionPtr di,
         const Evaluation &evaluation) const {
 
-        if (imin->type() == MachineIntegerType &&
-            imax->type() == MachineIntegerType &&
-            di->type() == MachineIntegerType) {
+        if (imin->is_machine_integer() &&
+            imax->is_machine_integer() &&
+            di->is_machine_integer()) {
 
             UnsafeExpressionRef result;
             if (iterate_integer_range(m_symbol,
@@ -1036,7 +1036,7 @@ public:
 			    case 2: { // {i_Symbol, imax_} or {i_Symbol, {items___}}
 				    const auto iterator_expr = slice[0];
 
-				    if (iterator_expr->type() == SymbolType) {
+				    if (iterator_expr->is_symbol()) {
 					    Symbol * const iterator = iterator_expr->as_symbol();
 
 					    const BaseExpressionRef &domain = slice[1];
@@ -1074,7 +1074,7 @@ public:
                     const BaseExpressionRef imin(slice[1]->evaluate_or_copy(evaluation));
                     const BaseExpressionRef imax(slice[2]->evaluate_or_copy(evaluation));
 
-				    if (iterator->type() == SymbolType) {
+				    if (iterator->is_symbol()) {
 					    return self->iterate(
                             scoped(iterator->as_symbol(), f),
 						    imin.get(),
@@ -1087,7 +1087,7 @@ public:
 			    case 4: { // {i_Symbol, imin_, imax_, di_}
 				    const auto iterator = slice[0];
 
-				    if (iterator->type() == SymbolType) {
+				    if (iterator->is_symbol()) {
                         const BaseExpressionRef imin(slice[1]->evaluate_or_copy(evaluation));
                         const BaseExpressionRef imax(slice[2]->evaluate_or_copy(evaluation));
                         const BaseExpressionRef di(slice[3]->evaluate_or_copy(evaluation));
@@ -1168,7 +1168,7 @@ void Builtins::Lists::initialize() {
     add("ListQ",
         Attributes::None, {
             builtin<1>([](ExpressionPtr, BaseExpressionPtr x, const Evaluation &evaluation) {
-                if (x->type() == ExpressionType) {
+                if (x->is_expression()) {
                     return evaluation.Boolean(x->as_expression()->_head.get() == evaluation.List);
                 } else {
                     return evaluation.False;
@@ -1179,7 +1179,7 @@ void Builtins::Lists::initialize() {
     add("NotListQ",
         Attributes::None, {
             builtin<1>([](ExpressionPtr, BaseExpressionPtr x, const Evaluation &evaluation) {
-                if (x->type() == ExpressionType) {
+                if (x->is_expression()) {
                     return evaluation.Boolean(x->as_expression()->_head.get() != evaluation.List);
                 } else {
                     return evaluation.True;
@@ -1191,7 +1191,7 @@ void Builtins::Lists::initialize() {
         Attributes::None, {
              builtin<1>(
                  [](ExpressionPtr, BaseExpressionPtr x, const Evaluation &evaluation) {
-                     if (x->type() != ExpressionType) {
+                     if (!x->is_expression()) {
                         return from_primitive(machine_integer_t(0));
                      } else {
                          const Expression *list = x->as_expression();
@@ -1205,7 +1205,7 @@ void Builtins::Lists::initialize() {
 	    Attributes::None, {
 			builtin<2>(
 				[](ExpressionPtr, BaseExpressionPtr f, BaseExpressionPtr x, const Evaluation &evaluation) {
-				    if (x->type() != ExpressionType) {
+				    if (!x->is_expression()) {
 					    throw std::runtime_error("expected Expression at position 2");
 				    }
 				    return x->clone(f);
@@ -1225,13 +1225,13 @@ void Builtins::Lists::initialize() {
 	    Attributes::None, {
 			builtin<2>(
 				[](ExpressionPtr, BaseExpressionPtr func, BaseExpressionPtr expr, const Evaluation &evaluation) {
-				    if (expr->type() != ExpressionType) {
+				    if (!expr->is_expression()) {
 					    return ExpressionRef();
 				    }
 					const Expression *list = expr->as_expression();
 
 					return list->parallel_map(list->head(), [&func] (const auto &leaf) {
-						return expression(func, StaticSlice<1>(&leaf, leaf->base_type_mask()));
+						return expression(func, StaticSlice<1>(&leaf, leaf->type_mask()));
 					});
 			    }
 		    )

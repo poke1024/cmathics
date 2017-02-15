@@ -39,10 +39,10 @@ public:
 	}
 };
 
-template<TypeMask type_mask, typename Slice, typename FReference>
-class sequential_map : public map_base<type_mask, Slice, FReference> {
+template<TypeMask TTypeMask, typename Slice, typename FReference>
+class sequential_map : public map_base<TTypeMask, Slice, FReference> {
 protected:
-	using base = map_base<type_mask, Slice, FReference>;
+	using base = map_base<TTypeMask, Slice, FReference>;
 
 public:
 	using base::map_base;
@@ -70,7 +70,7 @@ public:
 				for (size_t j = begin + 1; j < end; j++) {
 					BaseExpressionRef old_leaf = slice[j];
 
-					if ((old_leaf->base_type_mask() & type_mask) == 0) {
+					if ((old_leaf->type_mask() & TTypeMask) == 0) {
 						store(std::move(old_leaf));
 					} else {
 						BaseExpressionRef new_leaf = f(j, old_leaf);
@@ -92,7 +92,7 @@ public:
 	inline ExpressionRef operator()() const {
 		const Slice &slice = base::m_slice;
 
-		if (type_mask != UnknownTypeMask && (type_mask & slice.type_mask()) == 0) {
+		if (TTypeMask != UnknownTypeMask && (TTypeMask & slice.type_mask()) == 0) {
 			return base::keep();
 		}
 
@@ -103,7 +103,7 @@ public:
 		for (size_t i = begin; i < end; i++) {
 			const auto leaf = slice[i];
 
-			if ((leaf->base_type_mask() & type_mask) == 0) {
+			if ((leaf->type_mask() & TTypeMask) == 0) {
 				continue;
 			}
 
@@ -159,7 +159,7 @@ public:
                     }
                     changed = true;
                 }
-                new_type_mask |= leaf->base_type_mask();
+                new_type_mask |= leaf->type_mask();
                 v[i] = std::move(leaf);
                 lock.clear();
             }
@@ -306,12 +306,12 @@ BaseExpressionRef ExpressionImplementation<Slice>::expression_custom_format(
     const BaseExpressionRef &form,
     const Evaluation &evaluation) const {
 
-    if (form->type() != SymbolType) {
+    if (!form->is_symbol()) {
         return BaseExpressionRef();
     }
 
     if (form->symbol() != S::FullForm) {
-        if (head()->type() == SymbolType) {
+        if (head()->is_symbol()) {
             const BaseExpressionRef formatted = head()->as_symbol()->state().format(
                 this, SymbolRef(form->as_symbol()), evaluation);
             if (formatted) {

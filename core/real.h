@@ -69,7 +69,7 @@ public:
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual inline bool same(const BaseExpression &expr) const final {
-        if (expr.type() == MachineRealType) {
+        if (expr.is_machine_real()) {
             return value == static_cast<const MachineReal*>(&expr)->value;
         } else {
             return false;
@@ -147,7 +147,7 @@ public:
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
 	virtual inline bool same(const BaseExpression &expr) const final {
-        if (expr.type() == BigRealType) {
+        if (expr.is_big_real()) {
             return mpfr_cmp(value, static_cast<const BigReal*>(&expr)->value) == 0;
         } else {
             return false;
