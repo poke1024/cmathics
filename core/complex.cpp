@@ -24,7 +24,7 @@ BaseExpressionRef MachineComplex::custom_format(
 			return expression(
 				expression(evaluation.HoldForm, evaluation.Complex),
 				Pool::MachineReal(value.real()),
-				Pool::MachineReal(value.imag()))->custom_format(form, evaluation);
+				Pool::MachineReal(value.imag()))->custom_format_or_copy(form, evaluation);
 
 		default: {
 			UnsafeBaseExpressionRef leaf;
@@ -47,7 +47,7 @@ BaseExpressionRef MachineComplex::custom_format(
 				}
 			}
 
-			return expression(evaluation.HoldForm, leaf)->custom_format(form, evaluation);
+			return expression(evaluation.HoldForm, leaf)->custom_format_or_copy(form, evaluation);
 		}
 	}
 }
@@ -75,7 +75,7 @@ BaseExpressionRef BigComplex::custom_format(
 			return expression(
 				expression(evaluation.HoldForm, evaluation.Complex),
 				Pool::String(m_value->real_part()->__str__()),
-				Pool::String(m_value->imaginary_part()->__str__()))->custom_format(form, evaluation);
+				Pool::String(m_value->imaginary_part()->__str__()))->custom_format_or_copy(form, evaluation);
 
 		default: {
 			UnsafeBaseExpressionRef leaf;
@@ -101,7 +101,7 @@ BaseExpressionRef BigComplex::custom_format(
 				}
 			}
 
-			return expression(evaluation.HoldForm, leaf)->custom_format(form, evaluation);
+			return expression(evaluation.HoldForm, leaf)->custom_format_or_copy(form, evaluation);
 		}
 	}
 }

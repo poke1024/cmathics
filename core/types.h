@@ -25,6 +25,15 @@ enum {
 
 typedef int tribool;
 
+template<typename A, typename B>
+inline auto coalesce(const A &a, const B &b) {
+    if (a) {
+        return a;
+    } else {
+        return A(b);
+    }
+}
+
 template<typename F>
 class const_lambda_class {
 public:
@@ -601,6 +610,14 @@ public:
 		return BaseExpressionRef(this);
 	}
 
+    inline BaseExpressionRef custom_format_or_copy(const BaseExpressionRef &form, const Evaluation &evaluation) const {
+        return coalesce(custom_format(form, evaluation), BaseExpressionRef(this));
+    }
+
+    virtual BaseExpressionRef expression_custom_format(const BaseExpressionRef &form, const Evaluation &evaluation) const {
+        return custom_format(form, evaluation);
+    }
+
 	virtual std::string boxes_to_text(const Evaluation &evaluation) const {
 		throw std::runtime_error("boxes_to_text not implemented");
 	}
@@ -614,15 +631,6 @@ public:
 
 	inline ExpressionRef flatten_sequence() const;
 };
-
-template<typename A, typename B>
-inline auto coalesce(const A &a, const B &b) {
-    if (a) {
-        return a;
-    } else {
-        return A(b);
-    }
-}
 
 #include "heap.h"
 

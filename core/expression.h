@@ -492,6 +492,10 @@ public:
 	inline ExpressionRef conditional_map_all(
 		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
 
+    virtual BaseExpressionRef expression_custom_format(
+        const BaseExpressionRef &form,
+        const Evaluation &evaluation) const final;
+
     virtual BaseExpressionRef custom_format(
         const BaseExpressionRef &form,
         const Evaluation &evaluation) const;
