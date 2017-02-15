@@ -183,10 +183,14 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 
 		case SymEngine::SYMBOL: {
 			const std::string &name = static_cast<const SymEngine::Symbol*>(form.get())->get_name();
+#if DEBUG_SYMBOLIC
+			expr = BaseExpressionRef(evaluation.definitions.lookup(name.c_str()));
+#else
 			const Symbol *addr;
 			assert(name.length() == sizeof(addr) / sizeof(char));
 			std::memcpy(&addr, name.data(), sizeof(addr));
 			expr = BaseExpressionRef(addr);
+#endif
             break;
 		}
 
@@ -377,11 +381,15 @@ BaseExpressionRef Expression::symbolic_evaluate_unary(
 		}
 	});
 
+
 	if (form->is_none()) {
 		return BaseExpressionRef();
 	} else {
 		BaseExpressionRef expr = from_symbolic_form(
 			form->get(), evaluation);
+#if DEBUG_SYMBOLIC
+		std::cout << "sym form " << debugform() << " -> " << expr->debugform() << std::endl;
+#endif
 		if (!expr->same(this)) {
 			return expr;
 		} else {

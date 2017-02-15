@@ -78,13 +78,18 @@ SymbolicFormRef Symbol::instantiate_symbolic_form() const {
             return Pool::SymbolicForm(SymEngine::EulerGamma);
 
         default: {
+	        std::string name;
+
+#if DEBUG_SYMBOLIC
+			name = this->name();
+#else
             // quite a hack currently. we store the pointer to our symbol to avoid having
             // to make a full name lookup. as symbolic evaluation always happens in the
             // context of an existing, referenced Expression, this should be fine.
             const Symbol * const addr = this;
-            std::string name;
             name.append(reinterpret_cast<const char*>(&addr), sizeof(addr) / sizeof(char));
-            return Pool::SymbolicForm(SymEngine::symbol(name));
+#endif
+	        return Pool::SymbolicForm(SymEngine::symbol(name));
         }
     }
 }

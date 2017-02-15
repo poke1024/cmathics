@@ -1,6 +1,8 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#define DEBUG_SYMBOLIC 0
+
 #include <string>
 #include <stdint.h>
 #include <functional>
@@ -838,7 +840,13 @@ inline SymbolicFormRef unsafe_symbolic_form(const T &item) {
     // call symbolic_form(item, evaluation).
 
     return SymbolicFormRef(item->m_symbolic_form.ensure([&item] () {
-        return item->instantiate_symbolic_form();
+        const auto form = item->instantiate_symbolic_form();
+#if DEBUG_SYMBOLIC
+	    if (form && !form->is_none()) {
+		    std::cout << "sym form " << form->get()->__str__() << std::endl;
+	    }
+#endif
+	    return form;
     }));
 }
 
