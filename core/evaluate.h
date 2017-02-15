@@ -310,7 +310,7 @@ BaseExpressionRef ExpressionImplementation<Slice>::expression_custom_format(
         return BaseExpressionRef();
     }
 
-    if (form->extended_type() != SymbolFullForm) {
+    if (form->symbol() != S::FullForm) {
         if (head()->type() == SymbolType) {
             const BaseExpressionRef formatted = head()->as_symbol()->state().format(
                 this, SymbolRef(form->as_symbol()), evaluation);
@@ -338,9 +338,9 @@ BaseExpressionRef ExpressionImplementation<Slice>::custom_format(
     // see BaseExpression.do_format in PyMathics
 
     if (size() == 1) {
-        switch (head()->extended_type()) {
-            case SymbolStandardForm:
-                if (form->extended_type() == SymbolOutputForm) {
+        switch (head()->symbol()) {
+	        case S::StandardForm:
+                if (form->symbol() == S::OutputForm) {
                     const BaseExpressionRef leaf =
                         static_leaves<1>()[0];
                     const BaseExpressionRef expr =
@@ -349,12 +349,12 @@ BaseExpressionRef ExpressionImplementation<Slice>::custom_format(
                 }
                 // fallthrough
 
-            case SymbolInputForm:
-            case SymbolOutputForm:
-            case SymbolFullForm:
-            case SymbolTraditionalForm:
-            case SymbolTeXForm:
-            case SymbolMathMLForm:
+	        case S::InputForm:
+            case S::OutputForm:
+            case S::FullForm:
+            case S::TraditionalForm:
+            case S::TeXForm:
+            case S::MathMLForm:
                 return static_leaves<1>()[0]->expression_custom_format(head(), evaluation);
 
             default:

@@ -245,7 +245,7 @@ protected:
 public:
     static constexpr Type Type = SymbolType;
 
-	Symbol(const char *name, ExtendedType symbol = SymbolExtendedType);
+	Symbol(const char *name, ExtendedType symbol = ExtendedType(S::GENERIC));
 
 	~Symbol();
 
@@ -332,13 +332,13 @@ public:
 	}
 
 	virtual bool is_numeric() const final {
-		switch (extended_type()) {
-			case SymbolPi:
-			case SymbolE:
-			case SymbolEulerGamma:
-			case SymbolGoldenRatio:
-			case SymbolMachinePrecision:
-			case SymbolCatalan:
+		switch (symbol()) {
+			case S::Pi:
+			case S::E:
+			case S::EulerGamma:
+			case S::GoldenRatio:
+			case S::MachinePrecision:
+			case S::Catalan:
 				return true;
 			default:
 				return false;

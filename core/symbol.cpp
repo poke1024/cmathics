@@ -64,17 +64,17 @@ StringRef Symbol::lookup_message(
 }
 
 SymbolicFormRef Symbol::instantiate_symbolic_form() const {
-    switch (extended_type()) {
-        case SymbolI:
+    switch (symbol()) {
+	    case S::I:
             return Pool::SymbolicForm(SymEngine::I);
 
-        case SymbolPi:
+	    case S::Pi:
             return Pool::SymbolicForm(SymEngine::pi);
 
-        case SymbolE:
+	    case S::E:
             return Pool::SymbolicForm(SymEngine::E);
 
-        case SymbolEulerGamma:
+	    case S::EulerGamma:
             return Pool::SymbolicForm(SymEngine::EulerGamma);
 
         default: {

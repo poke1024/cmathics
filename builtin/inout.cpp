@@ -161,16 +161,16 @@ private:
 
         optional<machine_integer_t> leaf_precedence;
 
-        switch (leaf->as_expression()->head()->extended_type()) {
-            case SymbolInfix:
-            case SymbolPrefix:
-            case SymbolPostfix:
+        switch (leaf->as_expression()->head()->symbol()) {
+            case S::Infix:
+            case S::Prefix:
+            case S::Postfix:
                 if (leaf->as_expression()->size() >= 3) {
                     leaf_precedence = leaf->as_expression()->leaf(2)->get_int_value();
                 }
                 break;
 
-            case SymbolPrecedenceForm:
+            case S::PrecedenceForm:
                 if (leaf->as_expression()->size() == 2) {
                     leaf_precedence = leaf->as_expression()->leaf(1)->get_int_value();
                 }
@@ -206,7 +206,7 @@ private:
         UnsafeBaseExpressionRef unpackaged = leaf;
 
         while (unpackaged->type() == ExpressionType &&
-            unpackaged->as_expression()->head()->extended_type() == SymbolHoldForm &&
+            unpackaged->as_expression()->head()->symbol() == S::HoldForm &&
             unpackaged->as_expression()->size() == 1) {
 
             unpackaged = unpackaged->as_expression()->static_leaves<1>()[0];
@@ -259,7 +259,7 @@ public:
             const auto generate = [this, expr, form, &evaluation] (auto &store) {
                 CachedBaseExpressionRef *parentheses;
 
-                if (form->extended_type() == SymbolTraditionalForm) {
+                if (form->symbol() == S::TraditionalForm) {
                     parentheses = m_parentheses[0];
                 } else {
                     parentheses = m_parentheses[1];
@@ -273,10 +273,10 @@ public:
                 if (n > 1) {
                     const CachedBaseExpressionRef *sep;
 
-                    switch (form->extended_type()) {
-                        case SymbolInputForm:
-                        case SymbolOutputForm:
-                        case SymbolFullForm:
+                    switch (form->symbol()) {
+	                    case S::InputForm:
+	                    case S::OutputForm:
+	                    case S::FullForm:
                             sep = &m_separators[0];
                             break;
                         default:
@@ -349,7 +349,7 @@ public:
 
             UnsafeBaseExpressionRef list;
 
-            if (p->extended_type() == SymbolPostfix) {
+            if (p->symbol() == S::Postfix) {
                 list = expression(evaluation.List, leaf, h);
             } else {
                 list = expression(evaluation.List, h, leaf);
@@ -380,8 +380,8 @@ public:
 	            const String * const s = op->as_string();
 				const size_t n = s->length();
 
-                switch (form->extended_type())
-                    case SymbolInputForm: {
+                switch (form->symbol())
+	                case S::InputForm: {
 	                    if (n == 1) {
 		                    const auto c = s->ascii_char_at(0);
 		                    if (c == '*' || c == '^') {
@@ -390,7 +390,7 @@ public:
 	                    }
 	                    // fallthrough
 
-                    case SymbolOutputForm: {
+	                case S::OutputForm: {
                         if (n > 0 && s->ascii_char_at(0) != ' ' && s->ascii_char_at(n - 1) != ' ') {
 	                        std::ostringstream t;
 	                        t << " " << op->as_string()->utf8() << " ";
@@ -414,7 +414,7 @@ public:
             UnsafeExpressionRef ops;
 
 			if (h->type() == ExpressionType &&
-                h->as_expression()->head()->extended_type() == SymbolList &&
+                h->as_expression()->head()->symbol() == S::List &&
                 h->as_expression()->size() == n - 1) {
 
                 ops = expression(evaluation.List, sequential([&h, &get_op, n] (auto &store) {
@@ -447,14 +447,14 @@ public:
 
                                 bool parenthesized;
 
-                                switch (grouping->extended_type()) {
-                                    case SymbolNonAssociative:
+                                switch (grouping->symbol()) {
+	                                case S::NonAssociative:
                                         parenthesized = true;
                                         break;
-                                    case SymbolLeft:
+	                                case S::Left:
                                         parenthesized = i > 0;
                                         break;
-                                    case SymbolRight:
+	                                case S::Right:
                                         parenthesized = i == 0;
                                         break;
                                     default:

@@ -46,7 +46,7 @@ public:
         }
 
         try {
-            if (n->extended_type() == SymbolMachinePrecision) {
+            if (n->symbol() == S::MachinePrecision) {
                 return Pool::MachineReal(form);
             } else {
                 double p;

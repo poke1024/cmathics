@@ -28,7 +28,7 @@ public:
             const BaseExpressionRef &leaf = leaves[i];
             result = leaf->evaluate_or_copy(evaluation);
 
-            if (result->extended_type() == SymbolNull && prev_result->extended_type() != SymbolNull) {
+            if (result->symbol() == S::Null && prev_result->symbol() != S::Null) {
                 evaluation.predetermined_out = prev_result;
             }
         }
@@ -80,10 +80,10 @@ public:
         BaseExpressionPtr t,
         const Evaluation &evaluation) {
 
-        const ExtendedType type = cond->extended_type();
-        if (type == SymbolTrue) {
+        const auto symbol = cond->symbol();
+        if (symbol == S::True) {
             return t->evaluate_or_copy(evaluation);
-        } else if (type == SymbolFalse) {
+        } else if (symbol == S::False) {
             return BaseExpressionRef(evaluation.Null);
         } else {
             return BaseExpressionRef();
@@ -96,10 +96,10 @@ public:
         BaseExpressionPtr f,
         const Evaluation &evaluation) {
 
-        const ExtendedType type = cond->extended_type();
-        if (type == SymbolTrue) {
+        const auto symbol = cond->symbol();
+        if (symbol == S::True) {
             return t->evaluate_or_copy(evaluation);
-        } else if (type == SymbolFalse) {
+        } else if (symbol == S::False) {
             return f->evaluate_or_copy(evaluation);
         } else {
             return BaseExpressionRef();
@@ -113,10 +113,10 @@ public:
         BaseExpressionPtr u,
         const Evaluation &evaluation) {
 
-        const ExtendedType type = cond->extended_type();
-        if (type == SymbolTrue) {
+        const auto symbol = cond->symbol();
+        if (symbol == S::True) {
             return t->evaluate_or_copy(evaluation);
-        } else if (type == SymbolFalse) {
+        } else if (symbol == S::False) {
             return f->evaluate_or_copy(evaluation);
         } else {
             return u->evaluate_or_copy(evaluation);

@@ -19,8 +19,8 @@ BaseExpressionRef MachineComplex::custom_format(
 	const BaseExpressionRef &form,
 	const Evaluation &evaluation) const {
 
-	switch (form->extended_type()) {
-		case SymbolFullForm:
+	switch (form->symbol()) {
+		case S::FullForm:
 			return expression(
 				expression(evaluation.HoldForm, evaluation.Complex),
 				Pool::MachineReal(value.real()),
@@ -70,8 +70,8 @@ BaseExpressionRef BigComplex::custom_format(
 	const BaseExpressionRef &form,
 	const Evaluation &evaluation) const {
 
-	switch (form->extended_type()) {
-		case SymbolFullForm:
+	switch (form->symbol()) {
+		case S::FullForm:
 			return expression(
 				expression(evaluation.HoldForm, evaluation.Complex),
 				Pool::String(m_value->real_part()->__str__()),

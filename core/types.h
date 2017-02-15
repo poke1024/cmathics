@@ -97,7 +97,20 @@ static_assert(TypeCount < (1 << CoreTypeBits), "CoreTypeBits too small");
 // extended type information attached to a core type.
 constexpr int CoreTypeShift = 8;
 
-enum ExtendedType : uint16_t;
+// extended type infos are not represented in TypeMasks.
+enum ExtendedType {
+	SymbolExtendedType = SymbolType << CoreTypeShift,
+	MachineIntegerExtendedType = MachineIntegerType << CoreTypeShift,
+	BigIntegerExtendedType = BigIntegerType << CoreTypeShift,
+	MachineRealExtendedType = MachineRealType << CoreTypeShift,
+	BigRealExtendedType = BigRealType << CoreTypeShift,
+	MachineRationalExtendedType = MachineRationalType << CoreTypeShift,
+	BigRationalExtendedType = BigRationalType << CoreTypeShift,
+	MachineComplexExtendedType = MachineComplexType << CoreTypeShift,
+	BigComplexExtendedType = BigComplexType << CoreTypeShift,
+	ExpressionExtendedType = ExpressionType << CoreTypeShift,
+	StringExtendedType = StringType << CoreTypeShift
+};
 
 constexpr inline ExtendedType build_extended_type(Type core, uint8_t extended) {
 	return ExtendedType((ExtendedType(core) << CoreTypeShift) | extended);
@@ -107,26 +120,16 @@ constexpr inline auto extended_type_info(ExtendedType type) {
 	return type & ((ExtendedType(1) << CoreTypeShift) - 1);
 }
 
-// extended type infos are not represented in TypeMasks.
+namespace S {
+	enum _Name {
+		GENERIC = SymbolExtendedType,
+		#define SYMBOL(SYMBOLNAME) SYMBOLNAME,
+		#include "system_symbols.h"
+		#undef SYMBOL
+	};
+}
 
-enum ExtendedType : uint16_t {
-	SymbolExtendedType = SymbolType << CoreTypeShift,
-
-	#define SYMBOL(SYMBOLNAME) Symbol##SYMBOLNAME,
-	#include "system_symbols.h"
-	#undef SYMBOL
-
-	MachineIntegerExtendedType = MachineIntegerType << CoreTypeShift,
-	BigIntegerExtendedType = BigIntegerType << CoreTypeShift,
-	MachineRealExtendedType = MachineRealType << CoreTypeShift,
-	BigRealExtendedType = BigRealType << CoreTypeShift,
-    MachineRationalExtendedType = MachineRationalType << CoreTypeShift,
-	BigRationalExtendedType = BigRationalType << CoreTypeShift,
-	MachineComplexExtendedType = MachineComplexType << CoreTypeShift,
-    BigComplexExtendedType = BigComplexType << CoreTypeShift,
-	ExpressionExtendedType = ExpressionType << CoreTypeShift,
-	StringExtendedType = StringType << CoreTypeShift
-};
+using SymbolName = S::_Name;
 
 typedef uint32_t TypeMask;
 
@@ -457,6 +460,10 @@ public:
 		return _extended_type; // extended type, e.g. SymbolBlank
 	}
 
+	inline SymbolName symbol() const {
+		return SymbolName(extended_type());
+	}
+
 	inline TypeMask base_type_mask() const;
 
     inline bool is_non_complex_number() const {
@@ -580,7 +587,7 @@ public:
     }
 
     inline bool is_true() const {
-        return extended_type() == SymbolTrue;
+        return symbol() == S::True;
     }
 
 	inline bool is_zero() const;
@@ -597,8 +604,10 @@ public:
 
 	inline const String *as_string() const;
 
-	template<ExtendedType HeadType, int NLeaves>
-	inline bool has_form(const Evaluation &evaluation) const;
+	inline bool has_form(
+		SymbolName head,
+		size_t n_leaves,
+		const Evaluation &evaluation) const;
 
 	virtual bool is_numeric() const;
 
@@ -882,14 +891,14 @@ inline const Expression *BaseExpression::as_expression() const {
 }
 
 inline bool BaseExpression::is_sequence() const {
-	return type() == ExpressionType && as_expression()->head()->extended_type() == SymbolSequence;
+	return type() == ExpressionType && as_expression()->head()->symbol() == S::Sequence;
 }
 
 inline TypeMask BaseExpression::base_type_mask() const {
     const Type t = type();
     TypeMask mask = ((TypeMask)1) << t;
     if (t == ExpressionType &&
-        as_expression()->head()->extended_type() == SymbolSequence) {
+        as_expression()->head()->symbol() == S::Sequence) {
         mask |= TypeMaskSequence;
     }
     return mask;

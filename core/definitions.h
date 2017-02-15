@@ -29,15 +29,15 @@ public:
 
 class Definitions {
 private:
-    std::unordered_map<SymbolKey,MutableSymbolRef> _definitions;
+    std::unordered_map<SymbolKey, MutableSymbolRef> _definitions;
 	const Symbols _symbols;
 
 protected:
 	friend class Symbols;
 
-	SymbolRef new_symbol(const char *name, ExtendedType symbol = SymbolExtendedType);
+	SymbolRef new_symbol(const char *name, SymbolName symbol = S::GENERIC);
 
-	const Symbol *system_symbol(const char *name, ExtendedType type);
+	const Symbol *system_symbol(const char *name, SymbolName symbol);
 
 public:
     Definitions();

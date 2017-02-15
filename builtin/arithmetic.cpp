@@ -311,7 +311,7 @@ struct times {
 
 inline const BaseExpression *if_divisor(const BaseExpression *b_base) {
 	const Expression *b = static_cast<const Expression*>(b_base);
-	if (b->_head->extended_type() != SymbolPower || b->size() != 2) {
+	if (b->_head->symbol() != S::Power || b->size() != 2) {
 		return nullptr;
 	}
 
@@ -547,7 +547,7 @@ public:
                 }
 
                 case ExpressionType:
-                    if (leaf->has_form<SymbolPower, 2>(evaluation)) {
+                    if (leaf->has_form(S::Power, 2, evaluation)) {
                         const auto * const operands = leaf->as_expression()->static_leaves<2>();
                         const auto &exponent = operands[1];
                         if (exponent->is_non_complex_number() && exponent->is_negative()) {
@@ -1225,7 +1225,7 @@ public:
 				const BaseExpressionRef result = expr->symbolic_evaluate_unary(SymEngine::abs, evaluation);
 
 				// temporary work around for https://github.com/symengine/symengine/issues/1212
-				if (result && result->has_form<SymbolAbs, 1>(evaluation)) {
+				if (result && result->has_form(S::Abs, 1, evaluation)) {
 					const auto old_form = symbolic_form(x, evaluation);
 					const auto new_form = symbolic_form(result->as_expression()->static_leaves<1>()[0], evaluation);
 					if (!old_form->is_none() && !new_form->is_none()) {
@@ -1721,10 +1721,10 @@ public:
         BaseExpressionPtr expr,
         const Evaluation &evaluation) {
 
-        switch (expr->extended_type()) {
-            case SymbolTrue:
+        switch (expr->symbol()) {
+	        case S::True:
                 return evaluation.one;
-            case SymbolFalse:
+	        case S::False:
                 return evaluation.zero;
             default:
                 return BaseExpressionRef();

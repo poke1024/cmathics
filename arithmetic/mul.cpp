@@ -5,7 +5,7 @@ inline bool is_plus(const BaseExpressionRef &expr) {
 		return false;
 	}
 
-	return expr->as_expression()->head()->extended_type() == SymbolPlus;
+	return expr->as_expression()->head()->symbol() == S::Plus;
 }
 
 inline bool times_number(

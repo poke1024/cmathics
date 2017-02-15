@@ -61,7 +61,7 @@ void NumberForm::parse_options(
         const size_t n = slice.size();
         for (size_t i = 0; i < n; i++) {
             const BaseExpressionRef leaf = slice[i];
-            if (leaf->has_form<SymbolRule, 2>(evaluation)) {
+            if (leaf->has_form(S::Rule, 2, evaluation)) {
                 const BaseExpressionRef * const leaves =
                         leaf->as_expression()->static_leaves<2>();
                 const BaseExpressionRef &lhs = leaves[0];
@@ -83,12 +83,12 @@ void NumberForm::parse_options(
                     }
                 };
 
-                switch (lhs->extended_type()) {
-                    case SymbolNumberSigns:
+                switch (lhs->symbol()) {
+                    case S::NumberSigns:
                         extract_string_pair(options.NumberSigns);
                         break;
 
-                    case SymbolExponentStep: {
+                    case S::ExponentStep: {
                         const optional<machine_integer_t> value =
                                 rhs->get_int_value();
                         if (value) {
@@ -97,11 +97,11 @@ void NumberForm::parse_options(
                         break;
                     }
 
-                    case SymbolExponentFunction:
+                    case S::ExponentFunction:
                         options.ExponentFunction = rhs.get();
                         break;
 
-                    case SymbolDigitBlock:
+                    case S::DigitBlock:
                         if (rhs->type() == ExpressionType &&
                             rhs->as_expression()->size() == 2) {
 
@@ -115,31 +115,31 @@ void NumberForm::parse_options(
                         }
                         break;
 
-                    case SymbolNumberSeparator: {
+                    case S::NumberSeparator: {
                         extract_string_pair(options.NumberSeparator);
                         break;
                     }
 
-                    case SymbolNumberPadding: {
+                    case S::NumberPadding: {
                         extract_string_pair(options.NumberPadding);
                         break;
                     }
 
-                    case SymbolSignPadding:
+                    case S::SignPadding:
                         options.SignPadding = rhs->is_true();
                         break;
 
-                    case SymbolNumberPoint:
+                    case S::NumberPoint:
                         if (rhs->type() == StringType) {
                             options.NumberPoint = rhs->as_string();
                         }
                         break;
 
-                    case SymbolNumberFormat:
+                    case S::NumberFormat:
                         options.NumberFormat = rhs.get();
                         break;
 
-                    case SymbolNumberMultiplier:
+                    case S::NumberMultiplier:
                         options.NumberMultiplier = rhs.get();
                         break;
 
@@ -226,7 +226,7 @@ BaseExpressionRef NumberForm::operator()(
     } else {
         optional<machine_integer_t> value;
 
-        if (options.ExponentFunction->extended_type() == SymbolAutomatic) {
+        if (options.ExponentFunction->symbol() == S::Automatic) {
             if (rexp >= -5 && rexp <= 5) {
                 // ignore
             } else {
@@ -324,7 +324,7 @@ BaseExpressionRef NumberForm::operator()(
 
     const BaseExpressionPtr NumberFormat = options.NumberFormat;
 
-    if (NumberFormat->extended_type() != SymbolAutomatic) {
+    if (NumberFormat->symbol() != S::Automatic) {
         return expression(NumberFormat, s, m_base_10, pexp, options_list);
     } else {
         return default_number_format(s, m_base_10, pexp, options, evaluation);

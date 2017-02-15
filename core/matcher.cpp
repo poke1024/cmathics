@@ -1397,51 +1397,51 @@ PatternMatcherRef PatternCompiler::character_intrinsic_matcher(
 		return factory.create<ElementMatcher>(match_class);
 	};
 
-	switch (curr->extended_type()) {
-		case SymbolStartOfString:
+	switch (curr->symbol()) {
+		case S::StartOfString:
 			return factory.create<StartMatcher>(nothing());
 
-		case SymbolEndOfString:
+		case S::EndOfString:
 			return new EndMatcher();
 
-		case SymbolStartOfLine:
+		case S::StartOfLine:
 			return factory.create<PositionMatcher>(
 				MatchCharacterPosition<StartOfLine>(StartOfLine(), MatchToFalse()));
 
-		case SymbolEndOfLine:
+		case S::EndOfLine:
 			return factory.create<PositionMatcher>(
 				MatchCharacterPosition<EndOfLine>(EndOfLine(), MatchToFalse()));
 
-		case SymbolWordBoundary:
+		case S::WordBoundary:
 			return factory.create<PositionMatcher>(
 				MatchCharacterPosition<WordBoundary>(WordBoundary(), MatchToFalse()));
 
-		case SymbolDigitCharacter:
+		case S::DigitCharacter:
 			return create_blank([] (auto p) {
 				return u_isdigit(p);
 			});
 
-		case SymbolWhitespace:
+		case S::Whitespace:
 			return create_blank_sequence([] (auto p) {
 				return u_isWhitespace(p);
 			});
 
-		case SymbolWhitespaceCharacter:
+		case S::WhitespaceCharacter:
 			return create_blank([] (auto p) {
 				return u_isWhitespace(p);
 			});
 
-		case SymbolWordCharacter:
+		case S::WordCharacter:
 			return create_blank([] (auto p) {
 				return u_isalnum(p);
 			});
 
-		case SymbolLetterCharacter:
+		case S::LetterCharacter:
 			return create_blank([] (auto p) {
 				return u_isalpha(p);
 			});
 
-		case SymbolHexidecimalCharacter:
+		case S::HexidecimalCharacter:
 			return create_blank([] (auto p) {
 				return u_isxdigit(p);
 			});
@@ -1566,7 +1566,7 @@ PatternMatcherRef PatternCompiler::compile(
     const PatternFactory &factory) {
 
 	if (patt->type() == ExpressionType &&
-		patt->as_expression()->head()->extended_type() == SymbolStringExpression) {
+		patt->as_expression()->head()->symbol() == S::StringExpression) {
 
 		PatternCompiler * const compiler = this;
 		return patt->as_expression()->with_leaves_array(
@@ -1689,28 +1689,28 @@ PatternMatcherRef PatternCompiler::compile_sequence(
     const PatternMatcherSize &size,
 	const PatternFactory &factory) {
 
-	switch (patt_head->extended_type()) {
-		case SymbolBlank:
+	switch (patt_head->symbol()) {
+		case S::Blank:
             return create_blank_matcher<BlankMatcher>(
 		        BlankForm(patt_begin, patt_end), factory);
 
-	    case SymbolBlankSequence:
+	    case S::BlankSequence:
 			return create_blank_sequence_matcher<BlankSequenceMatcher, 1>()(
 				BlankForm(patt_begin, patt_end), factory);
 
-		case SymbolBlankNullSequence:
+		case S::BlankNullSequence:
 			return create_blank_sequence_matcher<BlankSequenceMatcher, 0>()(
 				BlankForm(patt_begin, patt_end), factory);
 
-		case SymbolRepeated:
+		case S::Repeated:
 			return create_blank_sequence_matcher<BlankSequenceMatcher, 1>()(
 				RepeatedForm(this, size.from_here(), factory, patt_begin, patt_end), factory);
 
-        case SymbolRepeatedNull:
+        case S::RepeatedNull:
             return create_blank_sequence_matcher<BlankSequenceMatcher, 0>()(
                 RepeatedForm(this, size.from_here(), factory, patt_begin, patt_end), factory);
 
-		case SymbolAlternatives: {
+		case S::Alternatives: {
 			std::vector<PatternMatcherRef> matchers;
 			matchers.reserve(patt_end - patt_begin);
 			for (const BaseExpressionRef *patt = patt_begin; patt < patt_end; patt++) {
@@ -1719,26 +1719,26 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			return factory.unbound().create<AlternativesMatcher>(matchers);
 		}
 
-        case SymbolExcept:
+        case S::Except:
             if (patt_end - patt_begin == 1) { // 1 leaf ?
                 return factory.create<ExceptMatcher>(
                     compile(*patt_begin, size.from_here(), factory));
             }
 			break;
 
-		case SymbolShortest:
+		case S::Shortest:
 			if (patt_end - patt_begin == 1) { // 1 leaf ?
 				return compile(*patt_begin, size.from_here(), factory.for_shortest());
 			}
 			break;
 
-		case SymbolLongest:
+		case S::Longest:
 			if (patt_end - patt_begin == 1) { // 1 leaf ?
 				return compile(*patt_begin, size.from_here(), factory.for_longest());
 			}
 			break;
 
-		case SymbolPattern:
+		case S::Pattern:
 			if (patt_end - patt_begin == 2) { // 2 leaves?
 				if ((*patt_begin)->type() == SymbolType) {
 					const SymbolRef variable = const_pointer_cast<Symbol>(
@@ -1750,13 +1750,13 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			}
 			break;
 
-		case SymbolPatternTest:
+		case S::PatternTest:
 			if (patt_end - patt_begin == 2) { // 2 leaves?
                 return compile(*patt_begin, size.from_here(), factory.for_test(patt_begin[1]));
 			}
 			break;
 
-		case SymbolOptional:
+		case S::Optional:
 			if (patt_end - patt_begin == 2) { // 2 leaves?
 				const PatternMatcherRef matcher = compile(
 					patt_begin[0], size.from_here(), factory.stripped(false));

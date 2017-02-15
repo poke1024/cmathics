@@ -226,13 +226,16 @@ public:
     }
 };
 
-template<ExtendedType HeadType, int NLeaves>
-inline bool BaseExpression::has_form(const Evaluation &evaluation) const {
+inline bool BaseExpression::has_form(
+	SymbolName head,
+    size_t n_leaves,
+    const Evaluation &evaluation) const {
+
     if (type() != ExpressionType) {
         return false;
     }
     const Expression * const expr = as_expression();
-    if (expr->head(evaluation)->extended_type() == HeadType && expr->size() == NLeaves) {
+    if (expr->head(evaluation)->symbol() == head && expr->size() == n_leaves) {
         return true;
     } else {
         return false;

@@ -25,9 +25,9 @@ public:
         if (n > 1) {
             BaseExpressionPtr sep;
 
-            switch (form->extended_type()) {
-                case SymbolOutputForm:
-                case SymbolInputForm:
+            switch (form->symbol()) {
+	            case S::OutputForm:
+	            case S::InputForm:
                     sep = m_comma_space.get();
                     break;
                 default:
@@ -100,7 +100,7 @@ public:
 inline const Expression *if_list(const BaseExpressionPtr item) {
     if (item->type() == ExpressionType) {
         const Expression *expr =item->as_expression();
-        if (expr->head()->extended_type() == SymbolList) {
+        if (expr->head()->symbol() == S::List) {
             return expr;
         }
     }
@@ -108,7 +108,7 @@ inline const Expression *if_list(const BaseExpressionPtr item) {
 }
 
 inline bool is_infinity(const Expression *expr) {
-    if (expr->head()->extended_type() != SymbolDirectedInfinity) {
+    if (expr->head()->symbol() != S::DirectedInfinity) {
         return false;
     }
     if (expr->size() != 1) {
@@ -207,7 +207,7 @@ public:
                 default:
                     throw InvalidError();
             }
-        } else if (spec->extended_type() == SymbolAll) {
+        } else if (spec->symbol() == S::All) {
             m_start = 0;
             m_stop = optional<machine_integer_t>();
         } else {
@@ -883,13 +883,13 @@ protected:
 
 		UnsafeBaseExpressionRef index = imin;
 		while (true) {
-			const ExtendedType if_continue =
+			const auto if_continue =
 				expression(LessEqual, index, imax)->
-					evaluate_or_copy(evaluation)->extended_type();
+					evaluate_or_copy(evaluation)->symbol();
 
-			if (if_continue == SymbolFalse) {
+			if (if_continue == S::False) {
 				break;
-			} else if (if_continue != SymbolTrue) {
+			} else if (if_continue != S::True) {
 				evaluation.message(m_symbol, "iterb");
 				return BaseExpressionRef();
 			}
@@ -950,13 +950,13 @@ protected:
 
         UnsafeBaseExpressionRef index = imin;
         while (true) {
-            const ExtendedType if_continue =
+            const auto if_continue =
                 expression(LessEqual, index, imax)->
-                    evaluate_or_copy(evaluation)->extended_type();
+                    evaluate_or_copy(evaluation)->symbol();
 
-            if (if_continue == SymbolFalse) {
+            if (if_continue == S::False) {
                 break;
-            } else if (if_continue != SymbolTrue) {
+            } else if (if_continue != S::True) {
                 evaluation.message(m_symbol, "iterb");
                 return ExpressionRef();
             }

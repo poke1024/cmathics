@@ -43,7 +43,7 @@ inline DefinitionsPos get_definitions_pos(
 
 Symbols::Symbols(Definitions &definitions) :
 	#define SYMBOL(SYMBOLNAME) \
-		SYMBOLNAME(definitions.system_symbol(#SYMBOLNAME, Symbol ## SYMBOLNAME)),
+		SYMBOLNAME(definitions.system_symbol(#SYMBOLNAME, S::SYMBOLNAME)),
 	#include "system_symbols.h"
 	#undef SYMBOL
 	_dummy() {
@@ -141,14 +141,14 @@ void SymbolState::add_format(
 Definitions::Definitions() : _symbols(*this) {
 }
 
-SymbolRef Definitions::new_symbol(const char *name, ExtendedType type) {
+SymbolRef Definitions::new_symbol(const char *name, SymbolName symbol_name) {
     assert(_definitions.find(name) == _definitions.end());
-    const SymbolRef symbol = Pool::Symbol(name, type);
+    const SymbolRef symbol = Pool::Symbol(name, ExtendedType(symbol_name));
     _definitions[SymbolKey(symbol)] = symbol;
     return symbol;
 }
 
-const Symbol *Definitions::system_symbol(const char *name, ExtendedType type) {
+const Symbol *Definitions::system_symbol(const char *name, SymbolName symbol) {
 	std::ostringstream fullname;
 	fullname << "System`";
 	if (strncmp(name, "State", 5) == 0) {
@@ -159,7 +159,7 @@ const Symbol *Definitions::system_symbol(const char *name, ExtendedType type) {
 	} else {
 		fullname << name;
 	}
-	return new_symbol(fullname.str().c_str(), type).get();
+	return new_symbol(fullname.str().c_str(), symbol).get();
 }
 
 SymbolRef Definitions::lookup(const char *name) {

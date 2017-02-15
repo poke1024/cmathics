@@ -240,14 +240,14 @@ public:
 	}
 
 	virtual optional<hash_t> compute_match_hash() const final {
-		switch (_head->extended_type()) {
-			case SymbolBlank:
-			case SymbolBlankSequence:
-			case SymbolBlankNullSequence:
-			case SymbolPattern:
-			case SymbolAlternatives:
-			case SymbolRepeated:
-            case SymbolExcept:
+		switch (_head->symbol()) {
+			case S::Blank:
+			case S::BlankSequence:
+			case S::BlankNullSequence:
+			case S::Pattern:
+			case S::Alternatives:
+			case S::Repeated:
+            case S::Except:
 				return optional<hash_t>();
 
 			default: {
@@ -273,17 +273,17 @@ public:
 	}
 
 	virtual MatchSize match_size() const final {
-		switch (_head->extended_type()) {
-			case SymbolBlank:
+		switch (_head->symbol()) {
+			case S::Blank:
 				return MatchSize::exactly(1);
 
-			case SymbolBlankSequence:
+			case S::BlankSequence:
 				return MatchSize::at_least(1);
 
-			case SymbolBlankNullSequence:
+			case S::BlankNullSequence:
 				return MatchSize::at_least(0);
 
-			case SymbolPattern:
+			case S::Pattern:
 				if (size() == 2) {
 					// Pattern is only valid with two arguments
 					return _leaves[1]->match_size();
@@ -291,7 +291,7 @@ public:
 					return MatchSize::exactly(1);
 				}
 
-			case SymbolAlternatives: {
+			case S::Alternatives: {
 				const size_t n = size();
 
 				if (n == 0) {
@@ -311,7 +311,7 @@ public:
 				return MatchSize::between(min_p, max_p);
 			}
 
-			case SymbolRepeated:
+			case S::Repeated:
 				switch(size()) {
 					case 1:
 						return MatchSize::at_least(1);
@@ -322,10 +322,10 @@ public:
 						return MatchSize::exactly(1);
 				}
 
-            case SymbolExcept:
+            case S::Except:
                 return MatchSize::at_least(0);
 
-			case SymbolOptional:
+			case S::Optional:
 				return MatchSize::at_least(0);
 
 			default:
@@ -364,15 +364,15 @@ public:
 	virtual SortKey sort_key() const final {
 		MonomialMap m(Pool::monomial_map_allocator());
 
-		switch (_head->extended_type()) {
-			case SymbolTimes: {
+		switch (_head->symbol()) {
+			case S::Times: {
 				const size_t n = size();
 
 				for (size_t i = 0; i < n; i++) {
 					const BaseExpressionRef leaf = _leaves[i];
 
 					if (leaf->type() == ExpressionType &&
-						leaf->as_expression()->head()->extended_type() == SymbolPower &&
+						leaf->as_expression()->head()->symbol() == S::Power &&
 						leaf->as_expression()->size() == 2) {
 
 						const BaseExpressionRef * const power =
@@ -405,14 +405,14 @@ public:
 	}
 
 	virtual SortKey pattern_key() const final {
-		switch (_head->extended_type()) {
-			case SymbolBlank:
+		switch (_head->symbol()) {
+			case S::Blank:
 				return blank_sort_key(1, size() > 0, this);
-			case SymbolBlankSequence:
+			case S::BlankSequence:
 				return blank_sort_key(2, size() > 0, this);
-			case SymbolBlankNullSequence:
+			case S::BlankNullSequence:
 				return blank_sort_key(3, size() > 0, this);
-			case SymbolPatternTest:
+			case S::PatternTest:
 				if (size() != 2) {
 					return not_a_pattern_sort_key(this);
 				} else {
@@ -420,7 +420,7 @@ public:
 					key.set_pattern_test(0);
 					return key;
 				}
-			case SymbolCondition:
+			case S::Condition:
 				if (size() != 2) {
 					return not_a_pattern_sort_key(this);
 				} else {
@@ -428,7 +428,7 @@ public:
 					key.set_condition(0);
 					return key;
 				}
-			case SymbolPattern:
+			case S::Pattern:
 				if (size() != 2) {
 					return not_a_pattern_sort_key(this);
 				} else {
@@ -436,7 +436,7 @@ public:
 					key.set_pattern_test(0);
 					return key;
 				}
-			case SymbolOptional:
+			case S::Optional:
 				if (size() < 1 || size() > 2) {
 					return not_a_pattern_sort_key(this);
 				} else {
@@ -444,11 +444,11 @@ public:
 					key.set_optional(1);
 					return key;
 				}
-			case SymbolAlternatives:
+			case S::Alternatives:
 				// FIXME
-			case SymbolVerbatim:
+			case S::Verbatim:
 				// FIXME
-			case SymbolOptionsPattern:
+			case S::OptionsPattern:
 				// FIXME
 			default: {
 				return SortKey(2, 0, 1, 1, 0, SortByHead(this, true), SortByLeaves(this, true, true), 1);
@@ -501,8 +501,8 @@ public:
         const Evaluation &evaluation) const;
 
     virtual std::string boxes_to_text(const Evaluation &evaluation) const {
-        switch (head()->extended_type()) {
-	        case SymbolStyleBox: {
+        switch (head()->symbol()) {
+	        case S::StyleBox: {
 				// FIXME parse StyleBox options like System`ShowStringCharacters
 		        if (size() < 1) {
 			        break;
@@ -510,7 +510,7 @@ public:
 		        return _leaves[0]->boxes_to_text(evaluation);
 	        }
 
-            case SymbolRowBox: {
+	        case S::RowBox: {
                 if (size() != 1) {
                     break;
                 }
@@ -519,7 +519,7 @@ public:
                 if (list->type() != ExpressionType) {
                     break;
                 }
-                if (list->as_expression()->head()->extended_type() != SymbolList) {
+                if (list->as_expression()->head()->symbol() != S::List) {
                     break;
                 }
 
@@ -534,7 +534,7 @@ public:
                 return s.str();
             }
 
-            case SymbolSuperscriptBox: {
+	        case S::SuperscriptBox: {
                 if (size() != 2) {
                     break;
                 }
@@ -554,7 +554,7 @@ public:
     }
 
     virtual bool is_negative() const final {
-        if (head()->extended_type() == SymbolTimes && size() >= 1) {
+        if (head()->symbol() == S::Times && size() >= 1) {
             return _leaves[0]->is_negative();
         } else {
             return false;
@@ -914,9 +914,9 @@ public:
 			if (expr->size() != 2) {
 				m_leaves = nullptr;
 			} else {
-				switch (expr->head()->extended_type()) {
-					case SymbolRule:
-					case SymbolRuleDelayed:
+				switch (expr->head()->symbol()) {
+					case S::Rule:
+					case S::RuleDelayed:
 						m_leaves = expr->static_leaves<2>();
 						break;
 					default:
@@ -995,7 +995,7 @@ std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(co
 
     const auto is_threadable = [] (const BaseExpressionRef &leaf) {
 		return (leaf->type() == ExpressionType &&
-            leaf->as_expression()->head()->extended_type() == SymbolList);
+            leaf->as_expression()->head()->symbol() == S::List);
     };
 
     // preflight.
@@ -1078,7 +1078,7 @@ std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(co
 
 template<typename Slice>
 inline BaseExpressionRef ExpressionImplementation<Slice>::negate(const Evaluation &evaluation) const {
-    if (head()->extended_type() == SymbolTimes && size() >= 1) {
+    if (head()->symbol() == S::Times && size() >= 1) {
         const BaseExpressionRef &leaf = _leaves[0];
         if (leaf->is_number()) {
             const BaseExpressionRef negated = leaf->negate(evaluation);

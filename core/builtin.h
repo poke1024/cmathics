@@ -193,7 +193,7 @@ public:
 				while (n > N) {
 					const BaseExpressionRef &last = leaves[n - 1];
 
-					if (last->has_form<SymbolRule, 2>(evaluation)) {
+					if (last->has_form(S::Rule, 2, evaluation)) {
 						const BaseExpressionRef * const option =
 							last->as_expression()->static_leaves<2>();
 

@@ -26,8 +26,8 @@ public:
         const Expression *expr = item->as_expression();
         const BaseExpressionRef &head = expr->head();
 
-        switch (head->extended_type()) {
-            case SymbolSlot:
+        switch (head->symbol()) {
+            case S::Slot:
                 if (expr->size() != 1) {
                     throw std::runtime_error("Slot must contain one leaf");
                 } else {
@@ -49,7 +49,7 @@ public:
                 }
                 break;
 
-            case SymbolFunction:
+            case S::Function:
                 if (expr->size() == 1) {
                     // do not replace Slots in nested Functions
                     return SlotDirective::copy();

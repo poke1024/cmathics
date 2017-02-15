@@ -161,9 +161,9 @@ BaseExpressionRef MachineReal::make_boxes(
 
     optional<size_t> optional_n;
 
-    switch (form->extended_type()) {
-        case SymbolInputForm:
-        case SymbolFullForm:
+    switch (form->symbol()) {
+	    case S::InputForm:
+	    case S::FullForm:
             break;
         default:
             optional_n = 6;

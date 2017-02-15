@@ -5,10 +5,10 @@ inline bool is_option(const BaseExpressionPtr x) {
         return false;
     }
 
-    switch (x->as_expression()->head()->extended_type()) {
-        case SymbolRule:
+    switch (x->as_expression()->head()->symbol()) {
+        case S::Rule:
             return true;
-        case SymbolRuleDelayed:
+        case S::RuleDelayed:
             return x->as_expression()->size() == 2;
         default:
             return false;
@@ -17,7 +17,7 @@ inline bool is_option(const BaseExpressionPtr x) {
 
 inline bool option_q(const BaseExpressionPtr expr) {
     if (expr->type() == ExpressionType &&
-        expr->as_expression()->head()->extended_type() == SymbolList) {
+        expr->as_expression()->head()->symbol() == S::List) {
         return expr->as_expression()->with_slice(
             [] (const auto &slice) {
                 for (const auto leaf : slice) {
