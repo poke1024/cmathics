@@ -302,29 +302,67 @@ inline ExpressionRef ExpressionImplementation<Slice>::conditional_map_all(
 }
 
 template<typename Slice>
+BaseExpressionRef ExpressionImplementation<Slice>::expression_custom_format(
+    const BaseExpressionRef &form,
+    const Evaluation &evaluation) const {
+
+    if (form->type() != SymbolType) {
+        return BaseExpressionRef();
+    }
+
+    if (form->extended_type() != SymbolFullForm) {
+        if (head()->type() == SymbolType) {
+            const BaseExpressionRef formatted = head()->as_symbol()->state().format(
+                    this, SymbolRef(form->as_symbol()), evaluation);
+            if (formatted) {
+                return formatted->custom_format_or_copy(form, evaluation);
+            }
+        }
+
+        const BaseExpressionRef new_head = head()->custom_format_or_copy(form, evaluation);
+
+        return conditional_map_all(new_head, [&form, &evaluation](const BaseExpressionRef &leaf) {
+            return leaf->custom_format(form, evaluation);
+        }, evaluation);
+    }
+
+    return BaseExpressionRef();
+}
+
+
+template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::custom_format(
     const BaseExpressionRef &form,
     const Evaluation &evaluation) const {
 
     // see BaseExpression.do_format in PyMathics
 
-    if (form->type() != SymbolType) {
-        return BaseExpressionRef();
-    }
+    if (size() == 1) {
+        switch (head()->extended_type()) {
+            case SymbolStandardForm:
+                if (form->extended_type() == SymbolOutputForm) {
+                    const BaseExpressionRef leaf =
+                        static_leaves<1>()[0];
+                    const BaseExpressionRef expr =
+                        leaf->expression_custom_format(head(), evaluation);
+                    return expression(form, expr ? expr : leaf);
+                }
+                // fallthrough
 
-    if (head()->type() == SymbolType) {
-        const BaseExpressionRef formatted = head()->as_symbol()->state().format(
-            this, SymbolRef(form->as_symbol()), evaluation);
-        if (formatted) {
-            return formatted->custom_format(form, evaluation);
+            case SymbolInputForm:
+            case SymbolOutputForm:
+            case SymbolFullForm:
+            case SymbolTraditionalForm:
+            case SymbolTeXForm:
+            case SymbolMathMLForm:
+                return static_leaves<1>()[0]->expression_custom_format(head(), evaluation);
+
+            default:
+                break;
         }
     }
 
-    const BaseExpressionRef new_head = head()->custom_format(form, evaluation);
-
-    return conditional_map_all(new_head, [&form, &evaluation] (const BaseExpressionRef &leaf) {
-        return leaf->custom_format(form, evaluation);
-    }, evaluation);
+    return expression_custom_format(form, evaluation);
 }
 
 using EvaluateFunction = std::function<BaseExpressionRef(

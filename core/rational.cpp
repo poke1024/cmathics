@@ -17,7 +17,7 @@ BaseExpressionRef BigRational::custom_format(
 			return expression(
 				expression(evaluation.HoldForm, evaluation.Rational),
 				from_primitive(value.get_num()),
-				from_primitive(value.get_den()))->custom_format(form, evaluation);
+				from_primitive(value.get_den()))->custom_format_or_copy(form, evaluation);
 
 		default: {
 			UnsafeBaseExpressionRef leaf;
@@ -35,7 +35,7 @@ BaseExpressionRef BigRational::custom_format(
 					Pool::BigInteger(-numerator), Pool::BigInteger(denominator)));
 			}
 
-			return expression(evaluation.HoldForm, leaf)->custom_format(form, evaluation);
+			return expression(evaluation.HoldForm, leaf)->custom_format_or_copy(form, evaluation);
 		}
 	}
 }
