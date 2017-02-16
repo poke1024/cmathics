@@ -57,25 +57,31 @@ struct unpack_leaves<M, M> {
 template<int N, typename F>
 class BuiltinRule : public ExactlyNRule<N> {
 private:
-	const F _func;
+	const F m_func;
 
 public:
 	BuiltinRule(const SymbolRef &head, const Definitions &definitions, const F &func) :
-		ExactlyNRule<N>(head, definitions), _func(func) {
+		ExactlyNRule<N>(head, definitions), m_func(func) {
 	}
 
-	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
+	virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
+
 		constexpr SliceCode slice_code =
 			N <= MaxStaticSliceSize ? static_slice_code(N) : SliceCode::Unknown;
-		const F &func = _func;
-		return expr->with_leaves_array<slice_code>(
-			[expr, &func, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
+
+        const BaseExpressionRef result = expr->with_leaves_array<slice_code>(
+			[this, expr, &evaluation] (const BaseExpressionRef *leaves, size_t size) {
 				typename BaseExpressionTuple<N>::type t;
 				unpack_leaves<N, 0>()(leaves, t);
+
 				return apply_from_tuple(
-					func,
+                    m_func,
 					std::tuple_cat(std::forward_as_tuple(expr), t, std::forward_as_tuple(evaluation)));
 			});
+
+        return result;
 	}
 };
 
@@ -89,7 +95,10 @@ public:
 		AtLeastNRule<N>(head, definitions), _func(func) {
 	}
 
-	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
+	virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
+
 		const F &func = _func;
 		return expr->with_leaves_array(
 			[expr, &func, &evaluation](const BaseExpressionRef *leaves, size_t size) {
@@ -177,18 +186,18 @@ public:
 		AtLeastNRule<N>(head, definitions), m_head(head), m_func(func), m_options(definitions, options) {
 	}
 
-	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
-		const SymbolRef &head = m_head;
-		const F &func = m_func;
-		const OptionsDefinitions<Options> &options_definitions = m_options;
+	virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
 
 		return expr->with_leaves_array(
-			[expr, &head, &func, &options_definitions, &evaluation]
-			(const BaseExpressionRef *leaves, size_t size) {
+			[this, expr, &evaluation]
+			(const BaseExpressionRef *leaves, size_t size) -> optional<BaseExpressionRef> {
 
 				Options options;
-				options_definitions.initialize_defaults(options);
+                m_options.initialize_defaults(options);
 
+                // parse options. this should behave exactly as if it were an OptionsPattern[].
 				size_t n = size;
 				while (n > N) {
 					const BaseExpressionRef &last = leaves[n - 1];
@@ -205,17 +214,19 @@ public:
 						if (key->is_string()) {
 							const BaseExpressionRef resolved_key =
 								static_cast<const String*>(key.get())->option_symbol(evaluation);
-							ok = options_definitions.set(options, resolved_key, value);
+							ok = m_options.set(options, resolved_key, value);
 						} else {
-							ok = options_definitions.set(options, key, value);
+							ok = m_options.set(options, key, value);
 						}
 
 						if (!ok) {
-							evaluation.message(head, "optx", key, BaseExpressionRef(expr));
+							evaluation.message(m_head, "optx", key, BaseExpressionRef(expr));
 							return BaseExpressionRef();
 						}
 					} else {
-						// FIXME: option expected
+                        // rule does not apply, as remaining arguments are not options and thus
+                        // do not match OptionsPattern[].
+                        return optional<BaseExpressionRef>();
 					}
 
 					n -= 1;
@@ -224,7 +235,7 @@ public:
 				typename BaseExpressionTuple<N>::type t;
 				unpack_leaves<N, 0>()(leaves, t);
 				return apply_from_tuple(
-					func,
+					m_func,
 					std::tuple_cat(std::forward_as_tuple(expr), t, std::forward_as_tuple(options, evaluation)));
 			});
 	}
@@ -251,21 +262,27 @@ public:
 		Rule(patt), m_into(into), m_matcher(patt), m_rewrite(m_matcher.prepare(into)) {
 	}
 
-	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
-		const MatchRef m = m_matcher(expr, evaluation);
-		if (m) {
-            return m_rewrite.rewrite_or_copy(
+	virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
+
+		const MatchRef match = m_matcher(expr, evaluation);
+		if (match) {
+            const auto slot = [&match] (index_t i, const BaseExpressionRef &prev) {
+                const BaseExpressionRef &slot = match->slot(i);
+                if (slot) { // was this variable assigned?
+                    return slot;
+                } else {
+                    return prev;
+                }
+            };
+
+            return m_rewrite.rewrite_root_or_copy(
                 m_into->as_expression(),
-                [&m] (index_t i, const BaseExpressionRef &prev) {
-                    const BaseExpressionRef &slot = m->slot(i);
-                    if (slot) { // was this variable assigned?
-                        return slot;
-                    } else {
-                        return prev;
-                    }
-                });
+                slot,
+                match->options());
 		} else {
-			return BaseExpressionRef();
+			return optional<BaseExpressionRef>();
 		}
 	}
 

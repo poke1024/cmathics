@@ -6,19 +6,25 @@
 struct SlotDirective {
     enum Action {
         Slot,
+        OptionValue,
         Copy,
         Descend
     };
 
     const Action m_action;
     const index_t m_slot;
+    const SymbolRef m_option_value;
 
-    inline SlotDirective(Action action, index_t slot = 0) :
-        m_action(action), m_slot(slot) {
+    inline SlotDirective(Action action, index_t slot = 0, const SymbolRef &option = SymbolRef()) :
+        m_action(action), m_slot(slot), m_option_value(option) {
     }
 
     inline static SlotDirective slot(index_t slot) {
         return SlotDirective(SlotDirective::Slot, slot);
+    }
+
+    inline static SlotDirective option_value(const SymbolRef &option) {
+        return SlotDirective(SlotDirective::OptionValue, -1, option);
     }
 
     inline static SlotDirective copy() {
@@ -210,6 +216,7 @@ private:
     PatternMatcherRef m_matcher;
     std::vector<Slot, SlotAllocator> m_slots;
     index_t m_slots_fixed;
+    OptionsMap m_options;
 
 public:
     inline Match(); // only for Pool::DefaultMatch()
@@ -306,6 +313,14 @@ public:
 
     template<int N>
     typename BaseExpressionTuple<N>::type unpack() const;
+
+    inline const OptionsMap &options() const {
+        return m_options;
+    }
+
+    inline void swap_options(OptionsMap &options) {
+        std::swap(m_options, options);
+    }
 };
 
 #endif

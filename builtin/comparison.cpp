@@ -9,10 +9,11 @@ public:
         ExactlyNRule<N>(head, definitions) {
     }
 
-    virtual BaseExpressionRef try_apply(
-         const Expression *expr, const Evaluation &evaluation) const {
+    virtual optional<BaseExpressionRef> try_apply(
+         const Expression *expr,
+         const Evaluation &evaluation) const {
 
-        return evaluation.True;
+        return BaseExpressionRef(evaluation.True);
     }
 };
 
@@ -290,8 +291,9 @@ public:
         AtLeastNRule<3>(head, definitions), m_head(head), m_operator(definitions) {
     }
 
-    virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
+    virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
 
         return expr->with_slice([this, &evaluation] (const auto &slice) {
             const size_t n = slice.size();
@@ -329,8 +331,9 @@ public:
         AtLeastNRule<3>(head, definitions), m_head(head), m_is_equal(definitions) {
     }
 
-    virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
+    virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
 
         return expr->with_slice([this, &evaluation] (const auto &slice) {
             const size_t n = slice.size();

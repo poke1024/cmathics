@@ -122,8 +122,9 @@ public:
         m_value(Pool::MachineInteger(Value)) {
     }
 
-    virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
+    virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
 
         return m_value;
     }
@@ -135,8 +136,9 @@ public:
         ExactlyNRule<1>(head, definitions) {
     }
 
-    virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
+    virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
 
         return expr->n_leaves<1>()[0];
     }
@@ -155,8 +157,9 @@ public:
         ExactlyNRule<2>(head, definitions), m_operator(definitions) {
     }
 
-    virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
+    virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
 
         return m_operator(evaluation.definitions, expr, evaluation);
     }

@@ -157,8 +157,9 @@ BaseExpressionRef mul(const Expression *expr, const Evaluation &evaluation) {
 	});
 };
 
-BaseExpressionRef TimesNRule::try_apply(
-	const Expression *expr, const Evaluation &evaluation) const {
+optional<BaseExpressionRef> TimesNRule::try_apply(
+	const Expression *expr,
+    const Evaluation &evaluation) const {
 
 	return expr->with_slice_c([expr, &evaluation] (const auto &slice) {
 		return mul_slow(expr, slice, evaluation);

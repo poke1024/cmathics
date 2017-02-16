@@ -24,7 +24,9 @@ public:
     virtual ~Rule() {
     }
 
-	virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const = 0;
+	virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const = 0;
 
 	virtual BaseExpressionRef rhs() const {
 		throw std::runtime_error("no fixed right hand side is available for this Rule type");
@@ -127,7 +129,7 @@ public:
 
 template<typename Entry>
 template<typename Expression, typename Filter>
-inline BaseExpressionRef RulesVector<Entry>::apply(
+inline optional<BaseExpressionRef> RulesVector<Entry>::apply(
 	const Expression *expr,
 	Filter &filter,
 	const Evaluation &evaluation) const {
@@ -146,7 +148,7 @@ inline BaseExpressionRef RulesVector<Entry>::apply(
 
 template<typename Entry>
 template<typename Filter>
-inline BaseExpressionRef RulesVector<Entry>::apply(
+inline optional<BaseExpressionRef> RulesVector<Entry>::apply(
 	const std::vector<Entry> &entries,
 	const Expression *expr,
 	Filter &filter,
@@ -157,14 +159,14 @@ inline BaseExpressionRef RulesVector<Entry>::apply(
 			continue;
 		}
 
-		const BaseExpressionRef result =
+		const optional<BaseExpressionRef> result =
 			entry.try_apply(expr, evaluation);
 		if (result) {
 			return result;
 		}
 	}
 
-	return BaseExpressionRef();
+	return optional<BaseExpressionRef>();
 }
 
 template<typename Entry>
@@ -201,8 +203,9 @@ inline RuleEntry::RuleEntry(const RuleRef &rule) :
 	RuleHash(rule->leaf_match_size(), rule->match_hash()) {
 }
 
-inline BaseExpressionRef RuleEntry::try_apply(
-	const Expression *expr, const Evaluation &evaluation) const {
+inline optional<BaseExpressionRef> RuleEntry::try_apply(
+	const Expression *expr,
+    const Evaluation &evaluation) const {
 
 	return m_rule->try_apply(expr, evaluation);
 }
@@ -216,7 +219,7 @@ inline const auto &RuleEntry::pattern() const {
 }
 
 template<typename Expression>
-inline BaseExpressionRef Rules::apply(
+inline optional<BaseExpressionRef> Rules::apply(
 	const Expression *expr,
 	const Evaluation &evaluation) const {
 
@@ -240,8 +243,9 @@ inline FormatRuleEntry::FormatRuleEntry(
 	RuleHash(rule->rule()->leaf_match_size(), rule->rule()->match_hash()) {
 }
 
-inline BaseExpressionRef FormatRuleEntry::try_apply(
-	const Expression *expr, const Evaluation &evaluation) const {
+inline optional<BaseExpressionRef> FormatRuleEntry::try_apply(
+	const Expression *expr,
+    const Evaluation &evaluation) const {
 
 	return m_rule->rule()->try_apply(expr, evaluation);
 }
@@ -299,7 +303,7 @@ public:
 };
 
 template<typename Expression>
-inline BaseExpressionRef FormatRules::apply(
+inline optional<BaseExpressionRef> FormatRules::apply(
 	const Expression *expr,
 	const SymbolRef &form,
 	const Evaluation &evaluation) const {

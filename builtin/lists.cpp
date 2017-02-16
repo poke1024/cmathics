@@ -1142,12 +1142,14 @@ public:
         AtLeastNRule<2>(head, definitions), m_head(head), m_function(head) {
     }
 
-    virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
-        const auto self = this;
+    virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
 
-        auto result = expr->with_leaves_array([self, &evaluation] (const BaseExpressionRef *leaves, size_t n) {
-            return self->apply(leaves[0].get(), leaves + 1, leaves + n, evaluation);
-        });
+        const BaseExpressionRef result = expr->with_leaves_array(
+            [this, &evaluation] (const BaseExpressionRef *leaves, size_t n) {
+                return apply(leaves[0].get(), leaves + 1, leaves + n, evaluation);
+            });
 
 		return result;
     }

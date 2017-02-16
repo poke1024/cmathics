@@ -212,11 +212,11 @@ public:
 				const SymbolRules * const rules = head_symbol->state().rules();
 
 				if (rules) {
-					const BaseExpressionRef sub_form =
+					const optional<BaseExpressionRef> sub_form =
 						rules->sub_rules.apply(this, evaluation);
 
 					if (sub_form) {
-						return sub_form;
+						return *sub_form;
 					}
 				}
 			}
@@ -248,6 +248,7 @@ public:
 			case S::Alternatives:
 			case S::Repeated:
             case S::Except:
+            case S::OptionsPattern:
 				return optional<hash_t>();
 
 			default: {
@@ -281,6 +282,9 @@ public:
 				return MatchSize::at_least(1);
 
 			case S::BlankNullSequence:
+				return MatchSize::at_least(0);
+
+            case S::OptionsPattern:
 				return MatchSize::at_least(0);
 
 			case S::Pattern:
@@ -965,25 +969,23 @@ RewriteExpression::RewriteExpression(
 	m_leaves(nodes(arguments, body)) {
 }
 
-template<typename Arguments>
+template<typename Arguments, typename Options>
 inline BaseExpressionRef RewriteExpression::rewrite_or_copy(
 	const Expression *body,
-	const Arguments &args) const {
-
-	const auto &head = m_head;
-	const auto &leaves = m_leaves;
+	const Arguments &args,
+    const Options &options) const {
 
 	return body->with_slice_c(
-		[body, &head, &leaves, &args] (const auto &slice) {
-			const auto generate = [&slice, &leaves, &args] (auto &store) {
+		[this, body, &args, &options] (const auto &slice) {
+			const auto generate = [this, &slice, &args, &options] (auto &store) {
 				const size_t n = slice.size();
 				for (size_t i = 0; i < n; i++) {
-					store(leaves[i].rewrite_or_copy(slice[i], args));
+					store(m_leaves[i].rewrite_or_copy(slice[i], args, options));
 				}
 			};
 
 			return ExpressionRef(expression(
-				head.rewrite_or_copy(body->head(), args),
+				m_head.rewrite_or_copy(body->head(), args, options),
 				sequential(generate, slice.size())))->flatten_sequence_or_copy();
 		});
 }

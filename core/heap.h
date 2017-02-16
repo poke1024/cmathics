@@ -147,7 +147,7 @@ protected:
     std::vector<Entry> m_rules[NumberOfSliceCodes];
 
 	template<typename Filter>
-	inline BaseExpressionRef apply(
+	inline optional<BaseExpressionRef> apply(
 		const std::vector<Entry> &entries,
 		const Expression *expr,
 		Filter &filter,
@@ -158,7 +158,7 @@ protected:
 		const Entry &entry);
 
 	template<typename Expression, typename Filter>
-	inline BaseExpressionRef apply(
+	inline optional<BaseExpressionRef> apply(
 		const Expression *expr,
 		Filter &filter,
 		const Evaluation &evaluation) const;
@@ -176,7 +176,7 @@ public:
 
 	inline RuleEntry(const RuleRef &rule);
 
-	inline BaseExpressionRef try_apply(
+	inline optional<BaseExpressionRef> try_apply(
 		const Expression *expr, const Evaluation &evaluation) const;
 
 	inline const auto &key() const;
@@ -194,7 +194,7 @@ public:
 	using RulesVector<RuleEntry>::RulesVector;
 
 	template<typename Expression>
-	inline BaseExpressionRef apply(
+	inline optional<BaseExpressionRef> apply(
 		const Expression *expr,
 		const Evaluation &evaluation) const;
 };
@@ -266,7 +266,7 @@ public:
 	inline FormatRuleEntry(
 		const FormatRuleRef &rule);
 
-	inline BaseExpressionRef try_apply(
+	inline optional<BaseExpressionRef> try_apply(
 		const Expression *expr, const Evaluation &evaluation) const;
 
 	inline const auto &key() const;
@@ -286,7 +286,7 @@ public:
 	using RulesVector<FormatRuleEntry>::RulesVector;
 
 	template<typename Expression>
-	inline BaseExpressionRef apply(
+	inline optional<BaseExpressionRef> apply(
 		const Expression *expr,
 		const SymbolRef &form,
 		const Evaluation &evaluation) const;
@@ -304,6 +304,8 @@ template<typename Value>
 using SymbolRefMap = SymbolMap<const SymbolRef, Value>;
 
 using VariableMap = SymbolPtrMap<const BaseExpressionRef*>;
+
+using OptionsMap = SymbolRefMap<UnsafeBaseExpressionRef>;
 
 using SymbolStateMap = SymbolRefMap<SymbolState>;
 
@@ -488,6 +490,7 @@ private:
     VectorAllocator<BaseExpressionRef> _ref_vector_allocator;
 
 	ObjectAllocator<VariableMap::value_type> _variable_map;
+    ObjectAllocator<OptionsMap::value_type> _options_map;
 	ObjectAllocator<SymbolStateMap::value_type> _symbol_state_map;
     ObjectAllocator<MonomialMap::value_type> _monomial_map;
     ObjectAllocator<SymbolRulesMap::value_type> _rules_map_allocator;
@@ -496,6 +499,10 @@ public:
 	static inline auto &variable_map_allocator() {
 		return _s_instance->_variable_map;
 	}
+
+    static inline auto &options_map_allocator() {
+        return _s_instance->_options_map;
+    }
 
 	static inline auto &symbol_state_map_allocator() {
 		return _s_instance->_symbol_state_map;

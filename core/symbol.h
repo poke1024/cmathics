@@ -365,11 +365,13 @@ BaseExpressionRef SymbolState::format(
 	const Symbol * const name = expr->lookup_name();
 	const SymbolRules * const rules = name->state().rules();
 	if (rules) {
-        BaseExpressionRef result = rules->format_values.apply(expr, form, evaluation);
-        if (result) {
-            return result->evaluate_or_copy(evaluation);
+        const optional<BaseExpressionRef> result =
+            rules->format_values.apply(expr, form, evaluation);
+        if (result && *result) {
+            return (*result)->evaluate_or_copy(evaluation);
         }
     }
+
     return BaseExpressionRef();
 }
 
@@ -541,6 +543,17 @@ inline SlotDirective CompiledArguments::operator()(const BaseExpressionRef &item
 			return SlotDirective::copy();
 		}
 	} else {
+        if (item->is_expression()) {
+            const Expression * const expr = item->as_expression();
+
+            if (expr->head()->symbol() == S::OptionValue && expr->size() == 1) {
+                const BaseExpressionRef &leaf = expr->n_leaves<1>()[0];
+                if (leaf->is_symbol()) {
+                    return SlotDirective::option_value(leaf->as_symbol());
+                }
+            }
+        }
+
 		return SlotDirective::descend();
 	}
 }

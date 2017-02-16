@@ -195,11 +195,13 @@ inline BaseExpressionRef from_primitive(const Numeric::Z &value) {
 
 inline Match::Match() :
     m_slots(Pool::slots_allocator()),
-    m_slots_fixed(0) {
+    m_slots_fixed(0),
+    m_options(Pool::options_map_allocator()) {
 }
 
 inline Match::Match(const PatternMatcherRef &matcher) :
 	m_matcher(matcher),
 	m_slots(matcher->variables().size(), Pool::slots_allocator()),
-	m_slots_fixed(0) {
+	m_slots_fixed(0),
+    m_options(Pool::options_map_allocator()) {
 }

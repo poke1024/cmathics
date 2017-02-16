@@ -17,7 +17,7 @@ class TimesNRule : public AtLeastNRule<3> {
 public:
 	using AtLeastNRule<3>::AtLeastNRule;
 
-	virtual BaseExpressionRef try_apply(
+	virtual optional<BaseExpressionRef> try_apply(
 		const Expression *expr, const Evaluation &evaluation) const;
 };
 

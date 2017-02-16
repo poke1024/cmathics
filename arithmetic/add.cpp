@@ -189,7 +189,7 @@ BaseExpressionRef add(const Expression *expr, const Evaluation &evaluation) {
 	});
 };
 
-BaseExpressionRef PlusNRule::try_apply(
+optional<BaseExpressionRef> PlusNRule::try_apply(
 	const Expression *expr, const Evaluation &evaluation) const {
 
 	// we guarantee that expr.size() >= 3 through the given match_size()

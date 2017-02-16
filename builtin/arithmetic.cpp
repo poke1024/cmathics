@@ -720,8 +720,9 @@ class PowerRule : public ExactlyNRule<2> {
 public:
 	using ExactlyNRule<2>::ExactlyNRule;
 
-	virtual BaseExpressionRef try_apply(
-        const Expression *expr, const Evaluation &evaluation) const {
+	virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
 
 		/*const BaseExpressionRef *refs = expr->n_leaves<2>();
 		const BaseExpressionRef &a = refs[0];

@@ -13,14 +13,17 @@ typedef UnsafeSharedPtr<RewriteExpression> UnsafeRewriteExpressionRef;
 class RewriteBaseExpression {
 private:
 	const index_t m_slot;
+    const SymbolRef m_option_value;
 	const RewriteExpressionRef m_down;
 
 	inline RewriteBaseExpression(
 		index_t slot,
-		RewriteExpressionRef down = RewriteExpressionRef()) :
+		RewriteExpressionRef down = RewriteExpressionRef(),
+        SymbolRef option_value = SymbolRef()) :
 
 		m_slot(slot),
-		m_down(down){
+		m_down(down),
+        m_option_value(option_value) {
 	}
 
 public:
@@ -28,14 +31,16 @@ public:
 		const RewriteBaseExpression &other) :
 
 		m_slot(other.m_slot),
-		m_down(other.m_down) {
+		m_down(other.m_down),
+        m_option_value(other.m_option_value) {
 	 }
 
 	inline RewriteBaseExpression(
 		RewriteBaseExpression &&other) :
 
 		m_slot(other.m_slot),
-		m_down(other.m_down) {
+		m_down(other.m_down),
+        m_option_value(other.m_option_value) {
 	}
 
 	template<typename Arguments>
@@ -43,10 +48,17 @@ public:
 		Arguments &arguments,
 		const BaseExpressionRef &expr);
 
-	template<typename Arguments>
-	inline BaseExpressionRef rewrite_or_copy(
-		const BaseExpressionRef &expr,
-		const Arguments &args) const;
+    template<typename Arguments, typename Options>
+    inline BaseExpressionRef rewrite_or_copy(
+        const BaseExpressionRef &expr,
+        const Arguments &args,
+        const Options &options) const;
+
+    template<typename Arguments>
+    inline BaseExpressionRef rewrite_root_or_copy(
+        const BaseExpressionRef &expr,
+        const Arguments &args,
+        const OptionsMap &options) const;
 };
 
 class Rewrite;
@@ -85,10 +97,11 @@ public:
         Arguments &arguments,
         const Expression *body_ptr);
 
-	template<typename Arguments>
+	template<typename Arguments, typename Options>
     inline BaseExpressionRef rewrite_or_copy(
         const Expression *body,
-        const Arguments &args) const;
+        const Arguments &args,
+        const Options &options) const;
 };
 
 template<typename Arguments>
@@ -101,6 +114,9 @@ inline RewriteBaseExpression RewriteBaseExpression::construct(
 	switch (directive.m_action) {
 		case SlotDirective::Slot:
 			return RewriteBaseExpression(directive.m_slot);
+        case SlotDirective::OptionValue:
+            return RewriteBaseExpression(
+                -1, RewriteExpressionRef(), directive.m_option_value);
 		case SlotDirective::Copy:
 			return RewriteBaseExpression(-1);
 		case SlotDirective::Descend:
@@ -115,24 +131,50 @@ inline RewriteBaseExpression RewriteBaseExpression::construct(
 	}
 }
 
-template<typename Arguments>
+template<typename Arguments, typename Options>
 inline BaseExpressionRef RewriteBaseExpression::rewrite_or_copy(
 	const BaseExpressionRef &expr,
-	const Arguments &args) const {
+	const Arguments &args,
+    const Options &options) const {
 
-	const index_t slot = m_slot;
-	if (slot >= 0) {
-		return args(slot, expr);
-	} else {
-		const RewriteExpressionRef &down = m_down;
-		if (down) {
-			return down->rewrite_or_copy(
-				expr->as_expression(), args);
-		} else {
-			return expr;
-		}
-	}
+    if (m_slot >= 0) {
+        return args(m_slot, expr);
+    }
+
+    if (m_down) {
+        return m_down->rewrite_or_copy(
+            expr->as_expression(), args, options);
+    }
+
+    const auto option = options(m_option_value);
+    if (option) {
+        return option;
+    }
+
+    return expr;
 };
+
+template<typename Arguments>
+inline BaseExpressionRef RewriteBaseExpression::rewrite_root_or_copy(
+    const BaseExpressionRef &expr,
+    const Arguments &args,
+    const OptionsMap &options) const {
+
+    if (options.empty()) {
+        return rewrite_or_copy(expr, args, [] (const SymbolRef &name) {
+            return BaseExpressionRef();
+        });
+    } else {
+        return rewrite_or_copy(expr, args, [&options] (const SymbolRef &name) {
+            const auto i = options.find(name);
+            if (i != options.end()) {
+                return BaseExpressionRef(i->second);
+            } else {
+                return BaseExpressionRef();
+            }
+        });
+    }
+}
 
 template<typename Arguments>
 inline RewriteRef Rewrite::construct(

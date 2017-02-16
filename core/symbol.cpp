@@ -22,11 +22,11 @@ StringRef Messages::lookup(
     const Expression *message,
     const Evaluation &evaluation) const {
 
-	const BaseExpressionRef result = m_rules.apply(
+	const optional<BaseExpressionRef> result = m_rules.apply(
 		message, evaluation);
 
-    if (result && result->type() == StringType) {
-        return static_pointer_cast<const String>(result);
+    if (result && *result && (*result)->is_string()) {
+        return (*result)->as_string();
     }
 
     return StringRef();

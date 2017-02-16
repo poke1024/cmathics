@@ -41,10 +41,10 @@ BaseExpressionRef evaluate_intermediate_form(
             }
             const SymbolRules *const up_rules = up_name->state().rules();
             if (up_rules) {
-                const BaseExpressionRef up_form = up_rules->up_rules.apply(
+                const optional<BaseExpressionRef> up_form = up_rules->up_rules.apply(
                     expr, evaluation);
                 if (up_form) {
-                    return up_form;
+                    return *up_form;
                 }
             }
         }
@@ -59,10 +59,10 @@ BaseExpressionRef evaluate_intermediate_form(
         // Step 4
         // Evaluate the head with leaves. (DownValue)
 
-        const BaseExpressionRef down_form = rules->down_rules.apply(
+        const optional<BaseExpressionRef> down_form = rules->down_rules.apply(
             expr, evaluation);
         if (down_form) {
-            return down_form;
+            return *down_form;
         }
     }
 

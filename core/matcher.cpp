@@ -3,7 +3,6 @@
 #include "matcher.h"
 #include "unicode/uchar.h"
 
-
 #define DECLARE_MATCH_EXPRESSION_METHODS                                                                      \
 	virtual index_t match( 					                                                                  \
 		const FastLeafSequence &sequence,																  	  \
@@ -1221,6 +1220,119 @@ public:
 	DECLARE_MATCH_METHODS
 };
 
+template<typename Dummy, typename MatchRest>
+class OptionsMatcher : public PatternMatcher {
+private:
+    const MatchRest m_rest;
+
+    bool parse_options(
+        OptionsMap &options,
+        const BaseExpressionRef &item,
+        const Evaluation &evaluation) const {
+
+        if (!item->is_expression()) {
+            return false;
+        }
+
+        const Expression * const expr = item->as_expression();
+
+        switch (expr->head()->symbol()) {
+            case S::List:
+                return expr->with_slice([this, &options, &evaluation] (const auto &slice) {
+                    const size_t n = slice.size();
+                    for (size_t i = 0; i < n; i++) {
+                        if (!parse_options(options, slice[i], evaluation)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+
+            case S::Rule:
+            case S::RuleDelayed:
+                if (expr->size() == 2) {
+                    const auto * const leaves = expr->n_leaves<2>();
+                    UnsafeSymbolRef name;
+
+                    const auto &lhs = leaves[0];
+                    if (lhs->is_symbol()) {
+                        name = lhs->as_symbol();
+                    } else if (lhs->is_string()) {
+                        name = lhs->as_string()->option_symbol(evaluation);
+                        if (!name) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+
+                    const auto &rhs = leaves[1];
+                    options[name] = rhs;
+
+                    return true;
+                }
+                return false;
+
+            default:
+                return false;
+        }
+    }
+
+    template<typename Sequence>
+    inline index_t do_match(
+        const Sequence &sequence,
+        index_t begin,
+        index_t end) const {
+
+        const MatchRef &match =
+            sequence.context().match;
+
+        OptionsMap options(
+            match->options(),
+            Pool::options_map_allocator());
+
+        index_t t = begin;
+        while (t < end) {
+            if (!parse_options(
+                options,
+                *sequence.element(t),
+                sequence.context().evaluation)) {
+
+                break;
+            }
+            t++;
+        }
+
+        match->swap_options(options);
+
+        auto slice = sequence.slice(begin, t);
+        const index_t m = m_rest(sequence, t, end, slice);
+
+        if (m < 0) {
+            match->swap_options(options);
+        }
+
+        return m;
+    }
+
+public:
+    inline OptionsMatcher(
+        const std::tuple<>,
+        const MatchRest &next) :
+
+        m_rest(next) {
+    }
+
+    virtual std::string name(const MatchContext &context) const {
+        std::ostringstream s;
+        s << "OptionsMatcher(), " << m_rest.name(context);
+        return s.str();
+    }
+
+    DECLARE_MATCH_EXPRESSION_METHODS
+    DECLARE_NO_MATCH_CHARACTER_METHODS
+};
+
 class PatternFactory {
 private:
 	CompiledVariables &m_variables;
@@ -1764,7 +1876,11 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			}
 			break;
 
-		default:
+        case S::OptionsPattern: {
+            return factory.create<OptionsMatcher>(std::make_tuple());
+        }
+
+        default:
 			break;
 	}
 

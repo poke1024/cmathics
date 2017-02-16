@@ -528,11 +528,12 @@ inline auto match(
 	            const RewriteRef rewrite = cache_owner->ensure_cache()->rewrite(matcher, rhs);
 
                 return make([&rewrite, &context, &rhs] (const BaseExpressionRef &item) {
-                    return rewrite->rewrite_or_copy(
+                    return rewrite->rewrite_root_or_copy(
                         rhs->as_expression(),
                         [&context] (index_t i, const BaseExpressionRef &prev) {
                             return context.match->slot(i);
-                        });
+                        },
+                        context.match->options());
                 });
             } else {
                 return make([] (const BaseExpressionRef &item) {
@@ -585,14 +586,19 @@ public:
         Rule(patt), function(f), matcher(pattern) {
     }
 
-    virtual BaseExpressionRef try_apply(const Expression *expr, const Evaluation &evaluation) const {
-        const MatchRef m = matcher(expr, evaluation);
-        if (m) {
-            assert(m->n_slots_fixed() == N);
+    virtual optional<BaseExpressionRef> try_apply(
+        const Expression *expr,
+        const Evaluation &evaluation) const {
+
+        const MatchRef match = matcher(expr, evaluation);
+        if (match) {
+            assert(match->n_slots_fixed() == N);
             return apply_from_tuple(function, std::tuple_cat(
-                std::forward_as_tuple(expr), m->unpack<N>(), std::forward_as_tuple(evaluation)));
+                std::forward_as_tuple(expr),
+                match->unpack<N>(),
+                std::forward_as_tuple(evaluation)));
         } else {
-            return BaseExpressionRef();
+            return optional<BaseExpressionRef>();
         }
     }
 

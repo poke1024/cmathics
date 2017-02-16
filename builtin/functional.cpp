@@ -29,7 +29,8 @@ public:
         switch (head->symbol()) {
             case S::Slot:
                 if (expr->size() != 1) {
-                    throw std::runtime_error("Slot must contain one leaf");
+                    // throw std::runtime_error("Slot must contain one leaf");
+                    return SlotDirective::copy();
                 } else {
                     const BaseExpressionRef *leaves = expr->n_leaves<1>();
                     const BaseExpressionRef &slot = leaves[0];
@@ -38,13 +39,30 @@ public:
                         const machine_integer_t slot_id =
                             static_cast<const MachineInteger *>(slot.get())->value;
                         if (slot_id < 1) {
-                            throw std::runtime_error("Slot index must be >= 1");
+                            // throw std::runtime_error("Slot index must be >= 1");
+                            return SlotDirective::copy();
                         } else {
                             m_slot_count = std::max(m_slot_count, slot_id);
                             return SlotDirective::slot(slot_id - 1);
                         }
                     } else {
-                        throw std::runtime_error("Slot index must be integral");
+                        // throw std::runtime_error("Slot index must be integral");
+                        return SlotDirective::copy();
+                    }
+                }
+                break;
+
+            case S::OptionValue:
+                if (expr->size() != 1) {
+                    return SlotDirective::copy();
+                } else {
+                    const BaseExpressionRef *leaves = expr->n_leaves<1>();
+                    const BaseExpressionRef &option = leaves[0];
+
+                    if (option->is_symbol()) {
+                        return SlotDirective::option_value(option->as_symbol());
+                    } else {
+                        return SlotDirective::copy();
                     }
                 }
                 break;
@@ -112,7 +130,9 @@ inline BaseExpressionRef SlotFunction::rewrite_or_copy(
         throw std::runtime_error("wrong slot count");
     }
 
-    return m_rewrite->rewrite_or_copy(body, args);
+    return m_rewrite->rewrite_or_copy(body, args, [] (const SymbolRef &name) {
+        return BaseExpressionRef();
+    });
 }
 
 class FunctionRule : public Rule {
@@ -177,6 +197,8 @@ private:
                     return vars_function->rewrite_or_copy(
                         body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
                             return args[i];
+                        }, [] (const SymbolRef &option) {
+                            return BaseExpressionRef();
                         });
                 });
         } catch(const InvalidVariable&) {
@@ -189,10 +211,13 @@ public:
 		Rule(function_pattern(head, definitions)) {
 	}
 
-	virtual BaseExpressionRef try_apply(const Expression *function, const Evaluation &evaluation) const {
+	virtual optional<BaseExpressionRef> try_apply(
+        const Expression *function,
+        const Evaluation &evaluation) const {
+
 		const BaseExpressionRef &head = function->_head;
 		if (!head->is_expression()) {
-			return BaseExpressionRef();
+			return optional<BaseExpressionRef>();
 		}
 
         const Expression * const head_expr = head->as_expression();
@@ -206,7 +231,7 @@ public:
             }
 
             default:
-                return BaseExpressionRef();
+                return optional<BaseExpressionRef>();
 		}
 	}
 
