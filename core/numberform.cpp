@@ -32,12 +32,21 @@ inline BaseExpressionRef NumberForm::default_number_format(
     const BaseExpressionRef &base,
     const BaseExpressionRef &exp,
     const NumberFormatOptions &options,
+    const BaseExpressionPtr form,
     const Evaluation &evaluation) const {
 
     if (exp->is_string() && exp->as_string()->length() > 0) {
-        const BaseExpressionPtr mul = options.NumberMultiplier;
-        return expression(evaluation.RowBox, expression(
-                evaluation.List, man, mul, expression(evaluation.SuperscriptBox, base, exp)));
+        switch (form->symbol()) {
+            case S::InputForm:
+            case S::OutputForm:
+            case S::FullForm:
+                return expression(evaluation.RowBox,
+                    expression(evaluation.List, man, m_mul_exp, exp));
+            default:
+                return expression(evaluation.RowBox, expression(
+                    evaluation.List, man, options.NumberMultiplier,
+                    expression(evaluation.SuperscriptBox, base, exp)));
+        }
     } else {
         return man;
     }
@@ -158,6 +167,7 @@ NumberForm::NumberForm(const Symbols &symbols) {
     m_base_10 = Pool::MachineInteger(10);
     m_zero_digit = Pool::String("0");
     m_empty_string = Pool::String("");
+    m_mul_exp = Pool::String("*^");
 
     const BaseExpressionPtr automatic = symbols.Automatic;
 
@@ -195,6 +205,7 @@ BaseExpressionRef NumberForm::operator()(
     const SExp &s_exp,
     const BaseExpressionRef &options_list,
     const size_t n,
+    BaseExpressionPtr form,
     const Evaluation &evaluation) const {
 
     NumberFormatOptions options;
@@ -328,6 +339,6 @@ BaseExpressionRef NumberForm::operator()(
     if (NumberFormat->symbol() != S::Automatic) {
         return expression(NumberFormat, s, m_base_10, pexp, options_list);
     } else {
-        return default_number_format(s, m_base_10, pexp, options, evaluation);
+        return default_number_format(s, m_base_10, pexp, options, form, evaluation);
     }
 }

@@ -24,6 +24,7 @@ private:
     UnsafeBaseExpressionRef m_base_10;
     UnsafeStringRef m_zero_digit;
     UnsafeStringRef m_empty_string;
+    UnsafeStringRef m_mul_exp;
 
     UnsafeStringRef m_number_signs[2];
     UnsafeStringRef m_number_separator[2];
@@ -53,6 +54,7 @@ private:
         const BaseExpressionRef &base,
         const BaseExpressionRef &exp,
         const NumberFormatOptions &options,
+        BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
 public:
@@ -60,6 +62,7 @@ public:
         const SExp &s_exp,
         const BaseExpressionRef &options_list,
         const size_t n,
+        BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 };
 

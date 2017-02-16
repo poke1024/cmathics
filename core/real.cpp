@@ -179,7 +179,7 @@ BaseExpressionRef MachineReal::make_boxes(
         n = std::get<0>(s_exp)->length();
     }
 
-    return evaluation.number_form(s_exp, evaluation.empty_list, n, evaluation);
+    return evaluation.number_form(s_exp, evaluation.empty_list, n, form, evaluation);
 }
 
 std::string MachineReal::boxes_to_text(const Evaluation &evaluation) const {
@@ -232,7 +232,7 @@ BaseExpressionRef BigReal::make_boxes(
 
     const size_t n = std::floor(prec.decimals);
     const SExp s_exp = to_s_exp(n);
-    return evaluation.number_form(s_exp, evaluation.empty_list, n, evaluation);
+    return evaluation.number_form(s_exp, evaluation.empty_list, n, form, evaluation);
 }
 
 std::string BigReal::boxes_to_text(const Evaluation &evaluation) const {
