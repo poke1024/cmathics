@@ -1,7 +1,7 @@
 #ifndef CMATHICS_NUMBERFORM_H
 #define CMATHICS_NUMBERFORM_H
 
-class NumberFormatOptions {
+class NumberFormOptions {
 public:
     StringPtr NumberSigns[2];
     machine_integer_t ExponentStep;
@@ -17,7 +17,7 @@ public:
 
 class Runtime;
 
-class NumberForm {
+class NumberFormatter {
 private:
     UnsafeSymbolRef m_number_form;
 
@@ -32,16 +32,30 @@ private:
     UnsafeStringRef m_number_point;
     UnsafeStringRef m_number_multiplier;
 
-    NumberFormatOptions m_default_options;
+	NumberFormOptions m_default_options;
 
 public:
-    NumberForm(const Symbols &symbols);
+	NumberFormatter(const Symbols &symbols);
+
+	void parse_options(
+		const OptionsMap &options_map,
+		NumberFormOptions &options,
+		const Evaluation &evaluation) const;
+
+	void parse_options(
+		const BaseExpressionRef &options_list,
+			NumberFormOptions &options,
+		const Evaluation &evaluation) const;
 
 private:
-    void parse_options(
-        const BaseExpressionRef &options_list,
-        NumberFormatOptions &options,
-        const Evaluation &evaluation) const ;
+	inline void init_options(NumberFormOptions &options) const {
+		std::memcpy(&options, &m_default_options, sizeof(NumberFormOptions));
+	}
+
+	inline void parse_option(
+		NumberFormOptions &options,
+		const BaseExpressionRef &lhs,
+		const BaseExpressionRef &rhs) const;
 
     inline StringRef blocks(
         StringPtr s,
@@ -53,16 +67,16 @@ private:
         const BaseExpressionRef &man,
         const BaseExpressionRef &base,
         const BaseExpressionRef &exp,
-        const NumberFormatOptions &options,
+        const NumberFormOptions &options,
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
 public:
     BaseExpressionRef operator()(
         const SExp &s_exp,
-        const BaseExpressionRef &options_list,
         const size_t n,
         BaseExpressionPtr form,
+	    const NumberFormOptions &options,
         const Evaluation &evaluation) const;
 };
 

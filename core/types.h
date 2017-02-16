@@ -684,6 +684,10 @@ public:
 	    return format(form, evaluation);
     }
 
+	virtual optional<SExp> to_s_exp(const optional<size_t> &n) const {
+		return optional<SExp>();
+	}
+
 	inline ExpressionRef flatten_sequence() const;
 };
 

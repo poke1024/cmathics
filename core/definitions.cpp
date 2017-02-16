@@ -138,13 +138,13 @@ void SymbolState::add_format(
     mutable_rules()->format_values.add(FormatRuleRef(format_rule));
 }
 
-Definitions::Definitions() : _symbols(*this) {
+Definitions::Definitions() : m_symbols(*this), number_form(m_symbols) {
 }
 
 SymbolRef Definitions::new_symbol(const char *name, SymbolName symbol_name) {
-    assert(_definitions.find(name) == _definitions.end());
+    assert(m_definitions.find(name) == m_definitions.end());
     const SymbolRef symbol = Pool::Symbol(name, ExtendedType(symbol_name));
-    _definitions[SymbolKey(symbol)] = symbol;
+    m_definitions[SymbolKey(symbol)] = symbol;
     return symbol;
 }
 
@@ -163,9 +163,9 @@ const Symbol *Definitions::system_symbol(const char *name, SymbolName symbol) {
 }
 
 SymbolRef Definitions::lookup(const char *name) {
-    const auto it = _definitions.find(SymbolKey(name));
+    const auto it = m_definitions.find(SymbolKey(name));
 
-    if (it == _definitions.end()) {
+    if (it == m_definitions.end()) {
         return new_symbol(name);
     } else {
         return it->second;

@@ -157,8 +157,6 @@ public:
 
     const BaseExpressionRef empty_list;
 
-    class NumberForm number_form;
-
     Evaluation(
         const OutputRef &output,
         Definitions &definitions,

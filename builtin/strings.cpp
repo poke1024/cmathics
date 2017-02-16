@@ -47,7 +47,7 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		const OptionsInitializerList options = {
+		static const OptionsInitializerList options = {
 			{"Overlap", offsetof(StringCasesOptions, Overlap), "False"}
 		};
 

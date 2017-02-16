@@ -612,6 +612,44 @@ public:
     }
 };
 
+template<int N, typename F>
+class PatternMatchedOptionsBuiltinRule : public Rule {
+private:
+	const F function;
+	const Matcher matcher;
+
+public:
+	inline PatternMatchedOptionsBuiltinRule(const BaseExpressionRef &patt, const F &f) :
+		Rule(patt), function(f), matcher(pattern) {
+	}
+
+	virtual optional<BaseExpressionRef> try_apply(
+		const Expression *expr,
+		const Evaluation &evaluation) const {
+
+		const MatchRef match = matcher(expr, evaluation);
+		if (match) {
+			assert(match->n_slots_fixed() == N);
+			return apply_from_tuple(function, std::tuple_cat(
+				std::forward_as_tuple(expr),
+				match->unpack<N>(),
+				std::forward_as_tuple(match->options()),
+				std::forward_as_tuple(evaluation)));
+		} else {
+			return optional<BaseExpressionRef>();
+		}
+	}
+
+	virtual MatchSize leaf_match_size() const {
+		assert(pattern->type() == ExpressionType);
+		return pattern->as_expression()->leaf_match_size();
+	}
+
+	virtual SortKey pattern_key() const {
+		return pattern->pattern_key();
+	}
+};
+
 template<int N>
 inline NewRuleRef make_pattern_matched_builtin_rule(
     const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {

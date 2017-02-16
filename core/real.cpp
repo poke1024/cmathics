@@ -136,7 +136,7 @@ inline SExp real_to_s_exp(
     return SExp(Pool::String(std::move(s)), exp, non_negative);
 }
 
-SExp MachineReal::to_s_exp(const optional<size_t> &n) const {
+optional<SExp> MachineReal::to_s_exp(const optional<size_t> &n) const {
 	std::string s;
 	if (n) {
 		assert(*n == 6);
@@ -170,16 +170,21 @@ BaseExpressionRef MachineReal::make_boxes(
             break;
     }
 
-    const SExp s_exp = to_s_exp(optional_n);
+    const optional<SExp> s_exp = to_s_exp(optional_n);
+	assert(s_exp);
     size_t n;
 
     if (optional_n) {
         n = *optional_n;
     } else {
-        n = std::get<0>(s_exp)->length();
+        n = std::get<0>(*s_exp)->length();
     }
 
-    return evaluation.number_form(s_exp, evaluation.empty_list, n, form, evaluation);
+	const auto &number_form = evaluation.definitions.number_form;
+
+	NumberFormOptions options;
+	number_form.parse_options(evaluation.empty_list, options, evaluation);
+    return evaluation.definitions.number_form(*s_exp, n, form, options, evaluation);
 }
 
 std::string MachineReal::boxes_to_text(const Evaluation &evaluation) const {
@@ -231,8 +236,13 @@ BaseExpressionRef BigReal::make_boxes(
     const Evaluation &evaluation) const {
 
     const size_t n = std::floor(prec.decimals);
-    const SExp s_exp = to_s_exp(n);
-    return evaluation.number_form(s_exp, evaluation.empty_list, n, form, evaluation);
+    const optional<SExp> s_exp = to_s_exp(n);
+	assert(s_exp);
+
+	const auto &number_form = evaluation.definitions.number_form;
+	NumberFormOptions options;
+	number_form.parse_options(evaluation.empty_list, options, evaluation);
+	return evaluation.definitions.number_form(*s_exp, n, form, options, evaluation);
 }
 
 std::string BigReal::boxes_to_text(const Evaluation &evaluation) const {
@@ -282,10 +292,12 @@ BaseExpressionRef BigReal::negate(const Evaluation &evaluation) const {
     return Pool::BigReal(negated, prec);
 }
 
-SExp BigReal::to_s_exp(const size_t n) const {
+optional<SExp> BigReal::to_s_exp(const optional<size_t> &n) const {
+	const size_t t = n ? *n : prec.decimals;
+
     std::string s;
     const std::string format(
-        std::string("%.") + std::to_string(n) + std::string("RNg"));
+        std::string("%.") + std::to_string(t) + std::string("RNg"));
 
     const size_t k = mpfr_snprintf(nullptr, 0, format.c_str(), value);
 

@@ -2,6 +2,7 @@
 #define SYMTABLE_H
 
 #include "symbol.h"
+#include "numberform.h"
 #include <unordered_map>
 
 class Definitions;
@@ -29,8 +30,9 @@ public:
 
 class Definitions {
 private:
-    std::unordered_map<SymbolKey, MutableSymbolRef> _definitions;
-	const Symbols _symbols;
+    std::unordered_map<SymbolKey, MutableSymbolRef> m_definitions;
+
+	const Symbols m_symbols;
 
 protected:
 	friend class Symbols;
@@ -45,9 +47,9 @@ public:
     SymbolRef lookup(const char *name);
 
 	inline SymbolRef lookup_no_create(const char *name) const {
-		const auto it = _definitions.find(SymbolKey(name));
+		const auto it = m_definitions.find(SymbolKey(name));
 
-		if (it == _definitions.end()) {
+		if (it == m_definitions.end()) {
 			return SymbolRef();
 		} else {
 			return it->second;
@@ -55,8 +57,10 @@ public:
 	}
 
 	inline const Symbols &symbols() const {
-		return _symbols;
+		return m_symbols;
 	}
+
+	const NumberFormatter number_form;
 };
 
 #endif

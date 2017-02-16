@@ -5,7 +5,7 @@
 #include "string.h"
 #include "evaluation.h"
 
-inline StringRef NumberForm::blocks(
+inline StringRef NumberFormatter::blocks(
     StringPtr s,
     machine_integer_t start,
     machine_integer_t step,
@@ -27,11 +27,11 @@ inline StringRef NumberForm::blocks(
     return string_array_join(strings);
 }
 
-inline BaseExpressionRef NumberForm::default_number_format(
+inline BaseExpressionRef NumberFormatter::default_number_format(
     const BaseExpressionRef &man,
     const BaseExpressionRef &base,
     const BaseExpressionRef &exp,
-    const NumberFormatOptions &options,
+    const NumberFormOptions &options,
     const BaseExpressionPtr form,
     const Evaluation &evaluation) const {
 
@@ -52,21 +52,107 @@ inline BaseExpressionRef NumberForm::default_number_format(
     }
 }
 
-void NumberForm::parse_options(
+inline void NumberFormatter::parse_option(
+	NumberFormOptions &options,
+	const BaseExpressionRef &lhs,
+	const BaseExpressionRef &rhs) const {
+
+	const auto extract_string_pair = [&rhs] (StringPtr *ptr) {
+		if (rhs->is_expression() &&
+		    rhs->as_expression()->size() == 2) {
+
+			const auto * const leaves =
+				rhs->as_expression()->n_leaves<2>();
+
+			for (int i = 0; i < 2; i++) {
+				const BaseExpressionRef &leaf = leaves[i];
+				if (leaf->is_string()) {
+					ptr[i] = leaf->as_string();
+				}
+			}
+		}
+	};
+
+	switch (lhs->symbol()) {
+		case S::NumberSigns:
+			extract_string_pair(options.NumberSigns);
+			break;
+
+		case S::ExponentStep: {
+			const optional<machine_integer_t> value =
+					rhs->get_int_value();
+			if (value) {
+				options.ExponentStep = *value;
+			}
+			break;
+		}
+
+		case S::ExponentFunction:
+			options.ExponentFunction = rhs.get();
+			break;
+
+		case S::DigitBlock:
+			if (rhs->is_expression() &&
+			    rhs->as_expression()->size() == 2) {
+
+				const auto * const leaves =
+						rhs->as_expression()->n_leaves<2>();
+
+				for (int i = 0; i < 2; i++) {
+					const auto value = leaves[i]->get_int_value();
+					options.DigitBlock[i] = value ? *value : 0;
+				}
+			}
+			break;
+
+		case S::NumberSeparator: {
+			extract_string_pair(options.NumberSeparator);
+			break;
+		}
+
+		case S::NumberPadding: {
+			extract_string_pair(options.NumberPadding);
+			break;
+		}
+
+		case S::SignPadding:
+			options.SignPadding = rhs->is_true();
+			break;
+
+		case S::NumberPoint:
+			if (rhs->is_string()) {
+				options.NumberPoint = rhs->as_string();
+			}
+			break;
+
+		case S::NumberFormat:
+			options.NumberFormat = rhs.get();
+			break;
+
+		case S::NumberMultiplier:
+			options.NumberMultiplier = rhs.get();
+			break;
+
+		default:
+			break; // ignore
+	}
+}
+
+void NumberFormatter::parse_options(
     const BaseExpressionRef &options_list,
-    NumberFormatOptions &options,
+	NumberFormOptions &options,
     const Evaluation &evaluation) const {
 
     // IMPORTANT: note that "options" consists of un-refcounted pointers and is
     // only valid as long as "options_list" is valid!
 
-    std::memcpy(&options, &m_default_options, sizeof(NumberFormatOptions));
+	init_options(options);
 
     if (!options_list->is_expression()) {
         return;
     }
 
-    options_list->as_expression()->with_slice([&options, &evaluation] (const auto &slice) {
+    options_list->as_expression()->with_slice([this, &options, &evaluation] (const auto &slice) {
         const size_t n = slice.size();
         for (size_t i = 0; i < n; i++) {
             const BaseExpressionRef leaf = slice[i];
@@ -77,91 +163,25 @@ void NumberForm::parse_options(
                 const BaseExpressionRef &lhs = leaves[0];
                 const BaseExpressionRef &rhs = leaves[1];
 
-                const auto extract_string_pair = [&rhs] (StringPtr *ptr) {
-                    if (rhs->is_expression() &&
-                        rhs->as_expression()->size() == 2) {
-
-                        const auto * const leaves =
-                            rhs->as_expression()->n_leaves<2>();
-
-                        for (int i = 0; i < 2; i++) {
-                            const BaseExpressionRef &leaf = leaves[i];
-                            if (leaf->is_string()) {
-                                ptr[i] = leaf->as_string();
-                            }
-                        }
-                    }
-                };
-
-                switch (lhs->symbol()) {
-                    case S::NumberSigns:
-                        extract_string_pair(options.NumberSigns);
-                        break;
-
-                    case S::ExponentStep: {
-                        const optional<machine_integer_t> value =
-                                rhs->get_int_value();
-                        if (value) {
-                            options.ExponentStep = *value;
-                        }
-                        break;
-                    }
-
-                    case S::ExponentFunction:
-                        options.ExponentFunction = rhs.get();
-                        break;
-
-                    case S::DigitBlock:
-                        if (rhs->is_expression() &&
-                            rhs->as_expression()->size() == 2) {
-
-                            const auto * const leaves =
-                                rhs->as_expression()->n_leaves<2>();
-
-                            for (int i = 0; i < 2; i++) {
-                                const auto value = leaves[i]->get_int_value();
-                                options.DigitBlock[i] = value ? *value : 0;
-                            }
-                        }
-                        break;
-
-                    case S::NumberSeparator: {
-                        extract_string_pair(options.NumberSeparator);
-                        break;
-                    }
-
-                    case S::NumberPadding: {
-                        extract_string_pair(options.NumberPadding);
-                        break;
-                    }
-
-                    case S::SignPadding:
-                        options.SignPadding = rhs->is_true();
-                        break;
-
-                    case S::NumberPoint:
-                        if (rhs->is_string()) {
-                            options.NumberPoint = rhs->as_string();
-                        }
-                        break;
-
-                    case S::NumberFormat:
-                        options.NumberFormat = rhs.get();
-                        break;
-
-                    case S::NumberMultiplier:
-                        options.NumberMultiplier = rhs.get();
-                        break;
-
-                    default:
-                        break; // ignore
-                }
+				parse_option(options, lhs, rhs);
             }
         }
     });
 }
 
-NumberForm::NumberForm(const Symbols &symbols) {
+void NumberFormatter::parse_options(
+	const OptionsMap &options_map,
+	NumberFormOptions &options,
+	const Evaluation &evaluation) const {
+
+	init_options(options);
+
+	for (auto i = options_map.begin(); i != options_map.end(); i++) {
+		parse_option(options, i->first, i->second);
+	}
+}
+
+NumberFormatter::NumberFormatter(const Symbols &symbols) {
     m_number_form = symbols.NumberForm;
 
     m_base_10 = Pool::MachineInteger(10);
@@ -201,16 +221,12 @@ NumberForm::NumberForm(const Symbols &symbols) {
     m_default_options.NumberMultiplier = m_number_multiplier.get();
 }
 
-BaseExpressionRef NumberForm::operator()(
+BaseExpressionRef NumberFormatter::operator()(
     const SExp &s_exp,
-    const BaseExpressionRef &options_list,
     const size_t n,
     BaseExpressionPtr form,
+	const NumberFormOptions &options,
     const Evaluation &evaluation) const {
-
-    NumberFormatOptions options;
-
-    parse_options(options_list, options, evaluation);
 
     const bool is_int = false;
 
@@ -337,7 +353,7 @@ BaseExpressionRef NumberForm::operator()(
     const BaseExpressionPtr NumberFormat = options.NumberFormat;
 
     if (NumberFormat->symbol() != S::Automatic) {
-        return expression(NumberFormat, s, m_base_10, pexp, options_list);
+        return expression(NumberFormat, s, m_base_10, pexp, /*options_list*/ evaluation.empty_list);
     } else {
         return default_number_format(s, m_base_10, pexp, options, form, evaluation);
     }

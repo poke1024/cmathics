@@ -212,8 +212,8 @@ public:
 						bool ok;
 
 						if (key->is_string()) {
-							const BaseExpressionRef resolved_key =
-								static_cast<const String*>(key.get())->option_symbol(evaluation);
+							const SymbolRef resolved_key =
+								key->as_string()->option_symbol(evaluation);
 							ok = m_options.set(options, resolved_key, value);
 						} else {
 							ok = m_options.set(options, key, value);

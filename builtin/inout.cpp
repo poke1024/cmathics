@@ -482,9 +482,94 @@ public:
     }
 };
 
+/*struct NumberFormOptions {
+	BaseExpressionPtr DigitBlock;
+	BaseExpressionPtr ExponentFunction;
+	BaseExpressionPtr ExponentStep;
+	BaseExpressionPtr NumberFormat;
+	BaseExpressionPtr NumberMultiplier;
+	BaseExpressionPtr NumberPadding;
+	BaseExpressionPtr NumberPoint;
+	BaseExpressionPtr NumberSeparator;
+	BaseExpressionPtr NumberSigns;
+	BaseExpressionPtr SignPadding;
+};*/
+
+/*template<>
+class OptionsDefinitions<NumberFormatOptions> {
+private:
+	const NumberFormatter &m_formatter;
+
+public:
+	OptionsDefinitions(Definitions &definitions, const OptionsInitializerList &options) :
+		m_formatter(definitions.number_form) {
+	}
+
+	inline void initialize_defaults(NumberFormatOptions &options) const {
+		m_formatter.init_options(options);
+	}
+
+	inline bool set(NumberFormatOptions &options, const BaseExpressionRef &key, const BaseExpressionRef &value) const {
+		m_formatter.parse_option(options, key, value);
+		return true;
+	}
+};*/
+
+class NumberForm : public Builtin {
+public:
+	static constexpr const char *name = "NumberForm";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'NumberForm[$expr$, $n$]'
+        <dd>prints a real number $expr$ with $n$-digits of precision.
+    <dt>'NumberForm[$expr$, {$n$, $f$}]'
+        <dd>prints with $n$-digits and $f$ digits to the right of the decimal point.
+    </dl>
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(
+			"MakeBoxes[NumberForm[expr_, OptionsPattern[NumberForm]], form:StandardForm|TraditionalForm|OutputForm]",
+			&NumberForm::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		BaseExpressionPtr expr,
+		BaseExpressionPtr form,
+		const OptionsMap &options_map,
+		const Evaluation &evaluation) {
+
+		NumberFormOptions options;
+
+		const auto &number_form = evaluation.definitions.number_form;
+
+		number_form.parse_options(
+			options_map,
+			options,
+			evaluation);
+
+		optional<size_t> n = 6;
+
+		if (n) {
+			optional<SExp> s_exp = expr->to_s_exp(n);
+
+			if (s_exp) {
+				return number_form(*s_exp, *n, form, options, evaluation);
+			}
+		}
+
+		return expression(evaluation.MakeBoxes, expr, form);
+	}
+};
+
 void Builtins::InOut::initialize() {
     add<Print>();
 	add<FullForm>();
     add<Row>();
     add<MakeBoxes>();
+	add<NumberForm>();
 }

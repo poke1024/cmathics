@@ -20,8 +20,7 @@ Evaluation::Evaluation(
 	zero(Pool::MachineInteger(0)),
 	one(Pool::MachineInteger(1)),
 	minus_one(Pool::MachineInteger(-1)),
-    empty_list(expression(this->List)),
-    number_form(*this) {
+    empty_list(expression(this->List)) {
 
     recursion_depth = 0;
     timeout = false;
