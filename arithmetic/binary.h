@@ -38,7 +38,7 @@ protected:
             const ExpressionPtr expr,
 		    const Evaluation &evaluation) -> BaseExpressionRef {
 
-	        const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+	        const BaseExpressionRef * const leaves = expr->n_leaves<2>();
 
 	        const BaseExpression * const a = leaves[0].get();
 	        const BaseExpression * const b = leaves[1].get();
@@ -62,7 +62,7 @@ public:
         const ExpressionPtr expr,
         const Evaluation &evaluation) const {
 
-	    const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+	    const BaseExpressionRef * const leaves = expr->n_leaves<2>();
 
 	    const BaseExpression * const a = leaves[0].get();
 	    const BaseExpression * const b = leaves[1].get();
@@ -138,7 +138,7 @@ public:
     virtual BaseExpressionRef try_apply(
         const Expression *expr, const Evaluation &evaluation) const {
 
-        return expr->static_leaves<1>()[0];
+        return expr->n_leaves<1>()[0];
     }
 };
 

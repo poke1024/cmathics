@@ -342,7 +342,7 @@ BaseExpressionRef ExpressionImplementation<Slice>::custom_format(
 	        case S::StandardForm:
                 if (form->symbol() == S::OutputForm) {
                     const BaseExpressionRef leaf =
-                        static_leaves<1>()[0];
+	                    n_leaves<1>()[0];
                     const BaseExpressionRef expr =
                         leaf->expression_custom_format(head(), evaluation);
                     return expression(form, expr ? expr : leaf);
@@ -355,7 +355,7 @@ BaseExpressionRef ExpressionImplementation<Slice>::custom_format(
             case S::TraditionalForm:
             case S::TeXForm:
             case S::MathMLForm:
-                return static_leaves<1>()[0]->expression_custom_format(head(), evaluation);
+                return n_leaves<1>()[0]->expression_custom_format(head(), evaluation);
 
             default:
                 break;

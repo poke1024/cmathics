@@ -52,7 +52,7 @@ public:
 
             return expression(evaluation.RowBox, list);
         } else if (n == 1) {
-            const auto * const leaves = items->as_expression()->static_leaves<1>();
+            const auto * const leaves = items->as_expression()->n_leaves<1>();
             return expression(evaluation.MakeBoxes, leaves[0], form);
         } else {
             return BaseExpressionRef();
@@ -114,7 +114,7 @@ inline bool is_infinity(const Expression *expr) {
     if (expr->size() != 1) {
         return false;
     }
-    if (!expr->static_leaves<1>()[0]->is_one()) {
+    if (!expr->n_leaves<1>()[0]->is_one()) {
         return false;
     }
     return true;
@@ -192,14 +192,14 @@ public:
         if (list) {
             switch (list->size()) {
                 case 1: {
-                    const BaseExpressionRef *leaves = list->static_leaves<1>();
+                    const auto *leaves = list->n_leaves<1>();
                     const optional<machine_integer_t> i = value_to_level(leaves[0]);
                     m_start = i;
                     m_stop = i;
                     break;
                 }
                 case 2: {
-                    const BaseExpressionRef *leaves = list->static_leaves<2>();
+                    const auto *leaves = list->n_leaves<2>();
                     m_start = value_to_level(leaves[0]);
                     m_stop = value_to_level(leaves[1]);
                     break;

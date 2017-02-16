@@ -105,7 +105,7 @@ public:
         if (n == 1) {
             return expression(
                 MakeBoxes,
-                items_seq->static_leaves<1>()[0],
+                items_seq->n_leaves<1>()[0],
                 form);
         } else if (n > 1) {
             const size_t m = good_sep ? n - 1 : 0;
@@ -209,7 +209,7 @@ private:
             unpackaged->as_expression()->head()->symbol() == S::HoldForm &&
             unpackaged->as_expression()->size() == 1) {
 
-            unpackaged = unpackaged->as_expression()->static_leaves<1>()[0];
+            unpackaged = unpackaged->as_expression()->n_leaves<1>()[0];
         }
 
         return parenthesize_unpackaged(
@@ -303,7 +303,7 @@ public:
                 } else if (n == 1) {
                     store(expression(
                         evaluation.MakeBoxes,
-                        expr->as_expression()->static_leaves<1>()[0],
+                        expr->as_expression()->n_leaves<1>()[0],
                         form));
                 } else {
                     // nothing
@@ -338,7 +338,7 @@ public:
             }
 
             const BaseExpressionRef pure_leaf =
-                expr->as_expression()->static_leaves<1>()[0];
+                expr->as_expression()->n_leaves<1>()[0];
 
             const BaseExpressionRef leaf = parenthesize(
                 precedence->get_int_value(),
@@ -475,7 +475,7 @@ public:
                     });
             });
 	    } else if (n == 1) {
-		    return expression(evaluation.MakeBoxes, t_expr->static_leaves<1>()[0], form);
+		    return expression(evaluation.MakeBoxes, t_expr->n_leaves<1>()[0], form);
 	    } else {
 		    return expression(evaluation.MakeBoxes, expr, form);
 	    }

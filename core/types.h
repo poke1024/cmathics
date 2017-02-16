@@ -792,7 +792,7 @@ protected:
     }
 
     template<size_t N>
-	inline const BaseExpressionRef *static_leaves() const;
+	inline const BaseExpressionRef *n_leaves() const;
 
 	inline SliceCode slice_code() const {
 		return SliceCode(extended_type_info(_extended_type));

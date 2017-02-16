@@ -62,8 +62,9 @@ void NumberForm::parse_options(
         for (size_t i = 0; i < n; i++) {
             const BaseExpressionRef leaf = slice[i];
             if (leaf->has_form(S::Rule, 2, evaluation)) {
-                const BaseExpressionRef * const leaves =
-                        leaf->as_expression()->static_leaves<2>();
+                const auto * const leaves =
+                    leaf->as_expression()->n_leaves<2>();
+
                 const BaseExpressionRef &lhs = leaves[0];
                 const BaseExpressionRef &rhs = leaves[1];
 
@@ -72,7 +73,7 @@ void NumberForm::parse_options(
                         rhs->as_expression()->size() == 2) {
 
                         const auto * const leaves =
-                                rhs->as_expression()->static_leaves<2>();
+                            rhs->as_expression()->n_leaves<2>();
 
                         for (int i = 0; i < 2; i++) {
                             const BaseExpressionRef &leaf = leaves[i];
@@ -106,7 +107,7 @@ void NumberForm::parse_options(
                             rhs->as_expression()->size() == 2) {
 
                             const auto * const leaves =
-                                    rhs->as_expression()->static_leaves<2>();
+                                rhs->as_expression()->n_leaves<2>();
 
                             for (int i = 0; i < 2; i++) {
                                 const auto value = leaves[i]->get_int_value();

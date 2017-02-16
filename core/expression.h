@@ -161,14 +161,14 @@ public:
             case SymbolFullForm:
             case SymbolStandardForm:
                 if (_leaves.size() == 1) {
-                    return static_leaves<1>()[0]->format(
+                    return n_leaves<1>()[0]->format(
                         SymbolRef(_head->as_symbol()), evaluation);
                 }
                 break;
 
             case SymbolHoldForm:
                 if (_leaves.size() == 1) {
-                    return static_leaves<1>()[0]->format(form, evaluation);
+                    return n_leaves<1>()[0]->format(form, evaluation);
                 }
                 break;
 
@@ -376,7 +376,7 @@ public:
 						leaf->as_expression()->size() == 2) {
 
 						const BaseExpressionRef * const power =
-							leaf->as_expression()->static_leaves<2>();
+							leaf->as_expression()->n_leaves<2>();
 
 						const BaseExpressionRef &var = power[0];
 						const BaseExpressionRef &exp = power[1];
@@ -515,7 +515,7 @@ public:
                     break;
                 }
 
-                const BaseExpressionRef &list = static_leaves<1>()[0];
+                const BaseExpressionRef &list = n_leaves<1>()[0];
                 if (!list->is_expression()) {
                     break;
                 }
@@ -539,7 +539,7 @@ public:
                     break;
                 }
 
-                const BaseExpressionRef * const leaves = static_leaves<2>();
+                const BaseExpressionRef * const leaves = n_leaves<2>();
 
                 std::ostringstream s;
                 s << leaves[0]->boxes_to_text(evaluation) << "^" << leaves[1]->boxes_to_text(evaluation);
@@ -581,8 +581,8 @@ public:
 #include "leaves.tcc"
 
 template<size_t N>
-inline const BaseExpressionRef *Expression::static_leaves() const {
-    static_assert(N <= MaxStaticSliceSize, "N is too large");
+inline const BaseExpressionRef *Expression::n_leaves() const {
+    static_assert(N >= 0 && N <= MaxStaticSliceSize, "N is too large");
     return static_cast<const StaticSlice<N>*>(_slice_ptr)->refs();
 }
 
@@ -917,7 +917,7 @@ public:
 				switch (expr->head()->symbol()) {
 					case S::Rule:
 					case S::RuleDelayed:
-						m_leaves = expr->static_leaves<2>();
+						m_leaves = expr->n_leaves<2>();
 						break;
 					default:
 						m_leaves = nullptr;

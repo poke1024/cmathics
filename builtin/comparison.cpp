@@ -126,7 +126,7 @@ struct inequality {
 		const ExpressionPtr expr,
 		const Evaluation &evaluation) {
 
-		const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+		const auto * const leaves = expr->n_leaves<2>();
 
 		const BaseExpression * const a = leaves[0].get();
 		const BaseExpression * const b = leaves[1].get();
@@ -231,7 +231,7 @@ struct equal {
 		const ExpressionPtr expr,
 		const Evaluation &evaluation) {
 
-		const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+		const auto * const leaves = expr->n_leaves<2>();
 
 		const BaseExpression * const a = leaves[0].get();
 		const BaseExpression * const b = leaves[1].get();
@@ -259,7 +259,7 @@ public:
 			const ExpressionPtr expr,
 		    const Evaluation& evaluation) {
 
-		        const BaseExpressionRef * const leaves = expr->static_leaves<2>();
+		        const auto * const leaves = expr->n_leaves<2>();
 
 		        const BaseExpression * const a = leaves[0].get();
 		        const BaseExpression * const b = leaves[1].get();

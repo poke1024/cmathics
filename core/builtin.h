@@ -195,7 +195,7 @@ public:
 
 					if (last->has_form(S::Rule, 2, evaluation)) {
 						const BaseExpressionRef * const option =
-							last->as_expression()->static_leaves<2>();
+							last->as_expression()->n_leaves<2>();
 
 						const BaseExpressionRef &key = option[0];
 						const BaseExpressionRef &value = option[1];

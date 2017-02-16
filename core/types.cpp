@@ -366,7 +366,7 @@ BaseExpressionRef Expression::symbolic_evaluate_unary(
 		if (size() == 1) {
 			try {
 				const SymbolicFormRef symbolic_a = unsafe_symbolic_form(
-					static_leaves<1>()[0]);
+					n_leaves<1>()[0]);
 				if (!symbolic_a->is_none()) {
 					return Pool::SymbolicForm(f(symbolic_a->get()));
 				} else {
@@ -406,7 +406,7 @@ BaseExpressionRef Expression::symbolic_evaluate_binary(
 	const SymbolicFormRef form = m_symbolic_form.ensure([this, &f, &evaluation] () {
 		if (size() == 2) {
 			try {
-				const BaseExpressionRef *const leaves = static_leaves<2>();
+				const BaseExpressionRef *const leaves = n_leaves<2>();
 				const BaseExpressionRef &a = leaves[0];
 				const BaseExpressionRef &b = leaves[1];
 

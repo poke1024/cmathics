@@ -31,7 +31,7 @@ public:
                 if (expr->size() != 1) {
                     throw std::runtime_error("Slot must contain one leaf");
                 } else {
-                    const BaseExpressionRef *leaves = expr->static_leaves<1>();
+                    const BaseExpressionRef *leaves = expr->n_leaves<1>();
                     const BaseExpressionRef &slot = leaves[0];
 
                     if (slot->is_machine_integer()) {
@@ -198,10 +198,10 @@ public:
         const Expression * const head_expr = head->as_expression();
         switch (head_expr->size()) {
             case 1: // Function[body_][args___]
-                return slot(function, head_expr->static_leaves<1>()[0]);
+                return slot(function, head_expr->n_leaves<1>()[0]);
 
             case 2: { // Function[vars_, body_][args___]
-                const BaseExpressionRef * const leaves = head_expr->static_leaves<2>();
+                const BaseExpressionRef * const leaves = head_expr->n_leaves<2>();
                 return vars(function, leaves[0], leaves[1]);
             }
 

@@ -315,7 +315,7 @@ inline const BaseExpression *if_divisor(const BaseExpression *b_base) {
 		return nullptr;
 	}
 
-	const BaseExpressionRef *args = b->static_leaves<2>();
+	const auto *args = b->n_leaves<2>();
 	if (!is_minus_1(args[1])) {
 		return nullptr;
 	}
@@ -548,7 +548,7 @@ public:
 
                 case ExpressionType:
                     if (leaf->has_form(S::Power, 2, evaluation)) {
-                        const auto * const operands = leaf->as_expression()->static_leaves<2>();
+                        const auto * const operands = leaf->as_expression()->n_leaves<2>();
                         const auto &exponent = operands[1];
                         if (exponent->is_non_complex_number() && exponent->is_negative()) {
                             const auto &base = operands[0];
@@ -723,7 +723,7 @@ public:
 	virtual BaseExpressionRef try_apply(
         const Expression *expr, const Evaluation &evaluation) const {
 
-		/*const BaseExpressionRef *refs = expr->static_leaves<2>();
+		/*const BaseExpressionRef *refs = expr->n_leaves<2>();
 		const BaseExpressionRef &a = refs[0];
 		const BaseExpressionRef &b = refs[1];
 
@@ -1227,7 +1227,7 @@ public:
 				// temporary work around for https://github.com/symengine/symengine/issues/1212
 				if (result && result->has_form(S::Abs, 1, evaluation)) {
 					const auto old_form = symbolic_form(x, evaluation);
-					const auto new_form = symbolic_form(result->as_expression()->static_leaves<1>()[0], evaluation);
+					const auto new_form = symbolic_form(result->as_expression()->n_leaves<1>()[0], evaluation);
 					if (!old_form->is_none() && !new_form->is_none()) {
 						const auto z = SymEngine::add(old_form->get(), new_form->get());
 						if (SymEngine::is_a_sub<SymEngine::Number>(*z)) {
