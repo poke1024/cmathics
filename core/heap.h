@@ -390,7 +390,7 @@ private:
 			};
 			_make_late_init[N] = [pool] (const BaseExpressionRef &head) {
 				StaticExpressionRef<N> expr = pool->construct(head);
-				return std::tuple_cat(std::make_tuple(expr), const_cast<StaticSlice<N>&>(expr->_leaves).late_init());
+				return std::tuple_cat(std::make_tuple(expr), const_cast<StaticSlice<N>&>(expr->m_slice).late_init());
 			};
 		} else {
 			_make_from_vector[N] = [pool] (
@@ -407,7 +407,7 @@ private:
 			};
 			_make_late_init[N] = [pool] (const BaseExpressionRef &head) {
 				StaticExpressionRef<N> expr = pool->construct(head);
-				return std::tuple_cat(std::make_tuple(expr), const_cast<StaticSlice<N>&>(expr->_leaves).late_init());
+				return std::tuple_cat(std::make_tuple(expr), const_cast<StaticSlice<N>&>(expr->m_slice).late_init());
 			};
 		}
 

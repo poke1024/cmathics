@@ -276,7 +276,7 @@ inline ExpressionRef ExpressionImplementation<Slice>::conditional_map(
 	const Evaluation &evaluation) const {
 
 	return ::conditional_map<Types...>(
-		_head, false, lambda(f), _leaves, 0, _leaves.size(), evaluation);
+		_head, false, lambda(f), m_slice, 0, m_slice.size(), evaluation);
 }
 
 template<typename Slice>
@@ -287,7 +287,7 @@ inline ExpressionRef ExpressionImplementation<Slice>::conditional_map(
 	const Evaluation &evaluation) const {
 
 	return ::conditional_map<Types...>(
-		head, head.get() != _head.get(), lambda(f), _leaves, 0, _leaves.size(), evaluation);
+		head, head.get() != _head.get(), lambda(f), m_slice, 0, m_slice.size(), evaluation);
 }
 
 template<typename Slice>
@@ -298,7 +298,7 @@ inline ExpressionRef ExpressionImplementation<Slice>::conditional_map_all(
     const Evaluation &evaluation) const {
 
     return ::conditional_map_all(
-        head, head.get() != _head.get(), lambda(f), _leaves, 0, _leaves.size(), evaluation);
+        head, head.get() != _head.get(), lambda(f), m_slice, 0, m_slice.size(), evaluation);
 }
 
 template<typename Slice>

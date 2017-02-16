@@ -22,7 +22,7 @@ class ExpressionImplementation : public Expression {
 
 protected:
 	virtual BaseExpressionRef materialize_leaf(size_t i) const {
-		return _leaves[i];
+		return m_slice[i];
 	}
 
 	virtual TypeMask materialize_type_mask() const {
@@ -30,62 +30,62 @@ protected:
 	}
 
 	virtual TypeMask materialize_exact_type_mask() const {
-		return _leaves.exact_type_mask();
+		return m_slice.exact_type_mask();
 	}
 
 public:
 	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const final;
 
 public:
-	const Slice _leaves;
+	const Slice m_slice;
 
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &slice) :
-        Expression(head, Slice::code(), &_leaves), _leaves(slice) {
+        Expression(head, Slice::code(), &m_slice), m_slice(slice) {
 		assert(head);
 	}
 
 	inline ExpressionImplementation(const BaseExpressionRef &head) :
-		Expression(head, Slice::code(), &_leaves), _leaves() {
+		Expression(head, Slice::code(), &m_slice), m_slice() {
 		assert(head);
 	}
 
 	inline ExpressionImplementation(ExpressionImplementation<Slice> &&expr) :
-		Expression(expr._head, Slice::code(), &_leaves), _leaves(expr.leaves) {
+		Expression(expr._head, Slice::code(), &m_slice), m_slice(expr.leaves) {
 	}
 
 	template<typename F>
 	inline ExpressionImplementation(const BaseExpressionRef &head, const FSGenerator<F> &generator) :
-		Expression(head, Slice::code(), &_leaves), _leaves(generator) {
+		Expression(head, Slice::code(), &m_slice), m_slice(generator) {
 	}
 
 	template<typename F>
 	inline ExpressionImplementation(const BaseExpressionRef &head, const FPGenerator<F> &generator) :
-		Expression(head, Slice::code(), &_leaves), _leaves(generator) {
+		Expression(head, Slice::code(), &m_slice), m_slice(generator) {
 	}
 
     inline const auto &slice() const {
-        return _leaves;
+        return m_slice;
     }
 
 	inline auto leaves() const {
-		return _leaves.leaves();
+		return m_slice.leaves();
 	}
 
 	template<typename T>
 	inline auto primitives() const {
-		return _leaves.template primitives<T>();
+		return m_slice.template primitives<T>();
 	}
 
 	inline TypeMask type_mask() const {
-		return _leaves.type_mask();
+		return m_slice.type_mask();
 	}
 
 	inline TypeMask exact_type_mask() const {
-		return _leaves.exact_type_mask();
+		return m_slice.exact_type_mask();
 	}
 
 	inline void init_type_mask(TypeMask type_mask) const {
-		_leaves.init_type_mask(type_mask);
+		m_slice.init_type_mask(type_mask);
 	}
 
 	inline constexpr SliceCode slice_code() const {
@@ -105,12 +105,12 @@ public:
 			return false;
 		}
 
-		const size_t size = _leaves.size();
+		const size_t size = m_slice.size();
 		if (size != expr->size()) {
 			return false;
 		}
 
-		const auto &self = _leaves;
+		const auto &self = m_slice;
 		return expr->with_slice([&self, size] (const auto &slice) {
 
 			for (size_t i = 0; i < size; i++) {
@@ -132,7 +132,7 @@ public:
 		}
 		const Expression *expr = item.as_expression();
 
-		const size_t size = _leaves.size();
+		const size_t size = m_slice.size();
 		if (size != expr->size()) {
 			return false;
 		}
@@ -142,7 +142,7 @@ public:
             return head;
         }
 
-		const auto &self = _leaves;
+		const auto &self = m_slice;
 		return expr->with_slice([&self, size] (const auto &slice) {
 
 			for (size_t i = 0; i < size; i++) {
@@ -160,14 +160,14 @@ public:
         switch (_head->extended_type()) {
             case SymbolFullForm:
             case SymbolStandardForm:
-                if (_leaves.size() == 1) {
+                if (m_slice.size() == 1) {
                     return n_leaves<1>()[0]->format(
                         SymbolRef(_head->as_symbol()), evaluation);
                 }
                 break;
 
             case SymbolHoldForm:
-                if (_leaves.size() == 1) {
+                if (m_slice.size() == 1) {
                     return n_leaves<1>()[0]->format(form, evaluation);
                 }
                 break;
@@ -183,10 +183,10 @@ public:
         result << "[";
 
         // format leaves
-        const size_t argc = _leaves.size();
+        const size_t argc = m_slice.size();
 
         for (size_t i = 0; i < argc; i++) {
-            result << _leaves[i]->format(form, evaluation);
+            result << m_slice[i]->format(form, evaluation);
 
             if (i < argc - 1) {
                 result << ", ";
@@ -232,8 +232,8 @@ public:
 	virtual ExpressionRef clone(const BaseExpressionRef &head) const;
 
 	virtual hash_t hash() const final {
-		hash_t result = hash_combine(_leaves.size(), _head->hash());
-		for (const auto &leaf : _leaves.leaves()) {
+		hash_t result = hash_combine(m_slice.size(), _head->hash());
+		for (const auto &leaf : m_slice.leaves()) {
 			result = hash_combine(result, leaf->hash());
 		}
 		return result;
@@ -259,8 +259,8 @@ public:
 					return optional<hash_t>();
 				}
 
-				hash_t result = hash_combine(_leaves.size(), *head_hash);
-				for (const auto &leaf : _leaves.leaves()) {
+				hash_t result = hash_combine(m_slice.size(), *head_hash);
+				for (const auto &leaf : m_slice.leaves()) {
 					const auto leaf_hash = leaf->match_hash();
 					if (!leaf_hash) {
 						return optional<hash_t>();
@@ -286,7 +286,7 @@ public:
 			case S::Pattern:
 				if (size() == 2) {
 					// Pattern is only valid with two arguments
-					return _leaves[1]->match_size();
+					return m_slice[1]->match_size();
 				} else {
 					return MatchSize::exactly(1);
 				}
@@ -298,12 +298,12 @@ public:
 					return MatchSize::exactly(1); // FIXME
 				}
 
-				const MatchSize size = _leaves[0]->match_size();
+				const MatchSize size = m_slice[0]->match_size();
 				match_size_t min_p = size.min();
 				match_size_t max_p = size.max();
 
 				for (size_t i = 1; i < n; i++) {
-					const MatchSize leaf_size = _leaves[i]->match_size();
+					const MatchSize leaf_size = m_slice[i]->match_size();
 					max_p = std::max(max_p, leaf_size.max());
 					min_p = std::min(min_p, leaf_size.min());
 				}
@@ -335,7 +335,7 @@ public:
 
 	virtual MatchSize leaf_match_size() const final {
 		MatchSize size = MatchSize::exactly(0);
-		for (const auto &leaf : _leaves.leaves()) {
+		for (const auto &leaf : m_slice.leaves()) {
 			size += leaf->match_size();
 		}
 		return size;
@@ -351,7 +351,7 @@ public:
 
 			const size_t n = size();
 			for (size_t i = 0; i < n; i++) {
-				if (!_leaves[i]->is_numeric())
+				if (!m_slice[i]->is_numeric())
 					return false;
 			}
 
@@ -369,7 +369,7 @@ public:
 				const size_t n = size();
 
 				for (size_t i = 0; i < n; i++) {
-					const BaseExpressionRef leaf = _leaves[i];
+					const BaseExpressionRef leaf = m_slice[i];
 
 					if (leaf->is_expression() &&
 						leaf->as_expression()->head()->symbol() == S::Power &&
@@ -416,7 +416,7 @@ public:
 				if (size() != 2) {
 					return not_a_pattern_sort_key(this);
 				} else {
-					SortKey key = _leaves[0]->pattern_key();
+					SortKey key = m_slice[0]->pattern_key();
 					key.set_pattern_test(0);
 					return key;
 				}
@@ -424,7 +424,7 @@ public:
 				if (size() != 2) {
 					return not_a_pattern_sort_key(this);
 				} else {
-					SortKey key = _leaves[0]->pattern_key();
+					SortKey key = m_slice[0]->pattern_key();
 					key.set_condition(0);
 					return key;
 				}
@@ -432,7 +432,7 @@ public:
 				if (size() != 2) {
 					return not_a_pattern_sort_key(this);
 				} else {
-					SortKey key = _leaves[1]->pattern_key();
+					SortKey key = m_slice[1]->pattern_key();
 					key.set_pattern_test(0);
 					return key;
 				}
@@ -440,7 +440,7 @@ public:
 				if (size() < 1 || size() > 2) {
 					return not_a_pattern_sort_key(this);
 				} else {
-					SortKey key = _leaves[0]->pattern_key();
+					SortKey key = m_slice[0]->pattern_key();
 					key.set_optional(1);
 					return key;
 				}
@@ -507,7 +507,7 @@ public:
 		        if (size() < 1) {
 			        break;
 		        }
-		        return _leaves[0]->boxes_to_text(evaluation);
+		        return m_slice[0]->boxes_to_text(evaluation);
 	        }
 
 	        case S::RowBox: {
@@ -555,7 +555,7 @@ public:
 
     virtual bool is_negative() const final {
         if (head()->symbol() == S::Times && size() >= 1) {
-            return _leaves[0]->is_negative();
+            return m_slice[0]->is_negative();
         } else {
             return false;
         }
@@ -571,7 +571,7 @@ public:
 			if (i > 0) {
 				s << ", ";
 			}
-			s << _leaves[i]->debugform();
+			s << m_slice[i]->debugform();
 		}
 		s << "]";
 		return s.str();
@@ -736,7 +736,7 @@ template<typename Slice>
 inline ExpressionRef ExpressionImplementation<Slice>::slice(
 	const BaseExpressionRef &head, index_t begin, index_t end) const {
 
-	const index_t size = index_t(_leaves.size());
+	const index_t size = index_t(m_slice.size());
 
 	if (begin < 0) {
 		begin = size - (-begin % size);
@@ -752,11 +752,11 @@ inline ExpressionRef ExpressionImplementation<Slice>::slice(
 	constexpr SliceCode slice_code = Slice::code();
 
     if (is_packed_slice(slice_code) && new_size >= MinPackedSliceSize) {
-        return expression(head, _leaves.slice(begin, end));
+        return expression(head, m_slice.slice(begin, end));
     } else if (slice_code == DynamicSliceCode && new_size > MaxStaticSliceSize) {
-		return expression(head, _leaves.slice(begin, end));
+		return expression(head, m_slice.slice(begin, end));
 	} else {
-		const Slice &slice = _leaves;
+		const Slice &slice = m_slice;
 
 		const auto generate_leaves = [begin, end, &head, &slice] (auto &store) {
 			for (size_t i = begin; i < end; i++) {
@@ -774,8 +774,8 @@ DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(cons
 		return static_pointer_cast<DynamicExpression>(self);
 	} else {
 		LeafVector leaves;
-		leaves.reserve(_leaves.size());
-		for (auto leaf : _leaves.leaves()) {
+		leaves.reserve(m_slice.size());
+		for (auto leaf : m_slice.leaves()) {
 			leaves.push_back(BaseExpressionRef(leaf));
 		}
 		return Pool::Expression(_head, DynamicSlice(std::move(leaves)));
@@ -805,19 +805,19 @@ BaseExpressionRef ExpressionImplementation<Slice>::replace_all(
 
 template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::clone() const {
-	return expression(_head, Slice(_leaves));
+	return expression(_head, Slice(m_slice));
 }
 
 template<typename Slice>
 ExpressionRef ExpressionImplementation<Slice>::clone(const BaseExpressionRef &head) const {
-	return expression(head, Slice(_leaves));
+	return expression(head, Slice(m_slice));
 }
 
 template<typename Slice>
 const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(UnsafeBaseExpressionRef &materialized) const {
-	auto expr = expression(_head, _leaves.unpack());
+	auto expr = expression(_head, m_slice.unpack());
 	materialized = expr;
-	return expr->_leaves.refs();
+	return expr->m_slice.refs();
 }
 
 inline std::string message_text(
@@ -1079,7 +1079,7 @@ std::tuple<bool, UnsafeExpressionRef> ExpressionImplementation<Slice>::thread(co
 template<typename Slice>
 inline BaseExpressionRef ExpressionImplementation<Slice>::negate(const Evaluation &evaluation) const {
     if (head()->symbol() == S::Times && size() >= 1) {
-        const BaseExpressionRef &leaf = _leaves[0];
+        const BaseExpressionRef &leaf = m_slice[0];
         if (leaf->is_number()) {
             const BaseExpressionRef negated = leaf->negate(evaluation);
             if (negated->is_one()) {
@@ -1094,7 +1094,7 @@ inline BaseExpressionRef ExpressionImplementation<Slice>::negate(const Evaluatio
                         store(BaseExpressionRef(negated));
                         const size_t n = size();
                         for (size_t i = 1; i < n; i++) {
-                            store(BaseExpressionRef(_leaves[i]));
+                            store(BaseExpressionRef(m_slice[i]));
                         }
                     }, size()));
             }
