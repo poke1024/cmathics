@@ -127,7 +127,7 @@ BaseExpressionRef evaluate(
 #endif
 
     const auto evaluate_unknown_size = [&attributes, &evaluation] (ExpressionPtr expr) {
-        return coalesce(expr->with_slice<CompileToSliceType>(
+        return coalesce(expr->with_slice_c(
             [expr, &attributes, &evaluation] (const auto &slice) {
                 return evaluate_intermediate_form(
                     expr,

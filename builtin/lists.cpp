@@ -303,7 +303,7 @@ public:
 			        evaluation);
 	        };
 
-            modified_node = expr->with_slice<Optimize>(apply);
+            modified_node = expr->with_slice_implementation<Optimize>(apply);
         }
 
         if (is_in_level(current, depth)) {
@@ -1018,7 +1018,7 @@ public:
         }
 
 	    const Table * const self = this;
-	    return list->with_slice<CompileToSliceType>([self, &f, &evaluation] (const auto &slice) {
+	    return list->with_slice_c([self, &f, &evaluation] (const auto &slice) {
 		    switch (slice.size()) {
 			    case 1: { // {imax_}
                     const BaseExpressionRef imax(slice[0]->evaluate_or_copy(evaluation));

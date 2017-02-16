@@ -431,7 +431,7 @@ public:
 };
 
 template<SliceMethodOptimizeTarget Optimize, typename F>
-inline auto Expression::with_slice(const F &f) const {
+inline auto Expression::with_slice_implementation(const F &f) const {
 	// we deduce F's return type by asking that F returns if we pass in DynamicSlice. note that this is
 	// just for return type deduction; we could pass any slice type in here for compile time analysis.
 	using R = typename std::result_of<F(const DynamicSlice&)>::type;
@@ -440,7 +440,7 @@ inline auto Expression::with_slice(const F &f) const {
 }
 
 template<SliceMethodOptimizeTarget Optimize, typename F>
-inline auto Expression::with_slice(F &f) const { // see above
+inline auto Expression::with_slice_implementation(F &f) const { // see above
 	using R = typename std::result_of<F(const DynamicSlice&)>::type;
 	static const SliceMethod<Optimize, R, decltype(lambda(f))> method;
 	return method(lambda(f), this);
@@ -448,14 +448,14 @@ inline auto Expression::with_slice(F &f) const { // see above
 
 template<typename F>
 inline auto Expression::map(const BaseExpressionRef &head, const F &f) const {
-	return with_slice<CompileToSliceType>([&f, &head] (const auto &slice) {
+	return with_slice_c([&f, &head] (const auto &slice) {
 		return ExpressionRef(expression(head, slice.map(f)));
 	});
 }
 
 template<typename F>
 inline auto Expression::parallel_map(const BaseExpressionRef &head, const F &f) const {
-	return with_slice<CompileToSliceType>([&f, &head] (const auto &slice) {
+	return with_slice_c([&f, &head] (const auto &slice) {
 		return ExpressionRef(expression(head, slice.parallel_map(f)));
 	});
 }

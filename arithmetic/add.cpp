@@ -184,7 +184,7 @@ inline BaseExpressionRef add_slow(
 
 BaseExpressionRef add(const Expression *expr, const Evaluation &evaluation) {
 	// the most general and slowest form of add
-	return expr->with_slice<CompileToSliceType>([expr, &evaluation] (const auto &slice) {
+	return expr->with_slice_c([expr, &evaluation] (const auto &slice) {
 		return add_slow(expr, slice, evaluation);
 	});
 };
@@ -196,7 +196,7 @@ BaseExpressionRef PlusNRule::try_apply(
 	// in the corresponding Rule.
 	assert(expr->size() >= 3);
 
-	return expr->with_slice<CompileToSliceType>([expr, &evaluation] (const auto &slice) {
+	return expr->with_slice_c([expr, &evaluation] (const auto &slice) {
 		// bit field to determine which types are present
 		const TypeMask types_seen = slice.exact_type_mask();
 

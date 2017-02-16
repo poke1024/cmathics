@@ -973,7 +973,7 @@ inline BaseExpressionRef RewriteExpression::rewrite_or_copy(
 	const auto &head = m_head;
 	const auto &leaves = m_leaves;
 
-	return body->with_slice<CompileToSliceType>(
+	return body->with_slice_c(
 		[body, &head, &leaves, &args] (const auto &slice) {
 			const auto generate = [&slice, &leaves, &args] (auto &store) {
 				const size_t n = slice.size();

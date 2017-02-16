@@ -31,7 +31,7 @@ inline bool times_number(
 			const BaseExpressionRef &plus = symbolics[0];
 
 			if (is_plus(plus)) {
-				symbolics[0].unsafe_mutate(plus->as_expression()->with_slice<CompileToSliceType>(
+				symbolics[0].unsafe_mutate(plus->as_expression()->with_slice_c(
 					[&evaluation] (const auto &slice) {
 						return expression(evaluation.Plus, sequential([&slice, &evaluation] (auto &store) {
 							const size_t n = slice.size();
@@ -152,7 +152,7 @@ inline BaseExpressionRef mul_slow(
 
 BaseExpressionRef mul(const Expression *expr, const Evaluation &evaluation) {
 	// the most general and slowest form of mul
-	return expr->with_slice<CompileToSliceType>([expr, &evaluation] (const auto &slice) {
+	return expr->with_slice_c([expr, &evaluation] (const auto &slice) {
 		return mul_slow(expr, slice, evaluation);
 	});
 };
@@ -160,7 +160,7 @@ BaseExpressionRef mul(const Expression *expr, const Evaluation &evaluation) {
 BaseExpressionRef TimesNRule::try_apply(
 	const Expression *expr, const Evaluation &evaluation) const {
 
-	return expr->with_slice<CompileToSliceType>([expr, &evaluation] (const auto &slice) {
+	return expr->with_slice_c([expr, &evaluation] (const auto &slice) {
 		return mul_slow(expr, slice, evaluation);
 	});
 }

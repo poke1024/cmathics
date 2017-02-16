@@ -822,11 +822,31 @@ protected:
 		}
 	}
 
-	template<SliceMethodOptimizeTarget Optimize = DoNotCompileToSliceType, typename F>
-	inline auto with_slice(const F &f) const;
+	template<SliceMethodOptimizeTarget Optimize, typename F>
+	inline auto with_slice_implementation(const F &f) const;
 
-	template<SliceMethodOptimizeTarget Optimize = DoNotCompileToSliceType, typename F>
-	inline auto with_slice(F &f) const;
+	template<SliceMethodOptimizeTarget Optimize, typename F>
+	inline auto with_slice_implementation(F &f) const;
+
+	template<typename F>
+	inline auto with_slice(const F &f) const {
+		return with_slice_implementation<DoNotCompileToSliceType, F>(f);
+	}
+
+	template<typename F>
+	inline auto with_slice(F &f) const {
+		return with_slice_implementation<DoNotCompileToSliceType, F>(f);
+	}
+
+	template<typename F>
+	inline auto with_slice_c(const F &f) const {
+		return with_slice_implementation<CompileToSliceType, F>(f);
+	}
+
+	template<typename F>
+	inline auto with_slice_c(F &f) const {
+		return with_slice_implementation<CompileToSliceType, F>(f);
+	}
 
 	template<typename F>
 	inline auto map(const BaseExpressionRef &head, const F &f) const;
