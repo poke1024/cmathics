@@ -44,7 +44,7 @@ public:
 
 	void parse_options(
 		const BaseExpressionRef &options_list,
-			NumberFormOptions &options,
+		NumberFormOptions &options,
 		const Evaluation &evaluation) const;
 
 private:

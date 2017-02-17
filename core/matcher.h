@@ -33,8 +33,27 @@ public:
         evaluation(evaluation_),
         match(Pool::Match(matcher)),
         options(options_) {
-
 	}
+
+    inline MatchContext(
+        const PatternMatcherRef &matcher,
+        const nothing&,
+        const Evaluation &evaluation,
+        MatchOptions options = 0) :
+
+        MatchContext(matcher, evaluation, options) {
+    }
+
+    inline MatchContext(
+        const PatternMatcherRef &matcher,
+        const OptionsProcessorRef &options_processor,
+        const Evaluation &evaluation_,
+        MatchOptions options_ = 0) :
+
+        evaluation(evaluation_),
+        match(Pool::Match(matcher, options_processor)),
+        options(options_) {
+    }
 
 	inline void reset() {
 		match->reset();
@@ -402,56 +421,77 @@ public:
 	RewriteBaseExpression prepare(const BaseExpressionRef &item) const;
 };
 
-class Matcher : public MatcherBase {
+template<typename OptionsProcessor>
+class OptionsMatcher : public MatcherBase {
 private:
-	typedef MatchRef (Matcher::*MatchFunction)(const BaseExpressionRef &, const Evaluation &) const;
+    typedef MatchRef (OptionsMatcher::*MatchFunction)(
+        const BaseExpressionRef &, const OptionsProcessor &, const Evaluation &) const;
 
-	const BaseExpressionRef m_patt;
-	MatchFunction m_perform_match;
+    const BaseExpressionRef m_patt;
+    MatchFunction m_perform_match;
 
 private:
-	MatchRef match_atom(const BaseExpressionRef &item, const Evaluation &evaluation) const {
-		if (m_patt->same(item)) {
-			return Pool::DefaultMatch();
-		} else {
-			return MatchRef(); // no match
-		}
-	}
+    MatchRef match_atom(
+        const BaseExpressionRef &item, const OptionsProcessor &options, const Evaluation &evaluation) const {
 
-	MatchRef match_expression(const BaseExpressionRef &item, const Evaluation &evaluation) const {
-		MatchContext context(m_matcher, evaluation);
-		const index_t match = m_matcher->match(
-			FastLeafSequence(context, &item), 0, 1);
-		if (match >= 0) {
-			return context.match;
-		} else {
-			return MatchRef(); // no match
-		}
-	}
+        if (m_patt->same(item)) {
+            return Pool::DefaultMatch();
+        } else {
+            return MatchRef(); // no match
+        }
+    }
 
-	MatchRef match_none(const BaseExpressionRef &item, const Evaluation &evaluation) const {
-		return MatchRef(); // no match
-	}
+    MatchRef match_expression(
+        const BaseExpressionRef &item, const OptionsProcessor &options, const Evaluation &evaluation) const {
+
+        MatchContext context(m_matcher, options, evaluation);
+        const index_t match = m_matcher->match(
+            FastLeafSequence(context, &item), 0, 1);
+        if (match >= 0) {
+            return context.match;
+        } else {
+            return MatchRef(); // no match
+        }
+    }
+
+    MatchRef match_none(
+        const BaseExpressionRef &item, const OptionsProcessor &options, const Evaluation &evaluation) const {
+
+        return MatchRef(); // no match
+    }
 
 public:
-	inline Matcher(const BaseExpressionRef &patt) :
-		m_patt(patt) {
+    inline OptionsMatcher(const BaseExpressionRef &patt) :
+        m_patt(patt) {
 
-		if (patt->type() == ExpressionType) {
-			m_matcher.initialize(patt->as_expression()->expression_matcher());
-			if (m_matcher->might_match(1)) {
-				m_perform_match = &Matcher::match_expression;
-			} else {
-				m_perform_match = &Matcher::match_none;
-			}
-		} else {
-			m_perform_match = &Matcher::match_atom;
-		}
-	}
+        if (patt->type() == ExpressionType) {
+            m_matcher.initialize(patt->as_expression()->expression_matcher());
+            if (m_matcher->might_match(1)) {
+                m_perform_match = &OptionsMatcher<OptionsProcessor>::match_expression;
+            } else {
+                m_perform_match = &OptionsMatcher<OptionsProcessor>::match_none;
+            }
+        } else {
+            m_perform_match = &OptionsMatcher<OptionsProcessor>::match_atom;
+        }
+    }
 
-	inline MatchRef operator()(const BaseExpressionRef &item, const Evaluation &evaluation) const {
-		return (this->*m_perform_match)(item, evaluation);
-	}
+    inline MatchRef operator()(
+        const BaseExpressionRef &item, const OptionsProcessor &options, const Evaluation &evaluation) const {
+
+        return (this->*m_perform_match)(item, options, evaluation);
+    }
+};
+
+class Matcher : public OptionsMatcher<nothing> {
+public:
+    using OptionsMatcher<nothing>::OptionsMatcher;
+
+    inline MatchRef operator()(
+        const BaseExpressionRef &item, const Evaluation &evaluation) const {
+
+        return OptionsMatcher<nothing>::operator()(item, nothing(), evaluation);
+    }
 };
 
 // A SequenceMatcher is a Matcher that takes an Expression and matches only the leaves
@@ -634,7 +674,7 @@ public:
 			return apply_from_tuple(function, std::tuple_cat(
 				std::forward_as_tuple(expr),
 				match->unpack<N>(),
-				std::forward_as_tuple(match->options()),
+				std::forward_as_tuple(*match->options()), // FIXME
 				std::forward_as_tuple(evaluation)));
 		} else {
 			return optional<BaseExpressionRef>();
@@ -661,7 +701,7 @@ inline NewRuleRef make_pattern_matched_builtin_rule(
 }
 
 template<typename Assign>
-bool OptionsMatcher::parse_options(
+bool OptionsProcessor::parse_options(
 	const Assign &assign,
 	const BaseExpressionRef &item,
 	const Evaluation &evaluation) const {
@@ -714,13 +754,13 @@ bool OptionsMatcher::parse_options(
 	}
 }
 
-template<typename Sequence, typename Assign, typename Swap>
-index_t OptionsMatcher::parse(
+template<typename Sequence, typename Assign, typename Rollback>
+index_t OptionsProcessor::parse(
 	const Sequence &sequence,
 	index_t begin,
 	index_t end,
 	const Assign &assign,
-	const Swap &swap,
+	const Rollback &rollback,
 	const MatchRest &rest) {
 
 	index_t t = begin;
@@ -735,21 +775,17 @@ index_t OptionsMatcher::parse(
 		t++;
 	}
 
-	if (t > begin) {
-		swap();
-	}
-
 	const index_t m = rest(begin, t, end);
 
 	if (t > begin && m < 0) {
-		swap();
+        rollback();
 	}
 
 	return m;
 }
 
 template<typename Sequence>
-inline index_t DefaultOptionsMatcher::do_match(
+inline index_t DynamicOptionsProcessor::do_match(
 	const Sequence &sequence,
 	index_t begin,
 	index_t end,
@@ -759,9 +795,11 @@ inline index_t DefaultOptionsMatcher::do_match(
 		m_options,
 		Pool::options_map_allocator());
 
+    std::swap(options, m_options);
+
 	return parse(sequence, begin, end,
-		[&options] (SymbolPtr name, const BaseExpressionRef &value) {
-			options[name] = value;
+		[this] (SymbolPtr name, const BaseExpressionRef &value) {
+			m_options[name] = value;
 		},
 		[this, &options] () {
 			std::swap(options, m_options);
@@ -769,10 +807,84 @@ inline index_t DefaultOptionsMatcher::do_match(
 		rest);
 }
 
-inline const OptionsMap &Match::options() const {
-	// FIXME HACK
-	assert(m_options);
-	return static_cast<DefaultOptionsMatcher*>(m_options)->options();
+template<typename Options, typename Controller>
+index_t StaticOptionsProcessor<Options, Controller>::match(
+    const SlowLeafSequence &sequence,
+    index_t begin,
+    index_t end,
+    const MatchRest &rest) {
+
+    return do_match(sequence, begin, end, rest);
+}
+
+template<typename Options, typename Controller>
+index_t StaticOptionsProcessor<Options, Controller>::match(
+    const FastLeafSequence &sequence,
+    index_t begin,
+    index_t end,
+    const MatchRest &rest) {
+
+    return do_match(sequence, begin, end, rest);
+}
+
+template<typename Options, typename Controller>
+template<typename Sequence>
+inline index_t StaticOptionsProcessor<Options, Controller>::do_match(
+    const Sequence &sequence,
+    index_t begin,
+    index_t end,
+    const MatchRest &rest) {
+
+    optional<Options> saved_options;
+
+    if (!m_initialized) {
+        m_controller.init(m_options);
+        m_initialized = true;
+    } else if (!m_clean) {
+        saved_options = m_options;
+    }
+
+    m_clean = false;
+
+    return parse(sequence, begin, end,
+         [this] (SymbolPtr name, const BaseExpressionRef &value) {
+             m_controller.set(m_options, name, value);
+         },
+         [this, &saved_options] () {
+             if (!saved_options) {
+                 m_controller.init(m_options);
+                 m_initialized = true;
+                 m_clean = true;
+             } else {
+                 m_options = *saved_options;
+             }
+         },
+         rest);
+}
+
+template<typename Sequence>
+inline index_t Match::options(
+    const Sequence &sequence,
+    index_t begin,
+    index_t end,
+    const OptionsProcessor::MatchRest &rest) {
+
+    if (!m_options) {
+        m_options = Pool::DynamicOptionsProcessor();
+    }
+
+    return m_options->match(sequence, begin, end, rest);
+}
+
+inline const OptionsMap *Match::options() const {
+    if (!m_options) {
+        return nullptr;
+    }
+    if (m_options.get()->type == OptionsProcessor::Dynamic) {
+        return &static_cast<DynamicOptionsProcessor*>(m_options.get())->options();
+    } else {
+        return nullptr;
+    }
 }
 
 #endif //CMATHICS_MATCHER_H

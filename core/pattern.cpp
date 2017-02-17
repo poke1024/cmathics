@@ -3,7 +3,7 @@
 #include "pattern.h"
 #include "matcher.h"
 
-index_t DefaultOptionsMatcher::match(
+index_t DynamicOptionsProcessor::match(
 	const SlowLeafSequence &sequence,
 	index_t begin,
 	index_t end,
@@ -12,7 +12,7 @@ index_t DefaultOptionsMatcher::match(
 	return do_match(sequence, begin, end, rest);
 }
 
-index_t DefaultOptionsMatcher::match(
+index_t DynamicOptionsProcessor::match(
 	const FastLeafSequence &sequence,
 	index_t begin,
 	index_t end,

@@ -150,8 +150,16 @@ inline MatchRef Pool::Match(const PatternMatcherRef &matcher) {
 	return _s_instance->_matches.construct(matcher);
 }
 
+inline MatchRef Pool::Match(const PatternMatcherRef &matcher, const OptionsProcessorRef &options_processor) {
+    return _s_instance->_matches.construct(matcher, options_processor);
+}
+
 inline MatchRef Pool::DefaultMatch() {
 	return _s_instance->_default_match;
+}
+
+inline OptionsProcessorRef Pool::DynamicOptionsProcessor() {
+    return _s_instance->_dynamic_options_processors.construct();
 }
 
 inline BaseExpressionRef from_primitive(machine_integer_t value) {
@@ -193,19 +201,22 @@ inline BaseExpressionRef from_primitive(const Numeric::Z &value) {
 	return value.to_expression();
 }
 
-inline DefaultOptionsMatcher::DefaultOptionsMatcher() :
-	m_options(Pool::options_map_allocator()) {
+inline DynamicOptionsProcessor::DynamicOptionsProcessor() :
+	OptionsProcessor(Dynamic), m_options(Pool::options_map_allocator()) {
 }
 
 inline Match::Match() :
     m_slots(Pool::slots_allocator()),
-    m_slots_fixed(0),
-    m_options(nullptr) {
+    m_slots_fixed(0) {
 }
 
 inline Match::Match(const PatternMatcherRef &matcher) :
 	m_matcher(matcher),
 	m_slots(matcher->variables().size(), Pool::slots_allocator()),
-	m_slots_fixed(0),
-    m_options(&m_options_matcher) {
+	m_slots_fixed(0) {
+}
+
+inline Match::Match(const PatternMatcherRef &matcher, const OptionsProcessorRef &options_processor) :
+    Match(matcher) {
+    m_options = options_processor;
 }

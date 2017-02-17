@@ -58,7 +58,7 @@ public:
     inline BaseExpressionRef rewrite_root_or_copy(
         const BaseExpressionRef &expr,
         const Arguments &args,
-        const OptionsMap &options) const;
+        const OptionsMap *options) const;
 };
 
 class Rewrite;
@@ -158,16 +158,16 @@ template<typename Arguments>
 inline BaseExpressionRef RewriteBaseExpression::rewrite_root_or_copy(
     const BaseExpressionRef &expr,
     const Arguments &args,
-    const OptionsMap &options) const {
+    const OptionsMap *options) const {
 
-    if (options.empty()) {
+    if (!options || options->empty()) {
         return rewrite_or_copy(expr, args, [] (const SymbolRef &name) {
             return BaseExpressionRef();
         });
     } else {
-        return rewrite_or_copy(expr, args, [&options] (const SymbolRef &name) {
-            const auto i = options.find(name);
-            if (i != options.end()) {
+        return rewrite_or_copy(expr, args, [options] (const SymbolRef &name) {
+            const auto i = options->find(name);
+            if (i != options->end()) {
                 return BaseExpressionRef(i->second);
             } else {
                 return BaseExpressionRef();

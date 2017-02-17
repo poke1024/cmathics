@@ -16,6 +16,7 @@ class BigInteger;
 
 class MachineRational;
 class BigRational;
+class BigRational;
 
 class Precision;
 
@@ -481,6 +482,7 @@ private:
 
 	ObjectPool<Match> _matches;
 	UnsafeMatchRef _default_match;
+    ObjectPool<DynamicOptionsProcessor> _dynamic_options_processors;
 
 	ObjectPool<SymbolicForm> _symbolic_forms;
 	UnsafeSymbolicFormRef _no_symbolic_form;
@@ -592,7 +594,11 @@ public:
 
 	static inline MatchRef Match(const PatternMatcherRef &matcher);
 
+    static inline MatchRef Match(const PatternMatcherRef &matcher, const OptionsProcessorRef &options_processor);
+
 	static inline MatchRef DefaultMatch();
+
+    static inline OptionsProcessorRef DynamicOptionsProcessor();
 
 	static inline SymbolicFormRef SymbolicForm(const SymEngineRef &ref) {
 		return _s_instance->_symbolic_forms.construct(ref);
@@ -613,6 +619,21 @@ public:
 	static inline void release(class Match *match) {
 		_s_instance->_matches.destroy(match);
 	}
+
+    static inline void release(class OptionsProcessor *processor) {
+        switch (processor->type) {
+            case OptionsProcessor::Dynamic:
+                _s_instance->_dynamic_options_processors.destroy(
+                    static_cast<class DynamicOptionsProcessor*>(processor));
+                break;
+            case OptionsProcessor::Static:
+                // StaticOptionsMatchers are always to be allocated on
+                // the stack! so nothing to do here.
+                break;
+            default:
+                throw std::runtime_error("illegal OptionsProcessor type");
+        }
+    }
 
 	static inline void release(class SymbolicForm *form) {
 		return _s_instance->_symbolic_forms.destroy(form);

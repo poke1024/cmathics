@@ -211,9 +211,16 @@ struct Slot {
 
 using SlotAllocator = VectorAllocator<Slot>;
 
-class OptionsMatcher {
+class OptionsProcessor : public Shared<OptionsProcessor, SharedPool> {
 public:
 	using MatchRest = std::function<index_t(index_t begin, index_t t, index_t end)>;
+
+    enum MatcherType {
+        Static,
+        Dynamic
+    };
+
+    const MatcherType type;
 
 protected:
 	template<typename Assign>
@@ -222,16 +229,24 @@ protected:
 		const BaseExpressionRef &item,
 		const Evaluation &evaluation) const;
 
-	template<typename Sequence, typename Assign, typename Swap>
+	template<typename Sequence, typename Assign, typename Rollback>
 	index_t parse(
 		const Sequence &sequence,
 		index_t begin,
 		index_t end,
 		const Assign &assign,
-		const Swap &swap,
+		const Rollback &rollback,
 		const MatchRest &rest);
 
 public:
+    inline OptionsProcessor(MatcherType t) : type(t) {
+    }
+
+    virtual inline ~OptionsProcessor() {
+    }
+
+    virtual void reset() = 0;
+
 	virtual index_t match(
 		const SlowLeafSequence &sequence,
 		index_t begin,
@@ -245,7 +260,7 @@ public:
 		const MatchRest &rest) = 0;
 };
 
-class EmptyOptionsMatcher : public OptionsMatcher {
+/*class EmptyOptionsProcessor : public OptionsProcessor {
 public:
 	virtual index_t match(
 		const SlowLeafSequence &sequence,
@@ -264,9 +279,9 @@ public:
 
 		return parse(sequence, begin, end, [] (SymbolPtr, const BaseExpressionRef&) {}, [] () {}, rest);
 	}
-};
+};*/
 
-class DefaultOptionsMatcher : public OptionsMatcher {
+class DynamicOptionsProcessor : public OptionsProcessor {
 private:
 	OptionsMap m_options;
 
@@ -278,37 +293,90 @@ private:
 		const MatchRest &rest);
 
 public:
-	inline DefaultOptionsMatcher();
+	inline DynamicOptionsProcessor();
+
+    virtual inline void reset() final {
+        m_options.clear();
+    }
 
 	virtual index_t match(
 		const SlowLeafSequence &sequence,
 		index_t begin,
 		index_t end,
-		const MatchRest &rest);
+		const MatchRest &rest) final;
 
 	virtual index_t match(
 		const FastLeafSequence &sequence,
 		index_t begin,
 		index_t end,
-		const MatchRest &rest);
+		const MatchRest &rest) final;
 
 	inline const OptionsMap &options() const {
 		return m_options;
 	}
 };
 
+class AbstractStaticOptionsProcessor : public OptionsProcessor {
+public:
+    inline AbstractStaticOptionsProcessor() : OptionsProcessor(Static) {
+    }
+};
+
+template<typename Options, typename Controller>
+class StaticOptionsProcessor : public AbstractStaticOptionsProcessor {
+private:
+    Options m_options;
+    Controller m_controller;
+    bool m_initialized;
+    bool m_clean;
+
+    template<typename Sequence>
+    inline index_t do_match(
+        const Sequence &sequence,
+        index_t begin,
+        index_t end,
+        const MatchRest &rest);
+
+public:
+    StaticOptionsProcessor(const Controller &controller) :
+        m_controller(controller), m_initialized(false) {
+    }
+
+    virtual inline void reset() final {
+        if (m_initialized && !m_clean) {
+            m_initialized = false;
+        }
+    }
+
+    virtual index_t match(
+        const SlowLeafSequence &sequence,
+        index_t begin,
+        index_t end,
+        const MatchRest &rest) final;
+
+    virtual index_t match(
+        const FastLeafSequence &sequence,
+        index_t begin,
+        index_t end,
+        const MatchRest &rest) final;
+};
+
+using OptionsProcessorRef = ConstSharedPtr<OptionsProcessor>;
+using UnsafeOptionsProcessorRef = UnsafeSharedPtr<OptionsProcessor>;
+
 class Match : public Shared<Match, SharedPool> {
 private:
     PatternMatcherRef m_matcher;
     std::vector<Slot, SlotAllocator> m_slots;
     index_t m_slots_fixed;
-	OptionsMatcher *m_options;
-	DefaultOptionsMatcher m_options_matcher;
+    UnsafeOptionsProcessorRef m_options;
 
 public:
     inline Match(); // only for Pool::DefaultMatch()
 
     inline Match(const PatternMatcherRef &matcher);
+
+    inline Match(const PatternMatcherRef &matcher, const OptionsProcessorRef &options_processor);
 
     inline const UnsafeBaseExpressionRef *get_matched_value(const Symbol *variable) const {
         const index_t index = m_matcher->variables().find(variable);
@@ -327,6 +395,9 @@ public:
             m_slots[m_slots[i].index_to_ith].value.reset();
         }
         m_slots_fixed = 0;
+        if (m_options) {
+            m_options->reset();
+        }
     }
 
     inline bool assign(const index_t slot_index, const BaseExpressionRef &value, bool &is_owner) {
@@ -406,17 +477,9 @@ public:
 		const Sequence &sequence,
 		index_t begin,
 		index_t end,
-	    const OptionsMatcher::MatchRest &rest) const {
+	    const OptionsProcessor::MatchRest &rest);
 
-		if (m_options) {
-			return m_options->match(sequence, begin, end, rest);
-		} else {
-			EmptyOptionsMatcher matcher;
-			return matcher.match(sequence, begin, end, rest);
-		}
-    }
-
-	inline const OptionsMap &options() const;
+	inline const OptionsMap *options() const;
 };
 
 #endif
