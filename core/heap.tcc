@@ -193,15 +193,19 @@ inline BaseExpressionRef from_primitive(const Numeric::Z &value) {
 	return value.to_expression();
 }
 
+inline DefaultOptionsMatcher::DefaultOptionsMatcher() :
+	m_options(Pool::options_map_allocator()) {
+}
+
 inline Match::Match() :
     m_slots(Pool::slots_allocator()),
     m_slots_fixed(0),
-    m_options(Pool::options_map_allocator()) {
+    m_options(nullptr) {
 }
 
 inline Match::Match(const PatternMatcherRef &matcher) :
 	m_matcher(matcher),
 	m_slots(matcher->variables().size(), Pool::slots_allocator()),
 	m_slots_fixed(0),
-    m_options(Pool::options_map_allocator()) {
+    m_options(&m_options_matcher) {
 }

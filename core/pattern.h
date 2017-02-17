@@ -211,12 +211,99 @@ struct Slot {
 
 using SlotAllocator = VectorAllocator<Slot>;
 
+class OptionsMatcher {
+public:
+	using MatchRest = std::function<index_t(index_t begin, index_t t, index_t end)>;
+
+protected:
+	template<typename Assign>
+	bool parse_options(
+		const Assign &assign,
+		const BaseExpressionRef &item,
+		const Evaluation &evaluation) const;
+
+	template<typename Sequence, typename Assign, typename Swap>
+	index_t parse(
+		const Sequence &sequence,
+		index_t begin,
+		index_t end,
+		const Assign &assign,
+		const Swap &swap,
+		const MatchRest &rest);
+
+public:
+	virtual index_t match(
+		const SlowLeafSequence &sequence,
+		index_t begin,
+		index_t end,
+		const MatchRest &rest) = 0;
+
+	virtual index_t match(
+		const FastLeafSequence &sequence,
+		index_t begin,
+		index_t end,
+		const MatchRest &rest) = 0;
+};
+
+class EmptyOptionsMatcher : public OptionsMatcher {
+public:
+	virtual index_t match(
+		const SlowLeafSequence &sequence,
+		index_t begin,
+		index_t end,
+		const MatchRest &rest) {
+
+		return parse(sequence, begin, end, [] (SymbolPtr, const BaseExpressionRef&) {}, [] () {}, rest);
+	}
+
+	virtual index_t match(
+		const FastLeafSequence &sequence,
+		index_t begin,
+		index_t end,
+		const MatchRest &rest) {
+
+		return parse(sequence, begin, end, [] (SymbolPtr, const BaseExpressionRef&) {}, [] () {}, rest);
+	}
+};
+
+class DefaultOptionsMatcher : public OptionsMatcher {
+private:
+	OptionsMap m_options;
+
+	template<typename Sequence>
+	inline index_t do_match(
+		const Sequence &sequence,
+		index_t begin,
+		index_t end,
+		const MatchRest &rest);
+
+public:
+	inline DefaultOptionsMatcher();
+
+	virtual index_t match(
+		const SlowLeafSequence &sequence,
+		index_t begin,
+		index_t end,
+		const MatchRest &rest);
+
+	virtual index_t match(
+		const FastLeafSequence &sequence,
+		index_t begin,
+		index_t end,
+		const MatchRest &rest);
+
+	inline const OptionsMap &options() const {
+		return m_options;
+	}
+};
+
 class Match : public Shared<Match, SharedPool> {
 private:
     PatternMatcherRef m_matcher;
     std::vector<Slot, SlotAllocator> m_slots;
     index_t m_slots_fixed;
-    OptionsMap m_options;
+	OptionsMatcher *m_options;
+	DefaultOptionsMatcher m_options_matcher;
 
 public:
     inline Match(); // only for Pool::DefaultMatch()
@@ -314,13 +401,22 @@ public:
     template<int N>
     typename BaseExpressionTuple<N>::type unpack() const;
 
-    inline const OptionsMap &options() const {
-        return m_options;
+	template<typename Sequence>
+    inline index_t options(
+		const Sequence &sequence,
+		index_t begin,
+		index_t end,
+	    const OptionsMatcher::MatchRest &rest) const {
+
+		if (m_options) {
+			return m_options->match(sequence, begin, end, rest);
+		} else {
+			EmptyOptionsMatcher matcher;
+			return matcher.match(sequence, begin, end, rest);
+		}
     }
 
-    inline void swap_options(OptionsMap &options) {
-        std::swap(m_options, options);
-    }
+	inline const OptionsMap &options() const;
 };
 
 #endif

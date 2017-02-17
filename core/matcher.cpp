@@ -1221,62 +1221,9 @@ public:
 };
 
 template<typename Dummy, typename MatchRest>
-class OptionsMatcher : public PatternMatcher {
+class OptionsPatternMatcher : public PatternMatcher {
 private:
     const MatchRest m_rest;
-
-    bool parse_options(
-        OptionsMap &options,
-        const BaseExpressionRef &item,
-        const Evaluation &evaluation) const {
-
-        if (!item->is_expression()) {
-            return false;
-        }
-
-        const Expression * const expr = item->as_expression();
-
-        switch (expr->head()->symbol()) {
-            case S::List:
-                return expr->with_slice([this, &options, &evaluation] (const auto &slice) {
-                    const size_t n = slice.size();
-                    for (size_t i = 0; i < n; i++) {
-                        if (!parse_options(options, slice[i], evaluation)) {
-                            return false;
-                        }
-                    }
-                    return true;
-                });
-
-            case S::Rule:
-            case S::RuleDelayed:
-                if (expr->size() == 2) {
-                    const auto * const leaves = expr->n_leaves<2>();
-                    UnsafeSymbolRef name;
-
-                    const auto &lhs = leaves[0];
-                    if (lhs->is_symbol()) {
-                        name = lhs->as_symbol();
-                    } else if (lhs->is_string()) {
-                        name = lhs->as_string()->option_symbol(evaluation);
-                        if (!name) {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
-
-                    const auto &rhs = leaves[1];
-                    options[name] = rhs;
-
-                    return true;
-                }
-                return false;
-
-            default:
-                return false;
-        }
-    }
 
     template<typename Sequence>
     inline index_t do_match(
@@ -1284,39 +1231,20 @@ private:
         index_t begin,
         index_t end) const {
 
-        const MatchRef &match =
-            sequence.context().match;
+	    if (begin == end) {
+		    auto slice = sequence.slice(begin, end);
+		    return m_rest(sequence, begin, end, slice);
+	    }
 
-        OptionsMap options(
-            match->options(),
-            Pool::options_map_allocator());
-
-        index_t t = begin;
-        while (t < end) {
-            if (!parse_options(
-                options,
-                *sequence.element(t),
-                sequence.context().evaluation)) {
-
-                break;
-            }
-            t++;
-        }
-
-        match->swap_options(options);
-
-        auto slice = sequence.slice(begin, t);
-        const index_t m = m_rest(sequence, t, end, slice);
-
-        if (m < 0) {
-            match->swap_options(options);
-        }
-
-        return m;
+	    return sequence.context().match->options(sequence, begin, end,
+			[this, &sequence] (index_t begin, index_t t, index_t end) {
+			    auto slice = sequence.slice(begin, t);
+			    return m_rest(sequence, t, end, slice);
+		    });
     }
 
 public:
-    inline OptionsMatcher(
+    inline OptionsPatternMatcher(
         const std::tuple<>,
         const MatchRest &next) :
 
@@ -1325,7 +1253,7 @@ public:
 
     virtual std::string name(const MatchContext &context) const {
         std::ostringstream s;
-        s << "OptionsMatcher(), " << m_rest.name(context);
+        s << "OptionsPatternMatcher(), " << m_rest.name(context);
         return s.str();
     }
 
@@ -1877,7 +1805,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			break;
 
         case S::OptionsPattern: {
-            return factory.create<OptionsMatcher>(std::make_tuple());
+            return factory.create<OptionsPatternMatcher>(std::make_tuple());
         }
 
         default:

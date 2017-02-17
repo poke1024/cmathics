@@ -33,6 +33,7 @@ public:
         evaluation(evaluation_),
         match(Pool::Match(matcher)),
         options(options_) {
+
 	}
 
 	inline void reset() {
@@ -657,6 +658,121 @@ inline NewRuleRef make_pattern_matched_builtin_rule(
     return [patt, func] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
         return new PatternMatchedBuiltinRule<N, decltype(func)>(patt, func);
     };
+}
+
+template<typename Assign>
+bool OptionsMatcher::parse_options(
+	const Assign &assign,
+	const BaseExpressionRef &item,
+	const Evaluation &evaluation) const {
+
+	if (!item->is_expression()) {
+		return false;
+	}
+
+	const Expression * const expr = item->as_expression();
+
+	switch (expr->head()->symbol()) {
+		case S::List:
+			return expr->with_slice([this, &assign, &evaluation] (const auto &slice) {
+				const size_t n = slice.size();
+				for (size_t i = 0; i < n; i++) {
+					if (!parse_options(assign, slice[i], evaluation)) {
+						return false;
+					}
+				}
+				return true;
+			});
+
+		case S::Rule:
+		case S::RuleDelayed:
+			if (expr->size() == 2) {
+				const auto * const leaves = expr->n_leaves<2>();
+				UnsafeSymbolRef name;
+
+				const auto &lhs = leaves[0];
+				if (lhs->is_symbol()) {
+					name = lhs->as_symbol();
+				} else if (lhs->is_string()) {
+						name = lhs->as_string()->option_symbol(evaluation);
+						if (!name) {
+							return false;
+						}
+					} else {
+						return false;
+					}
+
+				const auto &rhs = leaves[1];
+				assign(name.get(), rhs);
+
+				return true;
+			}
+			return false;
+
+		default:
+			return false;
+	}
+}
+
+template<typename Sequence, typename Assign, typename Swap>
+index_t OptionsMatcher::parse(
+	const Sequence &sequence,
+	index_t begin,
+	index_t end,
+	const Assign &assign,
+	const Swap &swap,
+	const MatchRest &rest) {
+
+	index_t t = begin;
+	while (t < end) {
+		if (!parse_options(
+			assign,
+			*sequence.element(t),
+			sequence.context().evaluation)) {
+
+			break;
+		}
+		t++;
+	}
+
+	if (t > begin) {
+		swap();
+	}
+
+	const index_t m = rest(begin, t, end);
+
+	if (t > begin && m < 0) {
+		swap();
+	}
+
+	return m;
+}
+
+template<typename Sequence>
+inline index_t DefaultOptionsMatcher::do_match(
+	const Sequence &sequence,
+	index_t begin,
+	index_t end,
+	const MatchRest &rest) {
+
+	OptionsMap options(
+		m_options,
+		Pool::options_map_allocator());
+
+	return parse(sequence, begin, end,
+		[&options] (SymbolPtr name, const BaseExpressionRef &value) {
+			options[name] = value;
+		},
+		[this, &options] () {
+			std::swap(options, m_options);
+		},
+		rest);
+}
+
+inline const OptionsMap &Match::options() const {
+	// FIXME HACK
+	assert(m_options);
+	return static_cast<DefaultOptionsMatcher*>(m_options)->options();
 }
 
 #endif //CMATHICS_MATCHER_H
