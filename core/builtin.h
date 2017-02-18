@@ -115,7 +115,7 @@ typedef const std::initializer_list<std::tuple<const char*, size_t, const char*>
 
 class OptionsDefinitionsBase {
 protected:
-	std::map<BaseExpressionRef, size_t> m_offsets;
+	std::unordered_map<SymbolRef, size_t, SymbolHash, SymbolEqual> m_offsets;
 	std::vector<BaseExpressionRef> m_values;
 
 	inline void set_ptr(uint8_t *data, size_t offset, const BaseExpressionRef &value) const {
@@ -157,7 +157,7 @@ public:
 		std::memcpy(&options, &m_defaults, sizeof(Options));
 	}
 
-	inline bool set(Options &options, const BaseExpressionRef &key, const BaseExpressionRef &value) const {
+	inline bool set(Options &options, const SymbolPtr key, const BaseExpressionRef &value) const {
 		const auto i = m_offsets.find(key);
 
 		if (i != m_offsets.end()) {
@@ -175,6 +175,10 @@ private:
 	const SymbolRef m_head;
 	const F m_func;
 	const OptionsDefinitions<Options> m_options;
+
+	struct OptionMissing {
+		SymbolRef name;
+	};
 
 public:
 	OptionsBuiltinRule(
@@ -195,48 +199,45 @@ public:
 			(const BaseExpressionRef *leaves, size_t size) -> optional<BaseExpressionRef> {
 
 				Options options;
-                m_options.initialize_defaults(options);
 
-                // parse options. this should behave exactly as if it were an OptionsPattern[].
-				size_t n = size;
-				while (n > N) {
-					const BaseExpressionRef &last = leaves[n - 1];
+				// parse options. this should behave exactly as if it were an OptionsPattern[].
+				const BaseExpressionRef *i = leaves + N;
+				const BaseExpressionRef *const end = leaves + size;
+				if (i == end) {
+					m_options.initialize_defaults(options); // could optimize this.
+				} else {
+					try {
+						m_options.initialize_defaults(options);
 
-					if (last->has_form(S::Rule, 2, evaluation)) {
-						const BaseExpressionRef * const option =
-							last->as_expression()->n_leaves<2>();
+						const auto &assign = [this, &options] (
+							SymbolPtr name, const BaseExpressionRef &value) {
 
-						const BaseExpressionRef &key = option[0];
-						const BaseExpressionRef &value = option[1];
+							if (!m_options.set(options, name, value)) {
+								throw OptionMissing{name};
+							}
+						};
 
-						bool ok;
-
-						if (key->is_string()) {
-							const SymbolRef resolved_key =
-								key->as_string()->option_symbol(evaluation);
-							ok = m_options.set(options, resolved_key, value);
-						} else {
-							ok = m_options.set(options, key, value);
+						while (i < end) {
+							if (!parse_options(assign, *i, evaluation)) {
+								// rule does not apply, as remaining arguments are not options
+								// and thus do not match OptionsPattern[].
+								return optional<BaseExpressionRef>();
+							}
+							i++;
 						}
-
-						if (!ok) {
-							evaluation.message(m_head, "optx", key, BaseExpressionRef(expr));
-							return BaseExpressionRef();
-						}
-					} else {
-                        // rule does not apply, as remaining arguments are not options and thus
-                        // do not match OptionsPattern[].
-                        return optional<BaseExpressionRef>();
+					} catch (const OptionMissing &missing) {
+						evaluation.message(m_head, "optx", missing.name, BaseExpressionRef(expr));
+						return BaseExpressionRef();
 					}
-
-					n -= 1;
 				}
 
 				typename BaseExpressionTuple<N>::type t;
 				unpack_leaves<N, 0>()(leaves, t);
 				return apply_from_tuple(
 					m_func,
-					std::tuple_cat(std::forward_as_tuple(expr), t, std::forward_as_tuple(options, evaluation)));
+					std::tuple_cat(std::forward_as_tuple(expr),
+					t,
+					std::forward_as_tuple(options, evaluation)));
 			});
 	}
 };

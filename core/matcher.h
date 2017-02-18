@@ -701,10 +701,10 @@ inline NewRuleRef make_pattern_matched_builtin_rule(
 }
 
 template<typename Assign>
-bool OptionsProcessor::parse_options(
+bool parse_options(
 	const Assign &assign,
 	const BaseExpressionRef &item,
-	const Evaluation &evaluation) const {
+	const Evaluation &evaluation) {
 
 	if (!item->is_expression()) {
 		return false;
@@ -714,7 +714,7 @@ bool OptionsProcessor::parse_options(
 
 	switch (expr->head()->symbol()) {
 		case S::List:
-			return expr->with_slice([this, &assign, &evaluation] (const auto &slice) {
+			return expr->with_slice([&assign, &evaluation] (const auto &slice) {
 				const size_t n = slice.size();
 				for (size_t i = 0; i < n; i++) {
 					if (!parse_options(assign, slice[i], evaluation)) {
@@ -807,8 +807,8 @@ inline index_t DynamicOptionsProcessor::do_match(
 		rest);
 }
 
-template<typename Options, typename Controller>
-index_t StaticOptionsProcessor<Options, Controller>::match(
+template<typename Options>
+index_t StaticOptionsProcessor<Options>::match(
     const SlowLeafSequence &sequence,
     index_t begin,
     index_t end,
@@ -817,8 +817,8 @@ index_t StaticOptionsProcessor<Options, Controller>::match(
     return do_match(sequence, begin, end, rest);
 }
 
-template<typename Options, typename Controller>
-index_t StaticOptionsProcessor<Options, Controller>::match(
+template<typename Options>
+index_t StaticOptionsProcessor<Options>::match(
     const FastLeafSequence &sequence,
     index_t begin,
     index_t end,
@@ -827,39 +827,38 @@ index_t StaticOptionsProcessor<Options, Controller>::match(
     return do_match(sequence, begin, end, rest);
 }
 
-template<typename Options, typename Controller>
+template<typename Options>
 template<typename Sequence>
-inline index_t StaticOptionsProcessor<Options, Controller>::do_match(
+inline index_t StaticOptionsProcessor<Options>::do_match(
     const Sequence &sequence,
     index_t begin,
     index_t end,
     const MatchRest &rest) {
 
-    optional<Options> saved_options;
+	optional<Options> saved_options;
 
-    if (!m_initialized) {
-        m_controller.init(m_options);
-        m_initialized = true;
-    } else if (!m_clean) {
-        saved_options = m_options;
-    }
+	if (!m_initialized) {
+		m_controller.initialize_defaults(m_options);
+		m_initialized = true;
+	} else if (!m_clean) {
+		saved_options = m_options;
+	}
 
-    m_clean = false;
+	m_clean = false;
 
-    return parse(sequence, begin, end,
-         [this] (SymbolPtr name, const BaseExpressionRef &value) {
-             m_controller.set(m_options, name, value);
-         },
-         [this, &saved_options] () {
-             if (!saved_options) {
-                 m_controller.init(m_options);
-                 m_initialized = true;
-                 m_clean = true;
-             } else {
-                 m_options = *saved_options;
-             }
-         },
-         rest);
+	return parse(sequence, begin, end,
+		[this] (SymbolPtr name, const BaseExpressionRef &value) {
+			m_controller.set(m_options, name, value);
+		},
+		[this, &saved_options] () {
+			if (!saved_options) {
+				m_controller.initialize_defaults(m_options);
+				m_initialized = true;
+				m_clean = true;
+			} else {
+				m_options = *saved_options;
+			}
+		}, rest);
 }
 
 template<typename Sequence>

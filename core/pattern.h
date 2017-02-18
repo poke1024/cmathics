@@ -223,12 +223,6 @@ public:
     const MatcherType type;
 
 protected:
-	template<typename Assign>
-	bool parse_options(
-		const Assign &assign,
-		const BaseExpressionRef &item,
-		const Evaluation &evaluation) const;
-
 	template<typename Sequence, typename Assign, typename Rollback>
 	index_t parse(
 		const Sequence &sequence,
@@ -316,17 +310,15 @@ public:
 	}
 };
 
-class AbstractStaticOptionsProcessor : public OptionsProcessor {
-public:
-    inline AbstractStaticOptionsProcessor() : OptionsProcessor(Static) {
-    }
-};
+template<typename Options>
+class OptionsDefinitions;
 
-template<typename Options, typename Controller>
-class StaticOptionsProcessor : public AbstractStaticOptionsProcessor {
+template<typename Options>
+class StaticOptionsProcessor : public OptionsProcessor {
 private:
     Options m_options;
-    Controller m_controller;
+	OptionsDefinitions<Options> m_controller;
+
     bool m_initialized;
     bool m_clean;
 
@@ -338,8 +330,8 @@ private:
         const MatchRest &rest);
 
 public:
-    StaticOptionsProcessor(const Controller &controller) :
-        m_controller(controller), m_initialized(false) {
+    inline StaticOptionsProcessor(const OptionsDefinitions<Options> &controller) :
+	    OptionsProcessor(Static), m_controller(controller), m_initialized(false) {
     }
 
     virtual inline void reset() final {
