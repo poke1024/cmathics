@@ -869,6 +869,61 @@ public:
     DECLARE_MATCH_METHODS
 };
 
+using SymbolSet = std::unordered_set<SymbolRef, SymbolHash, SymbolEqual>;
+
+template<typename Dummy, typename MatchRest>
+class SymbolSetMatcher : public PatternMatcher {
+private:
+	SymbolSet m_symbols;
+	const MatchRest m_rest;
+
+	template<typename Sequence>
+	inline index_t do_match(
+		const Sequence &sequence,
+		index_t begin,
+		index_t end) const {
+
+		if (begin >= end) {
+			return -1;
+		}
+
+		const auto item = *sequence.element(begin);
+		if (!item->is_symbol()) {
+			return -1;
+		}
+
+		if (m_symbols.find(item->as_symbol()) != m_symbols.end()) {
+			auto slice = sequence.slice(begin, begin + 1);
+			return m_rest(sequence, begin + 1, end, slice);
+		} else {
+			return -1;
+		}
+	}
+
+public:
+	inline SymbolSetMatcher(const SymbolSet &symbols, const MatchRest &next) :
+		m_symbols(symbols), m_rest(next) {
+	}
+
+	virtual std::string name(const MatchContext &context) const {
+		std::ostringstream s;
+		s << "SymbolSetMatcher(";
+		size_t i = 0;
+		for (auto symbol : m_symbols) {
+			if (i > 0) {
+				s << ", ";
+			}
+			s << symbol->name();
+			i++;
+		}
+		s << "), " << m_rest.name(context);
+		return s.str();
+	}
+
+	DECLARE_MATCH_EXPRESSION_METHODS                                                                          \
+	DECLARE_NO_MATCH_CHARACTER_METHODS
+};
+
 template<typename Dummy, typename MatchRest>
 class OptionalMatcher : public PatternMatcher {
 private:
@@ -1751,12 +1806,36 @@ PatternMatcherRef PatternCompiler::compile_sequence(
                 RepeatedForm(this, size.from_here(), factory, patt_begin, patt_end), factory);
 
 		case S::Alternatives: {
-			std::vector<PatternMatcherRef> matchers;
-			matchers.reserve(patt_end - patt_begin);
+			bool all_symbols = true;
+
 			for (const BaseExpressionRef *patt = patt_begin; patt < patt_end; patt++) {
-				matchers.push_back(compile(*patt, size.from_here(), factory.alternative()));
+				if (!(*patt)->is_symbol()) {
+					all_symbols = false;
+					break;
+				}
 			}
-			return factory.unbound().create<AlternativesMatcher>(matchers);
+
+			if (!all_symbols) {
+				std::vector<PatternMatcherRef> matchers;
+				matchers.reserve(patt_end - patt_begin);
+
+				for (const BaseExpressionRef *patt = patt_begin; patt < patt_end; patt++) {
+					const PatternMatcherRef matcher =
+						compile(*patt, size.from_here(), factory.alternative());
+					matchers.push_back(matcher);
+				}
+
+				return factory.unbound().create<AlternativesMatcher>(matchers);
+			} else {
+				SymbolSet symbols;
+				symbols.reserve(patt_end - patt_begin);
+
+				for (const BaseExpressionRef *patt = patt_begin; patt < patt_end; patt++) {
+					symbols.insert((*patt)->as_symbol());
+				}
+
+				return factory.create<SymbolSetMatcher>(symbols);
+			}
 		}
 
         case S::Except:
