@@ -1,5 +1,3 @@
-#include <assert.h>
-
 #include "types.h"
 #include "expression.h"
 #include "evaluation.h"

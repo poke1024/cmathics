@@ -4,7 +4,6 @@
 #include <string>
 #include <stdint.h>
 #include <functional>
-#include <assert.h>
 #include <climits>
 #include <vector>
 #include <array>

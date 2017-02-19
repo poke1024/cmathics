@@ -18,6 +18,17 @@ using std::experimental::optional;
 #include "shared.h"
 #include "concurrent/parallel.h"
 
+// NDEBUG will remove asserts and
+// trigger optimized slice generators.
+
+#include <cassert>
+
+#ifdef NDEBUG
+#define FASTER_COMPILE 0
+#else
+#define FASTER_COMPILE 1
+#endif
+
 struct nothing {
 };
 

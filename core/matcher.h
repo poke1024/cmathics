@@ -1,8 +1,6 @@
 #ifndef CMATHICS_MATCHER_H
 #define CMATHICS_MATCHER_H
 
-#include <assert.h>
-
 #include "types.h"
 #include "evaluation.h"
 #include "symbol.h"

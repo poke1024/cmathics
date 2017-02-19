@@ -5,8 +5,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 if("$ENV{OPTIMIZE}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
-else()
-    add_definitions(-DFASTER_COMPILE=1)
+    add_definitions(-DNDEBUG=1)
 endif()
 add_definitions(-DCOMPILE_TO_SLICE=1)
 
