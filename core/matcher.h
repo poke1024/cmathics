@@ -502,10 +502,31 @@ public:
 class SequenceMatcher : public MatcherBase {
 private:
     const HeadLeavesMatcher *m_head_leaves_matcher;
+	CachedBaseExpressionRef m_head;
+
+	template<typename OptionsProcessorRef>
+	inline MatchRef match(
+		const Expression *expr,
+		const OptionsProcessorRef &options,
+		const Evaluation &evaluation) const {
+
+		const auto * const matcher = m_head_leaves_matcher;
+		if (!matcher) {
+			return MatchRef();
+		}
+		MatchContext context(m_matcher, options, evaluation);
+		if (matcher->without_head(context, expr)) {
+			assert(expr->head()->same(m_head.get()));
+			return context.match;
+		} else {
+			return MatchRef();
+		}
+	}
 
 public:
     inline SequenceMatcher(const BaseExpressionRef &patt) : m_head_leaves_matcher(nullptr) {
         if (patt->type() == ExpressionType) {
+	        m_head.initialize(patt->as_expression()->head());
             const PatternMatcherRef matcher =
                 patt->as_expression()->expression_matcher();
             const auto head_leaves_matcher = matcher->head_leaves_matcher();
@@ -524,18 +545,20 @@ public:
         }
     }
 
-    inline MatchRef operator()(const Expression *expr, const Evaluation &evaluation) const {
-	    const auto * const matcher = m_head_leaves_matcher;
-	    if (!matcher) {
-		    return MatchRef();
-	    }
-        MatchContext context(m_matcher, evaluation);
-        if (matcher->without_head(context, expr)) {
-            return context.match;
-        } else {
-            return MatchRef();
-        }
+    inline MatchRef operator()(
+	    const Expression *expr,
+	    const Evaluation &evaluation) const {
+
+	    return match(expr, nothing(), evaluation);
     }
+
+	inline MatchRef operator()(
+		const Expression *expr,
+		const OptionsProcessorRef &options,
+		const Evaluation &evaluation) const {
+
+		return match(expr, options, evaluation);
+	}
 };
 
 template<typename Rule, typename F>
@@ -622,7 +645,7 @@ template<int N, typename F>
 class PatternMatchedBuiltinRule : public Rule {
 private:
     const F function;
-    const Matcher matcher;
+    const SequenceMatcher matcher;
 
 public:
     inline PatternMatchedBuiltinRule(const BaseExpressionRef &patt, const F &f) :
@@ -659,7 +682,7 @@ template<int N, typename Options, typename F>
 class PatternMatchedOptionsBuiltinRule : public Rule {
 private:
 	const F m_function;
-	const OptionsMatcher m_matcher;
+	const SequenceMatcher m_matcher;
 	const OptionsDefinitions<Options> m_options;
 
 public:
