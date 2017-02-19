@@ -631,12 +631,16 @@ public:
 
 struct CasesOptions {
     BaseExpressionPtr Heads;
+
+	static OptionsInitializerList meta() {
+		return {
+			{"Heads", offsetof(CasesOptions, Heads), "False"}
+		};
+	};
 };
 
-class Cases : public Builtin {
-private:
-    CachedBaseExpressionRef m_default_ls;
 
+class Cases : public Builtin {
 public:
     static constexpr const char *name = "Cases";
 
@@ -644,27 +648,12 @@ public:
     using Builtin::Builtin;
 
     void build(Runtime &runtime) {
-        m_default_ls.initialize(expression(
-            runtime.definitions().symbols().List, Pool::MachineInteger(1)));
-
-	    const OptionsInitializerList options = {
-            {"Heads", offsetof(CasesOptions, Heads), "False"}
-        };
-
-        builtin(options, &Cases::apply2);
-        builtin(options, &Cases::apply3);
+	    builtin(
+		    "Cases[list_, patt_, ls_:{1}, OptionsPattern[Cases]]",
+		    &Cases::apply);
     }
 
-    inline BaseExpressionRef apply2(
-        BaseExpressionPtr list,
-        BaseExpressionPtr patt,
-        const CasesOptions &options,
-        const Evaluation &evaluation) {
-
-	    return apply3(list, patt, m_default_ls.get(), options, evaluation);
-    }
-
-    inline BaseExpressionRef apply3(
+    inline BaseExpressionRef apply(
         BaseExpressionPtr list,
         BaseExpressionPtr patt,
         BaseExpressionPtr ls,

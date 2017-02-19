@@ -153,6 +153,10 @@ public:
 		initialize(definitions, options, reinterpret_cast<uint8_t*>(&m_defaults), sizeof(m_defaults));
 	}
 
+	OptionsDefinitions(Definitions &definitions) {
+		initialize(definitions, Options::meta(), reinterpret_cast<uint8_t*>(&m_defaults), sizeof(m_defaults));
+	}
+
 	inline const Options &defaults() const {
 		return m_defaults;
 	}

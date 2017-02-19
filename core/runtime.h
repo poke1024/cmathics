@@ -259,6 +259,14 @@ protected:
 		BaseExpressionPtr,
         const Evaluation &);
 
+	template<typename T, typename Options>
+	using OptionsPatternF3 = BaseExpressionRef (T::*) (
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		const Options&,
+		const Evaluation &);
+
     template<typename T>
     using F4 = BaseExpressionRef (T::*) (
         BaseExpressionPtr,
@@ -468,6 +476,11 @@ private:
 	template<typename T, typename Options, typename Add>
 	inline void add_rule(const char *pattern, OptionsPatternF2<T, Options> function, const Add &add) {
 		internal_add_options_pattern_rule<T, Options, Add, decltype(function), 2, ArgumentsBridge>(pattern, function, add);
+	}
+
+	template<typename T, typename Options, typename Add>
+	inline void add_rule(const char *pattern, OptionsPatternF3<T, Options> function, const Add &add) {
+		internal_add_options_pattern_rule<T, Options, Add, decltype(function), 3, ArgumentsBridge>(pattern, function, add);
 	}
 
     /*template<typename T, typename Add>

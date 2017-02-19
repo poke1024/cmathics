@@ -925,12 +925,43 @@ public:
 	DECLARE_NO_MATCH_CHARACTER_METHODS
 };
 
-template<typename Dummy, typename MatchRest>
+template<typename Dummy, typename MatchRest, bool Shortest>
 class OptionalMatcher : public PatternMatcher {
 private:
 	const PatternMatcherRef m_matcher;
 	const BaseExpressionRef m_default;
 	const MatchRest m_rest;
+
+	template<typename Sequence>
+	inline index_t match_default(
+		const Sequence &sequence,
+		index_t begin,
+		index_t end) const {
+
+		const index_t match = m_matcher->match(
+			FastLeafSequence(sequence.context(), &m_default), 0, 1);
+		if (match == 1) {
+			auto slice = sequence.slice(begin, begin);
+			return m_rest(sequence, begin, end, slice);
+		} else {
+			return -1;
+		}
+	}
+
+	template<typename Sequence>
+	inline index_t match_optional(
+		const Sequence &sequence,
+		index_t begin,
+		index_t end) const {
+
+		const index_t match = m_matcher->match(sequence, begin, end);
+		if (match >= 0) {
+			auto slice = sequence.slice(begin, match);
+			return m_rest(sequence, match, end, slice);
+		} else {
+			return -1;
+		}
+	}
 
 	template<typename Sequence>
 	inline index_t do_match(
@@ -941,27 +972,20 @@ private:
 		const auto &state = sequence.context().match;
 		const size_t vars0 = state->n_slots_fixed();
 
-		const index_t match = m_matcher->match(sequence, begin, end);
-		if (match >= 0) {
-			auto slice = sequence.slice(begin, match);
-			const index_t rest_match = m_rest(sequence, match, end, slice);
-			if (rest_match >= 0) {
-				return rest_match;
-			}
+		const index_t m1 = Shortest ?
+            match_default(sequence, begin, end) :
+            match_optional(sequence, begin, end);
+		if (m1 >= 0) {
+			return m1;
 		}
-
 		state->backtrack(vars0);
 
-		const index_t match1 = m_matcher->match(
-			FastLeafSequence(sequence.context(), &m_default), 0, 1);
-		if (match1 == 1) {
-			auto slice = sequence.slice(begin, begin);
-			const index_t rest_match = m_rest(sequence, begin, end, slice);
-			if (rest_match >= 0) {
-				return rest_match;
-			}
+		const index_t m2 = Shortest ?
+			match_optional(sequence, begin, end) :
+			match_default(sequence, begin, end);
+		if (m2 >= 0) {
+			return m2;
 		}
-
 		state->backtrack(vars0);
 
 		return -1;
@@ -984,6 +1008,12 @@ public:
 
 	DECLARE_MATCH_METHODS
 };
+
+template<typename Dummy, typename MatchRest>
+using ShortestOptionalMatcher = OptionalMatcher<Dummy, MatchRest, true>;
+
+template<typename Dummy, typename MatchRest>
+using LongestOptionalMatcher = OptionalMatcher<Dummy, MatchRest, false>;
 
 template<typename ElementTest, typename MatchRest>
 class BlankMatcher : public PatternMatcher {
@@ -1880,7 +1910,12 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			if (patt_end - patt_begin == 2) { // 2 leaves?
 				const PatternMatcherRef matcher = compile(
 					patt_begin[0], size.from_here(), factory.stripped(false));
-				return factory.create<OptionalMatcher>(std::make_tuple(matcher, patt_begin[1]));
+				const auto parameters = std::make_tuple(matcher, patt_begin[1]);
+				if (factory.is_shortest()) {
+					return factory.create<ShortestOptionalMatcher>(parameters);
+				} else {
+					return factory.create<LongestOptionalMatcher>(parameters);
+				}
 			}
 			break;
 
