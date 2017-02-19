@@ -316,11 +316,9 @@ class OptionsDefinitions;
 template<typename Options>
 class StaticOptionsProcessor : public OptionsProcessor {
 private:
+	const Options *m_options_ptr;
     Options m_options;
 	OptionsDefinitions<Options> m_controller;
-
-    bool m_initialized;
-    bool m_clean;
 
     template<typename Sequence>
     inline index_t do_match(
@@ -331,13 +329,12 @@ private:
 
 public:
     inline StaticOptionsProcessor(const OptionsDefinitions<Options> &controller) :
-	    OptionsProcessor(Static), m_controller(controller), m_initialized(false) {
+	    OptionsProcessor(Static), m_controller(controller) {
+	    m_options_ptr = &m_controller.defaults();
     }
 
     virtual inline void reset() final {
-        if (m_initialized && !m_clean) {
-            m_initialized = false;
-        }
+	    m_options_ptr = &m_controller.defaults();
     }
 
     virtual index_t match(
@@ -351,6 +348,10 @@ public:
         index_t begin,
         index_t end,
         const MatchRest &rest) final;
+
+	inline const Options &options() const {
+		return *m_options_ptr;
+	}
 };
 
 using OptionsProcessorRef = ConstSharedPtr<OptionsProcessor>;

@@ -495,25 +495,29 @@ public:
 	BaseExpressionPtr SignPadding;
 };*/
 
-/*template<>
-class OptionsDefinitions<NumberFormatOptions> {
+template<>
+class OptionsDefinitions<NumberFormOptions> {
 private:
 	const NumberFormatter &m_formatter;
 
 public:
-	OptionsDefinitions(Definitions &definitions, const OptionsInitializerList &options) :
+	inline OptionsDefinitions(Definitions &definitions) :
 		m_formatter(definitions.number_form) {
 	}
 
-	inline void initialize_defaults(NumberFormatOptions &options) const {
-		m_formatter.init_options(options);
+	inline const NumberFormOptions &defaults() const {
+		return m_formatter.defaults();
 	}
 
-	inline bool set(NumberFormatOptions &options, const BaseExpressionRef &key, const BaseExpressionRef &value) const {
+	inline bool set(
+		NumberFormOptions &options,
+		const SymbolPtr key,
+		const BaseExpressionRef &value) const {
+
 		m_formatter.parse_option(options, key, value);
 		return true;
 	}
-};*/
+};
 
 class NumberForm : public Builtin {
 public:
@@ -540,17 +544,8 @@ public:
 	inline BaseExpressionRef apply(
 		BaseExpressionPtr expr,
 		BaseExpressionPtr form,
-		const OptionsMap &options_map,
+		const NumberFormOptions &options,
 		const Evaluation &evaluation) {
-
-		NumberFormOptions options;
-
-		const auto &number_form = evaluation.definitions.number_form;
-
-		number_form.parse_options(
-			options_map,
-			options,
-			evaluation);
 
 		optional<size_t> n = 6;
 
@@ -558,7 +553,8 @@ public:
 			optional<SExp> s_exp = expr->to_s_exp(n);
 
 			if (s_exp) {
-				return number_form(*s_exp, *n, form, options, evaluation);
+				return evaluation.definitions.number_form(
+					*s_exp, *n, form, options, evaluation);
 			}
 		}
 

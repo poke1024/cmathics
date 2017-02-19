@@ -226,10 +226,10 @@ protected:
 		BaseExpressionPtr,
 		const Evaluation &);
 
-	template<typename T>
+	template<typename T, typename Options>
 	using OptionsPatternF1 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
-		const OptionsMap &,
+		const Options&,
 		const Evaluation &);
 
 	template<typename T>
@@ -245,11 +245,11 @@ protected:
 		BaseExpressionPtr,
 		const Evaluation &);
 
-	template<typename T>
+	template<typename T, typename Options>
 	using OptionsPatternF2 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
 		BaseExpressionPtr,
-		const OptionsMap &,
+		const Options&,
 		const Evaluation &);
 
     template<typename T>
@@ -427,11 +427,12 @@ private:
 	    add(new PatternMatchedBuiltinRule<N, decltype(bridge)>(p, bridge));
     }
 
-	template<typename T, typename Add, typename F, int N, template<typename, typename, int> class B>
+	template<typename T, typename Options, typename Add, typename F, int N, template<typename, typename, int> class B>
 	inline void internal_add_options_pattern_rule(const char *pattern, F function, const Add &add) {
 		const auto bridge = B<T, F, N>(this, function);
 		const BaseExpressionRef p = m_runtime.parse(pattern);
-		add(new PatternMatchedOptionsBuiltinRule<N, decltype(bridge)>(p, bridge));
+		add(new PatternMatchedOptionsBuiltinRule<N, Options, decltype(bridge)>(
+			p, bridge, OptionsDefinitions<Options>(m_runtime.definitions())));
 	}
 
     template<typename T, typename Add>
@@ -459,14 +460,14 @@ private:
         internal_add_pattern_rule<T, Add, decltype(function), 5, ArgumentsBridge>(pattern, function, add);
     }
 
-	template<typename T, typename Add>
-	inline void add_rule(const char *pattern, OptionsPatternF1<T> function, const Add &add) {
-		internal_add_options_pattern_rule<T, Add, decltype(function), 1, ArgumentsBridge>(pattern, function, add);
+	template<typename T, typename Options, typename Add>
+	inline void add_rule(const char *pattern, OptionsPatternF1<T, Options> function, const Add &add) {
+		internal_add_options_pattern_rule<T, Options, Add, decltype(function), 1, ArgumentsBridge>(pattern, function, add);
 	}
 
-	template<typename T, typename Add>
-	inline void add_rule(const char *pattern, OptionsPatternF2<T> function, const Add &add) {
-		internal_add_options_pattern_rule<T, Add, decltype(function), 2, ArgumentsBridge>(pattern, function, add);
+	template<typename T, typename Options, typename Add>
+	inline void add_rule(const char *pattern, OptionsPatternF2<T, Options> function, const Add &add) {
+		internal_add_options_pattern_rule<T, Options, Add, decltype(function), 2, ArgumentsBridge>(pattern, function, add);
 	}
 
     /*template<typename T, typename Add>

@@ -153,8 +153,8 @@ public:
 		initialize(definitions, options, reinterpret_cast<uint8_t*>(&m_defaults), sizeof(m_defaults));
 	}
 
-	inline void initialize_defaults(Options &options) const {
-		std::memcpy(&options, &m_defaults, sizeof(Options));
+	inline const Options &defaults() const {
+		return m_defaults;
 	}
 
 	inline bool set(Options &options, const SymbolPtr key, const BaseExpressionRef &value) const {
@@ -197,17 +197,18 @@ public:
 		return expr->with_leaves_array(
 			[this, expr, &evaluation]
 			(const BaseExpressionRef *leaves, size_t size) -> optional<BaseExpressionRef> {
-
 				Options options;
+				const Options *options_ptr;
 
 				// parse options. this should behave exactly as if it were an OptionsPattern[].
 				const BaseExpressionRef *i = leaves + N;
 				const BaseExpressionRef *const end = leaves + size;
 				if (i == end) {
-					m_options.initialize_defaults(options); // could optimize this.
+					options_ptr = &m_options.defaults();
 				} else {
 					try {
-						m_options.initialize_defaults(options);
+						options = m_options.defaults();
+						options_ptr = &options;
 
 						const auto &assign = [this, &options] (
 							SymbolPtr name, const BaseExpressionRef &value) {
@@ -237,7 +238,7 @@ public:
 					m_func,
 					std::tuple_cat(std::forward_as_tuple(expr),
 					t,
-					std::forward_as_tuple(options, evaluation)));
+					std::forward_as_tuple(*options_ptr, evaluation)));
 			});
 	}
 };

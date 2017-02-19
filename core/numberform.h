@@ -52,11 +52,6 @@ private:
 		std::memcpy(&options, &m_default_options, sizeof(NumberFormOptions));
 	}
 
-	inline void parse_option(
-		NumberFormOptions &options,
-		const BaseExpressionRef &lhs,
-		const BaseExpressionRef &rhs) const;
-
     inline StringRef blocks(
         StringPtr s,
         machine_integer_t start,
@@ -78,6 +73,15 @@ public:
         BaseExpressionPtr form,
 	    const NumberFormOptions &options,
         const Evaluation &evaluation) const;
+
+	inline const NumberFormOptions &defaults() const {
+		return m_default_options;
+	}
+
+	void parse_option(
+		NumberFormOptions &options,
+		const SymbolPtr lhs,
+		const BaseExpressionRef &rhs) const;
 };
 
 #endif //CMATHICS_NUMBERFORM_H

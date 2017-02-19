@@ -52,9 +52,9 @@ inline BaseExpressionRef NumberFormatter::default_number_format(
     }
 }
 
-inline void NumberFormatter::parse_option(
+void NumberFormatter::parse_option(
 	NumberFormOptions &options,
-	const BaseExpressionRef &lhs,
+	const SymbolPtr lhs,
 	const BaseExpressionRef &rhs) const {
 
 	const auto extract_string_pair = [&rhs] (StringPtr *ptr) {
@@ -161,9 +161,10 @@ void NumberFormatter::parse_options(
                     leaf->as_expression()->n_leaves<2>();
 
                 const BaseExpressionRef &lhs = leaves[0];
-                const BaseExpressionRef &rhs = leaves[1];
-
-				parse_option(options, lhs, rhs);
+	            if (lhs->is_symbol()) {
+		            const BaseExpressionRef &rhs = leaves[1];
+		            parse_option(options, lhs->as_symbol(), rhs);
+	            }
             }
         }
     });
@@ -177,7 +178,7 @@ void NumberFormatter::parse_options(
 	init_options(options);
 
 	for (auto i = options_map.begin(); i != options_map.end(); i++) {
-		parse_option(options, i->first, i->second);
+		parse_option(options, i->first.get(), i->second);
 	}
 }
 

@@ -421,18 +421,18 @@ public:
 	RewriteBaseExpression prepare(const BaseExpressionRef &item) const;
 };
 
-template<typename OptionsProcessor>
-class OptionsMatcher : public MatcherBase {
+template<typename OptionsProcessorRef>
+class CompleteMatcher : public MatcherBase {
 private:
-    typedef MatchRef (OptionsMatcher::*MatchFunction)(
-        const BaseExpressionRef &, const OptionsProcessor &, const Evaluation &) const;
+    typedef MatchRef (CompleteMatcher::*MatchFunction)(
+        const BaseExpressionRef &, const OptionsProcessorRef &, const Evaluation &) const;
 
     const BaseExpressionRef m_patt;
     MatchFunction m_perform_match;
 
 private:
     MatchRef match_atom(
-        const BaseExpressionRef &item, const OptionsProcessor &options, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
 
         if (m_patt->same(item)) {
             return Pool::DefaultMatch();
@@ -442,7 +442,7 @@ private:
     }
 
     MatchRef match_expression(
-        const BaseExpressionRef &item, const OptionsProcessor &options, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
 
         MatchContext context(m_matcher, options, evaluation);
         const index_t match = m_matcher->match(
@@ -455,42 +455,44 @@ private:
     }
 
     MatchRef match_none(
-        const BaseExpressionRef &item, const OptionsProcessor &options, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
 
         return MatchRef(); // no match
     }
 
 public:
-    inline OptionsMatcher(const BaseExpressionRef &patt) :
+    inline CompleteMatcher(const BaseExpressionRef &patt) :
         m_patt(patt) {
 
         if (patt->type() == ExpressionType) {
             m_matcher.initialize(patt->as_expression()->expression_matcher());
             if (m_matcher->might_match(1)) {
-                m_perform_match = &OptionsMatcher<OptionsProcessor>::match_expression;
+                m_perform_match = &CompleteMatcher<OptionsProcessorRef>::match_expression;
             } else {
-                m_perform_match = &OptionsMatcher<OptionsProcessor>::match_none;
+                m_perform_match = &CompleteMatcher<OptionsProcessorRef>::match_none;
             }
         } else {
-            m_perform_match = &OptionsMatcher<OptionsProcessor>::match_atom;
+            m_perform_match = &CompleteMatcher<OptionsProcessorRef>::match_atom;
         }
     }
 
     inline MatchRef operator()(
-        const BaseExpressionRef &item, const OptionsProcessor &options, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
 
         return (this->*m_perform_match)(item, options, evaluation);
     }
 };
 
-class Matcher : public OptionsMatcher<nothing> {
+using OptionsMatcher = CompleteMatcher<OptionsProcessorRef>;
+
+class Matcher : public CompleteMatcher<nothing> {
 public:
-    using OptionsMatcher<nothing>::OptionsMatcher;
+    using CompleteMatcher<nothing>::CompleteMatcher;
 
     inline MatchRef operator()(
         const BaseExpressionRef &item, const Evaluation &evaluation) const {
 
-        return OptionsMatcher<nothing>::operator()(item, nothing(), evaluation);
+        return CompleteMatcher<nothing>::operator()(item, nothing(), evaluation);
     }
 };
 
@@ -653,29 +655,34 @@ public:
     }
 };
 
-template<int N, typename F>
+template<int N, typename Options, typename F>
 class PatternMatchedOptionsBuiltinRule : public Rule {
 private:
-	const F function;
-	const Matcher matcher;
+	const F m_function;
+	const OptionsMatcher m_matcher;
+	const OptionsDefinitions<Options> m_options;
 
 public:
-	inline PatternMatchedOptionsBuiltinRule(const BaseExpressionRef &patt, const F &f) :
-		Rule(patt), function(f), matcher(pattern) {
+	inline PatternMatchedOptionsBuiltinRule(
+		const BaseExpressionRef &patt,
+		const F &f,
+		const OptionsDefinitions<Options> &options) :
+		Rule(patt), m_function(f), m_matcher(pattern), m_options(options) {
 	}
 
 	virtual optional<BaseExpressionRef> try_apply(
 		const Expression *expr,
 		const Evaluation &evaluation) const {
 
-		const MatchRef match = matcher(expr, evaluation);
+		StaticOptionsProcessor<Options> processor(m_options);
+		const MatchRef match = m_matcher(
+			expr, OptionsProcessorRef(&processor), evaluation);
 		if (match) {
 			assert(match->n_slots_fixed() == N);
-			return apply_from_tuple(function, std::tuple_cat(
+			return apply_from_tuple(m_function, std::tuple_cat(
 				std::forward_as_tuple(expr),
 				match->unpack<N>(),
-				std::forward_as_tuple(*match->options()), // FIXME
-				std::forward_as_tuple(evaluation)));
+				std::forward_as_tuple(processor.options(), evaluation)));
 		} else {
 			return optional<BaseExpressionRef>();
 		}
@@ -837,26 +844,24 @@ inline index_t StaticOptionsProcessor<Options>::do_match(
 
 	optional<Options> saved_options;
 
-	if (!m_initialized) {
-		m_controller.initialize_defaults(m_options);
-		m_initialized = true;
-	} else if (!m_clean) {
+	if (m_options_ptr == &m_options) {
 		saved_options = m_options;
 	}
 
-	m_clean = false;
-
 	return parse(sequence, begin, end,
 		[this] (SymbolPtr name, const BaseExpressionRef &value) {
+			if (m_options_ptr != &m_options) {
+				m_options = m_controller.defaults();
+				m_options_ptr = &m_options;
+			}
+
 			m_controller.set(m_options, name, value);
 		},
 		[this, &saved_options] () {
-			if (!saved_options) {
-				m_controller.initialize_defaults(m_options);
-				m_initialized = true;
-				m_clean = true;
-			} else {
+			if (saved_options) {
 				m_options = *saved_options;
+			} else {
+				m_options_ptr = &m_controller.defaults();
 			}
 		}, rest);
 }
