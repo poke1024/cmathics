@@ -847,7 +847,7 @@ private:
     }
 
 public:
-	inline AlternativesMatcher(const std::vector<PatternMatcherRef> &matchers, const MatchRest &next) :
+	inline AlternativesMatcher(std::vector<PatternMatcherRef> &&matchers, const MatchRest &next) :
         m_matchers(matchers), m_rest(next) {
 	}
 
@@ -887,21 +887,22 @@ private:
 			return -1;
 		}
 
-		const auto item = *sequence.element(begin);
+		auto element = sequence.element(begin);
+
+		const auto item = *element;
 		if (!item->is_symbol()) {
 			return -1;
 		}
 
 		if (m_symbols.find(item->as_symbol()) != m_symbols.end()) {
-			auto slice = sequence.slice(begin, begin + 1);
-			return m_rest(sequence, begin + 1, end, slice);
+			return m_rest(sequence, begin + 1, end, element);
 		} else {
 			return -1;
 		}
 	}
 
 public:
-	inline SymbolSetMatcher(const SymbolSet &symbols, const MatchRest &next) :
+	inline SymbolSetMatcher(SymbolSet &&symbols, const MatchRest &next) :
 		m_symbols(symbols), m_rest(next) {
 	}
 
@@ -1342,26 +1343,26 @@ private:
 	}
 
     template<template<typename, typename> class Matcher, typename Parameter, typename Test, typename Variable>
-    PatternMatcherRef create(const Parameter &parameter, const Test &test, const Variable &variable) const {
+    PatternMatcherRef create(Parameter &&parameter, const Test &test, const Variable &variable) const {
         if (!m_anchored) {
             const auto rest = RestMatcher<Test, Variable, Unanchored>(test, variable, Unanchored());
-            return new Matcher<Parameter, decltype(rest)>(parameter, rest);
+            return new Matcher<Parameter, decltype(rest)>(std::forward<Parameter>(parameter), rest);
         } else if (m_next) {
             const auto rest = RestMatcher<Test, Variable, Continue>(test, variable, Continue(m_next));
-            return new Matcher<Parameter, decltype(rest)>(parameter, rest);
+            return new Matcher<Parameter, decltype(rest)>(std::forward<Parameter>(parameter), rest);
         } else {
             const auto rest = RestMatcher<Test, Variable, Terminate>(test, variable, Terminate());
-            return new Matcher<Parameter, decltype(rest)>(parameter, rest);
+            return new Matcher<Parameter, decltype(rest)>(std::forward<Parameter>(parameter), rest);
         }
     }
 
     template<template<typename, typename> class Matcher, typename Parameter, typename Test>
-    PatternMatcherRef create(const Parameter &parameter, const Test &test) const {
+    PatternMatcherRef create(Parameter &&parameter, const Test &test) const {
         if (m_variable) {
 	        const index_t slot_index = m_variables.lookup_slot(m_variable);
-            return create<Matcher>(parameter, test, AssignVariable(slot_index));
+            return create<Matcher>(std::forward<Parameter>(parameter), test, AssignVariable(slot_index));
         } else {
-            return create<Matcher>(parameter, test, NoVariable());
+            return create<Matcher>(std::forward<Parameter>(parameter), test, NoVariable());
         }
     }
 
@@ -1417,13 +1418,13 @@ public:
 	}
 
 	template<template<typename, typename> class Matcher, typename Parameter>
-    PatternMatcherRef create(const Parameter &parameter) const {
-        if (m_test) {
-            return create<Matcher>(parameter, PatternTest(m_test));
-        } else {
-            return create<Matcher>(parameter, NoPatternTest());
-        }
-    }
+	PatternMatcherRef create(Parameter &&parameter) const {
+		if (m_test) {
+			return create<Matcher>(std::forward<Parameter>(parameter), PatternTest(m_test));
+		} else {
+			return create<Matcher>(std::forward<Parameter>(parameter), NoPatternTest());
+		}
+	}
 
 	PatternMatcherRef create_empty() const {
 		const auto rest = RestMatcher<NoPatternTest, NoVariable, Terminate>(NoPatternTest(), NoVariable(), Terminate());
@@ -1825,7 +1826,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 					matchers.push_back(matcher);
 				}
 
-				return factory.unbound().create<AlternativesMatcher>(matchers);
+				return factory.unbound().create<AlternativesMatcher>(std::move(matchers));
 			} else {
 				SymbolSet symbols;
 				symbols.reserve(patt_end - patt_begin);
@@ -1834,7 +1835,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 					symbols.insert((*patt)->as_symbol());
 				}
 
-				return factory.create<SymbolSetMatcher>(symbols);
+				return factory.create<SymbolSetMatcher>(std::move(symbols));
 			}
 		}
 
