@@ -91,7 +91,7 @@ inline std::string rstrip(const std::string &s, char c) {
 
 inline SExp real_to_s_exp(
     std::string s,
-    const optional<size_t> &n,
+    const optional<machine_integer_t> &n,
     bool is_machine_precision) {
 
     int non_negative;
@@ -135,14 +135,16 @@ inline SExp real_to_s_exp(
     return SExp(Pool::String(std::move(s)), exp, non_negative);
 }
 
-optional<SExp> MachineReal::to_s_exp(const optional<size_t> &n) const {
+optional<SExp> MachineReal::to_s_exp(const optional<machine_integer_t> &n) const {
 	std::string s;
 	if (n) {
-		assert(*n == 6);
-		const char * const format = "%.5e";
-		const size_t k = snprintf(nullptr, 0, format, value);
+        const std::string format(
+            std::string("%.") +
+            std::to_string(std::min(*n - 1, machine_integer_t(15))) +
+            std::string("e"));
+		const size_t k = snprintf(nullptr, 0, format.c_str(), value);
 		std::unique_ptr<char[]> buffer(new char[k + 1]);
-		snprintf(buffer.get(), k + 1, format, value);
+		snprintf(buffer.get(), k + 1, format.c_str(), value);
 		s = buffer.get();
 	} else {
 		s = std::to_string(value);
@@ -158,7 +160,7 @@ BaseExpressionRef MachineReal::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {
 
-    optional<size_t> optional_n;
+    optional<machine_integer_t> optional_n;
 
     switch (form->symbol()) {
 	    case S::InputForm:
@@ -183,7 +185,8 @@ BaseExpressionRef MachineReal::make_boxes(
 
 	NumberFormOptions options;
 	number_form.parse_options(evaluation.empty_list, options, evaluation);
-    return evaluation.definitions.number_form(*s_exp, n, form, options, evaluation);
+    return evaluation.definitions.number_form(
+        *s_exp, n, optional<machine_integer_t>(), form, options, evaluation);
 }
 
 std::string MachineReal::boxes_to_text(const Evaluation &evaluation) const {
@@ -241,7 +244,8 @@ BaseExpressionRef BigReal::make_boxes(
 	const auto &number_form = evaluation.definitions.number_form;
 	NumberFormOptions options;
 	number_form.parse_options(evaluation.empty_list, options, evaluation);
-	return evaluation.definitions.number_form(*s_exp, n, form, options, evaluation);
+	return evaluation.definitions.number_form(
+        *s_exp, n, optional<machine_integer_t>(), form, options, evaluation);
 }
 
 std::string BigReal::boxes_to_text(const Evaluation &evaluation) const {
@@ -291,7 +295,7 @@ BaseExpressionRef BigReal::negate(const Evaluation &evaluation) const {
     return Pool::BigReal(negated, prec);
 }
 
-optional<SExp> BigReal::to_s_exp(const optional<size_t> &n) const {
+optional<SExp> BigReal::to_s_exp(const optional<machine_integer_t> &n) const {
 	const size_t t = n ? *n : prec.decimals;
 
     std::string s;

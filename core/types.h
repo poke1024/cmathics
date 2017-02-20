@@ -695,7 +695,7 @@ public:
 	    return format(form, evaluation);
     }
 
-	virtual optional<SExp> to_s_exp(const optional<size_t> &n) const {
+	virtual optional<SExp> to_s_exp(const optional<machine_integer_t> &n) const {
 		return optional<SExp>();
 	}
 

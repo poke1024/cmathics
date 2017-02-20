@@ -869,14 +869,16 @@ inline index_t StaticOptionsProcessor<Options>::do_match(
 		saved_options = m_options;
 	}
 
+    const auto &evaluation = sequence.context().evaluation;
+
 	return parse(sequence, begin, end,
-		[this] (SymbolPtr name, const BaseExpressionRef &value) {
+		[this, &evaluation] (SymbolPtr name, const BaseExpressionRef &value) {
 			if (m_options_ptr != &m_options) {
 				m_options = m_controller.defaults();
 				m_options_ptr = &m_options;
 			}
 
-			m_controller.set(m_options, name, value);
+			m_controller.set(m_options, name, value, evaluation);
 		},
 		[this, &saved_options] () {
 			if (saved_options) {

@@ -224,7 +224,8 @@ NumberFormatter::NumberFormatter(const Symbols &symbols) {
 
 BaseExpressionRef NumberFormatter::operator()(
     const SExp &s_exp,
-    const size_t n,
+    const machine_integer_t n,
+    const optional<machine_integer_t> f,
     BaseExpressionPtr form,
 	const NumberFormOptions &options,
     const Evaluation &evaluation) const {

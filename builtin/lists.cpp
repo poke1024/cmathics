@@ -35,7 +35,7 @@ public:
                     break;
             }
 
-           BaseExpressionRef list = items->as_expression()->with_slice(
+           const BaseExpressionRef list = items->as_expression()->with_slice(
                 [n, form, sep, &evaluation] (const auto &slice) {
                 return expression(evaluation.List, sequential(
                     [&slice, form, sep, &evaluation] (auto &store) {

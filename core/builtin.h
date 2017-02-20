@@ -161,7 +161,12 @@ public:
 		return m_defaults;
 	}
 
-	inline bool set(Options &options, const SymbolPtr key, const BaseExpressionRef &value) const {
+	inline bool set(
+        Options &options,
+        const SymbolPtr key,
+        const BaseExpressionRef &value,
+        const Evaluation &evaluation) const {
+
 		const auto i = m_offsets.find(key);
 
 		if (i != m_offsets.end()) {
@@ -214,10 +219,10 @@ public:
 						options = m_options.defaults();
 						options_ptr = &options;
 
-						const auto &assign = [this, &options] (
+						const auto &assign = [this, &options, &evaluation] (
 							SymbolPtr name, const BaseExpressionRef &value) {
 
-							if (!m_options.set(options, name, value)) {
+							if (!m_options.set(options, name, value, evaluation)) {
 								throw OptionMissing{name};
 							}
 						};

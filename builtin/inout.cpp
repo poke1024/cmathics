@@ -482,19 +482,6 @@ public:
     }
 };
 
-/*struct NumberFormOptions {
-	BaseExpressionPtr DigitBlock;
-	BaseExpressionPtr ExponentFunction;
-	BaseExpressionPtr ExponentStep;
-	BaseExpressionPtr NumberFormat;
-	BaseExpressionPtr NumberMultiplier;
-	BaseExpressionPtr NumberPadding;
-	BaseExpressionPtr NumberPoint;
-	BaseExpressionPtr NumberSeparator;
-	BaseExpressionPtr NumberSigns;
-	BaseExpressionPtr SignPadding;
-};*/
-
 template<>
 class OptionsDefinitions<NumberFormOptions> {
 private:
@@ -512,11 +499,67 @@ public:
 	inline bool set(
 		NumberFormOptions &options,
 		const SymbolPtr key,
-		const BaseExpressionRef &value) const {
+		const BaseExpressionRef &value,
+        const Evaluation &evaluation) const {
 
 		m_formatter.parse_option(options, key, value);
 		return true;
 	}
+};
+
+class OptionsList {
+private:
+    TempVector m_options;
+
+public:
+    OptionsList() {
+    }
+
+    inline void add(
+        const SymbolPtr key,
+        const BaseExpressionRef &value,
+        const Evaluation &evaluation) {
+
+        m_options.push_back(expression(evaluation.RuleDelayed, key, value));
+    }
+
+    inline BaseExpressionRef to_list(
+        const Evaluation &evaluation) const {
+
+        return m_options.to_list(evaluation);
+    }
+
+    inline const TempVector &rules() const {
+        return m_options;
+    }
+};
+
+template<>
+class OptionsDefinitions<OptionsList> {
+private:
+    const Definitions &m_definitions;
+    const OptionsList m_default_list;
+
+public:
+    inline OptionsDefinitions(Definitions &definitions) :
+        m_definitions(definitions) {
+    }
+
+    // initialize
+
+    inline const OptionsList &defaults() const {
+        return m_default_list;
+    }
+
+    inline bool set(
+        OptionsList &options,
+        const SymbolPtr key,
+        const BaseExpressionRef &value,
+        const Evaluation &evaluation) const {
+
+        options.add(key, value, evaluation);
+        return true;
+    }
 };
 
 class NumberForm : public Builtin {
@@ -536,29 +579,80 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
+        builtin(
+            "NumberForm[expr_?ListQ, n_, OptionsPattern[NumberForm]]",
+            &NumberForm::apply_list_n);
+
 		builtin(
-			"MakeBoxes[NumberForm[expr_, OptionsPattern[NumberForm]], form:StandardForm|TraditionalForm|OutputForm]",
+			"MakeBoxes[NumberForm[expr_, n_:Automatic, OptionsPattern[NumberForm]], form:StandardForm|TraditionalForm|OutputForm]",
 			&NumberForm::apply);
+
+        message("iprf", "Formatting specification `1` should be a positive integer or a pair of positive integers.");
 	}
 
+    inline BaseExpressionRef apply_list_n(
+        BaseExpressionPtr expr,
+        BaseExpressionPtr n,
+        const OptionsList &options,
+        const Evaluation &evaluation) {
+
+        assert(expr->is_expression());
+
+        return expr->as_expression()->with_slice([&n, &options, &evaluation] (const auto &slice) {
+            return expression(evaluation.List, sequential([&slice, &n, &options, &evaluation] (auto &store) {
+                for (auto leaf : slice) {
+                    store(expression(
+                        evaluation.NumberForm, sequential([&leaf, &n, &options] (auto &store) {
+                            store(BaseExpressionRef(leaf));
+                            store(BaseExpressionRef(n));
+                            for (auto rule : options.rules()) {
+                                store(BaseExpressionRef(rule));
+                            }
+                        })));
+                }
+            }, slice.size()));
+        });
+    }
+
 	inline BaseExpressionRef apply(
-		BaseExpressionPtr expr,
+        BaseExpressionPtr expr,
+        BaseExpressionPtr n,
 		BaseExpressionPtr form,
 		const NumberFormOptions &options,
 		const Evaluation &evaluation) {
 
-		optional<size_t> n = 6;
+        const auto fallback = [expr, form, &evaluation] () {
+            return expression(evaluation.MakeBoxes, expr, form);
+        };
 
-		if (n) {
-			optional<SExp> s_exp = expr->to_s_exp(n);
+		optional<machine_integer_t> integer_n;
+        optional<machine_integer_t> integer_f;
+
+        if (n->symbol() == S::Automatic) {
+            integer_n = 6;
+        } else if (n->has_form(S::List, 2, evaluation)) {
+            const auto * const leaves = n->as_expression()->n_leaves<2>();
+            integer_n = leaves[0]->get_int_value();
+            integer_f = leaves[1]->get_int_value();
+        } else {
+            integer_n = n->get_int_value();
+        }
+
+        if (!integer_n || *integer_n <= 0 || (integer_f && *integer_f < 0)) {
+            evaluation.message(m_symbol, "iprf", n);
+            return fallback();
+        }
+
+		if (integer_n) {
+			optional<SExp> s_exp = expr->to_s_exp(integer_n);
 
 			if (s_exp) {
 				return evaluation.definitions.number_form(
-					*s_exp, *n, form, options, evaluation);
+					*s_exp, *integer_n, integer_f, form, options, evaluation);
 			}
 		}
 
-		return expression(evaluation.MakeBoxes, expr, form);
+        return fallback();
 	}
 };
 
