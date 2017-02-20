@@ -649,7 +649,7 @@ public:
 
     void build(Runtime &runtime) {
 	    builtin(
-		    "Cases[list_, patt_, ls_:{1}, OptionsPattern[Cases]]",
+		    "Cases[list_, patt_, Shortest[ls_:{1}], OptionsPattern[Cases]]",
 		    &Cases::apply);
     }
 

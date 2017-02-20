@@ -584,7 +584,7 @@ public:
             &NumberForm::apply_list_n);
 
 		builtin(
-			"MakeBoxes[NumberForm[expr_, n_:Automatic, OptionsPattern[NumberForm]], form:StandardForm|TraditionalForm|OutputForm]",
+			"MakeBoxes[NumberForm[expr_, Shortest[n_:Automatic], OptionsPattern[NumberForm]], form:StandardForm|TraditionalForm|OutputForm]",
 			&NumberForm::apply);
 
         message("iprf", "Formatting specification `1` should be a positive integer or a pair of positive integers.");

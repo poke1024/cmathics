@@ -332,6 +332,18 @@ public:
 			case S::Optional:
 				return MatchSize::at_least(0);
 
+			case S::Shortest:
+			case S::Longest: {
+				const size_t n = size();
+
+				if (n >= 1 && n <= 2) {
+					return m_slice[0]->match_size();
+				} else {
+					return MatchSize::exactly(1);
+				}
+			}
+
+
 			default:
 				return MatchSize::exactly(1);
 		}

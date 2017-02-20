@@ -822,7 +822,7 @@ public:
 template<typename Dummy, typename MatchRest>
 class AlternativesMatcher : public PatternMatcher {
 private:
-	std::vector<PatternMatcherRef> m_matchers;
+	const std::vector<PatternMatcherRef> m_matchers;
     const MatchRest m_rest;
 
     template<typename Sequence>
@@ -874,7 +874,7 @@ using SymbolSet = std::unordered_set<SymbolRef, SymbolHash, SymbolEqual>;
 template<typename Dummy, typename MatchRest>
 class SymbolSetMatcher : public PatternMatcher {
 private:
-	SymbolSet m_symbols;
+	const SymbolSet m_symbols;
 	const MatchRest m_rest;
 
 	template<typename Sequence>
@@ -1347,13 +1347,57 @@ public:
     DECLARE_NO_MATCH_CHARACTER_METHODS
 };
 
+class PatternLength {
+public:
+	enum Length {
+		Shortest,
+		Longest,
+		Fallback
+	};
+
+private:
+	Length m_fallback;
+	Length m_local;
+
+public:
+	inline PatternLength(const PatternLength &length) :
+		m_fallback(length.m_fallback), m_local(length.m_local) {
+
+	}
+
+	inline PatternLength(Length fallback) :
+		m_fallback(fallback), m_local(Fallback) {
+	}
+
+	inline PatternLength(Length fallback, Length local) :
+		m_fallback(fallback), m_local(local) {
+	}
+
+	inline PatternLength longest() const {
+		return PatternLength(m_fallback, Longest);
+	}
+
+	inline PatternLength shortest() const {
+		return PatternLength(m_fallback, Shortest);
+	}
+
+	inline bool is_shortest() const {
+		return m_local == Shortest || (m_local == Fallback && m_fallback == Shortest);
+	}
+
+	inline bool is_optional_shortest() const {
+		return m_local == Shortest; // only if explicitly set
+	}
+};
+
+
 class PatternFactory {
 private:
 	CompiledVariables &m_variables;
 	const BaseExpressionRef m_test;
 	const SymbolRef m_variable;
 	const PatternMatcherRef m_next;
-	const bool m_shortest;
+	const PatternLength m_length;
     const bool m_anchored;
 
 	PatternFactory(
@@ -1361,14 +1405,14 @@ private:
 		const BaseExpressionRef test,
 		const SymbolRef variable,
 		const PatternMatcherRef next,
-		const bool shortest,
+		const PatternLength &length,
         const bool anchored) :
 
 		m_variables(variables),
 		m_test(test),
 		m_variable(variable),
 		m_next(next),
-		m_shortest(shortest),
+		m_length(length),
         m_anchored(anchored) {
 	}
 
@@ -1400,9 +1444,9 @@ private:
     }
 
 public:
-	PatternFactory(CompiledVariables &variables) :
+	PatternFactory(CompiledVariables &variables, const PatternLength &length) :
 		m_variables(variables),
-		m_shortest(false),
+		m_length(length),
         m_anchored(true) {
 	}
 
@@ -1414,40 +1458,40 @@ public:
 		return m_next;
 	}
 
-	inline bool is_shortest() const {
-		return m_shortest;
+	inline const PatternLength &length() const {
+		return m_length;
 	}
 
 	PatternFactory for_variable(const SymbolRef &v) const {
-		return PatternFactory(m_variables, m_test, v, m_next, m_shortest, m_anchored);
+		return PatternFactory(m_variables, m_test, v, m_next, m_length, m_anchored);
 	}
 
 	PatternFactory for_test(const BaseExpressionRef &t) const {
-		return PatternFactory(m_variables, t, m_variable, m_next, m_shortest, m_anchored);
+		return PatternFactory(m_variables, t, m_variable, m_next, m_length, m_anchored);
 	}
 
 	PatternFactory for_next(const PatternMatcherRef &n) const {
-		return PatternFactory(m_variables, m_test, m_variable, n, m_shortest, m_anchored);
+		return PatternFactory(m_variables, m_test, m_variable, n, m_length, m_anchored);
 	}
 
 	PatternFactory for_shortest() const {
-		return PatternFactory(m_variables, m_test, m_variable, m_next, true, m_anchored);
+		return PatternFactory(m_variables, m_test, m_variable, m_next, m_length.shortest(), m_anchored);
 	}
 
 	PatternFactory for_longest() const {
-		return PatternFactory(m_variables, m_test, m_variable, m_next, false, m_anchored);
+		return PatternFactory(m_variables, m_test, m_variable, m_next, m_length.longest(), m_anchored);
 	}
 
 	PatternFactory stripped(bool anchored = true) const {
-		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), PatternMatcherRef(), m_shortest, anchored);
+		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), PatternMatcherRef(), m_length, anchored);
 	}
 
 	PatternFactory alternative() const {
-		return PatternFactory(m_variables, m_test, m_variable, m_next, m_shortest, true);
+		return PatternFactory(m_variables, m_test, m_variable, m_next, m_length, true);
 	}
 
 	PatternFactory unbound() const {
-		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), PatternMatcherRef(), m_shortest, true);
+		return PatternFactory(m_variables, BaseExpressionRef(), SymbolRef(), PatternMatcherRef(), m_length, true);
 	}
 
 	template<template<typename, typename> class Matcher, typename Parameter>
@@ -1803,7 +1847,7 @@ public:
 	inline PatternMatcherRef operator()(
 		const Form &form,
 		const PatternFactory &factory) const {
-		if (factory.is_shortest()) {
+		if (factory.length().is_shortest()) {
 			return create_blank_matcher<MatchShortest, Form>(form, factory);
 		} else {
 			return create_blank_matcher<MatchLongest, Form>(form, factory);
@@ -1914,7 +1958,7 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 				const PatternMatcherRef matcher = compile(
 					patt_begin[0], size.from_here(), factory.stripped(false));
 				const auto parameters = std::make_tuple(matcher, patt_begin[1]);
-				if (factory.is_shortest()) {
+				if (factory.length().is_optional_shortest()) {
 					return factory.create<ShortestOptionalMatcher>(parameters);
 				} else {
 					return factory.create<LongestOptionalMatcher>(parameters);
@@ -1943,13 +1987,15 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt) {
 	PatternCompiler compiler(false);
 	CompiledVariables variables;
-	return compiler.compile(patt, MatchSize::exactly(0), PatternFactory(variables).for_shortest());
+	return compiler.compile(patt, MatchSize::exactly(0),
+		PatternFactory(variables, PatternLength(PatternLength::Shortest)));
 }
 
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt) {
 	PatternCompiler compiler(true);
 	CompiledVariables variables;
-	return compiler.compile(patt, MatchSize::exactly(0), PatternFactory(variables).for_longest());
+	return compiler.compile(patt, MatchSize::exactly(0),
+		PatternFactory(variables, PatternLength(PatternLength::Longest)));
 }
 
 index_t PatternMatcher::match(

@@ -331,6 +331,8 @@ BaseExpressionRef NumberFormatter::operator()(
         left_padding = n - l;
     } else if (sign_prefix->length() < max_sign_len) {
         left_padding = max_sign_len - sign_prefix->length();
+    } else {
+	    left_padding = 0;
     }
     assert(left_padding >= 0);
 
