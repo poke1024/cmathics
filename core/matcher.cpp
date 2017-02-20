@@ -1376,13 +1376,16 @@ private:
     PatternMatcherRef create(Parameter &&parameter, const Test &test, const Variable &variable) const {
         if (!m_anchored) {
             const auto rest = RestMatcher<Test, Variable, Unanchored>(test, variable, Unanchored());
-            return new Matcher<Parameter, decltype(rest)>(std::forward<Parameter>(parameter), rest);
+            return new Matcher<typename std::remove_reference<Parameter>::type, decltype(rest)>(
+		        std::forward<Parameter>(parameter), rest);
         } else if (m_next) {
             const auto rest = RestMatcher<Test, Variable, Continue>(test, variable, Continue(m_next));
-            return new Matcher<Parameter, decltype(rest)>(std::forward<Parameter>(parameter), rest);
+            return new Matcher<typename std::remove_reference<Parameter>::type, decltype(rest)>(
+		        std::forward<Parameter>(parameter), rest);
         } else {
             const auto rest = RestMatcher<Test, Variable, Terminate>(test, variable, Terminate());
-            return new Matcher<Parameter, decltype(rest)>(std::forward<Parameter>(parameter), rest);
+            return new Matcher<typename std::remove_reference<Parameter>::type, decltype(rest)>(
+		        std::forward<Parameter>(parameter), rest);
         }
     }
 
