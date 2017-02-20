@@ -205,14 +205,24 @@ inline DynamicOptionsProcessor::DynamicOptionsProcessor() :
 	OptionsProcessor(Dynamic), m_options(Pool::options_map_allocator()) {
 }
 
+inline SlotVector::SlotVector(size_t size) : m_size(size) {
+    if (size <= n_preallocated) {
+        m_slots_ptr = m_slots;
+    } else {
+        m_vector.emplace(size, Pool::slots_allocator());
+        m_slots_ptr = m_vector->data();
+    }
+}
+
+
 inline Match::Match() :
-    m_slots(Pool::slots_allocator()),
+    m_slots(),
     m_slots_fixed(0) {
 }
 
 inline Match::Match(const PatternMatcherRef &matcher) :
 	m_matcher(matcher),
-	m_slots(matcher->variables().size(), Pool::slots_allocator()),
+	m_slots(matcher->variables().size()),
 	m_slots_fixed(0) {
 }
 

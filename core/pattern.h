@@ -357,10 +357,40 @@ public:
 using OptionsProcessorRef = ConstSharedPtr<OptionsProcessor>;
 using UnsafeOptionsProcessorRef = UnsafeSharedPtr<OptionsProcessor>;
 
+class SlotVector {
+private:
+    enum {
+        n_preallocated = 8
+    };
+
+    Slot m_slots[n_preallocated];
+    Slot *m_slots_ptr;
+    const size_t m_size;
+    optional<std::vector<Slot, SlotAllocator>> m_vector;
+
+public:
+    inline SlotVector() : m_size(0) {
+    }
+
+    inline SlotVector(size_t size);
+
+    inline size_t size() const {
+        return m_size;
+    }
+
+    inline const Slot &operator[](size_t index) const {
+        return m_slots_ptr[index];
+    }
+
+    inline Slot &operator[](size_t index) {
+        return m_slots_ptr[index];
+    }
+};
+
 class Match : public Shared<Match, SharedPool> {
 private:
     PatternMatcherRef m_matcher;
-    std::vector<Slot, SlotAllocator> m_slots;
+    SlotVector m_slots;
     index_t m_slots_fixed;
     UnsafeOptionsProcessorRef m_options;
 
