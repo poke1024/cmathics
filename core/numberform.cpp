@@ -5,6 +5,41 @@
 #include "string.h"
 #include "evaluation.h"
 
+inline StringRef round(StringRef number, machine_integer_t n_digits) {
+    assert(n_digits < 0);
+    const char *s = number->ascii();
+
+    assert(s);
+    mpz_class n(s);
+    assert(n >= 0);
+
+    mpz_class scale;
+    mpz_ui_pow_ui(scale.get_mpz_t(), 10, -(1 + n_digits));
+
+    n += 5 * scale;
+    n /= 10 * scale;
+
+    return Pool::String(n.get_str());
+}
+
+class IllegalDigitBlock {
+};
+
+inline machine_integer_t digit_block(const BaseExpressionRef &rhs) {
+    if (rhs->symbol() == S::Infinity) {
+        return 0;
+    } else {
+        const auto int_value = rhs->get_machine_int_value();
+
+        if (int_value && *int_value > 0) {
+            return *int_value;
+        }
+    }
+
+    throw IllegalDigitBlock();
+}
+
+
 inline StringRef NumberFormatter::blocks(
     StringPtr s,
     machine_integer_t start,
@@ -55,35 +90,44 @@ inline BaseExpressionRef NumberFormatter::default_number_format(
 void NumberFormatter::parse_option(
 	NumberFormOptions &options,
 	const SymbolPtr lhs,
-	const BaseExpressionRef &rhs) const {
+	const BaseExpressionRef &rhs,
+    const Evaluation &evaluation) const {
 
-	const auto extract_string_pair = [&rhs] (StringPtr *ptr) {
-		if (rhs->is_expression() &&
-		    rhs->as_expression()->size() == 2) {
+	const auto extract_string_pair =
+        [this, &rhs, &options, &evaluation] (StringPtr *ptr, const char *error) {
+            if (rhs->has_form(S::List, 2, evaluation)) {
+                const auto * const leaves =
+                    rhs->as_expression()->n_leaves<2>();
 
-			const auto * const leaves =
-				rhs->as_expression()->n_leaves<2>();
-
-			for (int i = 0; i < 2; i++) {
-				const BaseExpressionRef &leaf = leaves[i];
-				if (leaf->is_string()) {
-					ptr[i] = leaf->as_string();
-				}
-			}
-		}
-	};
+                for (int i = 0; i < 2; i++) {
+                    const BaseExpressionRef &leaf = leaves[i];
+                    if (leaf->is_string()) {
+                        ptr[i] = leaf->as_string();
+                    }
+                }
+            } else if (rhs->is_string()) {
+                ptr[0] = rhs->as_string();
+                ptr[1] = rhs->as_string();
+            } else {
+                evaluation.message(m_number_form, error, rhs);
+                options.valid = false;
+            }
+        };
 
 	switch (lhs->symbol()) {
 		case S::NumberSigns:
-			extract_string_pair(options.NumberSigns);
+			extract_string_pair(options.NumberSigns, "nsgn");
 			break;
 
 		case S::ExponentStep: {
 			const optional<machine_integer_t> value =
-					rhs->get_int_value();
-			if (value) {
+                rhs->get_machine_int_value();
+			if (value && *value > 0) {
 				options.ExponentStep = *value;
-			}
+			} else {
+                evaluation.message(m_number_form, "estep", Pool::String("ExponentStep"), rhs);
+                options.valid = false;
+            }
 			break;
 		}
 
@@ -92,37 +136,64 @@ void NumberFormatter::parse_option(
 			break;
 
 		case S::DigitBlock:
-			if (rhs->is_expression() &&
-			    rhs->as_expression()->size() == 2) {
+            try {
+                if (rhs->is_expression() &&
+                    rhs->as_expression()->size() == 2) {
 
-				const auto * const leaves =
-						rhs->as_expression()->n_leaves<2>();
+                    const auto *const leaves =
+                        rhs->as_expression()->n_leaves<2>();
+                    machine_integer_t block[2];
 
-				for (int i = 0; i < 2; i++) {
-					const auto value = leaves[i]->get_int_value();
-					options.DigitBlock[i] = value ? *value : 0;
-				}
-			}
+                    for (int i = 0; i < 2; i++) {
+                        block[i] = digit_block(leaves[i]);
+                    }
+
+                    for (int i = 0; i < 2; i++) {
+                        options.DigitBlock[i] = block[i];
+                    }
+                } else {
+                    const auto value = digit_block(rhs);
+                    options.DigitBlock[0] = value;
+                    options.DigitBlock[1] = value;
+                }
+            } catch (const IllegalDigitBlock &) {
+                evaluation.message(m_number_form, "dblk", rhs);
+                options.valid = false;
+            }
 			break;
 
 		case S::NumberSeparator: {
-			extract_string_pair(options.NumberSeparator);
+			extract_string_pair(options.NumberSeparator, "nspr");
 			break;
 		}
 
 		case S::NumberPadding: {
-			extract_string_pair(options.NumberPadding);
+			extract_string_pair(options.NumberPadding, "npad");
 			break;
 		}
 
 		case S::SignPadding:
-			options.SignPadding = rhs->is_true();
+            switch (rhs->symbol()) {
+                case S::True:
+                    options.SignPadding = true;
+                    break;
+                case S::False:
+                    options.SignPadding = false;
+                    break;
+                default:
+                    evaluation.message(m_number_form, "opttf", rhs);
+                    options.valid = false;
+                    break;
+            }
 			break;
 
 		case S::NumberPoint:
 			if (rhs->is_string()) {
 				options.NumberPoint = rhs->as_string();
-			}
+			} else {
+                evaluation.message(m_number_form, "npt", Pool::String("NumberPoint"), rhs);
+                options.valid = false;
+            }
 			break;
 
 		case S::NumberFormat:
@@ -130,7 +201,12 @@ void NumberFormatter::parse_option(
 			break;
 
 		case S::NumberMultiplier:
-			options.NumberMultiplier = rhs.get();
+            if (rhs->is_string()) {
+                options.NumberMultiplier = rhs->as_string();
+            } else {
+                evaluation.message(m_number_form, "npt", Pool::String("NumberMultiplier"), rhs);
+                options.valid = false;
+            }
 			break;
 
 		default:
@@ -163,7 +239,7 @@ void NumberFormatter::parse_options(
                 const BaseExpressionRef &lhs = leaves[0];
 	            if (lhs->is_symbol()) {
 		            const BaseExpressionRef &rhs = leaves[1];
-		            parse_option(options, lhs->as_symbol(), rhs);
+		            parse_option(options, lhs->as_symbol(), rhs, evaluation);
 	            }
             }
         }
@@ -178,7 +254,7 @@ void NumberFormatter::parse_options(
 	init_options(options);
 
 	for (auto i = options_map.begin(); i != options_map.end(); i++) {
-		parse_option(options, i->first.get(), i->second);
+		parse_option(options, i->first.get(), i->second, evaluation);
 	}
 }
 
@@ -218,8 +294,12 @@ NumberFormatter::NumberFormatter(const Symbols &symbols) {
 
     m_default_options.NumberFormat = automatic;
 
-    m_number_multiplier = Pool::String(std::string("\x00\xd7"));
+    m_number_multiplier = Pool::String(std::string("\xC3\x97"));
     m_default_options.NumberMultiplier = m_number_multiplier.get();
+
+    m_default_options.valid = true;
+
+    m_make_boxes_default_options = m_default_options; // FIXME
 }
 
 BaseExpressionRef NumberFormatter::operator()(
@@ -230,13 +310,19 @@ BaseExpressionRef NumberFormatter::operator()(
 	const NumberFormOptions &options,
     const Evaluation &evaluation) const {
 
-    const bool is_int = false;
-
     UnsafeStringRef s;
     machine_integer_t exp;
     int non_negative;
+    bool is_int_type;
 
-    std::tie(s, exp, non_negative) = s_exp;
+    std::tie(s, exp, non_negative, is_int_type) = s_exp;
+
+    bool is_int = false;
+    if (is_int_type) {
+        if (!f) {
+            is_int = true;
+        }
+    }
 
     assert(n > 0);
     assert(non_negative >= 0 && non_negative <= 1);
@@ -265,7 +351,7 @@ BaseExpressionRef NumberFormatter::operator()(
         } else {
             value = expression(
                 options.ExponentFunction,
-                from_primitive(rexp))->evaluate(evaluation)->get_int_value();
+                from_primitive(rexp))->evaluate_or_copy(evaluation)->get_machine_int_value();
         }
 
         if (value) {
@@ -293,7 +379,16 @@ BaseExpressionRef NumberFormatter::operator()(
     UnsafeStringRef right = s->substr(exp + 1);
 
     // pad with NumberPadding
-    // FIXME
+    if (f) {
+        const size_t k = right->length();
+        if (k < *f) { // pad right?
+            right = string_join(right, options.NumberPadding[1]->repeat(*f - right->length()));
+        } else if (k > *f) { // round right?
+            const StringRef number = round(string_join(left, right), *f - k);
+            left = number->substr(0, exp + 1);
+            right = number->substr(exp + 1);
+        }
+    }
 
     // insert NumberSeparator
     const auto &digit_block = options.DigitBlock;

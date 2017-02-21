@@ -12,7 +12,8 @@ public:
     bool SignPadding;
     StringPtr NumberPoint;
     BaseExpressionPtr NumberFormat;
-    BaseExpressionPtr NumberMultiplier;
+    StringPtr NumberMultiplier;
+    bool valid;
 };
 
 class Runtime;
@@ -33,6 +34,7 @@ private:
     UnsafeStringRef m_number_multiplier;
 
 	NumberFormOptions m_default_options;
+    NumberFormOptions m_make_boxes_default_options;
 
 public:
 	NumberFormatter(const Symbols &symbols);
@@ -79,10 +81,15 @@ public:
 		return m_default_options;
 	}
 
+    inline const NumberFormOptions &make_boxes_defaults() const {
+        return m_make_boxes_default_options;
+    }
+
 	void parse_option(
 		NumberFormOptions &options,
 		const SymbolPtr lhs,
-		const BaseExpressionRef &rhs) const;
+		const BaseExpressionRef &rhs,
+        const Evaluation &evaluation) const;
 };
 
 #endif //CMATHICS_NUMBERFORM_H

@@ -56,7 +56,62 @@ public:
     }
 };
 
+class Quotient : public Builtin {
+public:
+    static constexpr const char *name = "Quotient";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Quotient[m, n]'
+      <dd>computes the integer quotient of $m$ and $n$.
+    </dl>
+
+    >> Quotient[23, 7]
+     = 3
+
+    >> Quotient[13, 0]
+     : Infinite expression Quotient[13, 0] encountered.
+     = ComplexInfinity
+    >> Quotient[-17, 7]
+     = -3
+    >> Quotient[-17, -4]
+     = 4
+    >> Quotient[19, -4]
+     = -5
+	)";
+
+    static constexpr auto attributes =
+        Attributes::Listable + Attributes::NumericFunction;
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        message("infy", "Infinite expression `1` encountered.");
+
+        builtin("Quotient[m_Integer, n_Integer]", &Quotient::apply);
+    }
+
+    inline BaseExpressionRef apply(
+        BaseExpressionPtr m,
+        BaseExpressionPtr n,
+        const Evaluation &evaluation) {
+
+        const auto numeric_m = m->get_int_value();
+        const auto numeric_n = n->get_int_value();
+        assert(numeric_m && numeric_n);
+
+        if ((*numeric_n).is_zero()) {
+            evaluation.message(m_symbol, "infy", expression(m_symbol, m, n));
+            return evaluation.ComplexInfinity;
+        }
+
+        return (*numeric_m / *numeric_n).to_expression();
+    }
+};
+
 void Builtins::NumberTheory::initialize() {
     add<EvenQ>();
     add<OddQ>();
+    add<Quotient>();
 }

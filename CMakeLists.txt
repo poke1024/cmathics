@@ -137,7 +137,14 @@ set(SOURCE_FILES
     arithmetic/mul.h
     builtin/comparison.cpp
     builtin/comparison.h
-    arithmetic/binary.h builtin/evaluation.cpp builtin/evaluation.h core/numberform.h core/numberform.cpp builtin/options.cpp builtin/options.h)
+    arithmetic/binary.h
+    builtin/evaluation.cpp
+    builtin/evaluation.h
+    core/numberform.h
+    core/numberform.cpp
+    builtin/options.cpp
+    builtin/options.h
+    core/numeric.tcc)
 
 add_custom_target(standalone)
 

@@ -117,7 +117,7 @@ public:
 UnsafeSlotFunctionRef SlotFunction::construct(const Expression *body) {
     SlotArguments arguments;
     return UnsafeSlotFunctionRef(new SlotFunction(
-        new RewriteExpression(arguments, body), arguments.slot_count()));
+        Rewrite::construct(arguments, body), arguments.slot_count()));
 }
 
 template<typename Arguments>
@@ -126,13 +126,25 @@ inline BaseExpressionRef SlotFunction::rewrite_or_copy(
     const Arguments &args,
     size_t n_args) const {
 
-    if (n_args != m_slot_count) {
-        throw std::runtime_error("wrong slot count");
-    }
-
-    return m_rewrite->rewrite_or_copy(body, args, [] (const SymbolRef &name) {
+    const auto no_symbols = [] (const SymbolRef &name) {
         return BaseExpressionRef();
-    });
+    };
+
+    if (n_args >= m_slot_count) {
+        return m_rewrite->rewrite_or_copy(
+            body, args, no_symbols);
+    } else {
+        return m_rewrite->rewrite_or_copy(
+            body,
+            [&args, n_args] (index_t i, const BaseExpressionRef &expr) {
+                if (size_t(i) >= n_args) {
+                    return expr;
+                } else {
+                    return args(i, expr);
+                }
+            },
+            no_symbols);
+    }
 }
 
 class FunctionRule : public Rule {

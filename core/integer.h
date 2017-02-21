@@ -64,6 +64,8 @@ public:
 
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
+    virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
+
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
         return Pool::SymbolicForm(SymEngine::integer(value));
@@ -124,6 +126,8 @@ public:
 
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
+    virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
+
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
 		return Pool::SymbolicForm(SymEngine::integer(value.get_mpz_t()));
@@ -131,12 +135,6 @@ protected:
 };
 
 inline BaseExpressionRef from_primitive(const mpz_class &value);
-
-inline mpz_class machine_integer_to_mpz(machine_integer_t machine_value) {
-	mpz_class value;
-	value = long(machine_value);
-	return value;
-}
 
 inline bool BaseExpression::is_zero() const {
     if (type() == MachineIntegerType) {
@@ -162,11 +160,22 @@ inline bool BaseExpression::is_minus_one() const {
     }
 }
 
-inline optional<machine_integer_t> BaseExpression::get_int_value() const {
+inline optional<machine_integer_t> BaseExpression::get_machine_int_value() const {
     if (type() == MachineIntegerType) {
         return static_cast<const MachineInteger*>(this)->value;
     } else {
         return optional<machine_integer_t>();
+    }
+}
+
+inline optional<Numeric::Z> BaseExpression::get_int_value() const {
+    switch (type()) {
+        case MachineIntegerType:
+            return Numeric::Z(static_cast<const MachineInteger*>(this)->value);
+        case BigIntegerType:
+            return Numeric::Z(static_cast<const BigInteger*>(this)->value);
+        default:
+            return optional<Numeric::Z>();
     }
 }
 

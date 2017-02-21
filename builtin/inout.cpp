@@ -166,13 +166,13 @@ private:
             case S::Prefix:
             case S::Postfix:
                 if (leaf->as_expression()->size() >= 3) {
-                    leaf_precedence = leaf->as_expression()->leaf(2)->get_int_value();
+                    leaf_precedence = leaf->as_expression()->leaf(2)->get_machine_int_value();
                 }
                 break;
 
             case S::PrecedenceForm:
                 if (leaf->as_expression()->size() == 2) {
-                    leaf_precedence = leaf->as_expression()->leaf(1)->get_int_value();
+                    leaf_precedence = leaf->as_expression()->leaf(1)->get_machine_int_value();
                 }
                 break;
 
@@ -341,7 +341,7 @@ public:
                 expr->as_expression()->n_leaves<1>()[0];
 
             const BaseExpressionRef leaf = parenthesize(
-                precedence->get_int_value(),
+                precedence->get_machine_int_value(),
                 pure_leaf,
                 expression(evaluation.MakeBoxes, pure_leaf, form),
                 true,
@@ -434,7 +434,7 @@ public:
                 }, n - 1));
             }
 
-            const auto precedence_int = precedence->get_int_value();
+            const auto precedence_int = precedence->get_machine_int_value();
 
             return ops->with_slice([this, t_expr, n, precedence_int, grouping, form, &evaluation] (const auto &ops) {
                 return t_expr->with_slice([this, n, &ops, precedence_int, grouping, form, &evaluation] (const auto &leaves) {
@@ -502,7 +502,7 @@ public:
 		const BaseExpressionRef &value,
         const Evaluation &evaluation) const {
 
-		m_formatter.parse_option(options, key, value);
+		m_formatter.parse_option(options, key, value, evaluation);
 		return true;
 	}
 };
@@ -587,6 +587,13 @@ public:
 			"MakeBoxes[NumberForm[expr_, Shortest[n_:Automatic], OptionsPattern[NumberForm]], form:StandardForm|TraditionalForm|OutputForm]",
 			&NumberForm::apply);
 
+        message("npad", "Value for option NumberPadding -> `1` should be a string or a pair of strings.");
+        message("dblk", "Value for option DigitBlock should be a positive integer, Infinity, or a pair of positive integers.");
+        message("npt", "Value for option `1` -> `2` is expected to be a string.");
+        message("nsgn", "Value for option NumberSigns -> `1` should be a pair of strings or two pairs of strings.");
+        message("nspr", "Value for option NumberSeparator -> `1` should be a string or a pair of strings.");
+        message("opttf", "Value of option `1` -> `2` should be True or False.");
+        message("estep", "Value of option `1` -> `2` is not a positive integer.");
         message("iprf", "Formatting specification `1` should be a positive integer or a pair of positive integers.");
 	}
 
@@ -625,17 +632,27 @@ public:
             return expression(evaluation.MakeBoxes, expr, form);
         };
 
-		optional<machine_integer_t> integer_n;
+        if (!options.valid) {
+            return fallback();
+        }
+
+        optional<machine_integer_t> integer_n;
         optional<machine_integer_t> integer_f;
 
         if (n->symbol() == S::Automatic) {
-            integer_n = 6;
+            // no preset for integer_n
         } else if (n->has_form(S::List, 2, evaluation)) {
             const auto * const leaves = n->as_expression()->n_leaves<2>();
-            integer_n = leaves[0]->get_int_value();
-            integer_f = leaves[1]->get_int_value();
+            integer_n = leaves[0]->get_machine_int_value();
+            integer_f = leaves[1]->get_machine_int_value();
         } else {
-            integer_n = n->get_int_value();
+            integer_n = n->get_machine_int_value();
+        }
+
+        optional<SExp> s_exp = expr->to_s_exp(integer_n);
+
+        if (!s_exp) {
+            return fallback();
         }
 
         if (!integer_n || *integer_n <= 0 || (integer_f && *integer_f < 0)) {
@@ -643,16 +660,8 @@ public:
             return fallback();
         }
 
-		if (integer_n) {
-			optional<SExp> s_exp = expr->to_s_exp(integer_n);
-
-			if (s_exp) {
-				return evaluation.definitions.number_form(
-					*s_exp, *integer_n, integer_f, form, options, evaluation);
-			}
-		}
-
-        return fallback();
+        return evaluation.definitions.number_form(
+            *s_exp, *integer_n, integer_f, form, options, evaluation);
 	}
 };
 

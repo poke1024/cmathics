@@ -191,14 +191,14 @@ typedef UnsafeSharedPtr<SlotFunction> UnsafeSlotFunctionRef;
 
 struct SlotFunction : public Shared<SlotFunction, SharedHeap> {
 private:
-	const RewriteExpressionRef m_rewrite;
+	const RewriteRef m_rewrite;
     const size_t m_slot_count;
 
 	inline SlotFunction(
-		const RewriteExpressionRef &function,
+		const RewriteRef &rewrite,
 		size_t slot_count) :
 
-		m_rewrite(function),
+		m_rewrite(rewrite),
 		m_slot_count(slot_count) {
 	}
 

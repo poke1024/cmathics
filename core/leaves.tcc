@@ -1,5 +1,6 @@
 #include "primitives.tcc"
 #include "heap.tcc"
+#include "numeric.tcc"
 #include <static_if/static_if.hpp>
 
 template<typename T>

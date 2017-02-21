@@ -90,7 +90,7 @@ inline std::string rstrip(const std::string &s, char c) {
 }
 
 inline SExp real_to_s_exp(
-    std::string s,
+    std::string &&s,
     const optional<machine_integer_t> &n,
     bool is_machine_precision) {
 
@@ -116,8 +116,13 @@ inline SExp real_to_s_exp(
             s = s[0] + rstrip(s.substr(2), '0');
         }
     } else {
-        exp = machine_integer_t(s.find('.')) - 1;
-        s = s.substr(0, exp + 1) + rstrip(s.substr(exp + 2), '0');
+        const auto t = s.find('.');
+        if (t == std::string::npos) {
+            exp = machine_integer_t(s.length()) - 1;
+        } else {
+            exp = machine_integer_t(t) - 1;
+            s = s.substr(0, exp + 1) + rstrip(s.substr(exp + 2), '0');
+        }
 
         // consume leading '0's.
         size_t i = 0;
@@ -129,13 +134,13 @@ inline SExp real_to_s_exp(
     }
 
     if (n && !is_machine_precision && *n > s.length()) {
-        s = s + std::string(*n - s.length(), '0');
+        s += std::string(*n - s.length(), '0');
     }
 
     return SExp(Pool::String(std::move(s)), exp, non_negative);
 }
 
-optional<SExp> MachineReal::to_s_exp(const optional<machine_integer_t> &n) const {
+optional<SExp> MachineReal::to_s_exp(optional<machine_integer_t> &n) const {
 	std::string s;
 	if (n) {
         const std::string format(
@@ -148,8 +153,9 @@ optional<SExp> MachineReal::to_s_exp(const optional<machine_integer_t> &n) const
 		s = buffer.get();
 	} else {
 		s = std::to_string(value);
+        n = 6;
 	}
-    return real_to_s_exp(s, n, true);
+    return real_to_s_exp(std::move(s), n, true);
 }
 
 std::string MachineReal::debugform() const {
@@ -183,10 +189,8 @@ BaseExpressionRef MachineReal::make_boxes(
 
 	const auto &number_form = evaluation.definitions.number_form;
 
-	NumberFormOptions options;
-	number_form.parse_options(evaluation.empty_list, options, evaluation);
     return evaluation.definitions.number_form(
-        *s_exp, n, optional<machine_integer_t>(), form, options, evaluation);
+        *s_exp, n, optional<machine_integer_t>(), form, number_form.make_boxes_defaults(), evaluation);
 }
 
 std::string MachineReal::boxes_to_text(const Evaluation &evaluation) const {
@@ -238,14 +242,14 @@ BaseExpressionRef BigReal::make_boxes(
     const Evaluation &evaluation) const {
 
     const size_t n = std::floor(prec.decimals);
-    const optional<SExp> s_exp = to_s_exp(n);
+    optional<machine_integer_t> nn = n;
+    const optional<SExp> s_exp = to_s_exp(nn);
 	assert(s_exp);
 
-	const auto &number_form = evaluation.definitions.number_form;
-	NumberFormOptions options;
-	number_form.parse_options(evaluation.empty_list, options, evaluation);
-	return evaluation.definitions.number_form(
-        *s_exp, n, optional<machine_integer_t>(), form, options, evaluation);
+    const auto &number_form = evaluation.definitions.number_form;
+
+	return number_form(
+        *s_exp, n, optional<machine_integer_t>(), form, number_form.make_boxes_defaults(), evaluation);
 }
 
 std::string BigReal::boxes_to_text(const Evaluation &evaluation) const {
@@ -295,8 +299,12 @@ BaseExpressionRef BigReal::negate(const Evaluation &evaluation) const {
     return Pool::BigReal(negated, prec);
 }
 
-optional<SExp> BigReal::to_s_exp(const optional<machine_integer_t> &n) const {
+optional<SExp> BigReal::to_s_exp(optional<machine_integer_t> &n) const {
 	const size_t t = n ? *n : prec.decimals;
+
+    if (!n) {
+         n = t;
+    }
 
     std::string s;
     const std::string format(
@@ -308,5 +316,5 @@ optional<SExp> BigReal::to_s_exp(const optional<machine_integer_t> &n) const {
     mpfr_snprintf(buffer.get(), k + 1, format.c_str(), value);
     s = buffer.get();
 
-    return real_to_s_exp(std::move(s), n, true);
+    return real_to_s_exp(std::move(s), n, false);
 }

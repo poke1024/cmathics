@@ -40,6 +40,21 @@ public:
         const BaseExpressionPtr n,
         const Evaluation &evaluation) {
 
+        if (expr->is_expression()) {
+            const BaseExpressionPtr head = expr->as_expression()->head();
+
+            switch (head->symbol()) {
+                case S::List:
+                case S::Rule:
+                    return expr->as_expression()->map(
+                        head, [this, n, &evaluation] (const BaseExpressionRef &leaf) {
+                            return apply(leaf.get(), n, evaluation);
+                        });
+                default:
+                    break;
+            }
+        }
+
         const SymbolicFormRef form = symbolic_form(expr, evaluation);
         if (!form || form->is_none()) {
             return BaseExpressionRef();

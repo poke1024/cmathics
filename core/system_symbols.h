@@ -65,6 +65,7 @@ SYMBOL(Cos)
 SYMBOL(Sin)
 SYMBOL(Tan)
 
+SYMBOL(Infinity)
 SYMBOL(DirectedInfinity)
 SYMBOL(ComplexInfinity)
 SYMBOL(Indeterminate)

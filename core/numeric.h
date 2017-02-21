@@ -4,16 +4,72 @@
 #include <gmpxx.h>
 #include <arb.h>
 
-#include "types.h"
+/*#include "types.h"
 #include "integer.h"
 #include "real.h"
 #include "rational.h"
-#include "heap.h"
+#include "heap.h"*/
+
+inline mpz_class machine_integer_to_mpz(machine_integer_t machine_value) {
+    mpz_class value;
+    value = long(machine_value);
+    return value;
+}
+
+class Precision {
+private:
+    static inline mp_prec_t to_bits_prec(double prec) {
+        constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
+        return static_cast<mp_prec_t>(ceil(LOG_2_10 * prec));
+    }
+
+    static inline mp_prec_t from_bits_prec(mp_prec_t bits_prec) {
+        constexpr double LOG_2_10 = 3.321928094887362; // log2(10.0);
+        return bits_prec / LOG_2_10;
+    }
+
+public:
+    static const Precision none;
+    static const Precision machine_precision;
+
+    inline explicit Precision(double decimals_) : decimals(decimals_), bits(to_bits_prec(decimals_)) {
+    }
+
+    inline explicit Precision(mp_prec_t bits_) : bits(bits_), decimals(from_bits_prec(bits_)) {
+    }
+
+    inline Precision(const Precision &p) : decimals(p.decimals), bits(p.bits) {
+    }
+
+    inline bool is_machine_precision() const {
+        return bits == std::numeric_limits<machine_real_t>::digits;
+    }
+
+    inline bool is_none() const {
+        return bits == 0;
+    }
+
+    const double decimals;
+    const mp_prec_t bits;
+};
+
+inline bool operator<(const Precision &u, const Precision &v) {
+    return u.bits < v.bits;
+}
+
+inline bool operator>(const Precision &u, const Precision &v) {
+    return u.bits > v.bits;
+}
+
+Precision precision(const BaseExpressionRef&);
 
 namespace Numeric {
 
 	class Z {
-	private:
+    private:
+        static_assert(sizeof(long) == sizeof(machine_integer_t),
+          "types long and machine_integer_t must not differ for Numeric::Z to work");
+
 		long machine_value;
 		mpz_t big_value;
 		bool is_big;
@@ -24,16 +80,19 @@ namespace Numeric {
 				if (!b.is_big) {
 					long r;
 					if (!__builtin_saddl_overflow(a.machine_value, b.machine_value, &r)) {
-						if (!c_is_a) {
-							c.is_big = false;
-						}
+						assert(!c.is_big);
 						c.machine_value = r;
 						return;
 					}
 				}
+                assert(!c.is_big);
 				mpz_init_set_si(c.big_value, a.machine_value);
 				c.is_big = true;
-			}
+			} else if (!c_is_a) { // a.is_big && c != a
+                assert(!c.is_big);
+                mpz_init_set(c.big_value, a.big_value);
+                c.is_big = true;
+            }
 			if (b.is_big) {
 				mpz_add(c.big_value, c.big_value, b.big_value);
 			} else {
@@ -52,16 +111,19 @@ namespace Numeric {
 				if (!b.is_big) {
 					long r;
 					if (!__builtin_smull_overflow(a.machine_value, b.machine_value, &r)) {
-						if (!c_is_a) {
-							c.is_big = false;
-						}
+                        assert(!c.is_big);
 						c.machine_value = r;
 						return;
 					}
 				}
+                assert(!c.is_big);
 				mpz_init_set_si(c.big_value, a.machine_value);
 				c.is_big = true;
-			}
+			} else if (!c_is_a) { // a.is_big && c != a
+                assert(!c.is_big);
+                mpz_init_set(c.big_value, a.big_value);
+                c.is_big = true;
+            }
 			if (b.is_big) {
 				mpz_mul(c.big_value, c.big_value, b.big_value);
 			} else {
@@ -69,7 +131,50 @@ namespace Numeric {
 			}
 		}
 
-		inline Z() {
+        template<bool c_is_a>
+        inline static void quotient(Z &c, const Z &a, const Z &b) {
+            if (!a.is_big) {
+                if (!b.is_big && a.machine_value > 0 && b.machine_value > 0) {
+                    // if a or b are negative, there are several nasty border:
+                    // cases: C++ integer div truncates instead of floors (for
+                    // C89, it's even implementation dependent), and there are
+                    // overflowing border cases (e.g. x / -1). so we just let
+                    // mpz deal with all this.
+
+                    assert(!c.is_big);
+                    c.machine_value = a.machine_value / b.machine_value;
+                    return;
+                } else {
+                    assert(!c.is_big);
+                    mpz_init_set_si(c.big_value, a.machine_value);
+                    c.is_big = true;
+                }
+            } else if (!c_is_a) { // a.is_big && c != a
+                assert(!c.is_big);
+                mpz_init_set(c.big_value, a.big_value);
+                c.is_big = true;
+            }
+
+            if (!b.is_big && b.machine_value > 0) {
+                mpz_fdiv_q_ui(c.big_value, c.big_value, b.machine_value);
+            } else if (b.is_big) {
+                mpz_fdiv_q(c.big_value, c.big_value, b.big_value);
+            } else {
+                mpz_t t;
+                mpz_init_set_si(t, b.machine_value);
+                mpz_fdiv_q(c.big_value, c.big_value, t);
+                mpz_clear(t);
+            }
+
+            assert(c.is_big);
+            if (mpz_fits_slong_p(c.big_value)) {
+                c.machine_value = mpz_get_si(c.big_value);
+                mpz_clear(c.big_value);
+                c.is_big = false;
+            }
+        }
+
+		inline Z() : is_big(false) {
 		}
 
 	public:
@@ -119,6 +224,12 @@ namespace Numeric {
 			}
 		}
 
+        inline bool is_zero() const {
+            return is_big ?
+               mpz_cmp_ui(big_value, 0) == 0 :
+               machine_value == 0;
+        }
+
 		inline Z operator+(const Z &other) const {
 			Z x;
 			add<false>(x, *this, other);
@@ -141,7 +252,18 @@ namespace Numeric {
 			return *this;
 		}
 
-		bool operator<=(const Z &other) {
+        inline Z operator/(const Z &other) const {
+            Z x;
+            quotient<false>(x, *this, other);
+            return x;
+        }
+
+        inline Z &operator/=(const Z &other) {
+            quotient<true>(*this, *this, other);
+            return *this;
+        }
+
+        bool operator<=(const Z &other) {
 			if (!is_big) {
 				if (!other.is_big) {
 					return machine_value < other.machine_value;
@@ -165,14 +287,7 @@ namespace Numeric {
 			}
 		}
 
-		inline BaseExpressionRef to_expression() const {
-			if (is_big) {
-				return Pool::BigInteger(std::move(mpz_class(big_value)));
-			} else {
-				return Pool::MachineInteger(machine_integer_t(machine_value));
-			}
-		}
-
+		inline BaseExpressionRef to_expression() const;
 	};
 
 	class R {
