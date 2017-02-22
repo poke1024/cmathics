@@ -180,6 +180,8 @@ Runtime::Runtime() : _parser(_definitions) {
     Builtins::Structure(*this).initialize();
     Builtins::NumberTheory(*this).initialize();
 
+    _definitions.freeze_as_builtin();
+
     assert(s_instance == nullptr);
     s_instance = this;
 }

@@ -60,6 +60,8 @@ public:
 		return m_symbols;
 	}
 
+	void freeze_as_builtin();
+
     void reset_user_definitions();
 
 	const NumberFormatter number_form;

@@ -95,12 +95,16 @@ SymbolicFormRef Symbol::instantiate_symbolic_form() const {
 }
 
 void SymbolState::clear() {
-    set_attributes(Attributes(0));
+	set_attributes(Attributes(0));
     m_own_value.reset();
     m_rules.reset();
     m_copy_on_write = false;
 }
 
 void Symbol::reset_user_definitions() const {
-    // not yet implemented
+	if (m_builtin_state) {
+		m_user_state.set_as_copy_of(*m_builtin_state);
+	} else {
+		m_user_state.clear();
+	}
 }

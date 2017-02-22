@@ -127,12 +127,21 @@ public:
 	inline SymbolState(const Symbol *symbol) : m_symbol(symbol), m_copy_on_write(false) {
 	}
 
-	inline SymbolState(const SymbolState &state) : m_symbol(state.m_symbol) {
+	inline void set_as_copy_of(const SymbolState &state) {
+		assert(m_symbol == state.m_symbol);
 		m_attributes = state.m_attributes;
 		m_dispatch = state.m_dispatch;
 		m_own_value = state.m_own_value;
 		m_rules = state.m_rules;
 		m_copy_on_write = true;
+	}
+
+	inline void mark_as_copy() {
+		m_copy_on_write = true;
+	}
+
+	inline SymbolState(const SymbolState &state) : m_symbol(state.m_symbol) {
+		set_as_copy_of(state);
 	}
 
     void clear();
@@ -234,7 +243,8 @@ protected:
 protected:
 	friend class EvaluationContext;
 
-	mutable SymbolState m_master_state;
+	mutable optional<SymbolState> m_builtin_state;
+	mutable SymbolState m_user_state;
 
 protected:
     virtual SymbolicFormRef instantiate_symbolic_form() const;
@@ -251,10 +261,15 @@ public:
 	inline SymbolState &state() const {
 		EvaluationContext *context = EvaluationContext::current();
 		if (context == nullptr) {
-			return m_master_state;
+			return m_user_state;
 		} else {
 			return context->state(this);
 		}
+	}
+
+	inline void freeze_as_builtin() const {
+		m_builtin_state.emplace(SymbolState(m_user_state));
+		m_user_state.mark_as_copy();
 	}
 
     void reset_user_definitions() const;
@@ -356,7 +371,7 @@ inline SymbolState &EvaluationContext::state(const Symbol *symbol) {
 	} else {
 		const SymbolState &state = m_parent ?
 			m_parent->state(symbol) :
-			symbol->m_master_state;
+			symbol->m_user_state;
 		return m_symbols.emplace(SymbolRef(symbol), state).first->second;
 	}
 }
