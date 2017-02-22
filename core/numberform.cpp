@@ -22,6 +22,14 @@ inline StringRef round(StringRef number, machine_integer_t n_digits) {
     return Pool::String(n.get_str());
 }
 
+inline machine_integer_t round_exp(machine_integer_t exp, machine_integer_t step) {
+    if (exp > 0) {
+        return (exp / step) * step;
+    } else {
+        return ((exp / step) - 1) * step;
+    }
+}
+
 class IllegalDigitBlock {
 };
 
@@ -89,6 +97,7 @@ inline BaseExpressionRef NumberFormatter::default_number_format(
 
 void NumberFormatter::parse_option(
 	NumberFormOptions &options,
+    const NumberFormOptions &defaults,
 	const SymbolPtr lhs,
 	const BaseExpressionRef &rhs,
     const Evaluation &evaluation) const {
@@ -197,8 +206,25 @@ void NumberFormatter::parse_option(
 			break;
 
 		case S::NumberFormat:
-			options.NumberFormat = rhs.get();
-			break;
+            if (rhs->symbol() != S::Automatic) {
+                const BaseExpressionPtr number_format = rhs.get();
+
+                options.NumberFormat = [number_format] (
+                    const NumberFormatter *formatter,
+                    const BaseExpressionRef &man,
+                    const BaseExpressionRef &base,
+                    const BaseExpressionRef &exp,
+                    const NumberFormOptions &options,
+                    const BaseExpressionPtr form,
+                    const Evaluation &evaluation) {
+
+                    return expression(
+                        number_format, man, base, exp, /*options_list*/ evaluation.empty_list);
+                };
+            } else {
+                options.NumberFormat = defaults.NumberFormat;
+            }
+            break;
 
 		case S::NumberMultiplier:
             if (rhs->is_string()) {
@@ -217,18 +243,19 @@ void NumberFormatter::parse_option(
 void NumberFormatter::parse_options(
     const BaseExpressionRef &options_list,
 	NumberFormOptions &options,
+    const NumberFormOptions &defaults,
     const Evaluation &evaluation) const {
 
     // IMPORTANT: note that "options" consists of un-refcounted pointers and is
     // only valid as long as "options_list" is valid!
 
-	init_options(options);
+    options = defaults;
 
     if (!options_list->is_expression()) {
         return;
     }
 
-    options_list->as_expression()->with_slice([this, &options, &evaluation] (const auto &slice) {
+    options_list->as_expression()->with_slice([this, &options, &defaults, &evaluation] (const auto &slice) {
         const size_t n = slice.size();
         for (size_t i = 0; i < n; i++) {
             const BaseExpressionRef leaf = slice[i];
@@ -239,7 +266,7 @@ void NumberFormatter::parse_options(
                 const BaseExpressionRef &lhs = leaves[0];
 	            if (lhs->is_symbol()) {
 		            const BaseExpressionRef &rhs = leaves[1];
-		            parse_option(options, lhs->as_symbol(), rhs, evaluation);
+		            parse_option(options, defaults, lhs->as_symbol(), rhs, evaluation);
 	            }
             }
         }
@@ -249,12 +276,13 @@ void NumberFormatter::parse_options(
 void NumberFormatter::parse_options(
 	const OptionsMap &options_map,
 	NumberFormOptions &options,
-	const Evaluation &evaluation) const {
+    const NumberFormOptions &defaults,
+    const Evaluation &evaluation) const {
 
-	init_options(options);
+    options = defaults;
 
 	for (auto i = options_map.begin(); i != options_map.end(); i++) {
-		parse_option(options, i->first.get(), i->second, evaluation);
+		parse_option(options, defaults, i->first.get(), i->second, evaluation);
 	}
 }
 
@@ -292,14 +320,68 @@ NumberFormatter::NumberFormatter(const Symbols &symbols) {
     m_number_point = Pool::String(".");
     m_default_options.NumberPoint = m_number_point.get();
 
-    m_default_options.NumberFormat = automatic;
+    m_default_options.NumberFormat = [] (
+        const NumberFormatter *formatter,
+        const BaseExpressionRef &man,
+        const BaseExpressionRef &base,
+        const BaseExpressionRef &exp,
+        const NumberFormOptions &options,
+        const BaseExpressionPtr form,
+        const Evaluation &evaluation) -> BaseExpressionRef {
 
-    m_number_multiplier = Pool::String(std::string("\xC3\x97"));
+        if (exp->is_string() && exp->as_string()->length() > 0) {
+            return expression(evaluation.RowBox, expression(
+                evaluation.List, man, options.NumberMultiplier,
+                expression(evaluation.SuperscriptBox, base, exp)));
+        } else {
+            return man;
+        }
+    };
+
+    m_number_multiplier = Pool::String(std::string("\xC3\x97")); // i.e. \u00d7
     m_default_options.NumberMultiplier = m_number_multiplier.get();
 
     m_default_options.valid = true;
 
-    m_make_boxes_default_options = m_default_options; // FIXME
+    m_make_boxes_default_options = m_default_options;
+
+    m_make_boxes_default_options.DigitBlock[0] = 0;
+    m_make_boxes_default_options.DigitBlock[1] = 0;
+    m_make_boxes_default_options.ExponentFunction = automatic;
+    m_make_boxes_default_options.ExponentStep = 1;
+    m_make_boxes_default_options.NumberPadding[0] = m_number_padding[0].get();
+    m_make_boxes_default_options.NumberPadding[1] = m_number_padding[1].get();
+    m_make_boxes_default_options.NumberPoint = m_number_point.get();
+    m_make_boxes_default_options.NumberSigns[0] = m_number_signs[0].get();
+    m_make_boxes_default_options.NumberSigns[1] = m_number_signs[1].get();
+    m_make_boxes_default_options.SignPadding = false;
+    m_make_boxes_default_options.NumberMultiplier = m_number_multiplier.get();
+
+    m_make_boxes_default_options.NumberFormat = [] (
+        const NumberFormatter *formatter,
+        const BaseExpressionRef &man,
+        const BaseExpressionRef &base,
+        const BaseExpressionRef &exp,
+        const NumberFormOptions &options,
+        const BaseExpressionPtr form,
+        const Evaluation &evaluation) -> BaseExpressionRef {
+
+        if (exp->is_string() && exp->as_string()->length() > 0) {
+            switch (form->symbol()) {
+                case S::InputForm:
+                case S::OutputForm:
+                case S::FullForm:
+                    return expression(evaluation.RowBox,
+                        expression(evaluation.List, man, formatter->m_mul_exp, exp));
+                default:
+                    return expression(evaluation.RowBox, expression(
+                        evaluation.List, man, options.NumberMultiplier,
+                        expression(evaluation.SuperscriptBox, base, exp)));
+            }
+        } else {
+            return man;
+        }
+    };
 }
 
 BaseExpressionRef NumberFormatter::operator()(
@@ -333,7 +415,7 @@ BaseExpressionRef NumberFormatter::operator()(
     const auto exp_step = options.ExponentStep;
 
     // round exponent to ExponentStep
-    const machine_integer_t rexp = (exp / exp_step) * exp_step;
+    const machine_integer_t rexp = round_exp(exp, exp_step);
 
     UnsafeBaseExpressionRef pexp;
     if (is_int) {
@@ -409,12 +491,12 @@ BaseExpressionRef NumberFormatter::operator()(
             options.NumberSeparator[1]);
     }
 
-    machine_integer_t max_sign_len = std::max(
+    const machine_integer_t max_sign_len = std::max(
         options.NumberSigns[0]->length(),
         options.NumberSigns[1]->length()
     );
 
-    machine_integer_t l =
+    const machine_integer_t l =
         sign_prefix->length() +
         left->length() +
         right->length() -
@@ -449,11 +531,5 @@ BaseExpressionRef NumberFormatter::operator()(
         s = string_join(prefix, left, options.NumberPoint, right);
     }
 
-    const BaseExpressionPtr NumberFormat = options.NumberFormat;
-
-    if (NumberFormat->symbol() != S::Automatic) {
-        return expression(NumberFormat, s, m_base_10, pexp, /*options_list*/ evaluation.empty_list);
-    } else {
-        return default_number_format(s, m_base_10, pexp, options, form, evaluation);
-    }
+    return options.NumberFormat(this, s, m_base_10, pexp, options, form, evaluation);
 }

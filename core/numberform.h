@@ -1,6 +1,18 @@
 #ifndef CMATHICS_NUMBERFORM_H
 #define CMATHICS_NUMBERFORM_H
 
+class NumberFormatter;
+class NumberFormOptions;
+
+using NumberFormatFunction = std::function<BaseExpressionRef(
+    const NumberFormatter *formatter,
+    const BaseExpressionRef &man,
+    const BaseExpressionRef &base,
+    const BaseExpressionRef &exp,
+    const NumberFormOptions &options,
+    const BaseExpressionPtr form,
+    const Evaluation &evaluation)>;
+
 class NumberFormOptions {
 public:
     StringPtr NumberSigns[2];
@@ -11,9 +23,13 @@ public:
     StringPtr NumberPadding[2];
     bool SignPadding;
     StringPtr NumberPoint;
-    BaseExpressionPtr NumberFormat;
     StringPtr NumberMultiplier;
     bool valid;
+
+    // NumberFormatFunction is last, so that even for non struct
+    // reordering compilers, copying NumberFormOptions should be
+    // efficient (up to here, all attributes can be memcpy-ed).
+    NumberFormatFunction NumberFormat;
 };
 
 class Runtime;
@@ -42,18 +58,16 @@ public:
 	void parse_options(
 		const OptionsMap &options_map,
 		NumberFormOptions &options,
+        const NumberFormOptions &defaults,
 		const Evaluation &evaluation) const;
 
 	void parse_options(
 		const BaseExpressionRef &options_list,
 		NumberFormOptions &options,
+        const NumberFormOptions &defaults,
 		const Evaluation &evaluation) const;
 
 private:
-	inline void init_options(NumberFormOptions &options) const {
-		std::memcpy(&options, &m_default_options, sizeof(NumberFormOptions));
-	}
-
     inline StringRef blocks(
         StringPtr s,
         machine_integer_t start,
@@ -87,6 +101,7 @@ public:
 
 	void parse_option(
 		NumberFormOptions &options,
+        const NumberFormOptions &defaults,
 		const SymbolPtr lhs,
 		const BaseExpressionRef &rhs,
         const Evaluation &evaluation) const;

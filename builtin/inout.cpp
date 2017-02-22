@@ -502,7 +502,8 @@ public:
 		const BaseExpressionRef &value,
         const Evaluation &evaluation) const {
 
-		m_formatter.parse_option(options, key, value, evaluation);
+		m_formatter.parse_option(
+            options, m_formatter.defaults(), key, value, evaluation);
 		return true;
 	}
 };
