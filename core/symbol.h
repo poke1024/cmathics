@@ -135,6 +135,8 @@ public:
 		m_copy_on_write = true;
 	}
 
+    void clear();
+
 	inline const UnsafeBaseExpressionRef &own_value() const {
 		return m_own_value;
 	}
@@ -178,11 +180,6 @@ public:
         const SymbolRef &form,
         const Definitions &definitions);
 
-	template<typename Expression>
-	BaseExpressionRef format(
-		const Expression *expr,
-		const SymbolRef &form,
-		const Evaluation &evaluation) const;
 
 	void set_attributes(Attributes attributes);
 
@@ -260,7 +257,9 @@ public:
 		}
 	}
 
-	virtual BaseExpressionPtr head(const Symbols &symbols) const final;
+    void reset_user_definitions() const;
+
+    virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
 	virtual inline bool same(const BaseExpression &expr) const final {
 		// compare as pointers: Symbol instances are unique
@@ -349,31 +348,6 @@ public:
 		return name();
 	}
 };
-
-template<typename Expression>
-BaseExpressionRef SymbolState::format(
-	const Expression *expr,
-	const SymbolRef &form,
-	const Evaluation &evaluation) const {
-
-	if (expr->is_expression() &&
-	    expr->as_expression()->head()->is_expression()) {
-		// expr is of the form f[...][...]
-		return BaseExpressionRef();
-	}
-
-	const Symbol * const name = expr->lookup_name();
-	const SymbolRules * const rules = name->state().rules();
-	if (rules) {
-        const optional<BaseExpressionRef> result =
-            rules->format_values.apply(expr, form, evaluation);
-        if (result && *result) {
-            return (*result)->evaluate_or_copy(evaluation);
-        }
-    }
-
-    return BaseExpressionRef();
-}
 
 inline SymbolState &EvaluationContext::state(const Symbol *symbol) {
 	const auto i = m_symbols.find(symbol);

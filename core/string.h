@@ -291,7 +291,7 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
-	virtual std::string boxes_to_text(const Evaluation &evaluation) const;
+	virtual std::string boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const;
 
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
@@ -343,6 +343,16 @@ public:
 
     inline std::string utf8() const {
         return m_extent->utf8(m_offset, m_length);
+    }
+
+    inline std::string unquoted_utf8() const {
+        if (m_length > 0 &&
+            m_extent->ascii_char_at(m_offset) == '"' &&
+            m_extent->ascii_char_at(m_offset + m_length - 1) == '"') {
+            return m_extent->utf8(m_offset + 1, m_length - 2);
+        } else {
+            return m_extent->utf8(m_offset, m_length);
+        }
     }
 
 	inline const char *ascii() const {

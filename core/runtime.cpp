@@ -239,12 +239,14 @@ void Runtime::run_tests() {
     const auto no_output = std::make_shared<NoOutput>();
 
 	for (const auto &record : m_docs) {
+        _definitions.reset_user_definitions();
+
 		Evaluation evaluation(output, _definitions, false);
         Evaluation dummy_evaluation(no_output, _definitions, false);
         const auto fullform = evaluation.FullForm;
 
 		std::stringstream stream(record.second);
-		UnsafeBaseExpressionRef result;
+        std::string result_str;
 
 		std::string line;
 		bool fail_expected = false;
@@ -254,10 +256,13 @@ void Runtime::run_tests() {
 				const std::string command_str(trim(line.substr(2)));
 				std::cout << std::setw(n_digits) << index++ << ". TEST " << command_str << std::endl;
 
-                if (!output->test_empty()) {
-                    fail_count += 1;
+				const BaseExpressionRef result =
+                    _parser.parse(command_str.c_str())->evaluate_or_copy(evaluation);
+                if (result) {
+                    result_str = evaluation.format_output(result);
+                } else {
+                    result_str = "";
                 }
-				result = _parser.parse(command_str.c_str())->evaluate_or_copy(evaluation);
 
 				fail_expected = line.compare(0, 2, "#>") == 0;
 			} else if (line.compare(0, 1, "=") == 0) {
@@ -268,10 +273,8 @@ void Runtime::run_tests() {
 	                trimmed_line[trimmed_line.length() - 1] == '-') {
                     // ignore stuff like -Graphics- for now
                 } else {
-                    if (result) {
+                    if (!result_str.empty()) {
                         auto wanted_str = trimmed_line;
-
-                        const std::string result_str = evaluation.format_output(result);
 
                         if (wanted_str != result_str) {
                             if (!fail_expected) {
@@ -285,6 +288,10 @@ void Runtime::run_tests() {
                         std::cout << "FAIL" << std::endl;
                         std::cout << "undefined result" << std::endl;
                         fail_count++;
+                    }
+
+                    if (!output->test_empty()) {
+                        fail_count += 1;
                     }
                 }
             } else if (line.compare(0, 1, ":") == 0) {

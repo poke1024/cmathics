@@ -508,22 +508,44 @@ public:
 	inline ExpressionRef conditional_map_all(
 		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
 
-    virtual BaseExpressionRef expression_custom_format(
-        const BaseExpressionRef &form,
-        const Evaluation &evaluation) const final;
-
     virtual BaseExpressionRef custom_format(
         const BaseExpressionRef &form,
         const Evaluation &evaluation) const;
 
-    virtual std::string boxes_to_text(const Evaluation &evaluation) const {
+    virtual BaseExpressionRef custom_format_traverse(
+        const BaseExpressionRef &form,
+        const Evaluation &evaluation) const;
+
+    virtual std::string boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const {
+        const auto &slice = m_slice;
+
         switch (head()->symbol()) {
 	        case S::StyleBox: {
-				// FIXME parse StyleBox options like System`ShowStringCharacters
-		        if (size() < 1) {
+                const size_t n = size();
+
+		        if (n < 1) {
 			        break;
 		        }
-		        return m_slice[0]->boxes_to_text(evaluation);
+
+                StyleBoxOptions modified_options(options);
+
+                for (size_t i = 1; i < n; i++) {
+                    const BaseExpressionRef &leaf = slice[i];
+                    if (leaf->has_form(S::Rule, 2, evaluation)) {
+                        const BaseExpressionRef * const leaves =
+                            leaf->as_expression()->n_leaves<2>();
+                        const BaseExpressionRef &rhs = leaves[1];
+                        switch (leaves[0]->symbol()) {
+                            case S::ShowStringCharacters:
+                                modified_options.ShowStringCharacters = rhs->is_true();
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+
+		        return slice[0]->boxes_to_text(modified_options, evaluation);
 	        }
 
 	        case S::RowBox: {
@@ -531,7 +553,7 @@ public:
                     break;
                 }
 
-                const BaseExpressionRef &list = n_leaves<1>()[0];
+                const BaseExpressionRef &list = slice[0];
                 if (!list->is_expression()) {
                     break;
                 }
@@ -540,10 +562,10 @@ public:
                 }
 
                 std::ostringstream s;
-                list->as_expression()->with_slice([&s, &evaluation] (const auto &slice) {
+                list->as_expression()->with_slice([&s, &options, &evaluation] (const auto &slice) {
                     const size_t n = slice.size();
                     for (size_t i = 0; i < n; i++) {
-                        s << slice[i]->boxes_to_text(evaluation);
+                        s << slice[i]->boxes_to_text(options, evaluation);
                     }
                 });
 
@@ -555,10 +577,9 @@ public:
                     break;
                 }
 
-                const BaseExpressionRef * const leaves = n_leaves<2>();
-
                 std::ostringstream s;
-                s << leaves[0]->boxes_to_text(evaluation) << "^" << leaves[1]->boxes_to_text(evaluation);
+                s << slice[0]->boxes_to_text(options, evaluation);
+                s << "^" << slice[1]->boxes_to_text(options, evaluation);
                 return s.str();
             }
 

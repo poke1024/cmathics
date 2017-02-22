@@ -14,7 +14,7 @@ BaseExpressionRef MachineInteger::make_boxes(
     return Pool::String(std::to_string(value));
 }
 
-std::string MachineInteger::boxes_to_text(const Evaluation &evaluation) const {
+std::string MachineInteger::boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const {
 	return std::to_string(value);
 }
 
@@ -58,7 +58,7 @@ BaseExpressionPtr BigInteger::head(const Symbols &symbols) const {
     return symbols.Integer;
 }
 
-std::string BigInteger::boxes_to_text(const Evaluation &evaluation) const {
+std::string BigInteger::boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const {
 	return value.get_str();
 }
 

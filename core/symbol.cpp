@@ -93,3 +93,14 @@ SymbolicFormRef Symbol::instantiate_symbolic_form() const {
         }
     }
 }
+
+void SymbolState::clear() {
+    set_attributes(Attributes(0));
+    m_own_value.reset();
+    m_rules.reset();
+    m_copy_on_write = false;
+}
+
+void Symbol::reset_user_definitions() const {
+    // not yet implemented
+}

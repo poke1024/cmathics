@@ -72,10 +72,50 @@ void Evaluation::sym_engine_exception(const SymEngine::SymEngineException &e) co
 }
 
 std::string Evaluation::format_output(const BaseExpressionRef &expr) const {
-    return expr->make_boxes(OutputForm, *this)->boxes_to_text(*this);
+    StyleBoxOptions options;
+    return expr->make_boxes(OutputForm, *this)->boxes_to_text(options, *this);
 }
 
 void Evaluation::print_out(const ExpressionRef &expr) const {
-    std::string text =  expr->make_boxes(OutputForm, *this)->boxes_to_text(*this);
+    StyleBoxOptions options;
+    std::string text =  expr->make_boxes(OutputForm, *this)->boxes_to_text(options, *this);
     std::cout << text << std::endl;
+}
+
+bool TestOutput::test_empty() {
+    if (!m_output.empty()) {
+        for (const std::string &s : m_output) {
+            std::cout << "unexpected output: " << s << std::endl;
+        }
+        m_output.clear();
+        return false;
+    } else {
+        return true;
+    }
+}
+
+bool TestOutput::test_line(const std::string &expected, bool fail_expected) {
+    bool fail = false;
+    std::string actual;
+
+    if (m_output.size() >= 1) {
+        actual = m_output.front();
+        if (expected != actual) {
+            fail = true;
+        } else {
+            m_output.erase(m_output.begin());
+        }
+    } else {
+        fail = true;
+        actual = "(nothing)";
+    }
+
+    if (fail && !fail_expected) {
+        std::cout << "output mismatch: " << std::endl;
+        std::cout << "expected: " << expected << std::endl;
+        std::cout << "actual: " << actual << std::endl;
+        return false;
+    } else {
+        return true;
+    }
 }

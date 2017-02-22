@@ -170,4 +170,17 @@ SymbolRef Definitions::lookup(const char *name) {
     }
 }
 
-
+void Definitions::reset_user_definitions() {
+    // FIXME. to be implemented.
+    auto i = m_definitions.begin();
+    while (i != m_definitions.end()) {
+        if (strncmp(i->first.c_str(), "System`", 7) != 0) {
+            const MutableSymbolRef &symbol = i->second;
+            // SymbolRef(symbol)->reset_user_definitions();
+            i++;
+            // i = m_definitions.erase(i);
+        } else {
+            i++;
+        }
+    }
+}

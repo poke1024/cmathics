@@ -420,6 +420,21 @@ using SExp = std::tuple<StringRef /* s */, machine_integer_t /* n */, int /* non
 
 #include "numeric.h"
 
+struct StyleBoxOptions {
+    inline StyleBoxOptions() :
+        ShowStringCharacters(false),
+        ImageSizeMultipliers{1., 1.} {
+    }
+
+    inline StyleBoxOptions(const StyleBoxOptions &options) :
+        ShowStringCharacters(options.ShowStringCharacters),
+        ImageSizeMultipliers{options.ImageSizeMultipliers[0], options.ImageSizeMultipliers[1]} {
+    }
+
+    bool ShowStringCharacters;
+    machine_real_t ImageSizeMultipliers[2];
+};
+
 class BaseExpression : public Shared<BaseExpression, SharedPool> {
 protected:
     const ExtendedType _extended_type;
@@ -684,11 +699,11 @@ public:
         return coalesce(custom_format(form, evaluation), BaseExpressionRef(this));
     }
 
-    virtual BaseExpressionRef expression_custom_format(const BaseExpressionRef &form, const Evaluation &evaluation) const {
+    virtual BaseExpressionRef custom_format_traverse(const BaseExpressionRef &form, const Evaluation &evaluation) const {
         return custom_format(form, evaluation);
     }
 
-	virtual std::string boxes_to_text(const Evaluation &evaluation) const {
+	virtual std::string boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const {
 		throw std::runtime_error("boxes_to_text not implemented");
 	}
 

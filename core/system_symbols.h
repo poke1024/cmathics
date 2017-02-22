@@ -88,6 +88,8 @@ SYMBOL(Superscript)
 SYMBOL(RowBox)
 SYMBOL(SuperscriptBox)
 SYMBOL(StyleBox)
+SYMBOL(ShowStringCharacters)
+SYMBOL(ImageSizeMultipliers)
 
 SYMBOL(HoldForm)
 SYMBOL(Infix)
@@ -122,6 +124,8 @@ SYMBOL(SignPadding)
 SYMBOL(NumberPoint)
 SYMBOL(NumberFormat)
 SYMBOL(NumberMultiplier)
+
+SYMBOL(Graphics)
 
 SYMBOL(General)
 SYMBOL(MessageName)

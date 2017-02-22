@@ -94,43 +94,9 @@ public:
         return m_output.empty();
     }
 
-    bool test_empty() {
-        if (!m_output.empty()) {
-            for (const std::string &s : m_output) {
-                std::cout << "unexpected output: " << s << std::endl;
-            }
-            m_output.clear();
-            return false;
-        } else {
-            return true;
-        }
-    }
+    bool test_empty();
 
-    bool test_line(const std::string &expected, bool fail_expected) {
-        bool fail = false;
-        std::string actual;
-
-        if (m_output.size() >= 1) {
-            actual = m_output.front();
-            if (expected != actual) {
-                fail = true;
-            } else {
-                m_output.erase(m_output.begin());
-            }
-        } else {
-            fail = true;
-            actual = "(nothing)";
-        }
-
-        if (fail && !fail_expected) {
-            std::cout << "output mismatch: " << std::endl;
-            std::cout << "expected: " << expected << std::endl;
-            std::cout << "actual: " << actual << std::endl;
-            return false;
-        } else {
-            return true;
-        }
-    }
+    bool test_line(const std::string &expected, bool fail_expected);
 };
 
 #include "numberform.h"

@@ -64,7 +64,7 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
-	std::string boxes_to_text(const Evaluation &evaluation) const;
+	std::string boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const;
 
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
@@ -142,7 +142,7 @@ public:
         BaseExpressionPtr form,
         const Evaluation &evaluation) const;
 
-    std::string boxes_to_text(const Evaluation &evaluation) const;
+    std::string boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const;
 
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 

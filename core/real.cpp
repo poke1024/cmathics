@@ -193,8 +193,8 @@ BaseExpressionRef MachineReal::make_boxes(
         *s_exp, n, optional<machine_integer_t>(), form, number_form.make_boxes_defaults(), evaluation);
 }
 
-std::string MachineReal::boxes_to_text(const Evaluation &evaluation) const {
-	return make_boxes(evaluation.OutputForm, evaluation)->boxes_to_text(evaluation);
+std::string MachineReal::boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const {
+	return make_boxes(evaluation.OutputForm, evaluation)->boxes_to_text(options, evaluation);
 }
 
 BaseExpressionPtr MachineReal::head(const Symbols &symbols) const {
@@ -252,8 +252,8 @@ BaseExpressionRef BigReal::make_boxes(
         *s_exp, n, optional<machine_integer_t>(), form, number_form.make_boxes_defaults(), evaluation);
 }
 
-std::string BigReal::boxes_to_text(const Evaluation &evaluation) const {
-	return make_boxes(evaluation.OutputForm, evaluation)->boxes_to_text(evaluation);
+std::string BigReal::boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const {
+	return make_boxes(evaluation.OutputForm, evaluation)->boxes_to_text(options, evaluation);
 }
 
 BaseExpressionPtr BigReal::head(const Symbols &symbols) const {
