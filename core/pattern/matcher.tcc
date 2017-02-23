@@ -347,13 +347,13 @@ inline auto match(
             if (has_rhs) {
                 const RewriteRef rewrite = cache_owner->ensure_cache()->rewrite(matcher, rhs);
 
-                return make([&rewrite, &context, &rhs] (const BaseExpressionRef &item) {
+                return make([&rewrite, &context, &rhs, &evaluation] (const BaseExpressionRef &item) {
                     return rewrite->rewrite_root_or_copy(
                             rhs->as_expression(),
                             [&context] (index_t i, const BaseExpressionRef &prev) {
                                 return context.match->slot(i);
                             },
-                            context.match->options());
+                            context.match->options(), evaluation);
                 });
             } else {
                 return make([] (const BaseExpressionRef &item) {

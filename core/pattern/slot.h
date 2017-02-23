@@ -47,15 +47,25 @@ struct SlotDirective {
         Slot,
         OptionValue,
         Copy,
-        Descend
+        Descend,
+        IllegalSlot
     };
 
     const Action m_action;
     const index_t m_slot;
     const SymbolRef m_option_value;
+    const BaseExpressionRef m_illegal_slot;
 
-    inline SlotDirective(Action action, index_t slot = 0, const SymbolRef &option = SymbolRef()) :
-        m_action(action), m_slot(slot), m_option_value(option) {
+    inline SlotDirective(
+        Action action,
+        index_t slot = 0,
+        const SymbolRef &option = SymbolRef(),
+        const BaseExpressionRef &illegal_slot = BaseExpressionRef()) :
+
+        m_action(action),
+        m_slot(slot),
+        m_option_value(option),
+        m_illegal_slot(illegal_slot) {
     }
 
     inline static SlotDirective slot(index_t slot) {
@@ -68,6 +78,10 @@ struct SlotDirective {
 
     inline static SlotDirective copy() {
         return SlotDirective(SlotDirective::Copy);
+    }
+
+    inline static SlotDirective illegal_slot(const BaseExpressionRef &slot) {
+        return SlotDirective(SlotDirective::IllegalSlot, 0, SymbolRef(), slot);
     }
 
     inline static SlotDirective descend() {

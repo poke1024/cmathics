@@ -291,7 +291,8 @@ public:
             return m_rewrite.rewrite_root_or_copy(
                 m_into->as_expression(),
                 slot,
-                match->options());
+                match->options(),
+                evaluation);
 		} else {
 			return optional<BaseExpressionRef>();
 		}

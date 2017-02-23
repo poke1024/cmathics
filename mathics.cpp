@@ -10,7 +10,6 @@
 #include "core/misc.h"
 #include "core/expression/implementation.h"
 #include "core/definitions.h"
-#include "core/formatter.h"
 #include "core/evaluation.h"
 #include "core/pattern/arguments.h"
 #include "core/atoms/integer.h"

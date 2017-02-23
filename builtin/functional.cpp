@@ -39,15 +39,13 @@ public:
                         const machine_integer_t slot_id =
                             static_cast<const MachineInteger *>(slot.get())->value;
                         if (slot_id < 1) {
-                            // throw std::runtime_error("Slot index must be >= 1");
-                            return SlotDirective::copy();
+                            return SlotDirective::illegal_slot(slot);
                         } else {
                             m_slot_count = std::max(m_slot_count, slot_id);
                             return SlotDirective::slot(slot_id - 1);
                         }
                     } else {
-                        // throw std::runtime_error("Slot index must be integral");
-                        return SlotDirective::copy();
+                        return SlotDirective::illegal_slot(slot);
                     }
                 }
                 break;
@@ -124,7 +122,8 @@ template<typename Arguments>
 inline BaseExpressionRef SlotFunction::rewrite_or_copy(
     const Expression *body,
     const Arguments &args,
-    size_t n_args) const {
+    size_t n_args,
+    const Evaluation &evaluation) const {
 
     const auto no_symbols = [] (const SymbolRef &name) {
         return BaseExpressionRef();
@@ -132,18 +131,20 @@ inline BaseExpressionRef SlotFunction::rewrite_or_copy(
 
     if (n_args >= m_slot_count) {
         return m_rewrite->rewrite_or_copy(
-            body, args, no_symbols);
+            body, args, no_symbols, evaluation);
     } else {
         return m_rewrite->rewrite_or_copy(
             body,
-            [&args, n_args] (index_t i, const BaseExpressionRef &expr) {
+            [&args, &evaluation, n_args] (index_t i, const BaseExpressionRef &expr) {
                 if (size_t(i) >= n_args) {
+                    evaluation.message(evaluation.Function, "slotn", Pool::MachineInteger(1 + i));
                     return expr;
                 } else {
                     return args(i, expr);
                 }
             },
-            no_symbols);
+            no_symbols,
+            evaluation);
     }
 }
 
@@ -151,7 +152,8 @@ class FunctionRule : public Rule {
 private:
     inline BaseExpressionRef slot(
         const Expression *args,
-        const BaseExpressionRef &body) const {
+        const BaseExpressionRef &body,
+        const Evaluation &evaluation) const {
 
         if (!body->is_expression()) {
             return BaseExpressionRef();
@@ -164,24 +166,26 @@ private:
         });
 
         return args->with_leaves_array(
-            [&slot_function, &body] (const BaseExpressionRef *args, size_t n_args) {
+            [&slot_function, &body, &evaluation] (const BaseExpressionRef *args, size_t n_args) {
                 return slot_function->rewrite_or_copy(
                     body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
 		                return args[i];
-                    }, n_args);
+                    }, n_args, evaluation);
             });
     }
 
     inline BaseExpressionRef vars(
         const Expression *args,
         const BaseExpressionRef &vars,
-        const BaseExpressionRef &body) const {
+        const BaseExpressionRef &body,
+        const Evaluation &evaluation) const {
 
         if (!vars->is_expression()) {
             return BaseExpressionRef();
         }
-        if (vars->as_expression()->size() != args->size()) {
-            return BaseExpressionRef(); // exit early if vars don't match
+        if (args->size() < vars->as_expression()->size()) {
+            evaluation.message(evaluation.Function, "fpct");
+            return BaseExpressionRef();
         }
         if (!body->is_expression()) {
             return BaseExpressionRef();
@@ -205,13 +209,13 @@ private:
             });
 
             return args->with_leaves_array(
-                [&vars_function, &body] (const BaseExpressionRef *args, size_t n_args) {
+                [&vars_function, &body, &evaluation] (const BaseExpressionRef *args, size_t n_args) {
                     return vars_function->rewrite_or_copy(
                         body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
                             return args[i];
                         }, [] (const SymbolRef &option) {
                             return BaseExpressionRef();
-                        });
+                        }, evaluation);
                 });
         } catch(const InvalidVariable&) {
             return BaseExpressionRef();
@@ -235,11 +239,11 @@ public:
         const Expression * const head_expr = head->as_expression();
         switch (head_expr->size()) {
             case 1: // Function[body_][args___]
-                return slot(function, head_expr->n_leaves<1>()[0]);
+                return slot(function, head_expr->n_leaves<1>()[0], evaluation);
 
             case 2: { // Function[vars_, body_][args___]
                 const BaseExpressionRef * const leaves = head_expr->n_leaves<2>();
-                return vars(function, leaves[0], leaves[1]);
+                return vars(function, leaves[0], leaves[1], evaluation);
             }
 
             default:
@@ -252,10 +256,42 @@ public:
 	}
 };
 
+class Function : public Builtin {
+public:
+    static constexpr const char *name = "Function";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Function[$body$]'
+    <dt>'$body$ &'
+        <dd>represents a pure function with parameters '#1', '#2', etc.
+    <dt>'Function[{$x1$, $x2$, ...}, $body$]'
+        <dd>represents a pure function with parameters $x1$, $x2$, etc.
+    </dl>
+
+    >> f := # ^ 2 &
+    >> f[3]
+     = 9
+    >> #^3& /@ {1, 2, 3}
+     = {1, 8, 27}
+    >> #1+#2&[4, 5]
+     = 9
+	)";
+
+    static constexpr auto attributes = Attributes::HoldAll;
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        message("slot", "`1` should contain a positive integer.");
+        message("slotn", "Slot number `1` cannot be filled.");
+        message("fpct", "Too many parameters to be filled.");
+
+        builtin<FunctionRule>();
+    }
+};
+
 void Builtins::Functional::initialize() {
-	add("Function",
-		Attributes::HoldAll, {
-			NewRule<FunctionRule>
-		}
-	);
+    add<Function>();
 }

@@ -12,22 +12,26 @@ public:
     enum { // used in m_slot
         Copy = -1,
         Descend = -2,
-        OptionValue = -3
+        OptionValue = -3,
+        IllegalSlot = -4
     };
 
 private:
     const index_t m_slot;
     const SymbolRef m_option_value;
     const RewriteExpressionRef m_down;
+    const BaseExpressionRef m_illegal_slot;
 
     inline RewriteBaseExpression(
         index_t slot,
-        RewriteExpressionRef down = RewriteExpressionRef(),
-        SymbolRef option_value = SymbolRef()) :
+        const RewriteExpressionRef &down = RewriteExpressionRef(),
+        const SymbolRef &option_value = SymbolRef(),
+        const BaseExpressionRef &illegal_slot = BaseExpressionRef()) :
 
         m_slot(slot),
         m_down(down),
-        m_option_value(option_value) {
+        m_option_value(option_value),
+        m_illegal_slot(illegal_slot) {
     }
 
 public:
@@ -36,7 +40,8 @@ public:
 
         m_slot(other.m_slot),
         m_down(other.m_down),
-        m_option_value(other.m_option_value) {
+        m_option_value(other.m_option_value),
+        m_illegal_slot(other.m_illegal_slot) {
     }
 
     inline RewriteBaseExpression(
@@ -44,7 +49,8 @@ public:
 
         m_slot(other.m_slot),
         m_down(other.m_down),
-        m_option_value(other.m_option_value) {
+        m_option_value(other.m_option_value),
+        m_illegal_slot(other.m_illegal_slot) {
     }
 
     template<typename Arguments>
@@ -56,13 +62,15 @@ public:
     inline BaseExpressionRef rewrite_or_copy(
         const BaseExpressionRef &expr,
         const Arguments &args,
-        const Options &options) const;
+        const Options &options,
+        const Evaluation &evaluation) const;
 
     template<typename Arguments>
     inline BaseExpressionRef rewrite_root_or_copy(
         const BaseExpressionRef &expr,
         const Arguments &args,
-        const OptionsMap *options) const;
+        const OptionsMap *options,
+        const Evaluation &evaluation) const;
 };
 
 class Rewrite;
@@ -105,13 +113,14 @@ public:
     inline BaseExpressionRef rewrite_or_copy(
         const Expression *body,
         const Arguments &args,
-        const Options &options) const;
+        const Options &options,
+        const Evaluation &evaluation) const;
 };
 
 template<typename Arguments>
 inline RewriteBaseExpression RewriteBaseExpression::construct(
-        Arguments &arguments,
-        const BaseExpressionRef &expr) {
+    Arguments &arguments,
+    const BaseExpressionRef &expr) {
 
     const SlotDirective directive = arguments(expr);
 
@@ -136,53 +145,28 @@ inline RewriteBaseExpression RewriteBaseExpression::construct(
                 return RewriteBaseExpression(
                     RewriteBaseExpression::Copy);
             }
+        case SlotDirective::IllegalSlot:
+            return RewriteBaseExpression(
+                RewriteBaseExpression::IllegalSlot,
+                RewriteExpressionRef(),
+                SymbolRef(),
+                directive.m_illegal_slot);
         default:
             throw std::runtime_error("invalid SlotDirective");
     }
 }
 
-template<typename Arguments, typename Options>
-inline BaseExpressionRef RewriteBaseExpression::rewrite_or_copy(
-    const BaseExpressionRef &expr,
-    const Arguments &args,
-    const Options &options) const {
-
-    const index_t slot = m_slot;
-
-    if (slot >= 0) {
-        return args(slot, expr);
-    } else switch (slot) {
-        case Copy:
-            return expr;
-
-        case Descend:
-            return m_down->rewrite_or_copy(
-                expr->as_expression(), args, options);
-
-        case OptionValue: {
-            const auto option = options(m_option_value);
-            if (option) {
-                return option;
-            }
-            return expr;
-        }
-
-        default:
-            assert(false);
-            return expr;
-    }
-};
-
 template<typename Arguments>
 inline BaseExpressionRef RewriteBaseExpression::rewrite_root_or_copy(
     const BaseExpressionRef &expr,
     const Arguments &args,
-    const OptionsMap *options) const {
+    const OptionsMap *options,
+    const Evaluation &evaluation) const {
 
     if (!options || options->empty()) {
         return rewrite_or_copy(expr, args, [] (const SymbolRef &name) {
             return BaseExpressionRef();
-        });
+        }, evaluation);
     } else {
         return rewrite_or_copy(expr, args, [options] (const SymbolRef &name) {
             const auto i = options->find(name);
@@ -191,7 +175,7 @@ inline BaseExpressionRef RewriteBaseExpression::rewrite_root_or_copy(
             } else {
                 return BaseExpressionRef();
             }
-        });
+        }, evaluation);
     }
 }
 
@@ -236,5 +220,6 @@ public:
     inline BaseExpressionRef rewrite_or_copy(
         const Expression *body,
         const Arguments &args,
-        size_t n_args) const;
+        size_t n_args,
+        const Evaluation &evaluation) const;
 };
