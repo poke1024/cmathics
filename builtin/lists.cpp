@@ -1195,9 +1195,9 @@ void Builtins::Lists::initialize() {
     add("Apply",
 	    Attributes::None, {
 			builtin<2>(
-				[](ExpressionPtr, BaseExpressionPtr f, BaseExpressionPtr x, const Evaluation &evaluation) {
+				[](ExpressionPtr, BaseExpressionPtr f, BaseExpressionPtr x, const Evaluation &evaluation) -> BaseExpressionRef {
 				    if (!x->is_expression()) {
-					    throw std::runtime_error("expected Expression at position 2");
+					    return BaseExpressionRef();
 				    }
 				    return x->clone(f);
 			    }

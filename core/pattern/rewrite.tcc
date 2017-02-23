@@ -60,7 +60,8 @@ RewriteExpression::RewriteExpression(
     const Expression *body) :
 
     m_head(RewriteBaseExpression::construct(arguments, body->head())),
-    m_leaves(nodes(arguments, body)) {
+    m_leaves(nodes(arguments, body)),
+    m_mask(compute_mask(m_head, m_leaves)) {
 }
 
 template<typename Arguments, typename Options>
@@ -69,6 +70,10 @@ inline BaseExpressionRef RewriteExpression::rewrite_or_copy(
     const Arguments &args,
     const Options &options,
     const Evaluation &evaluation) const {
+
+	if (body->head()->symbol() == S::Function && (mask() & SlotRewriteMask)) {
+		// FIXME. rename function arguments.
+	}
 
     return body->with_slice_c(
         [this, body, &args, &options, &evaluation] (const auto &slice) {

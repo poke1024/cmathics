@@ -7,6 +7,14 @@ typedef ConstSharedPtr<RewriteExpression> ConstRewriteExpressionRef;
 typedef QuasiConstSharedPtr<RewriteExpression> CachedRewriteExpressionRef;
 typedef UnsafeSharedPtr<RewriteExpression> UnsafeRewriteExpressionRef;
 
+// RewriteMask is a bit field, indicating a Slot with (1 << 0), a Copy
+// with (1 << -RewriteBaseExpression::Copy), and so on.
+using RewriteMask = uint16_t;
+
+enum {
+	SlotRewriteMask = 1L << 0
+};
+
 class RewriteBaseExpression {
 public:
     enum { // used in m_slot
@@ -16,23 +24,22 @@ public:
         IllegalSlot = -4
     };
 
+	static constexpr RewriteMask create_mask(index_t slot) {
+		return slot >= 0 ? SlotRewriteMask : (1L << (-slot));
+	}
+
 private:
     const index_t m_slot;
     const SymbolRef m_option_value;
     const RewriteExpressionRef m_down;
     const BaseExpressionRef m_illegal_slot;
+	const RewriteMask m_mask;
 
     inline RewriteBaseExpression(
         index_t slot,
         const RewriteExpressionRef &down = RewriteExpressionRef(),
         const SymbolRef &option_value = SymbolRef(),
-        const BaseExpressionRef &illegal_slot = BaseExpressionRef()) :
-
-        m_slot(slot),
-        m_down(down),
-        m_option_value(option_value),
-        m_illegal_slot(illegal_slot) {
-    }
+        const BaseExpressionRef &illegal_slot = BaseExpressionRef());
 
 public:
     inline RewriteBaseExpression(
@@ -41,7 +48,8 @@ public:
         m_slot(other.m_slot),
         m_down(other.m_down),
         m_option_value(other.m_option_value),
-        m_illegal_slot(other.m_illegal_slot) {
+        m_illegal_slot(other.m_illegal_slot),
+	    m_mask(other.m_mask) {
     }
 
     inline RewriteBaseExpression(
@@ -50,7 +58,8 @@ public:
         m_slot(other.m_slot),
         m_down(other.m_down),
         m_option_value(other.m_option_value),
-        m_illegal_slot(other.m_illegal_slot) {
+        m_illegal_slot(other.m_illegal_slot),
+	    m_mask(other.m_mask) {
     }
 
     template<typename Arguments>
@@ -71,6 +80,10 @@ public:
         const Arguments &args,
         const OptionsMap *options,
         const Evaluation &evaluation) const;
+
+	inline RewriteMask mask() const {
+		return m_mask;
+	}
 };
 
 class Rewrite;
@@ -97,11 +110,23 @@ class RewriteExpression : public Shared<RewriteExpression, SharedHeap> {
 private:
     const RewriteBaseExpression m_head;
     const std::vector<const RewriteBaseExpression> m_leaves;
+	const RewriteMask m_mask;
 
     template<typename Arguments>
     static std::vector<const RewriteBaseExpression> nodes(
         Arguments &arguments,
         const Expression *body_ptr);
+
+	inline static RewriteMask compute_mask(
+		const RewriteBaseExpression &head,
+		const std::vector<const RewriteBaseExpression> &leaves) {
+
+		RewriteMask mask = head.mask();
+		for (const RewriteBaseExpression &leaf : leaves) {
+			mask |= leaf.mask();
+		}
+		return mask;
+	}
 
 public:
     template<typename Arguments>
@@ -115,7 +140,31 @@ public:
         const Arguments &args,
         const Options &options,
         const Evaluation &evaluation) const;
+
+	inline RewriteMask mask() const {
+		return m_mask;
+	}
+
+	inline bool is_pure_copy() const {
+		constexpr RewriteMask mask =
+			RewriteBaseExpression::create_mask(RewriteBaseExpression::Copy) |
+			RewriteBaseExpression::create_mask(RewriteBaseExpression::Descend);
+		return (m_mask & mask) == m_mask;
+	}
 };
+
+inline RewriteBaseExpression::RewriteBaseExpression(
+	index_t slot,
+	const RewriteExpressionRef &down,
+	const SymbolRef &option_value,
+	const BaseExpressionRef &illegal_slot) :
+
+	m_slot(slot),
+	m_down(down),
+	m_option_value(option_value),
+	m_illegal_slot(illegal_slot),
+	m_mask(create_mask(slot) | (m_down ? m_down->mask() : 0)) {
+}
 
 template<typename Arguments>
 inline RewriteBaseExpression RewriteBaseExpression::construct(
@@ -137,15 +186,17 @@ inline RewriteBaseExpression RewriteBaseExpression::construct(
                 RewriteBaseExpression::Copy);
         case SlotDirective::Descend:
             if (expr->is_expression()) {
-                return RewriteBaseExpression(
-                    RewriteBaseExpression::Descend,
-                    RewriteExpressionRef(new RewriteExpression(
-                        arguments, expr->as_expression())));
-            } else {
-                return RewriteBaseExpression(
-                    RewriteBaseExpression::Copy);
+	            const RewriteExpressionRef rewrite(
+			         new RewriteExpression(arguments, expr->as_expression()));
+
+	            if (!rewrite->is_pure_copy()) {
+		            return RewriteBaseExpression(
+				        RewriteBaseExpression::Descend, rewrite);
+	            }
             }
-        case SlotDirective::IllegalSlot:
+            return RewriteBaseExpression(
+                RewriteBaseExpression::Copy);
+	    case SlotDirective::IllegalSlot:
             return RewriteBaseExpression(
                 RewriteBaseExpression::IllegalSlot,
                 RewriteExpressionRef(),
