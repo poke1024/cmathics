@@ -1,7 +1,7 @@
-#include "types.h"
-#include "expression.h"
+#include "core/types.h"
+#include "core/expression/implementation.h"
 #include "integer.h"
-#include "evaluation.h"
+#include "core/evaluation.h"
 
 std::string MachineInteger::debugform() const {
 	return std::to_string(value);

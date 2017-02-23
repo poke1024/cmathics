@@ -1,8 +1,8 @@
 #include "types.h"
-#include "expression.h"
-#include "generator.h"
+#include "core/expression/implementation.h"
+#include "core/slice/generator.h"
 #include "numberform.h"
-#include "string.h"
+#include "core/atoms/string.h"
 #include "evaluation.h"
 
 inline StringRef round(StringRef number, machine_integer_t n_digits) {

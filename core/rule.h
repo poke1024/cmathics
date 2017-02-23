@@ -136,7 +136,7 @@ inline optional<BaseExpressionRef> RulesVector<Entry>::apply(
 
 	const auto slice_code = expr->slice_code();
 
-	if (is_static_slice(slice_code)) {
+	if (is_tiny_slice(slice_code)) {
 		return apply(
 			m_rules[slice_code], expr, filter, evaluation);
 	} else {

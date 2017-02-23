@@ -59,13 +59,14 @@ inline BaseExpressionRef Pool::BigRational(const mpq_class &value) {
 	return _s_instance->_big_rationals.construct(value);
 }
 
-inline StaticExpressionRef<0> Pool::EmptyExpression(const BaseExpressionRef &head) {
-	return StaticExpression<0>(head, EmptySlice());
+inline TinyExpressionRef<0> Pool::EmptyExpression(const BaseExpressionRef &head) {
+    assert(_s_instance);
+    return _s_instance->_static_expression_heap.allocate<0>(head, std::move(EmptySlice()));
 }
 
-inline DynamicExpressionRef Pool::Expression(const BaseExpressionRef &head, const DynamicSlice &slice) {
+inline BigExpressionRef Pool::Expression(const BaseExpressionRef &head, const BigSlice &slice) {
 	assert(_s_instance);
-	return DynamicExpressionRef(_s_instance->_dynamic_expressions.construct(head, slice));
+	return BigExpressionRef(_s_instance->_dynamic_expressions.construct(head, slice));
 }
 
 inline StringRef Pool::String(std::string &&utf8) {
@@ -122,11 +123,11 @@ inline void Pool::release(BaseExpression *expr) {
 
 		case ExpressionType: {
 			const SliceCode code = static_cast<const class Expression*>(expr)->slice_code();
-			if (is_static_slice(code)) {
+			if (is_tiny_slice(code)) {
 				_s_instance->_static_expression_heap.destroy(expr, code);
-			} else if (code == SliceCode::DynamicSliceCode) {
+			} else if (code == SliceCode::BigSliceCode) {
 				_s_instance->_dynamic_expressions.destroy(
-					static_cast<ExpressionImplementation<DynamicSlice>*>(expr));
+					static_cast<ExpressionImplementation<BigSlice>*>(expr));
 			} else if (is_packed_slice(code)) {
 				delete expr;
 			} else {

@@ -193,67 +193,7 @@ typedef int64_t machine_integer_t;
 typedef double machine_real_t;
 
 #include "hash.h"
-
-constexpr int MaxStaticSliceSize = 4;
-static_assert(MaxStaticSliceSize >= 4, "must be >= 4");
-
-constexpr int MinPackedSliceSize = 16;
-static_assert(MinPackedSliceSize > MaxStaticSliceSize, "MinPackedSliceSize too small");
-
-enum SliceCode : uint8_t {
-	StaticSlice0Code = 0,
-	StaticSlice1Code = 1,
-	StaticSlice2Code = 2,
-	StaticSlice3Code = 3,
-    StaticSlice4Code = 4,
-	StaticSliceNCode = StaticSlice0Code + MaxStaticSliceSize,
-
-	DynamicSliceCode = StaticSliceNCode + 1,
-
-	PackedSlice0Code = DynamicSliceCode + 1,
-	PackedSliceMachineIntegerCode = PackedSlice0Code,
-	PackedSliceMachineRealCode,
-	PackedSliceNCode = PackedSliceMachineRealCode,
-
-	NumberOfSliceCodes = PackedSliceNCode + 1,
-	Unknown = 255
-};
-
-template<SliceCode slice_code>
-struct PackedSliceType {
-};
-
-template<>
-struct PackedSliceType<PackedSliceMachineIntegerCode> {
-	typedef machine_integer_t type;
-};
-
-template<>
-struct PackedSliceType<PackedSliceMachineRealCode> {
-	typedef machine_real_t type;
-};
-
-constexpr inline bool is_packed_slice(SliceCode id) {
-	return id >= PackedSlice0Code && id <= PackedSliceNCode;
-}
-
-constexpr inline bool is_static_slice(SliceCode code) {
-	return code >= StaticSlice0Code && code <= StaticSliceNCode;
-}
-
-constexpr inline bool slice_needs_no_materialize(SliceCode id) {
-	return is_static_slice(id) || id == SliceCode::DynamicSliceCode;
-}
-
-constexpr inline SliceCode static_slice_code(size_t n) {
-	const SliceCode code = SliceCode(SliceCode::StaticSlice0Code + n);
-	assert(code <= StaticSliceNCode);
-	return code;
-}
-
-constexpr inline size_t static_slice_size(SliceCode code) {
-	return size_t(code) - size_t(StaticSlice0Code);
-}
+#include "slice/code.h"
 
 typedef int64_t match_size_t; // needs to be signed
 constexpr match_size_t MATCH_MAX = INT64_MAX >> 2; // safe for subtractions
@@ -303,11 +243,11 @@ public:
 	}
 
 	inline bool matches(SliceCode code) const {
-		if (is_static_slice(code)) {
-			return contains(static_slice_size(code));
+		if (is_tiny_slice(code)) {
+			return contains(tiny_slice_size(code));
 		} else {
 			// inspect wrt minimum size of non-static slice
-			const size_t min_size = MaxStaticSliceSize + 1;
+			const size_t min_size = MaxTinySliceSize + 1;
 			return _max >= min_size;
 		}
 	}
@@ -354,9 +294,9 @@ typedef const Expression *ExpressionPtr;
 
 template<typename S>
 class ExpressionImplementation;
-class DynamicSlice;
-typedef const ExpressionImplementation<DynamicSlice> DynamicExpression;
-typedef ConstSharedPtr<const DynamicExpression> DynamicExpressionRef;
+class BigSlice;
+typedef const ExpressionImplementation<BigSlice> BigExpression;
+typedef ConstSharedPtr<const BigExpression> BigExpressionRef;
 
 class Symbol;
 
@@ -650,10 +590,6 @@ public:
 		throw std::runtime_error("cannot clone with head");
 	}
 
-	virtual DynamicExpressionRef to_dynamic_expression(const BaseExpressionRef &self) const {
-		throw std::runtime_error(std::string("cannot create refs expression for ") + typeid(this).name());
-	}
-
     virtual double round_to_float() const {
         throw std::runtime_error("not implemented");
     }
@@ -742,14 +678,7 @@ inline void BaseExpression::set_no_symbolic_form() const {
 	});
 }
 
-class Slice {
-public:
-	const size_t _size;
-	const BaseExpressionRef * const _address;
-
-	inline Slice(const BaseExpressionRef *address, size_t size) : _address(address), _size(size) {
-	}
-};
+#include "core/slice/slice.h"
 
 typedef SymEngineRef (*SymEngineUnaryFunction)(
 	const SymEngineRef&);
@@ -760,21 +689,6 @@ typedef SymEngineRef (*SymEngineBinaryFunction)(
 
 typedef SymEngineRef (*SymEngineNAryFunction)(
 	const SymEngine::vec_basic&);
-
-enum SliceMethodOptimizeTarget {
-	DoNotCompileToSliceType,
-#if COMPILE_TO_SLICE
-    CompileToSliceType,
-	CompileToPackedSliceType
-#else
-    CompileToSliceType = DoNotCompileToSliceType,
-    CompileToPackedSliceType = DoNotCompileToSliceType
-#endif
-};
-
-template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
-class SliceMethod {
-};
 
 #include "pattern.h"
 #include "cache.h"
@@ -787,161 +701,7 @@ inline void Pool::release(Cache *cache) {
 	_s_instance->_caches.destroy(cache);
 }
 
-class Expression : public BaseExpression {
-private:
-	mutable CachedCacheRef m_cache;
-    const Symbol * const m_lookup_name;
-
-protected:
-	template<SliceMethodOptimizeTarget Optimize, typename R, typename F>
-	friend class SliceMethod;
-
-	friend class ArraySlice;
-	friend class VCallSlice;
-
-	friend class SlowLeafSequence;
-
-	const Slice * const _slice_ptr;
-
-	virtual BaseExpressionRef materialize_leaf(size_t i) const = 0;
-
-	virtual TypeMask materialize_type_mask() const = 0;
-
-    virtual TypeMask materialize_exact_type_mask() const = 0;
-
- public:
-    static constexpr Type Type = ExpressionType;
-
-	const BaseExpressionRef _head;
-
-	inline Expression(const BaseExpressionRef &head, SliceCode slice_id, const Slice *slice_ptr) :
-		BaseExpression(build_extended_type(ExpressionType, slice_id)),
-        m_lookup_name(head->lookup_name()),
-		_head(head),
-		_slice_ptr(slice_ptr) {
-	}
-
-    inline const Symbol *lookup_name() const {
-        return m_lookup_name;
-    }
-
-    template<size_t N>
-	inline const BaseExpressionRef *n_leaves() const;
-
-	inline SliceCode slice_code() const {
-		return SliceCode(extended_type_info(_extended_type));
-	}
-
-	inline size_t size() const {
-		return _slice_ptr->_size;
-	}
-
-	inline BaseExpressionRef leaf(size_t i) const;
-
-	template<SliceCode StaticSliceCode = SliceCode::Unknown, typename F>
-	inline auto with_leaves_array(const F &f) const {
-		const BaseExpressionRef * const leaves = _slice_ptr->_address;
-
-		// the check with slice_needs_no_materialize() here is really just an additional
-		// optimization that allows the compiler to reduce this code to the first case
-		// alone if it's statically clear that we're always dealing with a non-packed
-		// slice.
-
-		if (slice_needs_no_materialize(StaticSliceCode) || leaves) {
-            assert(leaves);
-			return f(leaves, size());
-		} else {
-			UnsafeBaseExpressionRef materialized;
-			return f(materialize(materialized), size());
-		}
-	}
-
-	template<SliceMethodOptimizeTarget Optimize, typename F>
-	inline auto with_slice_implementation(const F &f) const;
-
-	template<SliceMethodOptimizeTarget Optimize, typename F>
-	inline auto with_slice_implementation(F &f) const;
-
-	template<typename F>
-	inline auto with_slice(const F &f) const {
-		return with_slice_implementation<DoNotCompileToSliceType, F>(f);
-	}
-
-	template<typename F>
-	inline auto with_slice(F &f) const {
-		return with_slice_implementation<DoNotCompileToSliceType, F>(f);
-	}
-
-	template<typename F>
-	inline auto with_slice_c(const F &f) const {
-		return with_slice_implementation<CompileToSliceType, F>(f);
-	}
-
-	template<typename F>
-	inline auto with_slice_c(F &f) const {
-		return with_slice_implementation<CompileToSliceType, F>(f);
-	}
-
-	template<typename F>
-	inline auto map(const BaseExpressionRef &head, const F &f) const;
-
-	template<typename F>
-	inline auto parallel_map(const BaseExpressionRef &head, const F &f) const;
-
-	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const = 0;
-
-	virtual inline BaseExpressionPtr head(const Symbols &symbols) const final {
-		return _head.get();
-	}
-
-    inline BaseExpressionPtr head() const {
-        return _head.get();
-    }
-
-	BaseExpressionRef evaluate_expression(
-		const Evaluation &evaluation) const;
-
-	virtual BaseExpressionRef evaluate_expression_with_non_symbol_head(
-		const Evaluation &evaluation) const = 0;
-
-	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const = 0;
-
-	inline CacheRef get_cache() const { // concurrent.
-		return m_cache;
-	}
-
-	inline CacheRef ensure_cache() const { // concurrent.
-        return CacheRef(m_cache.ensure([] () {
-            return Pool::new_cache();
-        }));
-	}
-
-    virtual SymbolicFormRef instantiate_symbolic_form() const;
-
-	void symbolic_initialize(
-		const std::function<SymEngineRef()> &f,
-		const Evaluation &evaluation) const;
-
-	BaseExpressionRef symbolic_evaluate_unary(
-		const SymEngineUnaryFunction &f,
-		const Evaluation &evaluation) const;
-
-	BaseExpressionRef symbolic_evaluate_binary(
-		const SymEngineBinaryFunction &f,
-		const Evaluation &evaluation) const;
-
-	virtual MatchSize leaf_match_size() const = 0;
-
-	inline PatternMatcherRef expression_matcher() const;
-
-	inline PatternMatcherRef string_matcher() const;
-
-	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const = 0;
-
-	inline ExpressionRef flatten_sequence() const;
-
-    inline ExpressionRef flatten_sequence_or_copy() const;
-};
+#include "core/expression/interface.h"
 
 inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
 	return expr->m_symbolic_form.ensure([] () {

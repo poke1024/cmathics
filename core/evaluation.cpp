@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "types.h"
-#include "expression.h"
+#include "core/expression/implementation.h"
 #include "definitions.h"
 #include "evaluation.h"
 #include "pattern.h"

@@ -11,8 +11,8 @@
 #include <symengine/real_double.h>
 #include <symengine/real_mpfr.h>
 
-#include "types.h"
-#include "hash.h"
+#include "core/types.h"
+#include "core/hash.h"
 
 inline machine_real_t chop(machine_real_t x) {
     // chop off the last 8 bits of the mantissa to make this safe for hashing

@@ -2,9 +2,9 @@
 #include <stdbool.h>
 #include <math.h>
 
-#include "types.h"
+#include "core/types.h"
 #include "complex.h"
-#include "expression.h"
+#include "core/expression/implementation.h"
 
 const std::hash<machine_real_t> MachineComplex::hash_function = std::hash<machine_real_t>();
 

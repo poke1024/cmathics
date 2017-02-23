@@ -62,31 +62,29 @@ set(SOURCE_FILES
     core/definitions.h
     core/evaluation.cpp
     core/evaluation.h
-    core/expression.cpp
-    core/expression.h
+        core/expression/implementation.cpp
+        core/expression/implementation.h
     core/formatter.cpp
     core/formatter.h
     core/hash.cpp
     core/hash.h
-    core/integer.cpp
-    core/integer.h
+        core/atoms/integer.cpp
+        core/atoms/integer.h
     core/misc.cpp
     core/misc.h
     core/pattern.cpp
     core/pattern.h
-    core/rational.cpp
-    core/rational.h
-    core/real.cpp
-    core/real.h
-    core/string.cpp
-    core/string.h
+        core/atoms/rational.cpp
+        core/atoms/rational.h
+        core/atoms/real.cpp
+        core/atoms/real.h
+        core/atoms/string.cpp
+        core/atoms/string.h
     core/types.h
     core/types.cpp
-    core/leaves.cpp
-    core/leaves.h
-    core/primitives.h
-    core/builtin.h
-    core/symbol.h
+        core/leaves.h
+        core/builtin.h
+        core/atoms/symbol.h
     core/matcher.h
     core/heap.cpp
     core/heap.h
@@ -101,7 +99,7 @@ set(SOURCE_FILES
     core/runtime.h
     core/python.h
     core/parser.h
-    core/symbol.cpp
+        core/atoms/symbol.cpp
     builtin/arithmetic.cpp
     builtin/arithmetic.h
     builtin/lists.cpp
@@ -123,14 +121,14 @@ set(SOURCE_FILES
     builtin/numbertheory.h
     builtin/structure.cpp
     builtin/structure.h
-    core/complex.cpp
-    core/complex.h
+        core/atoms/complex.cpp
+        core/atoms/complex.h
     concurrent/parallel.h
     concurrent/parallel.cpp
-    core/generator.h
+        core/slice/generator.h
     builtin/inout.cpp
     builtin/inout.h
-    core/generator.h
+        core/slice/generator.h
     arithmetic/add.cpp
     arithmetic/add.h
     arithmetic/mul.cpp
@@ -144,7 +142,7 @@ set(SOURCE_FILES
     core/numberform.cpp
     builtin/options.cpp
     builtin/options.h
-    core/numeric.tcc)
+    core/numeric.tcc core/slice/collection.h core/slice/slice.h core/slice/packed.h core/slice/big.h core/slice/tiny.h core/attributes.h core/slice/method.h core/slice/array.h core/slice/vcall.h core/expression/interface.h core/slice/code.h)
 
 add_custom_target(standalone)
 

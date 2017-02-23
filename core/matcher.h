@@ -3,8 +3,8 @@
 
 #include "types.h"
 #include "evaluation.h"
-#include "symbol.h"
-#include "expression.h"
+#include "core/atoms/symbol.h"
+#include "core/expression/implementation.h"
 #include "builtin.h"
 
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt);

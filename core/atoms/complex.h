@@ -10,8 +10,8 @@
 #include <symengine/real_double.h>
 #include <symengine/real_mpfr.h>
 
-#include "types.h"
-#include "hash.h"
+#include "core/types.h"
+#include "core/hash.h"
 
 class MachineComplex : public BaseExpression {
 private:

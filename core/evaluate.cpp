@@ -1,5 +1,5 @@
 #include "types.h"
-#include "expression.h"
+#include "core/expression/implementation.h"
 #include "evaluate.h"
 #include "definitions.h"
 #include "matcher.h"
@@ -148,7 +148,7 @@ BaseExpressionRef evaluate(
             }
         }
 
-        if (is_static_slice(Slice::code())) { // static slices always produce static slices
+        if (is_tiny_slice(Slice::code())) { // tiny slices always produce tiny slices
             assert(intermediate_form->slice_code() == Slice::code());
             const auto *expr = static_cast<const Implementation*>(intermediate_form.get());
 
@@ -157,7 +157,7 @@ BaseExpressionRef evaluate(
                 expr->slice(),
                 attributes,
                 evaluation), intermediate_form);
-        } else { // non-static slices might produce a variety of slice types; we need to check
+        } else { // non-tiny slices might produce a variety of slice types; we need to check
             return evaluate_unknown_size(intermediate_form.get());
         }
     } else {
@@ -188,7 +188,7 @@ public:
 template<typename ReducedAttributes>
 template<int N>
 void EvaluateDispatch::Precompiled<ReducedAttributes>::initialize_static_slice() {
-    m_vtable.entry[StaticSlice0Code + N] = ::evaluate<StaticSlice<N>, ReducedAttributes>;
+    m_vtable.entry[TinySlice0Code + N] = ::evaluate<TinySlice<N>, ReducedAttributes>;
 
     STATIC_IF (N >= 1) {
         initialize_static_slice<N - 1>();
@@ -197,17 +197,17 @@ void EvaluateDispatch::Precompiled<ReducedAttributes>::initialize_static_slice()
 
 template<typename ReducedAttributes>
 EvaluateDispatch::Precompiled<ReducedAttributes>::Precompiled() {
-    static_assert(1 + PackedSliceMachineRealCode - StaticSlice0Code ==
+    static_assert(1 + PackedSliceMachineRealCode - TinySlice0Code ==
         NumberOfSliceCodes, "slice code ids error");
 
-    m_vtable.entry[DynamicSliceCode] = ::evaluate<DynamicSlice, ReducedAttributes>;
+    m_vtable.entry[BigSliceCode] = ::evaluate<BigSlice, ReducedAttributes>;
 
     m_vtable.entry[PackedSliceMachineIntegerCode] =
         ::evaluate<PackedSlice<machine_integer_t>, ReducedAttributes>;
     m_vtable.entry[PackedSliceMachineRealCode] =
         ::evaluate<PackedSlice<machine_real_t>, ReducedAttributes>;
 
-    initialize_static_slice<MaxStaticSliceSize>();
+    initialize_static_slice<MaxTinySliceSize>();
 }
 
 EvaluateDispatch::EvaluateDispatch() {

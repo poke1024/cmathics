@@ -5,8 +5,8 @@
 #include <stdint.h>
 #include <symengine/integer.h>
 
-#include "types.h"
-#include "hash.h"
+#include "core/types.h"
+#include "core/hash.h"
 
 class Integer : public BaseExpression {
 public:

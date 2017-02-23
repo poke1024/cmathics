@@ -69,7 +69,7 @@ public:
         const Evaluation &evaluation) const {
 
 		constexpr SliceCode slice_code =
-			N <= MaxStaticSliceSize ? static_slice_code(N) : SliceCode::Unknown;
+			N <= MaxTinySliceSize ? tiny_slice_code(N) : SliceCode::Unknown;
 
         const BaseExpressionRef result = expr->with_leaves_array<slice_code>(
 			[this, expr, &evaluation] (const BaseExpressionRef *leaves, size_t size) {

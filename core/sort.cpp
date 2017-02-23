@@ -1,5 +1,5 @@
 #include "types.h"
-#include "expression.h"
+#include "core/expression/implementation.h"
 
 int SortKey::compare(const SortKey &key) const {
 	int min_size = std::min(m_size, key.m_size);

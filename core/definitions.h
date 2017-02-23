@@ -1,7 +1,7 @@
 #ifndef SYMTABLE_H
 #define SYMTABLE_H
 
-#include "symbol.h"
+#include "core/atoms/symbol.h"
 #include "numberform.h"
 #include <unordered_map>
 

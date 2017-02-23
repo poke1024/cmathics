@@ -3,11 +3,11 @@
 #ifndef EXPRESSION_H
 #define EXPRESSION_H
 
-#include "types.h"
-#include "hash.h"
-#include "symbol.h"
-#include "string.h"
-#include "leaves.h"
+#include "core/types.h"
+#include "core/hash.h"
+#include "core/atoms/symbol.h"
+#include "core/atoms/string.h"
+#include "core/leaves.h"
 
 #include <sstream>
 #include <vector>
@@ -357,8 +357,6 @@ public:
 		return size;
 	}
 
-	virtual DynamicExpressionRef to_dynamic_expression(const BaseExpressionRef &self) const;
-
 	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
 
 	virtual bool is_numeric() const final {
@@ -615,159 +613,16 @@ public:
 	}
 };
 
-#include "leaves.tcc"
+#include "core/heap.tcc"
+#include "core/numeric.tcc"
 
 template<size_t N>
 inline const BaseExpressionRef *Expression::n_leaves() const {
-    static_assert(N >= 0 && N <= MaxStaticSliceSize, "N is too large");
-    return static_cast<const StaticSlice<N>*>(_slice_ptr)->refs();
+    static_assert(N >= 0 && N <= MaxTinySliceSize, "N is too large");
+    return static_cast<const TinySlice<N>*>(_slice_ptr)->refs();
 }
 
-template<typename E, typename T>
-inline std::vector<T> collect(const LeafVector &leaves) {
-	std::vector<T> values;
-	values.reserve(leaves.size());
-	for (const auto &leaf : leaves) {
-		values.push_back(static_cast<const E*>(leaf.get())->value);
-	}
-	return values;
-}
-
-inline ExpressionRef non_static_expression(
-	const BaseExpressionRef &head,
-	LeafVector &&leaves) {
-
-	if (leaves.size() < MinPackedSliceSize) {
-		return Pool::Expression(head, DynamicSlice(std::move(leaves)));
-	} else {
-		switch (leaves.type_mask()) {
-			case make_type_mask(MachineIntegerType):
-				return Pool::Expression(head, PackedSlice<machine_integer_t>(
-					collect<MachineInteger, machine_integer_t>(leaves)));
-			case make_type_mask(MachineRealType):
-				return Pool::Expression(head, PackedSlice<machine_real_t>(
-					collect<MachineReal, machine_real_t>(leaves)));
-			default:
-				return Pool::Expression(head, DynamicSlice(std::move(leaves)));
-		}
-	}
-}
-
-template<typename G>
-typename std::enable_if<std::is_base_of<FGenerator, G>::value, ExpressionRef>::type
-expression(
-	const BaseExpressionRef &head,
-	const G &generator) {
-
-	if (generator.size() <= MaxStaticSliceSize) {
-		return Pool::StaticExpression(head, generator);
-	} else {
-		return non_static_expression(head, generator.vector());
-	}
-}
-
-inline ExpressionRef
-expression(
-	const BaseExpressionRef &head,
-	LeafVector &&leaves) {
-
-	const size_t n = leaves.size();
-	if (n <= MaxStaticSliceSize) {
-		return Pool::StaticExpression(head, sequential([&leaves, n] (auto &store) {
-			for (size_t i = 0; i < n; i++) {
-				store(leaves.unsafe_grab_leaf(i));
-			}
-		}, n));
-	} else {
-		return non_static_expression(head, std::move(leaves));
-	}}
-
-
-template<typename G>
-typename std::enable_if<std::is_base_of<VGenerator, G>::value, ExpressionRef>::type
-expression(
-	const BaseExpressionRef &head,
-	const G &generator) {
-
-	return expression(head, generator.vector());
-}
-
-inline ExpressionRef expression(
-	const BaseExpressionRef &head) {
-
-	return Pool::EmptyExpression(head);
-}
-
-inline ExpressionRef expression(
-    const BaseExpressionRef &head,
-    const BaseExpressionRef &a) {
-
-    return Pool::StaticExpression<1>(head, StaticSlice<1>({a}));
-}
-
-inline ExpressionRef expression(
-    const BaseExpressionRef &head,
-    const BaseExpressionRef &a,
-    const BaseExpressionRef &b) {
-
-    return Pool::StaticExpression<2>(head, StaticSlice<2>({a, b}));
-}
-
-inline ExpressionRef expression(
-    const BaseExpressionRef &head,
-    const BaseExpressionRef &a,
-    const BaseExpressionRef &b,
-    const BaseExpressionRef &c) {
-
-    return Pool::StaticExpression<3>(head, StaticSlice<3>({a, b, c}));
-}
-
-inline ExpressionRef expression(
-    const BaseExpressionRef &head,
-    const BaseExpressionRef &a,
-    const BaseExpressionRef &b,
-    const BaseExpressionRef &c,
-    const BaseExpressionRef &d) {
-
-    return Pool::StaticExpression<4>(head, StaticSlice<4>({a, b, c, d}));
-}
-
-inline ExpressionRef expression(
-	const BaseExpressionRef &head,
-	const std::initializer_list<BaseExpressionRef> &leaves) {
-
-	if (leaves.size() <= MaxStaticSliceSize) {
-		return Pool::StaticExpression(head, sequential([&leaves] (auto &store) {
-			for (const BaseExpressionRef &leaf : leaves) {
-				store(BaseExpressionRef(leaf));
-			}
-		}, leaves.size()));
-	} else {
-		return Pool::Expression(head, DynamicSlice(leaves, UnknownTypeMask));
-	}
-}
-
-template<typename U>
-inline PackedExpressionRef<U> expression(const BaseExpressionRef &head, PackedSlice<U> &&slice) {
-	return Pool::Expression(head, slice);
-}
-
-inline DynamicExpressionRef expression(const BaseExpressionRef &head, DynamicSlice &&slice) {
-	return Pool::Expression(head, slice);
-}
-
-template<int N>
-inline StaticExpressionRef<N> expression(const BaseExpressionRef &head, StaticSlice<N> &&slice) {
-    return Pool::StaticExpression<N>(head, std::move(slice));
-}
-
-inline ExpressionRef expression(const BaseExpressionRef &head, const ArraySlice &slice) {
-	return slice.clone(head);
-}
-
-inline ExpressionRef expression(const BaseExpressionRef &head, const VCallSlice &slice) {
-	return slice.clone(head);
-}
+#include "construct.h"
 
 template<typename Slice>
 inline ExpressionRef ExpressionImplementation<Slice>::slice(
@@ -790,7 +645,7 @@ inline ExpressionRef ExpressionImplementation<Slice>::slice(
 
     if (is_packed_slice(slice_code) && new_size >= MinPackedSliceSize) {
         return expression(head, m_slice.slice(begin, end));
-    } else if (slice_code == DynamicSliceCode && new_size > MaxStaticSliceSize) {
+    } else if (slice_code == BigSliceCode && new_size > MaxTinySliceSize) {
 		return expression(head, m_slice.slice(begin, end));
 	} else {
 		const Slice &slice = m_slice;
@@ -805,25 +660,10 @@ inline ExpressionRef ExpressionImplementation<Slice>::slice(
 	}
 }
 
-template<typename Slice>
-DynamicExpressionRef ExpressionImplementation<Slice>::to_dynamic_expression(const BaseExpressionRef &self) const {
-	if (std::is_same<Slice, DynamicSlice>()) {
-		return static_pointer_cast<DynamicExpression>(self);
-	} else {
-		LeafVector leaves;
-		leaves.reserve(m_slice.size());
-		for (auto leaf : m_slice.leaves()) {
-			leaves.push_back(BaseExpressionRef(leaf));
-		}
-		return Pool::Expression(_head, DynamicSlice(std::move(leaves)));
+#include "core/definitions.h"
+#include "core/evaluation.h"
 
-	}
-}
-
-#include "definitions.h"
-#include "evaluation.h"
-
-#include "evaluate.h"
+#include "core/evaluate.h"
 
 template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::replace_all(

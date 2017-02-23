@@ -4,7 +4,7 @@
 #include <gmp.h>
 #include <symengine/rational.h>
 
-#include "types.h"
+#include "core/types.h"
 #include "integer.h"
 #include "symbol.h"
 

@@ -5,7 +5,7 @@
 
 #include <stdbool.h>
 #include "definitions.h"
-#include "string.h"
+#include "core/atoms/string.h"
 
 typedef enum {
     PrintType, MessageType

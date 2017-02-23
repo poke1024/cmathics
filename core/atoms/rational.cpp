@@ -1,5 +1,5 @@
-#include "types.h"
-#include "expression.h"
+#include "core/types.h"
+#include "core/expression/implementation.h"
 #include "rational.h"
 
 std::string BigRational::debugform() const {

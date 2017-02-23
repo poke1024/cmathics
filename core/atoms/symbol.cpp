@@ -1,8 +1,8 @@
-#include "types.h"
-#include "expression.h"
+#include "core/types.h"
+#include "core/expression/implementation.h"
 #include "symbol.h"
-#include "builtin.h"
-#include "matcher.h"
+#include "core/builtin.h"
+#include "core/matcher.h"
 
 thread_local EvaluationContext *EvaluationContext::s_current = nullptr;
 
@@ -95,7 +95,7 @@ SymbolicFormRef Symbol::instantiate_symbolic_form() const {
 }
 
 void SymbolState::clear() {
-	set_attributes(Attributes(0));
+	set_attributes(Attributes::None);
     m_own_value.reset();
     m_rules.reset();
     m_copy_on_write = false;

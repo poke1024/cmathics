@@ -1,5 +1,5 @@
 #include "types.h"
-#include "symbol.h"
+#include "core/atoms/symbol.h"
 #include "matcher.h"
 #include "unicode/uchar.h"
 
