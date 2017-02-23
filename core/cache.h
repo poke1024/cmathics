@@ -11,6 +11,13 @@ typedef QuasiConstSharedPtr<RewriteExpression> CachedRewriteExpressionRef;
 typedef UnsafeSharedPtr<RewriteExpression> UnsafeRewriteExpressionRef;
 
 class RewriteBaseExpression {
+public:
+    enum { // used in m_slot
+        Copy = -1,
+        Descend = -2,
+        OptionValue = -3
+    };
+
 private:
 	const index_t m_slot;
     const SymbolRef m_option_value;
@@ -116,15 +123,21 @@ inline RewriteBaseExpression RewriteBaseExpression::construct(
 			return RewriteBaseExpression(directive.m_slot);
         case SlotDirective::OptionValue:
             return RewriteBaseExpression(
-                -1, RewriteExpressionRef(), directive.m_option_value);
+                RewriteBaseExpression::OptionValue,
+                RewriteExpressionRef(),
+                directive.m_option_value);
 		case SlotDirective::Copy:
-			return RewriteBaseExpression(-1);
+			return RewriteBaseExpression(
+                RewriteBaseExpression::Copy);
 		case SlotDirective::Descend:
 			if (expr->is_expression()) {
-				return RewriteBaseExpression(-1, RewriteExpressionRef(
-					new RewriteExpression(arguments, expr->as_expression())));
+				return RewriteBaseExpression(
+                    RewriteBaseExpression::Descend,
+                    RewriteExpressionRef(new RewriteExpression(
+                        arguments, expr->as_expression())));
 			} else {
-				return RewriteBaseExpression(-1);
+				return RewriteBaseExpression(
+                    RewriteBaseExpression::Copy);
 			}
 		default:
 			throw std::runtime_error("invalid SlotDirective");
@@ -137,21 +150,30 @@ inline BaseExpressionRef RewriteBaseExpression::rewrite_or_copy(
 	const Arguments &args,
     const Options &options) const {
 
-    if (m_slot >= 0) {
-        return args(m_slot, expr);
-    }
+    const index_t slot = m_slot;
 
-    if (m_down) {
-        return m_down->rewrite_or_copy(
-            expr->as_expression(), args, options);
-    }
+    if (slot >= 0) {
+        return args(slot, expr);
+    } else switch (slot) {
+        case Copy:
+            return expr;
 
-    const auto option = options(m_option_value);
-    if (option) {
-        return option;
-    }
+        case Descend:
+            return m_down->rewrite_or_copy(
+                expr->as_expression(), args, options);
 
-    return expr;
+        case OptionValue: {
+            const auto option = options(m_option_value);
+            if (option) {
+                return option;
+            }
+            return expr;
+        }
+
+        default:
+            assert(false);
+            return expr;
+    }
 };
 
 template<typename Arguments>
