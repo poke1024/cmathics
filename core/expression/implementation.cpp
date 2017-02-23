@@ -1,6 +1,6 @@
 #include "core/types.h"
 #include "implementation.h"
-#include "core/pattern.h"
+#include "core/pattern/arguments.h"
 #include "core/evaluate.h"
 
 BaseExpressionRef Expression::evaluate_expression(
@@ -42,6 +42,5 @@ BaseExpressionRef Expression::evaluate_expression(
 }
 
 SymbolicFormRef Expression::instantiate_symbolic_form() const {
-    return fast_symbolic_form(this);
+    return Pool::NoSymbolicForm();
 }
-

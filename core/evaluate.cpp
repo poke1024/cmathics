@@ -2,7 +2,7 @@
 #include "core/expression/implementation.h"
 #include "evaluate.h"
 #include "definitions.h"
-#include "matcher.h"
+#include "core/pattern/matcher.tcc"
 
 EvaluateDispatch *EvaluateDispatch::s_instance = nullptr;
 

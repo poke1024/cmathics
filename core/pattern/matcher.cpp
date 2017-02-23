@@ -1,6 +1,6 @@
-#include "types.h"
+#include "core/types.h"
 #include "core/atoms/symbol.h"
-#include "matcher.h"
+#include "matcher.tcc"
 #include "unicode/uchar.h"
 
 #define DECLARE_MATCH_EXPRESSION_METHODS                                                                      \

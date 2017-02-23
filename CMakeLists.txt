@@ -64,16 +64,14 @@ set(SOURCE_FILES
     core/evaluation.h
         core/expression/implementation.cpp
         core/expression/implementation.h
-    core/formatter.cpp
-    core/formatter.h
-    core/hash.cpp
+        core/hash.cpp
     core/hash.h
         core/atoms/integer.cpp
         core/atoms/integer.h
     core/misc.cpp
     core/misc.h
-    core/pattern.cpp
-    core/pattern.h
+        core/pattern/options.cpp
+        core/pattern/arguments.h
         core/atoms/rational.cpp
         core/atoms/rational.h
         core/atoms/real.cpp
@@ -82,10 +80,9 @@ set(SOURCE_FILES
         core/atoms/string.h
     core/types.h
     core/types.cpp
-        core/leaves.h
         core/builtin.h
         core/atoms/symbol.h
-    core/matcher.h
+        core/pattern/matcher.h
     core/heap.cpp
     core/heap.h
     core/evaluate.h
@@ -95,7 +92,7 @@ set(SOURCE_FILES
     core/sort.cpp
     core/system_symbols.h
     core/rule.h
-    core/numeric.h
+        core/atoms/numeric.h
     core/runtime.h
     core/python.h
     core/parser.h
@@ -114,7 +111,7 @@ set(SOURCE_FILES
     builtin/exptrig.h
     core/runtime.cpp
     core/rule.cpp
-    core/matcher.cpp
+        core/pattern/matcher.cpp
     builtin/strings.cpp
     builtin/strings.h
     builtin/numbertheory.cpp
@@ -142,7 +139,7 @@ set(SOURCE_FILES
     core/numberform.cpp
     builtin/options.cpp
     builtin/options.h
-    core/numeric.tcc core/slice/collection.h core/slice/slice.h core/slice/packed.h core/slice/big.h core/slice/tiny.h core/attributes.h core/slice/method.h core/slice/array.h core/slice/vcall.h core/expression/interface.h core/slice/code.h)
+        core/atoms/numeric.tcc core/slice/collection.h core/slice/slice.h core/slice/packed.h core/slice/big.h core/slice/tiny.h core/attributes.h core/slice/method.h core/slice/array.h core/slice/vcall.h core/expression/interface.h core/slice/code.h core/atoms/precision.cpp core/pattern/arguments.tcc)
 
 add_custom_target(standalone)
 

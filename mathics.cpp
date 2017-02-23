@@ -12,7 +12,7 @@
 #include "core/definitions.h"
 #include "core/formatter.h"
 #include "core/evaluation.h"
-#include "core/pattern.h"
+#include "core/pattern/arguments.h"
 #include "core/atoms/integer.h"
 #include "core/atoms/real.h"
 #include "core/atoms/rational.h"

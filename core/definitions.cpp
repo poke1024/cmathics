@@ -1,9 +1,9 @@
 #include "types.h"
 #include "core/expression/implementation.h"
 #include "evaluation.h"
-#include "pattern.h"
+#include "core/pattern/arguments.h"
 #include "builtin.h"
-#include "matcher.h"
+#include "core/pattern/matcher.tcc"
 
 inline DefinitionsPos get_definitions_pos(
 	BaseExpressionPtr pattern,

@@ -475,31 +475,6 @@ inline std::size_t SymbolHash::operator()(const SymbolRef &symbol) const {
 	return (*this)(symbol.get());
 }
 
-inline SlotDirective CompiledArguments::operator()(const BaseExpressionRef &item) const {
-	if (item->is_symbol()) {
-		const index_t index = m_variables.find(
-			static_cast<const Symbol*>(item.get()));
-		if (index >= 0) {
-			return SlotDirective::slot(index);
-		} else {
-			return SlotDirective::copy();
-		}
-	} else {
-        if (item->is_expression()) {
-            const Expression * const expr = item->as_expression();
-
-            if (expr->head()->symbol() == S::OptionValue && expr->size() == 1) {
-                const BaseExpressionRef &leaf = expr->n_leaves<1>()[0];
-                if (leaf->is_symbol()) {
-                    return SlotDirective::option_value(leaf->as_symbol());
-                }
-            }
-        }
-
-		return SlotDirective::descend();
-	}
-}
-
 inline const Symbol *BaseExpression::lookup_name() const {
     switch (type()) {
         case SymbolType:
@@ -510,5 +485,7 @@ inline const Symbol *BaseExpression::lookup_name() const {
             return nullptr;
     }
 }
+
+#include "../pattern/arguments.tcc"
 
 #endif //CMATHICS_SYMBOL_H_H

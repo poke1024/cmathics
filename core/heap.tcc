@@ -1,3 +1,7 @@
+#pragma once
+
+#include "slice/tiny.h"
+
 inline SymbolRef Pool::Symbol(const char *name, ExtendedType type) {
 	assert(_s_instance);
 	return SymbolRef(_s_instance->_symbols.construct(name, type));

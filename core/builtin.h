@@ -2,7 +2,7 @@
 #define CMATHICS_BUILTIN_H
 
 #include "evaluation.h"
-#include "pattern.h"
+#include "core/pattern/arguments.h"
 #include "definitions.h"
 
 // apply_from_tuple is taken from http://www.cppsamples.com/common-tasks/apply-tuple-to-function.html

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 template<int N, bool valid>
 struct TinySlicePart {
 };

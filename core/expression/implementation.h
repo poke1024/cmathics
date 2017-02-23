@@ -7,7 +7,6 @@
 #include "core/hash.h"
 #include "core/atoms/symbol.h"
 #include "core/atoms/string.h"
-#include "core/leaves.h"
 
 #include <sstream>
 #include <vector>
@@ -613,16 +612,19 @@ public:
 	}
 };
 
-#include "core/heap.tcc"
-#include "core/numeric.tcc"
+#include "../heap.tcc"
+#include "core/atoms/numeric.tcc"
+#include "construct.h"
+#include "../definitions.h"
+#include "../evaluation.h"
+#include "../evaluate.h"
+#include "../pattern/rewrite.tcc"
 
 template<size_t N>
 inline const BaseExpressionRef *Expression::n_leaves() const {
     static_assert(N >= 0 && N <= MaxTinySliceSize, "N is too large");
     return static_cast<const TinySlice<N>*>(_slice_ptr)->refs();
 }
-
-#include "construct.h"
 
 template<typename Slice>
 inline ExpressionRef ExpressionImplementation<Slice>::slice(
@@ -660,11 +662,6 @@ inline ExpressionRef ExpressionImplementation<Slice>::slice(
 	}
 }
 
-#include "core/definitions.h"
-#include "core/evaluation.h"
-
-#include "core/evaluate.h"
-
 template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::replace_all(
 	const MatchRef &match, const Evaluation &evaluation) const {
@@ -697,58 +694,6 @@ const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(UnsafeBase
 	return expr->m_slice.refs();
 }
 
-inline std::string message_text(
-    const Evaluation &evaluation,
-    std::string &&text,
-    size_t index) {
-
-    return text;
-}
-
-template<typename... Args>
-std::string message_text(
-    const Evaluation &evaluation,
-    std::string &&text,
-    size_t index,
-    const BaseExpressionRef &arg,
-    Args... args) {
-
-    std::string new_text(text);
-    const std::string placeholder(message_placeholder(index));
-
-    const auto pos = new_text.find(placeholder);
-    if (pos != std::string::npos) {
-        new_text = new_text.replace(pos, placeholder.length(), evaluation.format_output(arg));
-    }
-
-    return message_text(evaluation, std::move(new_text), index + 1, args...);
-}
-
-template<typename... Args>
-void Evaluation::message(const SymbolRef &name, const char *tag, const Args&... args) const {
-	const auto &symbols = definitions.symbols();
-
-	const BaseExpressionRef tag_str = Pool::String(std::string(tag));
-
-	const ExpressionRef message = expression(
-		symbols.MessageName, name, tag_str);
-	UnsafeStringRef text_template = static_cast<const Symbol*>(
-		name.get())->lookup_message(message.get(), *this);
-
-	if (!text_template) {
-		const ExpressionRef general_message = expression(
-			symbols.MessageName, symbols.General, tag_str);
-
-		text_template = symbols.General->lookup_message(general_message.get(), *this);
-	}
-
-	if (text_template) {
-		std::string text(text_template->utf8());
-        std::unique_lock<std::mutex> lock(m_output_mutex);
-        m_output->write(name->short_name(), tag, message_text(*this, std::move(text), 1, args...));
-	}
-}
-
 template<typename Slice>
 template<typename Compute, typename Recurse>
 BaseExpressionRef ExpressionImplementation<Slice>::do_symbolic(
@@ -772,95 +717,6 @@ BaseExpressionRef ExpressionImplementation<Slice>::do_symbolic(
 			},
 			evaluation);
 	}
-}
-
-class RuleForm {
-private:
-	const BaseExpressionRef *m_leaves;
-
-public:
-	// note that the scope of "item" must contain that of
-	// RuleForm, i.e. item must be referenced at least as
-	// long as RuleForm lives.
-	inline RuleForm(BaseExpressionPtr item) {
-		if (!item->is_expression()) {
-			m_leaves = nullptr;
-		} else {
-			const auto expr = item->as_expression();
-
-			if (expr->size() != 2) {
-				m_leaves = nullptr;
-			} else {
-				switch (expr->head()->symbol()) {
-					case S::Rule:
-					case S::RuleDelayed:
-						m_leaves = expr->n_leaves<2>();
-						break;
-					default:
-						m_leaves = nullptr;
-						break;
-				}
-			}
-		}
-	}
-
-	inline bool is_rule() const {
-		return m_leaves;
-	}
-
-	inline const BaseExpressionRef &left_side() const {
-		return m_leaves[0];
-	}
-
-	inline const BaseExpressionRef &right_side() const {
-		return m_leaves[1];
-	}
-};
-
-template<typename Arguments>
-std::vector<const RewriteBaseExpression> RewriteExpression::nodes(
-	Arguments &arguments,
-	const Expression *body) {
-
-	return body->with_slice([&arguments] (const auto &slice) {
-		std::vector<const RewriteBaseExpression> refs;
-		const size_t n = slice.size();
-		refs.reserve(n);
-		for (size_t i = 0; i < n; i++) {
-			refs.emplace_back(RewriteBaseExpression::construct(arguments, slice[i]));
-		}
-		return refs;
-	});
-}
-
-template<typename Arguments>
-RewriteExpression::RewriteExpression(
-	Arguments &arguments,
-	const Expression *body) :
-
-	m_head(RewriteBaseExpression::construct(arguments, body->head())),
-	m_leaves(nodes(arguments, body)) {
-}
-
-template<typename Arguments, typename Options>
-inline BaseExpressionRef RewriteExpression::rewrite_or_copy(
-	const Expression *body,
-	const Arguments &args,
-    const Options &options) const {
-
-	return body->with_slice_c(
-		[this, body, &args, &options] (const auto &slice) {
-			const auto generate = [this, &slice, &args, &options] (auto &store) {
-				const size_t n = slice.size();
-				for (size_t i = 0; i < n; i++) {
-					store(m_leaves[i].rewrite_or_copy(slice[i], args, options));
-				}
-			};
-
-			return ExpressionRef(expression(
-				m_head.rewrite_or_copy(body->head(), args, options),
-				sequential(generate, slice.size())))->flatten_sequence_or_copy();
-		});
 }
 
 template<typename Slice>
@@ -1046,5 +902,150 @@ inline ExpressionRef BaseExpression::flatten_sequence() const {
 inline ExpressionRef Expression::flatten_sequence_or_copy() const {
     return coalesce(as_expression()->flatten_sequence(), ExpressionRef(this));
 }
+
+inline PatternMatcherRef Expression::expression_matcher() const { // concurrent.
+    return ensure_cache()->expression_matcher(this);
+}
+
+inline PatternMatcherRef Expression::string_matcher() const { // concurrent.
+    return ensure_cache()->string_matcher(this);
+}
+
+template<typename Expression>
+BaseExpressionRef format_expr(
+    const Expression *expr,
+    const SymbolPtr form,
+    const Evaluation &evaluation) {
+
+    if (expr->is_expression() &&
+        expr->as_expression()->head()->is_expression()) {
+        // expr is of the form f[...][...]
+        return BaseExpressionRef();
+    }
+
+    const Symbol * const name = expr->lookup_name();
+    const SymbolRules * const rules = name->state().rules();
+    if (rules) {
+        const optional<BaseExpressionRef> result =
+            rules->format_values.apply(expr, form, evaluation);
+        if (result && *result) {
+            return (*result)->evaluate_or_copy(evaluation);
+        }
+    }
+
+    return BaseExpressionRef();
+}
+
+template<typename Slice>
+BaseExpressionRef ExpressionImplementation<Slice>::custom_format_traverse(
+    const BaseExpressionRef &form,
+    const Evaluation &evaluation) const {
+
+    const BaseExpressionRef new_head =
+        head()->custom_format_or_copy(form, evaluation);
+
+    return conditional_map_all(
+        new_head, [&form, &evaluation] (const BaseExpressionRef &leaf) {
+            return leaf->custom_format(form, evaluation);
+        }, evaluation);
+}
+
+template<typename Slice>
+BaseExpressionRef ExpressionImplementation<Slice>::custom_format(
+    const BaseExpressionRef &form,
+    const Evaluation &evaluation) const {
+
+    // see BaseExpression.do_format in PyMathics
+
+    BaseExpressionPtr expr_form;
+    bool include_form;
+
+    UnsafeBaseExpressionRef expr;
+
+    if (size() == 1) {
+        switch (head()->symbol()) {
+	        case S::StandardForm:
+                if (form->symbol() == S::OutputForm) {
+                    expr_form = form.get();
+                    include_form = false;
+                    expr = m_slice[0];
+                    break;
+                }
+                // fallthrough
+
+	        case S::InputForm:
+            case S::OutputForm:
+            case S::FullForm:
+            case S::TraditionalForm:
+            case S::TeXForm:
+            case S::MathMLForm:
+                expr_form = head();
+                include_form = true;
+                expr = m_slice[0];
+                break;
+
+            default:
+                expr_form = form.get();
+                include_form = false;
+                expr = UnsafeBaseExpressionRef(this);
+                break;
+        }
+    } else {
+        expr_form = form.get();
+        include_form = false;
+        expr = UnsafeBaseExpressionRef(this);
+    }
+
+    if (expr_form->symbol() != S::FullForm && expr->is_expression()) {
+        if (expr_form->is_symbol()) {
+            const BaseExpressionRef formatted =
+                format_expr(expr->as_expression(), expr_form->as_symbol(), evaluation);
+            if (formatted) {
+                expr = formatted->custom_format_or_copy(expr_form, evaluation);
+                if (include_form) {
+                    expr = expression(expr_form, expr);
+                }
+                return expr;
+            }
+        }
+
+        switch (expr->as_expression()->head()->symbol()) {
+            case S::StandardForm:
+            case S::InputForm:
+            case S::OutputForm:
+            case S::FullForm:
+            case S::TraditionalForm:
+            case S::TeXForm:
+            case S::MathMLForm: {
+                expr = expr->custom_format(form, evaluation);
+                break;
+            }
+
+            case S::NumberForm:
+            case S::Graphics:
+                // nothing
+                break;
+
+            default:
+                expr = expr->custom_format_traverse(form, evaluation);
+                break;
+        }
+    }
+
+    if (include_form) {
+        expr = expression(expr_form, expr);
+    }
+
+    return expr;
+}
+
+template<typename F>
+inline auto with_slices(const Expression *a, const Expression *b, const F &f) {
+	return a->with_slice([b, &f] (const auto &slice_a) {
+		return b->with_slice([&f, &slice_a] (const auto &slice_b) {
+			return f(slice_a, slice_b);
+		});
+	});
+};
 
 #endif

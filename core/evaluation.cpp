@@ -5,7 +5,7 @@
 #include "core/expression/implementation.h"
 #include "definitions.h"
 #include "evaluation.h"
-#include "pattern.h"
+#include "core/pattern/arguments.h"
 
 Evaluation::Evaluation(
     const OutputRef &output,

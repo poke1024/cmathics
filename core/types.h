@@ -8,9 +8,7 @@
 #include <functional>
 #include <vector>
 #include <cstdlib>
-
-#include <symengine/basic.h>
-#include <symengine/complex.h>
+#include <cassert>
 
 #include <experimental/optional>
 using std::experimental::optional;
@@ -20,8 +18,6 @@ using std::experimental::optional;
 
 // NDEBUG will remove asserts and
 // trigger optimized slice generators.
-
-#include <cassert>
 
 #ifdef NDEBUG
 #define FASTER_COMPILE 0
@@ -195,75 +191,7 @@ typedef double machine_real_t;
 #include "hash.h"
 #include "slice/code.h"
 
-typedef int64_t match_size_t; // needs to be signed
-constexpr match_size_t MATCH_MAX = INT64_MAX >> 2; // safe for subtractions
-
-class MatchSize {
-private:
-	match_size_t _min;
-	match_size_t _max;
-
-	inline MatchSize(match_size_t min, match_size_t max) : _min(min), _max(max) {
-	}
-
-public:
-	inline MatchSize() {
-	}
-
-	static inline MatchSize exactly(match_size_t n) {
-		return MatchSize(n, n);
-	}
-
-	static inline MatchSize at_least(match_size_t n) {
-		return MatchSize(n, MATCH_MAX);
-	}
-
-	static inline MatchSize between(match_size_t min, match_size_t max) {
-		return MatchSize(min, max);
-	}
-
-	inline match_size_t min() const {
-		return _min;
-	}
-
-	inline match_size_t max() const {
-		return _max;
-	}
-
-	inline bool contains(match_size_t s) const {
-		return s >= _min && s <= _max;
-	}
-
-	inline optional<size_t> fixed_size() const {
-		if (_min == _max) { // i.e. a finite, fixed integer
-			return _min;
-		} else {
-			return optional<size_t>();
-		}
-	}
-
-	inline bool matches(SliceCode code) const {
-		if (is_tiny_slice(code)) {
-			return contains(tiny_slice_size(code));
-		} else {
-			// inspect wrt minimum size of non-static slice
-			const size_t min_size = MaxTinySliceSize + 1;
-			return _max >= min_size;
-		}
-	}
-
-	inline MatchSize &operator+=(const MatchSize &size) {
-		_min += size._min;
-		if (_max == MATCH_MAX || size._max == MATCH_MAX) {
-			_max = MATCH_MAX;
-		} else {
-			_max += size._max;
-		}
-		return *this;
-	}
-};
-
-typedef std::experimental::optional<MatchSize> OptionalMatchSize;
+#include "core/pattern/size.h"
 
 class Definitions;
 class Symbol;
@@ -319,46 +247,14 @@ class Symbols;
 class SortKey;
 class PatternSortKey;
 
-/*#if defined(WITH_SYMENGINE_THREAD_SAFE)
-#else
-static_assert(false, "need WITH_SYMENGINE_THREAD_SAFE");
-#endif*/
-
-typedef SymEngine::RCP<const SymEngine::Basic> SymEngineRef;
-
-typedef SymEngine::RCP<const SymEngine::Complex> SymEngineComplexRef;
-
-class SymbolicForm : public Shared<SymbolicForm, SharedPool> {
-private:
-	const SymEngineRef m_ref;
-
-public:
-	inline SymbolicForm(const SymEngineRef &ref) :
-		m_ref(ref) {
-	}
-
-	inline bool is_none() const {
-		// checks whether there is no SymEngine form for this expression.
-		return m_ref.is_null();
-	}
-
-	inline const SymEngineRef &get() const {
-		return m_ref;
-	}
-};
-
-typedef ConstSharedPtr<SymbolicForm> SymbolicFormRef;
-typedef QuasiConstSharedPtr<SymbolicForm> CachedSymbolicFormRef;
-typedef UnsafeSharedPtr<SymbolicForm> UnsafeSymbolicFormRef;
+#include "symbolic.h"
 
 class BaseExpression;
 class Expression;
 
-BaseExpressionRef from_symbolic_form(const SymEngineRef &ref, const Evaluation &evaluation);
-
 using SExp = std::tuple<StringRef /* s */, machine_integer_t /* n */, int /* non_negative */, bool /* integer? */>;
 
-#include "numeric.h"
+#include "core/atoms/numeric.h"
 
 struct StyleBoxOptions {
     inline StyleBoxOptions() :
@@ -382,8 +278,6 @@ protected:
 protected:
 	template<typename T>
 	friend inline SymbolicFormRef unsafe_symbolic_form(const T &item);
-
-	friend inline SymbolicFormRef fast_symbolic_form(const Expression *expr);
 
 	mutable CachedSymbolicFormRef m_symbolic_form;
 
@@ -679,18 +573,7 @@ inline void BaseExpression::set_no_symbolic_form() const {
 }
 
 #include "core/slice/slice.h"
-
-typedef SymEngineRef (*SymEngineUnaryFunction)(
-	const SymEngineRef&);
-
-typedef SymEngineRef (*SymEngineBinaryFunction)(
-	const SymEngineRef&,
-	const SymEngineRef&);
-
-typedef SymEngineRef (*SymEngineNAryFunction)(
-	const SymEngine::vec_basic&);
-
-#include "pattern.h"
+#include "core/pattern/arguments.h"
 #include "cache.h"
 
 inline CacheRef Pool::new_cache() {
@@ -702,12 +585,6 @@ inline void Pool::release(Cache *cache) {
 }
 
 #include "core/expression/interface.h"
-
-inline SymbolicFormRef fast_symbolic_form(const Expression *expr) {
-	return expr->m_symbolic_form.ensure([] () {
-        return Pool::NoSymbolicForm();
-    });
-}
 
 template<typename T>
 inline SymbolicFormRef unsafe_symbolic_form(const T &item) {
@@ -730,19 +607,12 @@ inline SymbolicFormRef unsafe_symbolic_form<const ExpressionPtr&>(const Expressi
     // caller must handle SymEngine::SymEngineException; non-core code should always
     // call symbolic_form(item, evaluation).
 
-	return fast_symbolic_form(expr);
+    return SymbolicFormRef(expr->m_symbolic_form.ensure([] () {
+        return Pool::NoSymbolicForm();
+    }));
 }
 
 #include "rule.h"
-
-template<typename F>
-inline auto with_slices(const Expression *a, const Expression *b, const F &f) {
-	return a->with_slice([b, &f] (const auto &slice_a) {
-		return b->with_slice([&f, &slice_a] (const auto &slice_b) {
-			return f(slice_a, slice_b);
-		});
-	});
-};
 
 inline const Expression *BaseExpression::as_expression() const {
 	return static_cast<const Expression*>(this);

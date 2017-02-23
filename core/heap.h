@@ -322,7 +322,10 @@ typedef ConstSharedPtr<Cache> CacheRef;
 typedef QuasiConstSharedPtr<Cache> CachedCacheRef;
 typedef UnsafeSharedPtr<Cache> UnsafeCacheRef;
 
-#include "pattern.h"
+#include "core/pattern/arguments.h"
+#include "core/pattern/matcher.h"
+#include "core/pattern/options.h"
+#include "core/pattern/match.h"
 #include "slice/heap.h"
 
 class Pool {

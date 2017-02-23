@@ -1,7 +1,6 @@
 // @formatter:off
 
-#ifndef EVALUATION_H
-#define EVALUATION_H
+#pragma once
 
 #include <stdbool.h>
 #include "definitions.h"
@@ -206,4 +205,6 @@ inline bool BaseExpression::has_form(
     }
 }
 
-#endif
+#include "expression/implementation.h"
+
+#include "evaluation.tcc"

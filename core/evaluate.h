@@ -1,7 +1,4 @@
-#ifndef CMATHICS_EVALUATE_H
-#define CMATHICS_EVALUATE_H
-
-#include "leaves.h"
+#pragma once
 
 template<TypeMask type_mask, typename Slice, typename FReference>
 class map_base {
@@ -301,134 +298,6 @@ inline ExpressionRef ExpressionImplementation<Slice>::conditional_map_all(
         head, head.get() != _head.get(), lambda(f), m_slice, 0, m_slice.size(), evaluation);
 }
 
-template<typename Expression>
-BaseExpressionRef format_expr(
-    const Expression *expr,
-    const SymbolPtr form,
-    const Evaluation &evaluation) {
-
-    if (expr->is_expression() &&
-        expr->as_expression()->head()->is_expression()) {
-        // expr is of the form f[...][...]
-        return BaseExpressionRef();
-    }
-
-    const Symbol * const name = expr->lookup_name();
-    const SymbolRules * const rules = name->state().rules();
-    if (rules) {
-        const optional<BaseExpressionRef> result =
-            rules->format_values.apply(expr, form, evaluation);
-        if (result && *result) {
-            return (*result)->evaluate_or_copy(evaluation);
-        }
-    }
-
-    return BaseExpressionRef();
-}
-
-template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::custom_format_traverse(
-    const BaseExpressionRef &form,
-    const Evaluation &evaluation) const {
-
-    const BaseExpressionRef new_head =
-        head()->custom_format_or_copy(form, evaluation);
-
-    return conditional_map_all(
-        new_head, [&form, &evaluation] (const BaseExpressionRef &leaf) {
-            return leaf->custom_format(form, evaluation);
-        }, evaluation);
-}
-
-template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::custom_format(
-    const BaseExpressionRef &form,
-    const Evaluation &evaluation) const {
-
-    // see BaseExpression.do_format in PyMathics
-
-    BaseExpressionPtr expr_form;
-    bool include_form;
-
-    UnsafeBaseExpressionRef expr;
-
-    if (size() == 1) {
-        switch (head()->symbol()) {
-	        case S::StandardForm:
-                if (form->symbol() == S::OutputForm) {
-                    expr_form = form.get();
-                    include_form = false;
-                    expr = m_slice[0];
-                    break;
-                }
-                // fallthrough
-
-	        case S::InputForm:
-            case S::OutputForm:
-            case S::FullForm:
-            case S::TraditionalForm:
-            case S::TeXForm:
-            case S::MathMLForm:
-                expr_form = head();
-                include_form = true;
-                expr = m_slice[0];
-                break;
-
-            default:
-                expr_form = form.get();
-                include_form = false;
-                expr = UnsafeBaseExpressionRef(this);
-                break;
-        }
-    } else {
-        expr_form = form.get();
-        include_form = false;
-        expr = UnsafeBaseExpressionRef(this);
-    }
-
-    if (expr_form->symbol() != S::FullForm && expr->is_expression()) {
-        if (expr_form->is_symbol()) {
-            const BaseExpressionRef formatted =
-                format_expr(expr->as_expression(), expr_form->as_symbol(), evaluation);
-            if (formatted) {
-                expr = formatted->custom_format_or_copy(expr_form, evaluation);
-                if (include_form) {
-                    expr = expression(expr_form, expr);
-                }
-                return expr;
-            }
-        }
-
-        switch (expr->as_expression()->head()->symbol()) {
-            case S::StandardForm:
-            case S::InputForm:
-            case S::OutputForm:
-            case S::FullForm:
-            case S::TraditionalForm:
-            case S::TeXForm:
-            case S::MathMLForm: {
-                expr = expr->custom_format(form, evaluation);
-                break;
-            }
-
-            case S::NumberForm:
-            case S::Graphics:
-                // nothing
-                break;
-
-            default:
-                expr = expr->custom_format_traverse(form, evaluation);
-                break;
-        }
-    }
-
-    if (include_form) {
-        expr = expression(expr_form, expr);
-    }
-
-    return expr;
-}
-
 using EvaluateFunction = std::function<BaseExpressionRef(
 	const Expression *expr,
 	const BaseExpressionRef &head,
@@ -532,5 +401,3 @@ inline BaseExpressionRef SymbolState::dispatch(
         slice,
         evaluation);
 }
-
-#endif //CMATHICS_EVALUATE_H

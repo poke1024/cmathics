@@ -6,7 +6,7 @@
 #include "types.h"
 #include "builtin.h"
 #include "parser.h"
-#include "matcher.h"
+#include "core/pattern/matcher.tcc"
 #include "python.h"
 
 using TestList = std::initializer_list<const char*[2]>;
