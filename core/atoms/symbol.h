@@ -292,6 +292,8 @@ public:
 
 	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
 
+	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const;
+
 	virtual SortKey sort_key() const final {
         MonomialMap map(Pool::monomial_map_allocator());
         map[SymbolKey(SymbolRef(this))] = 1;

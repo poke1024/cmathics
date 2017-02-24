@@ -1,3 +1,5 @@
+#pragma once
+
 #include "combiner.h"
 #include <iostream>
 #include <unordered_map>

@@ -226,6 +226,8 @@ public:
 
 	virtual BaseExpressionRef replace_all(const MatchRef &match, const Evaluation &evaluation) const;
 
+	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const;
+
 	virtual BaseExpressionRef clone() const;
 
 	virtual ExpressionRef clone(const BaseExpressionRef &head) const;
@@ -673,6 +675,21 @@ BaseExpressionRef ExpressionImplementation<Slice>::replace_all(
 		new_head ? new_head : old_head,
 		[&match] (const BaseExpressionRef &leaf) {
 			return leaf->replace_all(match);
+		},
+		evaluation);
+}
+
+template<typename Slice>
+BaseExpressionRef ExpressionImplementation<Slice>::replace_all(
+	const ArgumentsMap &replacement, const Evaluation &evaluation) const {
+
+	const BaseExpressionRef &old_head = _head;
+	const BaseExpressionRef new_head = old_head->replace_all(replacement, evaluation);
+
+	return conditional_map<ExpressionType, SymbolType>(
+		new_head ? new_head : old_head,
+		[&replacement, &evaluation] (const BaseExpressionRef &leaf) {
+			return leaf->replace_all(replacement, evaluation);
 		},
 		evaluation);
 }

@@ -108,3 +108,12 @@ void Symbol::reset_user_definitions() const {
 		m_user_state.clear();
 	}
 }
+
+BaseExpressionRef Symbol::replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const {
+	const auto i = replacement.find(this);
+	if (i != replacement.end()) {
+		return i->second;
+	} else {
+		return BaseExpressionRef();
+	}
+}

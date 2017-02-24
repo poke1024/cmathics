@@ -255,6 +255,7 @@ class Expression;
 using SExp = std::tuple<StringRef /* s */, machine_integer_t /* n */, int /* non_negative */, bool /* integer? */>;
 
 #include "core/atoms/numeric.h"
+#include "symbolmap.h"
 
 struct StyleBoxOptions {
     inline StyleBoxOptions() :
@@ -466,6 +467,10 @@ public:
     virtual BaseExpressionRef replace_all(const MatchRef &match) const {
 		return BaseExpressionRef();
     }
+
+	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const {
+		return BaseExpressionRef();
+	}
 
 	inline BaseExpressionRef replace_all_or_copy(const MatchRef &match) const {
 		const BaseExpressionRef result = replace_all(match);
