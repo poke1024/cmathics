@@ -82,7 +82,7 @@ void SymbolState::set_attributes(Attributes attributes) {
     m_dispatch = EvaluateDispatch::pick(attributes);
 }
 
-void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
+void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs, Definitions &definitions) {
 	switch (get_definitions_pos(lhs, m_symbol)) {
 		case DefinitionsPos::None:
 			break;
@@ -90,13 +90,13 @@ void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs) {
 			m_own_value = rhs;
 			break;
         case DefinitionsPos::Up:
-            add_up_rule(new UpRule(lhs, rhs));
+            add_up_rule(new UpRule(lhs, rhs, definitions));
             break;
 		case DefinitionsPos::Down:
-			add_down_rule(new DownRule(lhs, rhs));
+			add_down_rule(new DownRule(lhs, rhs, definitions));
 			break;
 		case DefinitionsPos::Sub:
-			add_sub_rule(new SubRule(lhs, rhs));
+			add_sub_rule(new SubRule(lhs, rhs, definitions));
 			break;
 	}
 }

@@ -23,7 +23,7 @@ private:
 	Rules m_rules;
 
 public:
-	void add(const SymbolRef &name, const char *tag, const char *text, const Definitions &definitions);
+	void add(const SymbolRef &name, const char *tag, const char *text, Definitions &definitions);
 
 	StringRef lookup(const Expression *message, const Evaluation &evaluation) const;
 };
@@ -133,7 +133,7 @@ public:
 		mutable_rules()->sub_rules.add(rule);
 	}
 
-	void add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs);
+	void add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs, Definitions &definitions);
 
 	void add_rule(const RuleRef &rule);
 
@@ -280,7 +280,7 @@ public:
 	void add_message(
 		const char *tag,
 		const char *text,
-		const Definitions &definitions) const;
+		Definitions &definitions) const;
 
 	StringRef lookup_message(
 		const Expression *message,
@@ -292,7 +292,7 @@ public:
 
 	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
 
-	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const;
+	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement) const;
 
 	virtual SortKey sort_key() const final {
         MonomialMap map(Pool::monomial_map_allocator());

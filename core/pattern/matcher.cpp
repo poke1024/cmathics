@@ -2023,9 +2023,12 @@ index_t PatternMatcher::match(
     }
 }
 
-RewriteBaseExpression MatcherBase::prepare(const BaseExpressionRef &item) const {
+RewriteBaseExpression MatcherBase::prepare(
+    const BaseExpressionRef &item,
+    Definitions &definitions) const {
+
     CompiledArguments arguments(
         m_matcher->variables());
     return RewriteBaseExpression::construct(
-        arguments, item->as_expression());
+        arguments, item->as_expression(), definitions);
 }

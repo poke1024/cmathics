@@ -10,8 +10,8 @@ typedef RewriteRule<Matcher> UpRule;
 typedef RewriteRule<SequenceMatcher> DownRule;
 
 inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
-    return [patt, into] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
-        return RuleRef(new DownRule(patt, into));
+    return [patt, into] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
+        return RuleRef(new DownRule(patt, into, definitions));
     };
 }
 

@@ -530,7 +530,7 @@ public:
     inline BaseExpressionRef to_list(
         const Evaluation &evaluation) const {
 
-        return m_options.to_list(evaluation);
+        return m_options.to_expression(evaluation.List);
     }
 
     inline const TempVector &rules() const {

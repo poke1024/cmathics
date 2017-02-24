@@ -172,7 +172,9 @@ protected:
     CachedPatternMatcherRef m_matcher;
 
 public:
-    RewriteBaseExpression prepare(const BaseExpressionRef &item) const;
+    RewriteBaseExpression prepare(
+        const BaseExpressionRef &item,
+        Definitions &definitions) const;
 };
 
 template<typename OptionsProcessorRef>
@@ -345,7 +347,7 @@ inline auto match(
             };
 
             if (has_rhs) {
-                const RewriteRef rewrite = cache_owner->ensure_cache()->rewrite(matcher, rhs);
+                const RewriteRef rewrite = cache_owner->ensure_cache()->rewrite(matcher, rhs, evaluation);
 
                 return make([&rewrite, &context, &rhs, &evaluation] (const BaseExpressionRef &item) {
                     return rewrite->rewrite_root_or_copy(

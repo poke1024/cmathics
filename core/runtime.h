@@ -515,16 +515,16 @@ protected:
 	inline void builtin(const char *pattern, const char *into) {
 		const BaseExpressionRef lhs = m_runtime.parse(pattern);
 		const BaseExpressionRef rhs = m_runtime.parse(into);
-		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
+		rule_owner(lhs).add_rule(lhs.get(), rhs.get(), m_runtime.definitions());
 	}
 
 	inline void builtin(const BaseExpressionRef &lhs, const char *into) {
 		const BaseExpressionRef rhs = m_runtime.parse(into);
-		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
+		rule_owner(lhs).add_rule(lhs.get(), rhs.get(), m_runtime.definitions());
 	}
 
 	inline void builtin(const BaseExpressionRef &lhs, const BaseExpressionRef &rhs) {
-		rule_owner(lhs).add_rule(lhs.get(), rhs.get());
+		rule_owner(lhs).add_rule(lhs.get(), rhs.get(), m_runtime.definitions());
 	}
 
     template<typename T>
@@ -542,8 +542,9 @@ protected:
     inline void format(const BaseExpressionRef &lhs, const char *into, const std::initializer_list<SymbolPtr> &forms) {
 		const BaseExpressionRef rhs = m_runtime.parse(into);
 		assert(lhs->is_expression() && lhs->as_expression()->head() == m_symbol.get());
+        auto &definitions = m_runtime.definitions();
 	    for (SymbolPtr form : forms) {
-		    m_symbol->state().add_format(new DownRule(lhs, rhs), form, m_runtime.definitions());
+		    m_symbol->state().add_format(new DownRule(lhs, rhs, definitions), form, definitions);
 	    }
 	}
 

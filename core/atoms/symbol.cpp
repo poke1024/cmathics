@@ -10,12 +10,13 @@ void Messages::add(
     const SymbolRef &name,
     const char *tag,
     const char *text,
-    const Definitions &definitions) {
+    Definitions &definitions) {
 
 	m_rules.add(
 		new DownRule(
 			expression(definitions.symbols().MessageName, name, Pool::String(std::string(tag))),
-				Pool::String(std::string(text))));
+			Pool::String(std::string(text)),
+            definitions));
 }
 
 StringRef Messages::lookup(
@@ -43,7 +44,7 @@ BaseExpressionPtr Symbol::head(const Symbols &symbols) const {
 void Symbol::add_message(
     const char *tag,
     const char *text,
-    const Definitions &definitions) const {
+    Definitions &definitions) const {
 
 	SymbolRules *rules = state().mutable_rules();
     rules->messages.ensure([] () {
@@ -109,7 +110,7 @@ void Symbol::reset_user_definitions() const {
 	}
 }
 
-BaseExpressionRef Symbol::replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const {
+BaseExpressionRef Symbol::replace_all(const ArgumentsMap &replacement) const {
 	const auto i = replacement.find(this);
 	if (i != replacement.end()) {
 		return i->second;

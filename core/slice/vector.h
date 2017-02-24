@@ -214,5 +214,5 @@ public:
         Pool::unsafe_ref_vector_allocator()) {
     }
 
-    inline ExpressionRef to_list(const Evaluation &evaluation) const;
+    inline ExpressionRef to_expression(const BaseExpressionRef &head) const;
 };

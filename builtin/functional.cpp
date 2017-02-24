@@ -112,10 +112,10 @@ public:
     }
 };
 
-UnsafeSlotFunctionRef SlotFunction::construct(const Expression *body) {
+UnsafeSlotFunctionRef SlotFunction::construct(const Expression *body, Definitions &definitions) {
     SlotArguments arguments;
     return UnsafeSlotFunctionRef(new SlotFunction(
-        Rewrite::construct(arguments, body), arguments.slot_count()));
+        Rewrite::construct(arguments, body, definitions), arguments.slot_count()));
 }
 
 template<typename Arguments>
@@ -161,8 +161,8 @@ private:
 
         const CacheRef cache = body->as_expression()->ensure_cache();
 
-        ConstSlotFunctionRef slot_function = cache->slot_function.ensure([&body] () {
-            return SlotFunction::construct(body->as_expression());
+        ConstSlotFunctionRef slot_function = cache->slot_function.ensure([&body, &evaluation] () {
+            return SlotFunction::construct(body->as_expression(), evaluation.definitions);
         });
 
         return args->with_leaves_array(
@@ -194,24 +194,24 @@ private:
         const CacheRef cache = body->as_expression()->ensure_cache();
 
         try {
-            ConstRewriteExpressionRef vars_function = cache->vars_function.ensure([&vars, &body] () {
+            ConstRewriteExpressionRef vars_function = cache->vars_function.ensure([&vars, &body, &evaluation] () {
                 return vars->as_expression()->with_leaves_array(
-                    [&body](const BaseExpressionRef *vars, size_t n_vars) {
+                    [&body, &evaluation](const BaseExpressionRef *vars, size_t n_vars) {
                         ListArguments arguments;
 
                         for (size_t i = 0; i < n_vars; i++) {
                             arguments.add(vars[i], i);
                         }
 
-                        return UnsafeRewriteExpressionRef(new RewriteExpression(
-                            arguments, body->as_expression()));
+                        return UnsafeRewriteExpressionRef(RewriteExpression::construct(
+                            arguments, body->as_expression(), evaluation.definitions));
                     });
             });
 
             return args->with_leaves_array(
                 [&vars_function, &body, &evaluation] (const BaseExpressionRef *args, size_t n_args) {
                     return vars_function->rewrite_or_copy(
-                        body->as_expression(), [&args] (index_t i, const BaseExpressionRef&) {
+                        [&args] (index_t i, const BaseExpressionRef&) {
                             return args[i];
                         }, [] (const SymbolRef &option) {
                             return BaseExpressionRef();

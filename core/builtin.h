@@ -269,8 +269,8 @@ private:
 	const RewriteBaseExpression m_rewrite;
 
 public:
-	RewriteRule(const BaseExpressionRef &patt, const BaseExpressionRef &into) :
-		Rule(patt), m_into(into), m_matcher(patt), m_rewrite(m_matcher.prepare(into)) {
+	RewriteRule(const BaseExpressionRef &patt, const BaseExpressionRef &into, Definitions &definitions) :
+		Rule(patt), m_into(into), m_matcher(patt), m_rewrite(m_matcher.prepare(into, definitions)) {
 	}
 
 	virtual optional<BaseExpressionRef> try_apply(

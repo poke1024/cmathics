@@ -65,7 +65,8 @@ public:
     template<typename Arguments>
     static inline RewriteBaseExpression construct(
         Arguments &arguments,
-        const BaseExpressionRef &expr);
+        const BaseExpressionRef &expr,
+        Definitions &definitions);
 
     template<typename Arguments, typename Options>
     inline BaseExpressionRef rewrite_or_copy(
@@ -103,7 +104,8 @@ public:
     template<typename Arguments>
     static inline RewriteRef construct(
         Arguments &arguments,
-        const BaseExpressionRef &expr);
+        const BaseExpressionRef &expr,
+        Definitions &definitions);
 };
 
 class RewriteExpression : public Shared<RewriteExpression, SharedHeap> {
@@ -111,35 +113,45 @@ private:
     const RewriteBaseExpression m_head;
     const std::vector<const RewriteBaseExpression> m_leaves;
 	const RewriteMask m_mask;
+    const ExpressionRef m_expr;
 
     template<typename Arguments>
     static std::vector<const RewriteBaseExpression> nodes(
         Arguments &arguments,
-        const Expression *body_ptr);
+        const Expression *expr,
+        Definitions &definitions);
 
-	inline static RewriteMask compute_mask(
-		const RewriteBaseExpression &head,
-		const std::vector<const RewriteBaseExpression> &leaves) {
+    inline static ExpressionRef rewrite_functions(
+        const ExpressionPtr expr,
+        const RewriteMask mask,
+        Definitions &definitions);
 
-		RewriteMask mask = head.mask();
-		for (const RewriteBaseExpression &leaf : leaves) {
-			mask |= leaf.mask();
-		}
-		return mask;
-	}
+    inline RewriteExpression(
+        const RewriteBaseExpression &head,
+        std::vector<const RewriteBaseExpression> &&leaves,
+        const RewriteMask mask,
+        const ExpressionPtr expr) :
+
+        m_head(head),
+        m_leaves(leaves),
+        m_mask(mask),
+        m_expr(expr) {
+    }
 
 public:
-    template<typename Arguments>
-    RewriteExpression(
-        Arguments &arguments,
-        const Expression *body_ptr);
 
     template<typename Arguments, typename Options>
     inline BaseExpressionRef rewrite_or_copy(
-        const Expression *body,
         const Arguments &args,
         const Options &options,
         const Evaluation &evaluation) const;
+
+    template<typename Arguments>
+    static RewriteExpressionRef construct(
+        Arguments &arguments,
+        const Expression *expr,
+        Definitions &definitions,
+        bool is_rewritten = false);
 
 	inline RewriteMask mask() const {
 		return m_mask;
@@ -169,39 +181,46 @@ inline RewriteBaseExpression::RewriteBaseExpression(
 template<typename Arguments>
 inline RewriteBaseExpression RewriteBaseExpression::construct(
     Arguments &arguments,
-    const BaseExpressionRef &expr) {
+    const BaseExpressionRef &expr,
+    Definitions &definitions) {
 
     const SlotDirective directive = arguments(expr);
 
     switch (directive.m_action) {
         case SlotDirective::Slot:
             return RewriteBaseExpression(directive.m_slot);
+
         case SlotDirective::OptionValue:
             return RewriteBaseExpression(
                 RewriteBaseExpression::OptionValue,
                 RewriteExpressionRef(),
                 directive.m_option_value);
+
         case SlotDirective::Copy:
             return RewriteBaseExpression(
                 RewriteBaseExpression::Copy);
+
         case SlotDirective::Descend:
             if (expr->is_expression()) {
-	            const RewriteExpressionRef rewrite(
-			         new RewriteExpression(arguments, expr->as_expression()));
+	            const RewriteExpressionRef rewrite(RewriteExpression::construct(
+                     arguments, expr->as_expression(), definitions));
 
 	            if (!rewrite->is_pure_copy()) {
 		            return RewriteBaseExpression(
 				        RewriteBaseExpression::Descend, rewrite);
 	            }
             }
+
             return RewriteBaseExpression(
                 RewriteBaseExpression::Copy);
-	    case SlotDirective::IllegalSlot:
+
+        case SlotDirective::IllegalSlot:
             return RewriteBaseExpression(
                 RewriteBaseExpression::IllegalSlot,
                 RewriteExpressionRef(),
                 SymbolRef(),
                 directive.m_illegal_slot);
+
         default:
             throw std::runtime_error("invalid SlotDirective");
     }
@@ -233,9 +252,11 @@ inline BaseExpressionRef RewriteBaseExpression::rewrite_root_or_copy(
 template<typename Arguments>
 inline RewriteRef Rewrite::construct(
     Arguments &arguments,
-    const BaseExpressionRef &expr) {
+    const BaseExpressionRef &expr,
+    Definitions &definitions) {
 
-    return new Rewrite(std::move(RewriteBaseExpression::construct(arguments, expr)));
+    return new Rewrite(std::move(
+        RewriteBaseExpression::construct(arguments, expr, definitions)));
 }
 
 class SlotFunction;
@@ -265,7 +286,9 @@ public:
         m_slot_count(other.m_slot_count) {
     }
 
-    static UnsafeSlotFunctionRef construct(const Expression *body);
+    static UnsafeSlotFunctionRef construct(
+        const Expression *body,
+        Definitions &definitions);
 
     template<typename Arguments>
     inline BaseExpressionRef rewrite_or_copy(

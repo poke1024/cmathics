@@ -184,7 +184,15 @@ public:
     }
 };
 
-template<TypeMask T, typename F, typename Slice>
+inline bool check_parallelize(bool parallelize) {
+    return parallelize;
+}
+
+inline bool check_parallelize(const Evaluation &evaluation) {
+    return evaluation.parallelize;
+}
+
+template<TypeMask T, typename F, typename Slice, typename Parallelize>
 inline ExpressionRef apply_conditional_map_indexed(
 	const BaseExpressionRef &head,
 	const bool is_new_head,
@@ -192,12 +200,12 @@ inline ExpressionRef apply_conditional_map_indexed(
 	const Slice &slice,
 	const size_t begin,
 	const size_t end,
-	const Evaluation &evaluation) {
+    const Parallelize &parallelize) {
 
 #if FASTER_COMPILE
 	const std::function<BaseExpressionRef(size_t, const BaseExpressionRef&)> generic_f = f.lambda;
 
-	if (!evaluation.parallelize) {
+	if (!check_parallelize(parallelize)) {
 		const sequential_map<T, Slice, decltype(generic_f)> map(
 			head, is_new_head, generic_f, slice, begin, end);
 		return map();
@@ -207,7 +215,7 @@ inline ExpressionRef apply_conditional_map_indexed(
 		return map();
 	}
 #else
-	if (!evaluation.parallelize) {
+	if (!check_parallelize(parallelize)) {
 		const sequential_map<T, Slice, typename std::add_lvalue_reference<decltype(f.lambda)>::type> map(
 			head, is_new_head, f.lambda, slice, begin, end);
 		return map();
@@ -219,7 +227,7 @@ inline ExpressionRef apply_conditional_map_indexed(
 #endif
 }
 
-template<TypeMask T, typename F, typename Slice>
+template<TypeMask T, typename F, typename Slice, typename Parallelize>
 inline ExpressionRef apply_conditional_map(
 	const BaseExpressionRef &head,
 	const bool is_new_head,
@@ -227,13 +235,13 @@ inline ExpressionRef apply_conditional_map(
     const Slice &slice,
     const size_t begin,
 	const size_t end,
-	const Evaluation &evaluation) {
+	const Parallelize &parallelize) {
 
 	return apply_conditional_map_indexed<T>(
 		head, is_new_head,
 		lambda([&f] (size_t i, const BaseExpressionRef &leaf) -> BaseExpressionRef {
 			return f.lambda(leaf);
-		}), slice, begin, end, evaluation);
+		}), slice, begin, end, parallelize);
 }
 
 template<TypeMask T, Type T1, Type... Types, typename... Args>
@@ -279,6 +287,16 @@ inline ExpressionRef ExpressionImplementation<Slice>::conditional_map(
 template<typename Slice>
 template<Type... Types, typename F>
 inline ExpressionRef ExpressionImplementation<Slice>::conditional_map(
+    const BaseExpressionRef &head,
+    const F &f) const {
+
+    return ::conditional_map<Types...>(
+        _head, false, lambda(f), m_slice, 0, m_slice.size(), false);
+}
+
+template<typename Slice>
+template<Type... Types, typename F>
+inline ExpressionRef ExpressionImplementation<Slice>::conditional_map(
 	const BaseExpressionRef &head,
 	const F &f,
 	const Evaluation &evaluation) const {
@@ -295,7 +313,7 @@ inline ExpressionRef ExpressionImplementation<Slice>::conditional_map_all(
     const Evaluation &evaluation) const {
 
     return ::conditional_map_all(
-        head, head.get() != _head.get(), lambda(f), m_slice, 0, m_slice.size(), evaluation);
+        head, head.get() != _head.get(), lambda(f), m_slice, 0, m_slice.size(), evaluation.parallelize);
 }
 
 using EvaluateFunction = std::function<BaseExpressionRef(

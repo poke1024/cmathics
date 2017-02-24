@@ -226,7 +226,7 @@ public:
 
 	virtual BaseExpressionRef replace_all(const MatchRef &match, const Evaluation &evaluation) const;
 
-	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const;
+	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement) const;
 
 	virtual BaseExpressionRef clone() const;
 
@@ -501,6 +501,10 @@ public:
 
 	template<enum Type... Types, typename F>
 	inline ExpressionRef conditional_map(
+		const BaseExpressionRef &head, const F &f) const;
+
+	template<enum Type... Types, typename F>
+	inline ExpressionRef conditional_map(
 		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
 
 	template<typename F>
@@ -681,17 +685,16 @@ BaseExpressionRef ExpressionImplementation<Slice>::replace_all(
 
 template<typename Slice>
 BaseExpressionRef ExpressionImplementation<Slice>::replace_all(
-	const ArgumentsMap &replacement, const Evaluation &evaluation) const {
+	const ArgumentsMap &replacement) const {
 
 	const BaseExpressionRef &old_head = _head;
-	const BaseExpressionRef new_head = old_head->replace_all(replacement, evaluation);
+	const BaseExpressionRef new_head = old_head->replace_all(replacement);
 
 	return conditional_map<ExpressionType, SymbolType>(
 		new_head ? new_head : old_head,
-		[&replacement, &evaluation] (const BaseExpressionRef &leaf) {
-			return leaf->replace_all(replacement, evaluation);
-		},
-		evaluation);
+		[&replacement] (const BaseExpressionRef &leaf) {
+			return leaf->replace_all(replacement);
+		});
 }
 
 template<typename Slice>
@@ -854,9 +857,9 @@ inline BaseExpressionRef ExpressionImplementation<Slice>::negate(const Evaluatio
     }
 }
 
-inline ExpressionRef TempVector::to_list(const Evaluation &evaluation) const {
+inline ExpressionRef TempVector::to_expression(const BaseExpressionRef &head) const {
     const auto &v = *this;
-    return expression(evaluation.List, sequential([&v] (auto &store) {
+    return expression(head, sequential([&v] (auto &store) {
         const size_t n = v.size();
         for (size_t i = 0; i < n; i++) {
             store(BaseExpressionRef(v[i]));

@@ -10,7 +10,8 @@ inline BaseExpressionRef assign(
 
 	const Symbol *name = lhs->lookup_name();
 	if (name) {
-		const_cast<Symbol*>(name)->state().add_rule(lhs, rhs);
+		const_cast<Symbol*>(name)->state().add_rule(
+            lhs, rhs, evaluation.definitions);
 	}
 
 	// f[x_] := f[x - 1] will end up in an inifinite recursion

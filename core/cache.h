@@ -28,12 +28,10 @@ public:
         }));
 	}
 
-	inline RewriteRef rewrite(const PatternMatcherRef &matcher, const BaseExpressionRef &rhs) { // concurrent.
-        return RewriteRef(m_rewrite.ensure([&matcher, &rhs] () {
-            CompiledArguments arguments(matcher->variables());
-            return Rewrite::construct(arguments, rhs);
-        }));
-	}
+	inline RewriteRef rewrite(
+        const PatternMatcherRef &matcher,
+        const BaseExpressionRef &rhs,
+        const Evaluation &evaluation); // concurrent.
 };
 
 #endif //CMATHICS_CACHE_H

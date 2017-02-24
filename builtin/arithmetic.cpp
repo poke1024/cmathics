@@ -493,7 +493,10 @@ private:
         if (items.size() == 1) {
             return items[0];
         } else {
-            return expression(evaluation.Infix, items.to_list(evaluation), op, precedence, grouping);
+            return expression(
+                evaluation.Infix,
+                items.to_expression(evaluation.List),
+                op, precedence, grouping);
         }
     }
 
