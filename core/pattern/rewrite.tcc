@@ -129,7 +129,7 @@ RewriteExpressionRef RewriteExpression::construct(
         mask |= leaf.mask();
     }
 
-    if (is_rewritten) {
+    if (!is_rewritten) {
         const ExpressionRef new_expr(rewrite_functions(expr, mask, definitions));
 
         // if a rewrite of the expression happened, we actually also need to redo

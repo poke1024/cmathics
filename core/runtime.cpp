@@ -10,6 +10,7 @@
 #include "builtin/inout.h"
 #include "builtin/lists.h"
 #include "builtin/options.h"
+#include "builtin/patterns.h"
 #include "builtin/strings.h"
 #include "builtin/structure.h"
 #include "builtin/numbertheory.h"
@@ -175,6 +176,7 @@ Runtime::Runtime() : _parser(_definitions) {
     Builtins::Functional(*this).initialize();
 	Builtins::InOut(*this).initialize();
     Builtins::Options(*this).initialize();
+    Builtins::Patterns(*this).initialize();
     Builtins::Lists(*this).initialize();
     Builtins::Strings(*this).initialize();
     Builtins::Structure(*this).initialize();

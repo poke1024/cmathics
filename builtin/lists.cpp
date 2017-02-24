@@ -667,8 +667,6 @@ public:
         try {
             const Levelspec levelspec(ls);
 
-	        const RuleForm rule_form(patt);
-
 	        const auto generate = [&list, &evaluation, &options, &levelspec] (const auto &match) {
 		        return expression(
 			        evaluation.List, sequential([&list, &evaluation, &options, &levelspec, &match] (auto &store) {
@@ -685,19 +683,8 @@ public:
 			        }));
 	        };
 
-	        if (rule_form.is_rule()) {
-                return match(
-                    std::make_tuple(rule_form.left_side(), rule_form.right_side()),
-                    generate,
-		            patt->as_expression(),
-                    evaluation);
-            } else {
-                return match(
-                    std::make_tuple(patt),
-                    generate,
-	                nullptr,
-                    evaluation);
-	        }
+            return match(patt, generate, evaluation);
+
         } catch (const Levelspec::InvalidError&) {
             evaluation.message(m_symbol, "level", ls);
             return BaseExpressionRef();

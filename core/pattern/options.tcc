@@ -1,48 +1,5 @@
 #pragma once
 
-class RuleForm {
-private:
-    const BaseExpressionRef *m_leaves;
-
-public:
-    // note that the scope of "item" must contain that of
-    // RuleForm, i.e. item must be referenced at least as
-    // long as RuleForm lives.
-    inline RuleForm(BaseExpressionPtr item) {
-        if (!item->is_expression()) {
-            m_leaves = nullptr;
-        } else {
-            const auto expr = item->as_expression();
-
-            if (expr->size() != 2) {
-                m_leaves = nullptr;
-            } else {
-                switch (expr->head()->symbol()) {
-                    case S::Rule:
-                    case S::RuleDelayed:
-                        m_leaves = expr->n_leaves<2>();
-                        break;
-                    default:
-                        m_leaves = nullptr;
-                        break;
-                }
-            }
-        }
-    }
-
-    inline bool is_rule() const {
-        return m_leaves;
-    }
-
-    inline const BaseExpressionRef &left_side() const {
-        return m_leaves[0];
-    }
-
-    inline const BaseExpressionRef &right_side() const {
-        return m_leaves[1];
-    }
-};
-
 template<typename Assign>
 bool parse_options(
     const Assign &assign,

@@ -1,5 +1,24 @@
 #pragma once
 
+// so why all this complex code around RewriteBaseExpression when it
+// would be quite easy to provide a replace_slots and replace_vars as
+// virtual functions to BaseExpression? this implements a sort of simple
+// precompiler for "expressions that are partially replaced" and, well,
+// some of this might look like a pretty debatable design decision.
+
+// the original idea to introduce this was Map. an extremely common use case
+// is lambda& /@ x, so lambda needs to be evaluated as fast as possible as it
+// is applied to hundreds or millions of elements. also, lambda may be nested
+// and deep, and it's sort of waste of time to always copy the whole tree if
+// only one shallow slot is manipulated. but we don't know if we don't analyze
+// lambda once at the beginning. this thing is also useful for ReplaceAll.
+
+// on the other hand, many common use cases actually suffer a bit from this
+// RewriteBaseExpression design, as everything needs to be built before it
+// can be applied, which basically slows everything as compared to a regular
+// replace_slots() by a factor of 2; which is not too bad; but still, it's
+// debatable whether this outweights its use in the Map case. I'm not sure.
+
 class RewriteExpression;
 
 typedef ConstSharedPtr<RewriteExpression> RewriteExpressionRef;
@@ -7,8 +26,8 @@ typedef ConstSharedPtr<RewriteExpression> ConstRewriteExpressionRef;
 typedef QuasiConstSharedPtr<RewriteExpression> CachedRewriteExpressionRef;
 typedef UnsafeSharedPtr<RewriteExpression> UnsafeRewriteExpressionRef;
 
-// RewriteMask is a bit field, indicating a Slot with (1 << 0), a Copy
-// with (1 << -RewriteBaseExpression::Copy), and so on.
+// RewriteMask is a bit field, indicating a Slot with (1 << 0), a Copy with
+// (1 << -RewriteBaseExpression::Copy), and so on.
 using RewriteMask = uint16_t;
 
 enum {

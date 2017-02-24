@@ -180,13 +180,21 @@ private:
         const BaseExpressionRef &body,
         const Evaluation &evaluation) const {
 
-        if (!vars->is_expression()) {
+        size_t n_vars;
+
+        if (vars->is_expression()) {
+            n_vars = vars->as_expression()->size();
+        } else if (vars->is_symbol()) {
+            n_vars = 1;
+        } else {
             return BaseExpressionRef();
         }
-        if (args->size() < vars->as_expression()->size()) {
+
+        if (n_vars > args->size()) {
             evaluation.message(evaluation.Function, "fpct");
             return BaseExpressionRef();
         }
+
         if (!body->is_expression()) {
             return BaseExpressionRef();
         }
@@ -194,19 +202,26 @@ private:
         const CacheRef cache = body->as_expression()->ensure_cache();
 
         try {
-            ConstRewriteExpressionRef vars_function = cache->vars_function.ensure([&vars, &body, &evaluation] () {
-                return vars->as_expression()->with_leaves_array(
-                    [&body, &evaluation](const BaseExpressionRef *vars, size_t n_vars) {
-                        ListArguments arguments;
+            ConstRewriteExpressionRef vars_function =
+                cache->vars_function.ensure([&vars, &body, &evaluation] () {
+                    ListArguments arguments;
 
-                        for (size_t i = 0; i < n_vars; i++) {
-                            arguments.add(vars[i], i);
-                        }
+                    if (vars->is_expression()) {
+                        vars->as_expression()->with_leaves_array(
+                            [&arguments] (const BaseExpressionRef *vars, size_t n_vars) {
 
-                        return UnsafeRewriteExpressionRef(RewriteExpression::construct(
-                            arguments, body->as_expression(), evaluation.definitions));
-                    });
-            });
+                            for (size_t i = 0; i < n_vars; i++) {
+                                arguments.add(vars[i], i);
+                            }
+                        });
+                    } else {
+                        assert(vars->is_symbol());
+                        arguments.add(vars->as_symbol(), 0);
+                    }
+
+                    return UnsafeRewriteExpressionRef(RewriteExpression::construct(
+                        arguments, body->as_expression(), evaluation.definitions));
+                });
 
             return args->with_leaves_array(
                 [&vars_function, &body, &evaluation] (const BaseExpressionRef *args, size_t n_args) {
@@ -276,6 +291,24 @@ public:
      = {1, 8, 27}
     >> #1+#2&[4, 5]
      = 9
+
+    You can use 'Function' with named parameters:
+    >> Function[{x, y}, x * y][2, 3]
+     = 6
+
+    Parameters are renamed, when necessary, to avoid confusion:
+    >> Function[{x}, Function[{y}, f[x, y]]][y]
+     = Function[{y$}, f[y, y$]]
+    >> Function[{y}, f[x, y]] /. x->y
+     = Function[{y}, f[y, y]]
+    >> Function[y, Function[x, y^x]][x][y]
+     = x ^ y
+    >> Function[x, Function[y, x^y]][x][y]
+     = x ^ y
+
+    Slots in inner functions are not affected by outer function application:
+    >> g[#] & [h[#]] & [5]
+     = g[h[5]]
 	)";
 
     static constexpr auto attributes = Attributes::HoldAll;
