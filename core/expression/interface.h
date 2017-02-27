@@ -1,4 +1,5 @@
 #pragma once
+// @formatter:off
 
 #include "../slice/method.h"
 
@@ -116,10 +117,7 @@ protected:
 	BaseExpressionRef evaluate_expression(
 		const Evaluation &evaluation) const;
 
-	virtual BaseExpressionRef evaluate_expression_with_non_symbol_head(
-		const Evaluation &evaluation) const = 0;
-
-	virtual ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const = 0;
+	inline ExpressionRef slice(const BaseExpressionRef &head, index_t begin, index_t end = INDEX_MAX) const;
 
 	inline CacheRef get_cache() const { // concurrent.
 		return m_cache;
@@ -145,17 +143,43 @@ protected:
 		const SymEngineBinaryFunction &f,
 		const Evaluation &evaluation) const;
 
-	virtual MatchSize leaf_match_size() const = 0;
+	inline MatchSize leaf_match_size() const;
 
 	inline PatternMatcherRef expression_matcher() const;
 
 	inline PatternMatcherRef string_matcher() const;
 
-	virtual std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const = 0;
-
 	inline ExpressionRef flatten_sequence() const;
 
     inline ExpressionRef flatten_sequence_or_copy() const;
+
+	virtual SortKey sort_key() const final;
+
+	virtual SortKey pattern_key() const final;
+
+	virtual inline bool same(const BaseExpression &item) const final;
+
+	virtual optional<hash_t> compute_match_hash() const final;
+
+	virtual tribool equals(const BaseExpression &item) const final;
+
+	virtual MatchSize match_size() const final;
+
+	virtual bool is_numeric() const final;
+
+	virtual std::string boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const;
+
+	virtual bool is_negative() const;
+
+	virtual std::string debugform() const;
+
+	inline BaseExpressionRef evaluate_expression_with_non_symbol_head(const Evaluation &evaluation) const;
+
+	virtual hash_t hash() const final;
+
+	virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
+
+	inline std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const;
 };
 
 #include "../slice/method.tcc"

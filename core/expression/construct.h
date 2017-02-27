@@ -1,5 +1,7 @@
 #pragma once
 
+#include "implementation.h"
+
 inline BigExpressionRef expression(const BaseExpressionRef &head, BigSlice &&slice) {
     return BigExpression::construct(head, slice);
 }
