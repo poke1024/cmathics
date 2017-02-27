@@ -219,7 +219,7 @@ void NumberFormatter::parse_option(
                     const Evaluation &evaluation) {
 
                     return expression(
-                        number_format, man, base, exp, /*options_list*/ evaluation.empty_list);
+                        number_format, man, base, exp, /*options_list*/ evaluation.definitions.empty_list);
                 };
             } else {
                 options.NumberFormat = defaults.NumberFormat;

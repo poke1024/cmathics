@@ -60,14 +60,6 @@ public:
     mutable MutableBaseExpressionRef predetermined_out;
 	mutable bool parallelize = false;
 
-    const BaseExpressionRef zero;
-    const BaseExpressionRef one;
-    const BaseExpressionRef minus_one;
-
-    const BaseExpressionRef empty_list;
-	const SymbolicFormRef no_symbolic_form;
-    const MatchRef default_match;
-
     Evaluation(
         const OutputRef &output,
         Definitions &definitions,
@@ -153,7 +145,7 @@ inline bool BaseExpression::has_form(
 
 inline void BaseExpression::set_no_symbolic_form(const Evaluation &evaluation) const {
 	m_symbolic_form.ensure([&evaluation] () {
-		return evaluation.no_symbolic_form;
+		return evaluation.definitions.no_symbolic_form;
 	});
 }
 
@@ -165,7 +157,7 @@ inline SymbolicFormRef unsafe_symbolic_form<const ExpressionPtr&>(
 	// call symbolic_form(item, evaluation).
 
 	return SymbolicFormRef(expr->m_symbolic_form.ensure([&evaluation] () {
-		return evaluation.no_symbolic_form;
+		return evaluation.definitions.no_symbolic_form;
 	}));
 }
 

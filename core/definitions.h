@@ -65,6 +65,14 @@ public:
     void reset_user_definitions();
 
 	const NumberFormatter number_form;
+
+    const BaseExpressionRef zero;
+    const BaseExpressionRef one;
+    const BaseExpressionRef minus_one;
+
+    const SymbolicFormRef no_symbolic_form;
+    const MatchRef default_match;
+    const ExpressionRef empty_list;
 };
 
 #endif

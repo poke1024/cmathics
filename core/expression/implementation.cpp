@@ -42,5 +42,5 @@ BaseExpressionRef Expression::evaluate_expression(
 }
 
 SymbolicFormRef Expression::instantiate_symbolic_form(const Evaluation &evaluation) const {
-    return evaluation.no_symbolic_form;
+    return evaluation.definitions.no_symbolic_form;
 }

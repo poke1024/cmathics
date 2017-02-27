@@ -1003,9 +1003,9 @@ public:
 					    [&f] (const BaseExpressionRef &) {
                             return f();
                         },
-                        evaluation.zero.get(),
+                        evaluation.definitions.zero.get(),
                         imax.get(),
-					    evaluation.one.get(),
+					    evaluation.definitions.one.get(),
                         evaluation);
 			    }
 
@@ -1036,9 +1036,9 @@ public:
 
 						    return self->iterate(
                                 scoped(iterator->as_symbol(), f),
-								evaluation.one.get(),
+								evaluation.definitions.one.get(),
                                 imax.get(),
-								evaluation.one.get(),
+								evaluation.definitions.one.get(),
 							    evaluation);
 					    }
 				    }
@@ -1055,7 +1055,7 @@ public:
                             scoped(iterator->as_symbol(), f),
 						    imin.get(),
 						    imax.get(),
-						    evaluation.one.get(),
+						    evaluation.definitions.one.get(),
 						    evaluation);
 				    }
 				    break;

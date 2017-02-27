@@ -64,7 +64,7 @@ public:
             const String *patt_string = m_patt->as_string();
             const auto string_unicode = string->unicode();
             const auto patt_unicode = patt_string->unicode();
-            const auto match = m_evaluation.default_match;
+            const auto match = m_evaluation.definitions.default_match;
 
             while (true) {
                 const index_t next = string_unicode.indexOf(patt_unicode, curr);
@@ -89,7 +89,7 @@ public:
             }
         } else if (m_patt->type() == StringType) {
             if (m_patt->as_string()->same(string)) {
-                return m_evaluation.default_match;
+                return m_evaluation.definitions.default_match;
             } else {
                 return MatchRef();
             }
@@ -191,7 +191,7 @@ private:
         const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
 
         if (m_patt->same(item)) {
-            return evaluation.default_match;
+            return evaluation.definitions.default_match;
         } else {
             return MatchRef(); // no match
         }

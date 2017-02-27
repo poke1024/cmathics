@@ -850,7 +850,7 @@ inline BaseExpressionRef ExpressionImplementation<Slice>::negate(const Evaluatio
                     }, size()));
             }
         } else {
-            return expression(evaluation.Times, evaluation.minus_one, leaf);
+            return expression(evaluation.Times, evaluation.definitions.minus_one, leaf);
         }
     } else {
         return BaseExpression::negate(evaluation);

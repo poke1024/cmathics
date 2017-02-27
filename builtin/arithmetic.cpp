@@ -596,7 +596,7 @@ public:
             positive_expression = create_infix(
                 positive, op, m_precedence, evaluation.None, evaluation);
         } else {
-            positive_expression = evaluation.one;
+            positive_expression = evaluation.definitions.one;
         }
 
         if (!negative.empty()) {
@@ -1727,9 +1727,9 @@ public:
 
         switch (expr->symbol()) {
 	        case S::True:
-                return evaluation.one;
+                return evaluation.definitions.one;
 	        case S::False:
-                return evaluation.zero;
+                return evaluation.definitions.zero;
             default:
                 return BaseExpressionRef();
         }

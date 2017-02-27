@@ -20,7 +20,7 @@ inline bool times_number(
 
 	switch (static_cast<const MachineInteger*>(number.get())->value) {
 		case 0:
-			result = evaluation.zero;
+			result = evaluation.definitions.zero;
 			return true;
 
 		case 1:
@@ -36,7 +36,7 @@ inline bool times_number(
 						return expression(evaluation.Plus, sequential([&slice, &evaluation] (auto &store) {
 							const size_t n = slice.size();
 							for (size_t i = 0; i < n; i++) {
-								store(expression(evaluation.Times, evaluation.minus_one, slice[i]));
+								store(expression(evaluation.Times, evaluation.definitions.minus_one, slice[i]));
 							}
 						}, slice.size()));
 					}));

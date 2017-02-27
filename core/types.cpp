@@ -298,11 +298,11 @@ void Expression::symbolic_initialize(
 			if (ref.get()) {
 				return SymbolicForm::construct(ref);
 			} else {
-				return evaluation.no_symbolic_form;
+				return evaluation.definitions.no_symbolic_form;
 			}
 		} catch (const SymEngine::SymEngineException &e) {
 			evaluation.sym_engine_exception(e);
-			return evaluation.no_symbolic_form;
+			return evaluation.definitions.no_symbolic_form;
 		}
 	});
 }
@@ -319,14 +319,14 @@ BaseExpressionRef Expression::symbolic_evaluate_unary(
 				if (!symbolic_a->is_none()) {
 					return SymbolicForm::construct(f(symbolic_a->get()));
 				} else {
-					return evaluation.no_symbolic_form;
+					return evaluation.definitions.no_symbolic_form;
 				}
 			} catch (const SymEngine::SymEngineException &e) {
 				evaluation.sym_engine_exception(e);
-				return evaluation.no_symbolic_form;
+				return evaluation.definitions.no_symbolic_form;
 			}
 		} else {
-			return evaluation.no_symbolic_form;
+			return evaluation.definitions.no_symbolic_form;
 		}
 	});
 
@@ -367,13 +367,13 @@ BaseExpressionRef Expression::symbolic_evaluate_binary(
 					}
 				}
 
-				return evaluation.no_symbolic_form;
+				return evaluation.definitions.no_symbolic_form;
 			} catch (const SymEngine::SymEngineException &e) {
 				evaluation.sym_engine_exception(e);
-				return evaluation.no_symbolic_form;
+				return evaluation.definitions.no_symbolic_form;
 			}
 		} else {
-			return evaluation.no_symbolic_form;
+			return evaluation.definitions.no_symbolic_form;
 		}
 	});
 
@@ -392,7 +392,7 @@ BaseExpressionRef Expression::symbolic_evaluate_binary(
 }
 
 BaseExpressionRef BaseExpression::negate(const Evaluation &evaluation) const {
-    return expression(evaluation.Times, evaluation.minus_one, BaseExpressionRef(this));
+    return expression(evaluation.Times, evaluation.definitions.minus_one, BaseExpressionRef(this));
 }
 
 std::string BaseExpression::debug(const Evaluation &evaluation) const {

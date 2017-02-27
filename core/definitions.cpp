@@ -136,7 +136,15 @@ void SymbolState::add_format(
     mutable_rules()->format_values.add(format_rule);
 }
 
-Definitions::Definitions() : m_symbols(*this), number_form(m_symbols) {
+Definitions::Definitions() :
+    m_symbols(*this),
+    number_form(m_symbols),
+    zero(MachineInteger::construct(0)),
+    one(MachineInteger::construct(1)),
+    minus_one(MachineInteger::construct(-1)),
+    no_symbolic_form(SymbolicForm::construct(SymEngineRef())),
+    default_match(Match::construct()),
+    empty_list(expression(m_symbols.List)) {
 }
 
 SymbolRef Definitions::new_symbol(const char *name, SymbolName symbol_name) {

@@ -15,13 +15,7 @@ Evaluation::Evaluation(
 	Symbols(new_definitions.symbols()),
 
     m_output(output),
-	definitions(new_definitions),
-	zero(MachineInteger::construct(0)),
-	one(MachineInteger::construct(1)),
-	minus_one(MachineInteger::construct(-1)),
-    empty_list(expression(this->List)),
-	no_symbolic_form(SymbolicForm::construct(SymEngineRef())),
-    default_match(Match::construct()) {
+	definitions(new_definitions) {
 
     recursion_depth = 0;
     timeout = false;
