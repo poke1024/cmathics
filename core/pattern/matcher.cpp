@@ -80,7 +80,10 @@ public:
 };
 
 template<typename Dummy, typename MatchRest>
-class ExpressionMatcher : public PatternMatcher {
+class ExpressionMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<ExpressionMatcher<Dummy, MatchRest>> {
+
 private:
     const HeadLeavesMatcher m_matcher;
     const MatchRest m_rest;
@@ -135,7 +138,10 @@ public:
 };
 
 template<typename Dummy, typename MatchRest>
-class StartMatcher : public PatternMatcher {
+class StartMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<StartMatcher<Dummy,MatchRest>> {
+
 private:
 	const MatchRest &m_rest;
 
@@ -168,7 +174,7 @@ public:
     }
 };
 
-class EndMatcher : public PatternMatcher {
+class EndMatcher : public PatternMatcher, public ExtendedHeapObject<EndMatcher> {
 private:
 	template<typename Sequence>
 	inline index_t do_match(
@@ -444,7 +450,10 @@ public:
 };
 
 template<typename MatchRest>
-class EmptyMatcher : public PatternMatcher {
+class EmptyMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<EmptyMatcher<MatchRest>> {
+
 private:
 	const MatchRest m_rest;
 
@@ -473,7 +482,10 @@ public:
 };
 
 template<typename Match, typename MatchRest>
-class ElementMatcher : public PatternMatcher {
+class ElementMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<ElementMatcher<Match, MatchRest>> {
+
 private:
 	const Match m_match;
     const MatchRest m_rest;
@@ -513,7 +525,10 @@ public:
 };
 
 template<typename Match, typename MatchRest>
-class PositionMatcher : public PatternMatcher {
+class PositionMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<PositionMatcher<Match, MatchRest>> {
+
 private:
 	const Match m_match;
     const MatchRest m_rest;
@@ -782,7 +797,10 @@ public:
 };
 
 template<typename Dummy, typename MatchRest>
-class ExceptMatcher : public PatternMatcher {
+class ExceptMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<ExceptMatcher<Dummy, MatchRest>> {
+
 private:
     const PatternMatcherRef m_match;
     const MatchRest m_rest;
@@ -820,7 +838,10 @@ public:
 };
 
 template<typename Dummy, typename MatchRest>
-class AlternativesMatcher : public PatternMatcher {
+class AlternativesMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<AlternativesMatcher<Dummy, MatchRest>> {
+
 private:
 	const std::vector<PatternMatcherRef> m_matchers;
     const MatchRest m_rest;
@@ -872,7 +893,10 @@ public:
 using SymbolSet = std::unordered_set<SymbolRef, SymbolHash, SymbolEqual>;
 
 template<typename Dummy, typename MatchRest>
-class SymbolSetMatcher : public PatternMatcher {
+class SymbolSetMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<SymbolSetMatcher<Dummy, MatchRest>> {
+
 private:
 	const SymbolSet m_symbols;
 	const MatchRest m_rest;
@@ -926,7 +950,10 @@ public:
 };
 
 template<typename Dummy, typename MatchRest, bool Shortest>
-class OptionalMatcher : public PatternMatcher {
+class OptionalMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<OptionalMatcher<Dummy, MatchRest, Shortest>> {
+
 private:
 	const PatternMatcherRef m_matcher;
 	const BaseExpressionRef m_default;
@@ -1016,7 +1043,10 @@ template<typename Dummy, typename MatchRest>
 using LongestOptionalMatcher = OptionalMatcher<Dummy, MatchRest, false>;
 
 template<typename ElementTest, typename MatchRest>
-class BlankMatcher : public PatternMatcher {
+class BlankMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<BlankMatcher<ElementTest, MatchRest>> {
+
 private:
 	const ElementTest m_test;
     const MatchRest m_rest;
@@ -1254,7 +1284,10 @@ public:
 };
 
 template<template<typename> class Strategy, index_t Minimum, typename Tests, typename MatchRest>
-class BlankSequenceMatcher : public PatternMatcher {
+class BlankSequenceMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<BlankSequenceMatcher<Strategy, Minimum, Tests, MatchRest>> {
+
 private:
 	const Strategy<Tests> m_strategy;
     const MatchRest m_rest;
@@ -1307,7 +1340,10 @@ public:
 };
 
 template<typename Dummy, typename MatchRest>
-class OptionsPatternMatcher : public PatternMatcher {
+class OptionsPatternMatcher :
+    public PatternMatcher,
+    public ExtendedHeapObject<OptionsPatternMatcher<Dummy, MatchRest>> {
+
 private:
     const MatchRest m_rest;
 
@@ -1420,15 +1456,15 @@ private:
     PatternMatcherRef create(Parameter &&parameter, const Test &test, const Variable &variable) const {
         if (!m_anchored) {
             const auto rest = RestMatcher<Test, Variable, Unanchored>(test, variable, Unanchored());
-            return new Matcher<typename std::remove_reference<Parameter>::type, decltype(rest)>(
+            return Matcher<typename std::remove_reference<Parameter>::type, decltype(rest)>::construct(
 		        std::forward<Parameter>(parameter), rest);
         } else if (m_next) {
             const auto rest = RestMatcher<Test, Variable, Continue>(test, variable, Continue(m_next));
-            return new Matcher<typename std::remove_reference<Parameter>::type, decltype(rest)>(
+            return Matcher<typename std::remove_reference<Parameter>::type, decltype(rest)>::construct(
 		        std::forward<Parameter>(parameter), rest);
         } else {
             const auto rest = RestMatcher<Test, Variable, Terminate>(test, variable, Terminate());
-            return new Matcher<typename std::remove_reference<Parameter>::type, decltype(rest)>(
+            return Matcher<typename std::remove_reference<Parameter>::type, decltype(rest)>::construct(
 		        std::forward<Parameter>(parameter), rest);
         }
     }
@@ -1505,7 +1541,7 @@ public:
 
 	PatternMatcherRef create_empty() const {
 		const auto rest = RestMatcher<NoPatternTest, NoVariable, Terminate>(NoPatternTest(), NoVariable(), Terminate());
-		return new EmptyMatcher<decltype(rest)>(rest);
+		return EmptyMatcher<decltype(rest)>::construct(rest);
 	}
 };
 
@@ -1575,7 +1611,7 @@ PatternMatcherRef PatternCompiler::character_intrinsic_matcher(
 			return factory.create<StartMatcher>(nothing());
 
 		case S::EndOfString:
-			return new EndMatcher();
+			return EndMatcher::construct();
 
 		case S::StartOfLine:
 			return factory.create<PositionMatcher>(
@@ -2029,6 +2065,6 @@ RewriteBaseExpression MatcherBase::prepare(
 
     CompiledArguments arguments(
         m_matcher->variables());
-    return RewriteBaseExpression::construct(
+    return RewriteBaseExpression::from_arguments(
         arguments, item->as_expression(), definitions);
 }

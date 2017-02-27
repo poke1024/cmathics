@@ -11,7 +11,7 @@ BaseExpressionRef MachineInteger::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {
 
-    return Pool::String(std::to_string(value));
+    return String::construct(std::to_string(value));
 }
 
 std::string MachineInteger::boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const {
@@ -40,7 +40,12 @@ optional<SExp> MachineInteger::to_s_exp(optional<machine_integer_t> &n) const {
     }
     exp = s.length() - 1;
     n = s.length();
-    return std::make_tuple(Pool::String(std::move(s)), exp, non_negative, true);
+    const StringRef str(String::construct(std::move(s)));
+    return std::make_tuple(
+        str,
+        exp,
+        non_negative,
+        true);
 }
 
 std::string BigInteger::debugform() const {
@@ -51,7 +56,7 @@ BaseExpressionRef BigInteger::make_boxes(
     BaseExpressionPtr form,
     const Evaluation &evaluation) const {
 
-    return Pool::String(value.get_str());
+    return String::construct(value.get_str());
 }
 
 BaseExpressionPtr BigInteger::head(const Symbols &symbols) const {
@@ -80,6 +85,7 @@ optional<SExp> BigInteger::to_s_exp(optional<machine_integer_t> &n) const {
     }
     exp = s.length() - 1;
     n = s.length();
-    return std::make_tuple(Pool::String(std::move(s)), exp, non_negative, true);
+    const StringRef str(String::construct(std::move(s)));
+    return std::make_tuple(str, exp, non_negative, true);
 
 }

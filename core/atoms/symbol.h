@@ -18,7 +18,7 @@ class Definitions;
 
 struct EvaluateVTable;
 
-class Messages : public HeapShared<Messages> {
+class Messages : public HeapObject<Messages> {
 private:
 	Rules m_rules;
 
@@ -168,7 +168,7 @@ private:
 
 public:
 	inline EvaluationContext(EvaluationContext *parent) :
-		m_parent(parent), m_symbols(Pool::symbol_state_map_allocator()) {
+		m_parent(parent), m_symbols(LegacyPool::symbol_state_map_allocator()) {
 
 		EvaluationContext *&current = s_current;
 		m_saved_context = current;
@@ -186,7 +186,7 @@ public:
 	inline SymbolState &state(const Symbol *symbol);
 };
 
-class Symbol : public BaseExpression {
+class Symbol : public BaseExpression, public PoolObject<Symbol> {
 protected:
 	friend class Definitions;
 
@@ -268,10 +268,7 @@ public:
 
     virtual BaseExpressionRef make_boxes(
         BaseExpressionPtr form,
-        const Evaluation &evaluation) const {
-
-        return Pool::String(short_name());
-    }
+        const Evaluation &evaluation) const;
 
 	inline BaseExpressionRef evaluate_symbol() const {
 		return state().own_value();
@@ -295,7 +292,7 @@ public:
 	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement) const;
 
 	virtual SortKey sort_key() const final {
-        MonomialMap map(Pool::monomial_map_allocator());
+        MonomialMap map(LegacyPool::monomial_map_allocator());
         map[SymbolKey(SymbolRef(this))] = 1;
 		return SortKey(is_numeric() ? 1 : 2, 2, std::move(map), 0, name(), 1);
 	}

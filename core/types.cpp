@@ -101,7 +101,7 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 
 		case SymEngine::REAL_DOUBLE: {
 			const machine_real_t &value(static_cast<const SymEngine::RealDouble*>(form.get())->i);
-			expr = Pool::MachineReal(value);
+			expr = MachineReal::construct(value);
 			break;
 		}
 
@@ -110,23 +110,23 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 			mpfr_t copy;
 			mpfr_init2(copy, mpfr_get_prec(value.get_mpfr_t()));
 			mpfr_set(copy, value.get_mpfr_t(), MPFR_RNDN);
-			expr = Pool::BigReal(copy, Precision(value.get_prec()));
+			expr = BigReal::construct(copy, Precision(value.get_prec()));
 			break;
 		}
 
 		case SymEngine::RATIONAL: {
 			const mpq_class value(static_cast<const SymEngine::Rational*>(form.get())->as_rational_class().get_mpq_t());
-			expr = Pool::BigRational(value);
+			expr = BigRational::construct(value);
             break;
 		}
 
         case SymEngine::COMPLEX:
-            expr = Pool::BigComplex(SymEngineComplexRef(static_cast<const SymEngine::Complex*>(form.get())));
+            expr = BigComplex::construct(SymEngineComplexRef(static_cast<const SymEngine::Complex*>(form.get())));
             break;
 
         case SymEngine::COMPLEX_DOUBLE: {
             const auto *complex = static_cast<const SymEngine::ComplexDouble*>(form.get());
-            expr = Pool::MachineComplex(complex->i.real(), complex->i.imag());
+            expr = MachineComplex::construct(complex->i.real(), complex->i.imag());
             break;
         }
 
@@ -184,9 +184,9 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
 		case SymEngine::INFTY: {
 			const auto * const infty = static_cast<const SymEngine::Infty*>(form.get());
 			if (infty->is_positive()) {
-				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(1));
+				expr = expression(evaluation.DirectedInfinity, MachineInteger::construct(1));
 			} else if (infty->is_negative()) {
-				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(-1));
+				expr = expression(evaluation.DirectedInfinity, MachineInteger::construct(-1));
 			} else if (infty->is_complex()) {
 				expr = evaluation.ComplexInfinity;
 			} else {
@@ -217,11 +217,11 @@ BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation 
                 break;
             }
 			else if (form->__eq__(*SymEngine::Inf.get())) {
-				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(1));
+				expr = expression(evaluation.DirectedInfinity, MachineInteger::construct(1));
 				break;
 			}
 			else if (form->__eq__(*SymEngine::NegInf.get())) {
-				expr = expression(evaluation.DirectedInfinity, Pool::MachineInteger(-1));
+				expr = expression(evaluation.DirectedInfinity, MachineInteger::construct(-1));
 				break;
 			}
 			// fallthrough

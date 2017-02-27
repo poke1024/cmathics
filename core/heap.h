@@ -139,7 +139,7 @@ class FormatRule;
 typedef UnsafeSharedPtr<FormatRule> UnsafeFormatRuleRef;
 typedef ConstSharedPtr<FormatRule> FormatRuleRef;
 
-class FormatRule : public HeapShared<FormatRule> {
+class FormatRule : public HeapObject<FormatRule> {
 public:
 	using Forms = std::unordered_set<SymbolRef, SymbolHash, SymbolEqual>;
 
@@ -241,32 +241,11 @@ typedef UnsafeSharedPtr<Cache> UnsafeCacheRef;
 #include "core/pattern/match.h"
 #include "slice/heap.h"
 
-class Pool {
+class LegacyPool {
 private:
-	static Pool *_s_instance;
-
-private:
-	ObjectPool<Symbol> _symbols;
-
-	ObjectPool<MachineInteger> _machine_integers;
-	ObjectPool<BigInteger> _big_integers;
-
-	ObjectPool<BigRational> _big_rationals;
-
-	ObjectPool<MachineReal> _machine_reals;
-	ObjectPool<BigReal> _big_reals;
-
-	ObjectPool<MachineComplex> _machine_complexs;
-    ObjectPool<BigComplex> _big_complexs;
-
-	TinyExpressionHeap<MaxTinySliceSize> _static_expression_heap;
-	ObjectPool<ExpressionImplementation<BigSlice>> _dynamic_expressions;
-
-	ObjectPool<String> _strings;
+	static LegacyPool *_s_instance;
 
 private:
-    ObjectPool<DynamicOptionsProcessor> _dynamic_options_processors;
-
     SlotAllocator _slots;
     VectorAllocator<UnsafeBaseExpressionRef> _unsafe_ref_vector_allocator;
     VectorAllocator<BaseExpressionRef> _ref_vector_allocator;
@@ -312,77 +291,6 @@ public:
 
 public:
     static void init();
-
-	static inline SymbolRef Symbol(const char *name, ExtendedType type);
-
-	static inline BaseExpressionRef MachineInteger(machine_integer_t value);
-    static inline BaseExpressionRef BigInteger(const mpz_class &value);
-	static inline BaseExpressionRef BigInteger(mpz_class &&value);
-
-	static inline BaseExpressionRef MachineRational(machine_integer_t x, machine_integer_t y);
-	static inline BaseExpressionRef BigRational(const mpq_class &value);
-
-	static inline BaseExpressionRef MachineReal(machine_real_t value);
-    static inline BaseExpressionRef MachineReal(const SymbolicFormRef &form);
-
-    static inline BaseExpressionRef BigReal(machine_real_t value, const Precision &prec);
-	static inline BaseExpressionRef BigReal(mpfr_t value, const Precision &prec);
-
-    static inline BaseExpressionRef MachineComplex(machine_real_t real, machine_real_t imag);
-    static inline BaseExpressionRef BigComplex(const SymEngineComplexRef &value);
-
-    static inline TinyExpressionRef<0> EmptyExpression(const BaseExpressionRef &head);
-
-	template<int N>
-	static inline TinyExpressionRef<N> TinyExpression(
-		const BaseExpressionRef &head,
-		TinySlice<N> &&slice) {
-
-		assert(_s_instance);
-		return _s_instance->_static_expression_heap.allocate<N>(head, std::move(slice));
-	}
-
-	template<typename Generator>
-	static inline auto TinyExpression(
-		const BaseExpressionRef &head,
-		const Generator &generator) {
-
-		assert(_s_instance);
-		return _s_instance->_static_expression_heap.construct_from_generator(head, generator);
-	}
-
-	static inline BigExpressionRef Expression(const BaseExpressionRef &head, const BigSlice &slice);
-
-    template<typename U>
-    static inline PackedExpressionRef<U> Expression(const BaseExpressionRef &head, const PackedSlice<U> &slice) {
-        return PackedExpressionRef<U>(new ExpressionImplementation<PackedSlice<U>>(head, slice));
-    }
-
-	static inline StringRef String(std::string &&utf8);
-
-	static inline StringRef String(const StringExtentRef &extent);
-
-	static inline StringRef String(const StringExtentRef &extent, size_t offset, size_t length);
-
-    static inline OptionsProcessorRef DynamicOptionsProcessor();
-
-public:
-	static inline void release(BaseExpression *expr);
-
-    static inline void release(class OptionsProcessor *processor) {
-        switch (processor->type) {
-            case OptionsProcessor::Dynamic:
-                _s_instance->_dynamic_options_processors.destroy(
-                    static_cast<class DynamicOptionsProcessor*>(processor));
-                break;
-            case OptionsProcessor::Static:
-                // StaticOptionsMatchers are always to be allocated on
-                // the stack! so nothing to do here.
-                break;
-            default:
-                throw std::runtime_error("illegal OptionsProcessor type");
-        }
-    }
 };
 
 #endif //CMATHICS_HEAP_H

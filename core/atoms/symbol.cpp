@@ -13,9 +13,9 @@ void Messages::add(
     Definitions &definitions) {
 
 	m_rules.add(
-		new DownRule(
-			expression(definitions.symbols().MessageName, name, Pool::String(std::string(tag))),
-			Pool::String(std::string(text)),
+		DownRule::construct(
+			expression(definitions.symbols().MessageName, name, String::construct(std::string(tag))),
+			String::construct(std::string(text)),
             definitions));
 }
 
@@ -48,7 +48,7 @@ void Symbol::add_message(
 
 	SymbolRules *rules = state().mutable_rules();
     rules->messages.ensure([] () {
-        return new Messages();
+        return Messages::construct();
     })->add(SymbolRef(this), tag, text, definitions);
 }
 
@@ -117,4 +117,11 @@ BaseExpressionRef Symbol::replace_all(const ArgumentsMap &replacement) const {
 	} else {
 		return BaseExpressionRef();
 	}
+}
+
+BaseExpressionRef Symbol::make_boxes(
+    BaseExpressionPtr form,
+    const Evaluation &evaluation) const {
+
+    return String::construct(short_name());
 }

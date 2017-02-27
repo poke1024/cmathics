@@ -51,7 +51,7 @@ std::vector<const RewriteBaseExpression> RewriteExpression::nodes(
         const size_t n = slice.size();
         refs.reserve(n);
         for (size_t i = 0; i < n; i++) {
-            refs.emplace_back(RewriteBaseExpression::construct(arguments, slice[i], definitions));
+            refs.emplace_back(RewriteBaseExpression::from_arguments(arguments, slice[i], definitions));
         }
         return refs;
     });
@@ -113,14 +113,14 @@ inline ExpressionRef RewriteExpression::rewrite_functions(
 }
 
 template<typename Arguments>
-RewriteExpressionRef RewriteExpression::construct(
+RewriteExpressionRef RewriteExpression::from_arguments(
     Arguments &arguments,
     const Expression *expr,
     Definitions &definitions,
     bool is_rewritten) {
 
     const RewriteBaseExpression head(
-        RewriteBaseExpression::construct(arguments, expr->head(), definitions));
+        RewriteBaseExpression::from_arguments(arguments, expr->head(), definitions));
     std::vector<const RewriteBaseExpression> leaves(
         RewriteExpression::nodes(arguments, expr, definitions));
 
@@ -137,12 +137,12 @@ RewriteExpressionRef RewriteExpression::construct(
         // in RewriteBaseExpression::m_down need updating too).
 
         if (new_expr) {
-            return construct(arguments, new_expr.get(), definitions, true);
+            return from_arguments(arguments, new_expr.get(), definitions, true);
         }
     }
 
     return RewriteExpressionRef(
-        new RewriteExpression(head, std::move(leaves), mask, expr));
+        RewriteExpression::construct(head, std::move(leaves), mask, expr));
 }
 
 template<typename Arguments, typename Options>

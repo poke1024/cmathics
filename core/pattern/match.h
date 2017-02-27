@@ -1,6 +1,6 @@
 #pragma once
 
-class Match : public Pooled<Match> {
+class Match : public PoolObject<Match> {
 private:
     PatternMatcherRef m_matcher;
     SlotVector m_slots;

@@ -8,7 +8,7 @@ class AsciiCharacterSequence;
 class SimpleCharacterSequence;
 class ComplexCharacterSequence;
 
-class PatternMatcher : public HeapShared<PatternMatcher> {
+class PatternMatcher : public AbstractHeapObject<PatternMatcher> {
 protected:
     PatternMatcherSize m_size;
     CompiledVariables m_variables;

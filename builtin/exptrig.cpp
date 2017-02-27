@@ -29,7 +29,7 @@ public:
         const Evaluation &evaluation) {
 
         if (x->is_machine_real()) {
-            return Pool::MachineReal(m_machine_function(
+            return MachineReal::construct(m_machine_function(
                 static_cast<const MachineReal*>(x)->value));
         } else {
             return expr->symbolic_evaluate_unary(m_sym_engine_function, evaluation);
@@ -142,7 +142,7 @@ public:
 
     void build(Runtime &runtime) {
         m_log = runtime.definitions().lookup("System`Log");
-        m_two = Pool::MachineInteger(2);
+        m_two = MachineInteger::construct(2);
 
         builtin(&Log2::apply);
     }
@@ -152,7 +152,7 @@ public:
         const Evaluation &evaluation) {
 
         if (x->is_machine_real()) {
-            return Pool::MachineReal(std::log2(
+            return MachineReal::construct(std::log2(
                 static_cast<const MachineReal*>(x)->value));
         } else {
             return expression(m_log, x, m_two);
@@ -189,7 +189,7 @@ public:
 
     void build(Runtime &runtime) {
         m_log = runtime.definitions().lookup("System`Log");
-        m_ten = Pool::MachineInteger(10);
+        m_ten = MachineInteger::construct(10);
 
         builtin(&Log10::apply);
     }
@@ -199,7 +199,7 @@ public:
         const Evaluation &evaluation) {
 
         if (x->is_machine_real()) {
-            return Pool::MachineReal(std::log10(
+            return MachineReal::construct(std::log10(
                 static_cast<const MachineReal*>(x)->value));
         } else {
             return expression(m_log, x, m_ten);

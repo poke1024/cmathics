@@ -26,9 +26,9 @@ private:
 public:
     int compare(const Monomial &other) const {
         MonomialMap self_expressions(
-            m_expressions, Pool::monomial_map_allocator());
+            m_expressions, LegacyPool::monomial_map_allocator());
         MonomialMap other_expressions(
-            other.m_expressions, Pool::monomial_map_allocator());
+            other.m_expressions, LegacyPool::monomial_map_allocator());
 
         auto i = self_expressions.begin();
         while (i != self_expressions.end()) {

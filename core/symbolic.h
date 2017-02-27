@@ -12,7 +12,7 @@ typedef SymEngine::RCP<const SymEngine::Basic> SymEngineRef;
 
 typedef SymEngine::RCP<const SymEngine::Complex> SymEngineComplexRef;
 
-class SymbolicForm : public Pooled<SymbolicForm> {
+class SymbolicForm : public PoolObject<SymbolicForm> {
 private:
     const SymEngineRef m_ref;
 

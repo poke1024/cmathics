@@ -1,50 +1,6 @@
 // @formatter:off
 
 template<typename T>
-class Shared;
-
-template<typename T>
-inline void intrusive_ptr_add_ref(const Shared<T> *obj) {
-    obj->m_ref_count.fetch_add(1, std::memory_order_relaxed);
-};
-
-template<typename T>
-inline void intrusive_ptr_release(const Shared<T> *obj) {
-    if (obj->m_ref_count.fetch_add(-1, std::memory_order_relaxed) == 1) {
-        const_cast<T*>(static_cast<const T*>(obj))->destroy();
-    }
-};
-
-template<typename T>
-class Shared { // similar to boost::intrusive_ref_counter
-protected:
-    friend void ::intrusive_ptr_add_ref<T>(const Shared<T> *obj);
-    friend void ::intrusive_ptr_release<T>(const Shared<T> *obj);
-
-    mutable std::atomic<size_t> m_ref_count;
-
-public:
-    inline Shared() : m_ref_count(0) {
-    }
-
-	virtual void destroy() = 0;
-};
-
-template<typename T>
-class HeapShared : public Shared<T> {
-public:
-	virtual inline void destroy() {
-		delete this;
-	}
-};
-
-template<typename T>
-class PoolShared : public Shared<T> {
-public:
-	virtual inline void destroy();
-};
-
-template<typename T>
 class ConstSharedPtr;
 
 template<typename T>
@@ -484,7 +440,53 @@ public:
 #include "concurrent/pool.h"
 
 template<typename T>
-class Pooled : public Shared<T> {
+inline void intrusive_ptr_add_ref(const T *obj);
+
+template<typename T>
+inline void intrusive_ptr_release(const T *obj);
+
+class Shared { // similar to boost::intrusive_ref_counter
+protected:
+    template<typename T>
+    friend void ::intrusive_ptr_add_ref(const T *obj);
+
+    template<typename T>
+    friend void ::intrusive_ptr_release(const T *obj);
+
+    mutable std::atomic<size_t> m_ref_count;
+
+public:
+    inline Shared() : m_ref_count(0) {
+    }
+
+	virtual void destroy() = 0;
+};
+
+template<typename T>
+class ExtendedHeapObject {
+public:
+	template<typename... Args>
+	static ConstSharedPtr<T> construct(Args&&... args) {
+		return new T(std::forward<Args>(args)...);
+	}
+};
+
+template<typename T>
+class AbstractHeapObject : public Shared {
+public:
+	virtual inline void destroy() {
+		delete this;
+	}
+};
+
+template<typename T>
+class HeapObject :
+    public AbstractHeapObject<T>,
+    public ExtendedHeapObject<T> {
+};
+
+template<typename T>
+class PoolObject : public virtual Shared {
 private:
 	static ObjectPool<T> s_pool;
 
@@ -500,4 +502,4 @@ public:
 };
 
 template<typename T>
-ObjectPool<T> Pooled<T>::s_pool;
+ObjectPool<T> PoolObject<T>::s_pool;

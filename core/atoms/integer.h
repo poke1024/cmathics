@@ -14,7 +14,7 @@ public:
 	}
 };
 
-class MachineInteger : public Integer {
+class MachineInteger : public Integer, public PoolObject<MachineInteger> {
 public:
     static constexpr Type Type = MachineIntegerType;
 
@@ -72,7 +72,7 @@ protected:
 	}
 };
 
-class BigInteger : public Integer {
+class BigInteger : public Integer, public PoolObject<BigInteger> {
 public:
 	static constexpr Type Type = BigIntegerType;
 

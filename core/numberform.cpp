@@ -19,7 +19,7 @@ inline StringRef round(StringRef number, machine_integer_t n_digits) {
     n += 5 * scale;
     n /= 10 * scale;
 
-    return Pool::String(n.get_str());
+    return String::construct(n.get_str());
 }
 
 inline machine_integer_t round_exp(machine_integer_t exp, machine_integer_t step) {
@@ -134,7 +134,7 @@ void NumberFormatter::parse_option(
 			if (value && *value > 0) {
 				options.ExponentStep = *value;
 			} else {
-                evaluation.message(m_number_form, "estep", Pool::String("ExponentStep"), rhs);
+                evaluation.message(m_number_form, "estep", String::construct("ExponentStep"), rhs);
                 options.valid = false;
             }
 			break;
@@ -200,7 +200,7 @@ void NumberFormatter::parse_option(
 			if (rhs->is_string()) {
 				options.NumberPoint = rhs->as_string();
 			} else {
-                evaluation.message(m_number_form, "npt", Pool::String("NumberPoint"), rhs);
+                evaluation.message(m_number_form, "npt", String::construct("NumberPoint"), rhs);
                 options.valid = false;
             }
 			break;
@@ -230,7 +230,7 @@ void NumberFormatter::parse_option(
             if (rhs->is_string()) {
                 options.NumberMultiplier = rhs->as_string();
             } else {
-                evaluation.message(m_number_form, "npt", Pool::String("NumberMultiplier"), rhs);
+                evaluation.message(m_number_form, "npt", String::construct("NumberMultiplier"), rhs);
                 options.valid = false;
             }
 			break;
@@ -289,15 +289,15 @@ void NumberFormatter::parse_options(
 NumberFormatter::NumberFormatter(const Symbols &symbols) {
     m_number_form = symbols.NumberForm;
 
-    m_base_10 = Pool::MachineInteger(10);
-    m_zero_digit = Pool::String("0");
-    m_empty_string = Pool::String("");
-    m_mul_exp = Pool::String("*^");
+    m_base_10 = MachineInteger::construct(10);
+    m_zero_digit = String::construct("0");
+    m_empty_string = String::construct("");
+    m_mul_exp = String::construct("*^");
 
     const BaseExpressionPtr automatic = symbols.Automatic;
 
-    m_number_signs[0] = Pool::String("-");
-    m_number_signs[1] = Pool::String("");
+    m_number_signs[0] = String::construct("-");
+    m_number_signs[1] = String::construct("");
     m_default_options.NumberSigns[0] = m_number_signs[0].get();
     m_default_options.NumberSigns[1] = m_number_signs[1].get();
     m_default_options.ExponentStep = 1;
@@ -305,19 +305,19 @@ NumberFormatter::NumberFormatter(const Symbols &symbols) {
     m_default_options.DigitBlock[0] = 0;
     m_default_options.DigitBlock[1] = 0;
 
-    m_number_separator[0] = Pool::String(",");
-    m_number_separator[1] = Pool::String(" ");
+    m_number_separator[0] = String::construct(",");
+    m_number_separator[1] = String::construct(" ");
     m_default_options.NumberSeparator[0] = m_number_separator[0].get();
     m_default_options.NumberSeparator[1] = m_number_separator[1].get();
 
-    m_number_padding[0] = Pool::String("");
-    m_number_padding[1] = Pool::String("0");
+    m_number_padding[0] = String::construct("");
+    m_number_padding[1] = String::construct("0");
     m_default_options.NumberPadding[0] = m_number_padding[0].get();
     m_default_options.NumberPadding[1] = m_number_padding[1].get();
 
     m_default_options.SignPadding = false;
 
-    m_number_point = Pool::String(".");
+    m_number_point = String::construct(".");
     m_default_options.NumberPoint = m_number_point.get();
 
     m_default_options.NumberFormat = [] (
@@ -338,7 +338,7 @@ NumberFormatter::NumberFormatter(const Symbols &symbols) {
         }
     };
 
-    m_number_multiplier = Pool::String(std::string("\xC3\x97")); // i.e. \u00d7
+    m_number_multiplier = String::construct(std::string("\xC3\x97")); // i.e. \u00d7
     m_default_options.NumberMultiplier = m_number_multiplier.get();
 
     m_default_options.valid = true;
@@ -438,7 +438,7 @@ BaseExpressionRef NumberFormatter::operator()(
 
         if (value) {
             exp -= *value;
-            pexp = Pool::String(std::to_string(*value));
+            pexp = String::construct(std::to_string(*value));
         } else {
             pexp = m_empty_string;
         }

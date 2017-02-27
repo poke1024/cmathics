@@ -3,7 +3,7 @@
 #include "collection.h"
 #include "generator.h"
 
-class RefsExtent : public Pooled<RefsExtent> {
+class RefsExtent : public PoolObject<RefsExtent> {
 private:
     const std::vector<BaseExpressionRef> m_data;
 

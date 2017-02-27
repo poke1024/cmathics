@@ -11,7 +11,7 @@ typedef RewriteRule<SequenceMatcher> DownRule;
 
 inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
     return [patt, into] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
-        return RuleRef(new DownRule(patt, into, definitions));
+        return RuleRef(DownRule::construct(patt, into, definitions));
     };
 }
 
@@ -20,7 +20,7 @@ inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpres
 // pattern match).
 
 template<int N, typename F>
-class PatternMatchedBuiltinRule : public Rule {
+class PatternMatchedBuiltinRule : public Rule, public ExtendedHeapObject<PatternMatchedBuiltinRule<N, F>> {
 private:
     const F function;
     const SequenceMatcher matcher;
@@ -57,7 +57,9 @@ public:
 };
 
 template<int N, typename Options, typename F>
-class PatternMatchedOptionsBuiltinRule : public Rule {
+class PatternMatchedOptionsBuiltinRule :
+    public Rule, public ExtendedHeapObject<PatternMatchedOptionsBuiltinRule<N, Options, F>> {
+
 private:
     const F m_function;
     const SequenceMatcher m_matcher;
@@ -104,6 +106,6 @@ inline NewRuleRef make_pattern_matched_builtin_rule(
     const BaseExpressionRef &patt, typename BuiltinFunctionArguments<N>::type func) {
 
     return [patt, func] (const SymbolRef &head, const Definitions &definitions) -> RuleRef {
-        return new PatternMatchedBuiltinRule<N, decltype(func)>(patt, func);
+        return PatternMatchedBuiltinRule<N, decltype(func)>::construct(patt, func);
     };
 }

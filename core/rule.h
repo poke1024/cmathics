@@ -13,7 +13,7 @@ enum class DefinitionsPos : int {
 
 #include "sort.h"
 
-class Rule : public HeapShared<Rule> {
+class Rule : public AbstractHeapObject<Rule> {
 public:
 	const BaseExpressionRef pattern;
 	const SortKey key;
@@ -233,7 +233,7 @@ inline FormatRuleRef FormatRule::merge(FormatRule *rule) {
     for (const SymbolRef &symbol : rule->m_forms) {
         forms.insert(symbol);
     }
-    return FormatRuleRef(new FormatRule(m_rule, forms));
+    return FormatRuleRef(FormatRule::construct(m_rule, forms));
 }
 
 inline FormatRuleEntry::FormatRuleEntry(

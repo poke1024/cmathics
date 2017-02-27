@@ -3,7 +3,7 @@
 class FastLeafSequence;
 class SlowLeafSequence;
 
-class OptionsProcessor : public PoolShared<OptionsProcessor> {
+class OptionsProcessor : virtual public Shared {
 public:
     using MatchRest = std::function<index_t(index_t begin, index_t t, index_t end)>;
 
@@ -67,7 +67,7 @@ public:
 	}
 };*/
 
-class DynamicOptionsProcessor : public OptionsProcessor {
+class DynamicOptionsProcessor : public OptionsProcessor, public PoolObject<DynamicOptionsProcessor> {
 private:
     OptionsMap m_options;
 
@@ -118,6 +118,15 @@ private:
         index_t begin,
         index_t end,
         const MatchRest &rest);
+
+public:
+    // StaticOptionsProcessor does not offer construct() methods as
+    // it is always to be constructed on the stack.
+
+    virtual inline void destroy() final {
+        // noop. StaticOptionsMatchers are always to be allocated on
+        // the stack, so nothing to do here.
+    }
 
 public:
     inline StaticOptionsProcessor(const OptionsDefinitions<Options> &controller) :

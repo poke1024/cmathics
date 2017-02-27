@@ -13,7 +13,7 @@
 #include "core/types.h"
 #include "core/hash.h"
 
-class MachineComplex : public BaseExpression {
+class MachineComplex : public BaseExpression, public PoolObject<MachineComplex> {
 private:
     static const std::hash<machine_real_t> hash_function;
 
@@ -65,7 +65,7 @@ public:
     }
 
     inline BaseExpressionRef conjugate() const {
-        return Pool::MachineComplex(value.real(), -value.imag());
+        return MachineComplex::construct(value.real(), -value.imag());
     }
 
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
@@ -76,7 +76,7 @@ protected:
     }
 };
 
-class BigComplex : public BaseExpression {
+class BigComplex : public BaseExpression, public PoolObject<BigComplex> {
 public:
     static constexpr Type Type = BigComplexType;
 
@@ -131,7 +131,7 @@ public:
         SymEngine::RCP<const SymEngine::Number> real = m_value->real_part();
         SymEngine::RCP<const SymEngine::Number> imag = m_value->imaginary_part()->mul(minus_one);
 
-        return Pool::BigComplex(SymEngine::rcp_static_cast<const SymEngine::Complex>(
+        return BigComplex::construct(SymEngine::rcp_static_cast<const SymEngine::Complex>(
             SymEngine::Complex::from_two_nums(*real, *imag)));
     }
 

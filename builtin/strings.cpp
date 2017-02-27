@@ -183,7 +183,7 @@ public:
             return BaseExpressionRef();
         }
 
-        return Pool::MachineInteger(
+        return MachineInteger::construct(
             static_cast<const String*>(str)->length());
     }
 };

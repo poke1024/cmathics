@@ -166,7 +166,7 @@ public:
         const Evaluation &evaluation) {
 
         if ((n + 1) % 2) {
-            evaluation.message(m_symbol, "argct", Pool::MachineInteger(n));
+            evaluation.message(m_symbol, "argct", MachineInteger::construct(n));
             return BaseExpressionRef();
         }
 

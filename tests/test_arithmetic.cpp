@@ -8,8 +8,8 @@ TEST_CASE("Plus") {
     auto &definitions = Runtime::get()->definitions();
 
     // initialize arguments
-    BaseExpressionRef a = Pool::MachineInteger(1);
-    BaseExpressionRef b = Pool::MachineInteger(2);
+    BaseExpressionRef a = MachineInteger::construct(1);
+    BaseExpressionRef b = MachineInteger::construct(2);
 
     // get plus head
     auto plus_head = definitions.lookup("System`Plus");

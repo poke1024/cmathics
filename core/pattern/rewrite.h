@@ -82,7 +82,7 @@ public:
     }
 
     template<typename Arguments>
-    static inline RewriteBaseExpression construct(
+    static inline RewriteBaseExpression from_arguments(
         Arguments &arguments,
         const BaseExpressionRef &expr,
         Definitions &definitions);
@@ -112,7 +112,7 @@ typedef ConstSharedPtr<Rewrite> RewriteRef;
 typedef QuasiConstSharedPtr<Rewrite> CachedRewriteRef;
 typedef UnsafeSharedPtr<Rewrite> UnsafeRewriteRef;
 
-class Rewrite : public RewriteBaseExpression, public HeapShared<Rewrite> {
+class Rewrite : public RewriteBaseExpression, public HeapObject<Rewrite> {
 public:
     using RewriteBaseExpression::RewriteBaseExpression;
 
@@ -121,13 +121,13 @@ public:
     }
 
     template<typename Arguments>
-    static inline RewriteRef construct(
+    static inline RewriteRef from_arguments(
         Arguments &arguments,
         const BaseExpressionRef &expr,
         Definitions &definitions);
 };
 
-class RewriteExpression : public HeapShared<RewriteExpression> {
+class RewriteExpression : public HeapObject<RewriteExpression> {
 private:
     const RewriteBaseExpression m_head;
     const std::vector<const RewriteBaseExpression> m_leaves;
@@ -145,6 +145,7 @@ private:
         const RewriteMask mask,
         Definitions &definitions);
 
+public:
     inline RewriteExpression(
         const RewriteBaseExpression &head,
         std::vector<const RewriteBaseExpression> &&leaves,
@@ -157,8 +158,6 @@ private:
         m_expr(expr) {
     }
 
-public:
-
     template<typename Arguments, typename Options>
     inline BaseExpressionRef rewrite_or_copy(
         const Arguments &args,
@@ -166,7 +165,7 @@ public:
         const Evaluation &evaluation) const;
 
     template<typename Arguments>
-    static RewriteExpressionRef construct(
+    static RewriteExpressionRef from_arguments(
         Arguments &arguments,
         const Expression *expr,
         Definitions &definitions,
@@ -198,7 +197,7 @@ inline RewriteBaseExpression::RewriteBaseExpression(
 }
 
 template<typename Arguments>
-inline RewriteBaseExpression RewriteBaseExpression::construct(
+inline RewriteBaseExpression RewriteBaseExpression::from_arguments(
     Arguments &arguments,
     const BaseExpressionRef &expr,
     Definitions &definitions) {
@@ -221,7 +220,7 @@ inline RewriteBaseExpression RewriteBaseExpression::construct(
 
         case SlotDirective::Descend:
             if (expr->is_expression()) {
-	            const RewriteExpressionRef rewrite(RewriteExpression::construct(
+	            const RewriteExpressionRef rewrite(RewriteExpression::from_arguments(
                      arguments, expr->as_expression(), definitions));
 
 	            if (!rewrite->is_pure_copy()) {
@@ -269,13 +268,13 @@ inline BaseExpressionRef RewriteBaseExpression::rewrite_root_or_copy(
 }
 
 template<typename Arguments>
-inline RewriteRef Rewrite::construct(
+inline RewriteRef Rewrite::from_arguments(
     Arguments &arguments,
     const BaseExpressionRef &expr,
     Definitions &definitions) {
 
-    return new Rewrite(std::move(
-        RewriteBaseExpression::construct(arguments, expr, definitions)));
+    return Rewrite::construct(std::move(
+        RewriteBaseExpression::from_arguments(arguments, expr, definitions)));
 }
 
 class SlotFunction;
@@ -284,11 +283,12 @@ typedef QuasiConstSharedPtr<SlotFunction> CachedSlotFunctionRef;
 typedef ConstSharedPtr<SlotFunction> ConstSlotFunctionRef;
 typedef UnsafeSharedPtr<SlotFunction> UnsafeSlotFunctionRef;
 
-struct SlotFunction : public HeapShared<SlotFunction> {
+class SlotFunction : public HeapObject<SlotFunction> {
 private:
     const RewriteRef m_rewrite;
     const size_t m_slot_count;
 
+public:
     inline SlotFunction(
         const RewriteRef &rewrite,
         size_t slot_count) :
@@ -297,7 +297,6 @@ private:
         m_slot_count(slot_count) {
     }
 
-public:
     inline SlotFunction(
         SlotFunction &&other) :
 
@@ -305,7 +304,7 @@ public:
         m_slot_count(other.m_slot_count) {
     }
 
-    static UnsafeSlotFunctionRef construct(
+    static UnsafeSlotFunctionRef from_expression(
         const Expression *body,
         Definitions &definitions);
 

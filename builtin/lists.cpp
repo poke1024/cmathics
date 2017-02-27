@@ -10,8 +10,8 @@ private:
 
 public:
     ListBoxes() {
-        m_comma.initialize(Pool::String(","));
-        m_comma_space.initialize(Pool::String(", "));
+        m_comma.initialize(String::construct(","));
+        m_comma_space.initialize(String::construct(", "));
     }
 
     inline BaseExpressionRef operator()(
@@ -89,8 +89,8 @@ public:
     }
 
     void build(Runtime &runtime) {
-        m_open.initialize(Pool::String("{"));
-        m_close.initialize(Pool::String("}"));
+        m_open.initialize(String::construct("{"));
+        m_close.initialize(String::construct("}"));
 	    builtin(
             "MakeBoxes[{items___}, f:StandardForm|TraditionalForm|OutputForm|InputForm]",
             &List::apply_makeboxes);
@@ -756,7 +756,7 @@ inline ExpressionRef machine_integer_range(
             evaluation.List,
             sequential([imin, imax, di] (auto &store) {
                 for (machine_integer_t x = imin; x <= imax; x += di) {
-                    store(Pool::MachineInteger(x));
+                    store(MachineInteger::construct(x));
                 }
             }, n));
     }
@@ -783,7 +783,7 @@ public:
 	    return expression(evaluation.List, sequential([imin, imax, di, func] (auto &store) {
 		    machine_integer_t index = imin;
 		    while (index <= imax) {
-			    store(func(Pool::MachineInteger(index)));
+			    store(func(MachineInteger::construct(index)));
 			    index += di;
 		    }
 	    }, n));
@@ -838,7 +838,7 @@ protected:
 				evaluation.List,
 				sequential([&leaves] (auto &store) {
 					for (machine_real_t x : leaves) {
-						store(Pool::MachineReal(x));
+						store(MachineReal::construct(x));
 					}
 				},
 				leaves.size())
@@ -1089,7 +1089,10 @@ public:
 };
 
 template<typename F>
-class IterationFunctionRule : public AtLeastNRule<2> {
+class IterationFunctionRule :
+    public AtLeastNRule<2>,
+    public ExtendedHeapObject<IterationFunctionRule<F>> {
+
 private:
     const SymbolRef m_head;
     const F m_function;
@@ -1134,7 +1137,7 @@ public:
 template<typename F>
 NewRuleRef make_iteration_function_rule() {
     return [] (const SymbolRef &head, const Definitions &definitions) {
-        return new IterationFunctionRule<F>(head, definitions);
+        return IterationFunctionRule<F>::construct(head, definitions);
     };
 }
 

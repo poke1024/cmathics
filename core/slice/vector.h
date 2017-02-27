@@ -211,7 +211,7 @@ using LeafVector = LeafVectorBase<std::allocator<BaseExpressionRef>>;
 class TempVector : public std::vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>> {
 public:
     inline TempVector() : vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>>(
-        Pool::unsafe_ref_vector_allocator()) {
+        LegacyPool::unsafe_ref_vector_allocator()) {
     }
 
     inline ExpressionRef to_expression(const BaseExpressionRef &head) const;

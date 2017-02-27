@@ -273,7 +273,7 @@ struct StyleBoxOptions {
     machine_real_t ImageSizeMultipliers[2];
 };
 
-class BaseExpression : public PoolShared<BaseExpression> {
+class BaseExpression : public virtual Shared {
 protected:
     const ExtendedType _extended_type;
 

@@ -23,7 +23,7 @@ inline BaseExpressionRef add_only_machine_reals(const Slice &slice) {
 		result += value;
 	}
 
-	return Pool::MachineReal(result);
+	return MachineReal::construct(result);
 }
 
 template<typename Slice>

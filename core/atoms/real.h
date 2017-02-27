@@ -41,7 +41,7 @@ inline machine_real_t eval_to_machine_real(const SymbolicFormRef &form) {
     }
 }
 
-class MachineReal : public BaseExpression {
+class MachineReal : public BaseExpression, public PoolObject<MachineReal> {
 private:
     static const std::hash<machine_real_t> hash_function;
 
@@ -112,7 +112,7 @@ protected:
     }
 };
 
-class BigReal : public BaseExpression {
+class BigReal : public BaseExpression, public PoolObject<BigReal> {
 public:
 	static constexpr Type Type = BigRealType;
 

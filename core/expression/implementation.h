@@ -1,3 +1,4 @@
+#pragma once
 // @formatter:off
 
 #ifndef EXPRESSION_H
@@ -17,8 +18,7 @@
 #include <symengine/pow.h>
 
 template<typename Slice>
-class ExpressionImplementation : public Expression {
-
+class ExpressionImplementation : public Expression, public PoolObject<ExpressionImplementation<Slice>> {
 protected:
 	virtual BaseExpressionRef materialize_leaf(size_t i) const {
 		return m_slice[i];
@@ -87,7 +87,7 @@ public:
 		m_slice.init_type_mask(type_mask);
 	}
 
-	inline constexpr SliceCode slice_code() const {
+	inline SliceCode slice_code() const { // FIXME: constexpr
 		return Slice::code();
 	}
 
@@ -377,7 +377,7 @@ public:
 	}
 
 	virtual SortKey sort_key() const final {
-		MonomialMap m(Pool::monomial_map_allocator());
+		MonomialMap m(LegacyPool::monomial_map_allocator());
 
 		switch (_head->symbol()) {
 			case S::Times: {
@@ -1066,6 +1066,20 @@ inline auto with_slices(const Expression *a, const Expression *b, const F &f) {
 			return f(slice_a, slice_b);
 		});
 	});
+};
+
+template<typename T>
+inline void intrusive_ptr_add_ref(const T *obj) {
+    auto * p = static_cast<const Shared*>(obj);
+    p->m_ref_count.fetch_add(1, std::memory_order_relaxed);
+};
+
+template<typename T>
+inline void intrusive_ptr_release(const T *obj) {
+    auto * p = static_cast<const Shared*>(obj);
+    if (p->m_ref_count.fetch_add(-1, std::memory_order_relaxed) == 1) {
+        const_cast<T*>(obj)->destroy();
+    }
 };
 
 #endif

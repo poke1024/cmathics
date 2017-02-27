@@ -29,10 +29,10 @@ BaseExpressionRef BigRational::custom_format(
 
 			if (!minus) {
 				leaf = expression(evaluation.Divide,
-					Pool::BigInteger(numerator), Pool::BigInteger(denominator));
+					BigInteger::construct(numerator), BigInteger::construct(denominator));
 			} else {
 				leaf = expression(evaluation.Minus, expression(evaluation.Divide,
-					Pool::BigInteger(-numerator), Pool::BigInteger(denominator)));
+					BigInteger::construct(-numerator), BigInteger::construct(denominator)));
 			}
 
 			return expression(evaluation.HoldForm, leaf)->custom_format_or_copy(form, evaluation);

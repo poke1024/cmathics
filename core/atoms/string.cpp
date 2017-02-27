@@ -18,7 +18,7 @@ BaseExpressionRef String::make_boxes(
     s << "\"";
     s << utf8();
     s << "\"";
-    return Pool::String(s.str());
+    return String::construct(s.str());
 }
 
 std::string String::boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const {
@@ -95,12 +95,12 @@ StringExtentRef string_extent_from_normalized(UnicodeString &&normalized, uint8_
 				ascii.append(1, char(buffer[i]));
 			}
 
-			return new AsciiStringExtent(std::move(ascii));
+			return AsciiStringExtent::construct(std::move(ascii));
 		}
 	}
 
 	if ((possible_types & (1 << StringExtent::complex)) == 0) {
-		return new SimpleStringExtent(normalized);
+		return SimpleStringExtent::construct(normalized);
 	}
 
     UErrorCode status = U_ZERO_ERROR;
@@ -112,10 +112,10 @@ StringExtentRef string_extent_from_normalized(UnicodeString &&normalized, uint8_
 	bi->setText(normalized);
 
 	if (is_simple_encoding(bi.get())) {
-		return new SimpleStringExtent(normalized);
+		return SimpleStringExtent::construct(normalized);
 	} else {
 		std::vector<int32_t> offsets = character_offsets(bi.get(), normalized.length());
-		return new ComplexStringExtent(normalized, offsets);
+		return ComplexStringExtent::construct(normalized, offsets);
 	}
 }
 
@@ -131,7 +131,7 @@ StringExtentRef make_string_extent(std::string &&utf8) {
     }
 
     if (is_ascii) {
-        return new AsciiStringExtent(std::move(utf8));
+        return AsciiStringExtent::construct(std::move(utf8));
     }
 
     UErrorCode status = U_ZERO_ERROR;
@@ -249,7 +249,7 @@ StringExtentRef AsciiStringExtent::repeat(size_t offset, size_t length, size_t n
 	for (size_t i = 0; i < n; i++) {
 		s += part;
 	}
-	return new AsciiStringExtent(std::move(s));
+	return AsciiStringExtent::construct(std::move(s));
 }
 
 size_t AsciiStringExtent::walk_code_points(size_t offset, index_t cp_offset) const {
@@ -315,7 +315,7 @@ StringExtentRef SimpleStringExtent::repeat(size_t offset, size_t length, size_t 
 		text.append(begin, length);
 	}
 
-	return new SimpleStringExtent(text);
+	return SimpleStringExtent::construct(text);
 }
 
 size_t SimpleStringExtent::walk_code_points(size_t offset, index_t cp_offset) const {
@@ -398,7 +398,7 @@ StringExtentRef ComplexStringExtent::repeat(size_t offset, size_t length, size_t
 		text.append(begin, size);
 	}
 
-	return new ComplexStringExtent(text);
+	return ComplexStringExtent::construct(text);
 }
 
 size_t ComplexStringExtent::walk_code_points(size_t offset, index_t cp_offset) const {

@@ -63,7 +63,7 @@ public:
 
         try {
             if (n->symbol() == S::MachinePrecision) {
-                return Pool::MachineReal(form);
+                return MachineReal::construct(form);
             } else {
                 double p;
 
@@ -79,7 +79,7 @@ public:
                 }
 
                 if (p <= Precision::machine_precision.decimals) {
-                    return Pool::MachineReal(form);
+                    return MachineReal::construct(form);
                 } else {
                     return eval(form, Precision(p), evaluation);
                 }
@@ -149,9 +149,8 @@ public:
 Runtime *Runtime::s_instance = nullptr;
 
 void Runtime::init() {
-    Pool::init();
+    LegacyPool::init();
     EvaluateDispatch::init();
-    //InstantiateSymbolicForm::init();
     Parallel::init();
 }
 

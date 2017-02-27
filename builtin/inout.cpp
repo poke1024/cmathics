@@ -240,14 +240,14 @@ public:
 
         builtin(&MakeBoxes::apply);
 
-        m_parentheses[0][0].initialize(Pool::String("("));
-        m_parentheses[0][1].initialize(Pool::String(")"));
+        m_parentheses[0][0].initialize(String::construct("("));
+        m_parentheses[0][1].initialize(String::construct(")"));
 
-        m_parentheses[1][0].initialize(Pool::String("["));
-        m_parentheses[1][1].initialize(Pool::String("]"));
+        m_parentheses[1][0].initialize(String::construct("["));
+        m_parentheses[1][1].initialize(String::construct("]"));
 
-        m_separators[0].initialize(Pool::String(", "));
-        m_separators[1].initialize(Pool::String(","));
+        m_separators[0].initialize(String::construct(", "));
+        m_separators[1].initialize(String::construct(","));
     }
 
     inline BaseExpressionRef apply(
@@ -397,7 +397,7 @@ public:
                         if (n > 0 && s->ascii_char_at(0) != ' ' && s->ascii_char_at(n - 1) != ' ') {
 	                        std::ostringstream t;
 	                        t << " " << op->as_string()->utf8() << " ";
-                            return Pool::String(t.str());
+                            return String::construct(t.str());
                         }
                         break;
                     }

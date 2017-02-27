@@ -90,13 +90,13 @@ void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs, Definit
 			m_own_value = rhs;
 			break;
         case DefinitionsPos::Up:
-            add_up_rule(new UpRule(lhs, rhs, definitions));
+            add_up_rule(UpRule::construct(lhs, rhs, definitions));
             break;
 		case DefinitionsPos::Down:
-			add_down_rule(new DownRule(lhs, rhs, definitions));
+			add_down_rule(DownRule::construct(lhs, rhs, definitions));
 			break;
 		case DefinitionsPos::Sub:
-			add_sub_rule(new SubRule(lhs, rhs, definitions));
+			add_sub_rule(SubRule::construct(lhs, rhs, definitions));
 			break;
 	}
 }
@@ -125,15 +125,15 @@ void SymbolState::add_format(
     const SymbolRef &form,
     const Definitions &definitions) {
 
-    FormatRule *format_rule;
+    UnsafeFormatRuleRef format_rule;
 
     if (form == definitions.symbols().All) {
-        format_rule = new FormatRule(rule);
+        format_rule = FormatRule::construct(rule);
     } else {
-        format_rule = new FormatRule(rule, form);
+        format_rule = FormatRule::construct(rule, form);
     }
 
-    mutable_rules()->format_values.add(FormatRuleRef(format_rule));
+    mutable_rules()->format_values.add(format_rule);
 }
 
 Definitions::Definitions() : m_symbols(*this), number_form(m_symbols) {
@@ -141,7 +141,7 @@ Definitions::Definitions() : m_symbols(*this), number_form(m_symbols) {
 
 SymbolRef Definitions::new_symbol(const char *name, SymbolName symbol_name) {
     assert(m_definitions.find(name) == m_definitions.end());
-    const SymbolRef symbol = Pool::Symbol(name, ExtendedType(symbol_name));
+    const SymbolRef symbol = Symbol::construct(name, ExtendedType(symbol_name));
     m_definitions[SymbolKey(symbol)] = symbol;
     return symbol;
 }

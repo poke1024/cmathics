@@ -18,7 +18,7 @@ inline index_t Match::options(
     const OptionsProcessor::MatchRest &rest) {
 
     if (!m_options) {
-        m_options = Pool::DynamicOptionsProcessor();
+        m_options = DynamicOptionsProcessor::construct();
     }
 
     return m_options->match(sequence, begin, end, rest);

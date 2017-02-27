@@ -13,7 +13,7 @@ inline bool is_minus_1(const BaseExpressionRef &expr) {
 
 BaseExpressionRef mul(const Expression *expr, const Evaluation &evaluation);
 
-class TimesNRule : public AtLeastNRule<3> {
+class TimesNRule : public AtLeastNRule<3>, public ExtendedHeapObject<TimesNRule> {
 public:
 	using AtLeastNRule<3>::AtLeastNRule;
 

@@ -112,10 +112,10 @@ public:
     }
 };
 
-UnsafeSlotFunctionRef SlotFunction::construct(const Expression *body, Definitions &definitions) {
+UnsafeSlotFunctionRef SlotFunction::from_expression(const Expression *body, Definitions &definitions) {
     SlotArguments arguments;
-    return UnsafeSlotFunctionRef(new SlotFunction(
-        Rewrite::construct(arguments, body, definitions), arguments.slot_count()));
+    return UnsafeSlotFunctionRef(SlotFunction::construct(
+        Rewrite::from_arguments(arguments, body, definitions), arguments.slot_count()));
 }
 
 template<typename Arguments>
@@ -137,7 +137,7 @@ inline BaseExpressionRef SlotFunction::rewrite_or_copy(
             body,
             [&args, &evaluation, n_args] (index_t i, const BaseExpressionRef &expr) {
                 if (size_t(i) >= n_args) {
-                    evaluation.message(evaluation.Function, "slotn", Pool::MachineInteger(1 + i));
+                    evaluation.message(evaluation.Function, "slotn", MachineInteger::construct(1 + i));
                     return expr;
                 } else {
                     return args(i, expr);
@@ -148,7 +148,7 @@ inline BaseExpressionRef SlotFunction::rewrite_or_copy(
     }
 }
 
-class FunctionRule : public Rule {
+class FunctionRule : public Rule, public ExtendedHeapObject<FunctionRule> {
 private:
     inline BaseExpressionRef slot(
         const Expression *args,
@@ -162,7 +162,7 @@ private:
         const CacheRef cache = body->as_expression()->ensure_cache();
 
         ConstSlotFunctionRef slot_function = cache->slot_function.ensure([&body, &evaluation] () {
-            return SlotFunction::construct(body->as_expression(), evaluation.definitions);
+            return SlotFunction::from_expression(body->as_expression(), evaluation.definitions);
         });
 
         return args->with_leaves_array(
@@ -219,7 +219,7 @@ private:
                         arguments.add(vars->as_symbol(), 0);
                     }
 
-                    return UnsafeRewriteExpressionRef(RewriteExpression::construct(
+                    return UnsafeRewriteExpressionRef(RewriteExpression::from_arguments(
                         arguments, body->as_expression(), evaluation.definitions));
                 });
 

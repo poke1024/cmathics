@@ -92,8 +92,8 @@ inline index_t DynamicOptionsProcessor::do_match(
     const MatchRest &rest) {
 
     OptionsMap options(
-            m_options,
-            Pool::options_map_allocator());
+        m_options,
+        LegacyPool::options_map_allocator());
 
     std::swap(options, m_options);
 

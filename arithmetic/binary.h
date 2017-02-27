@@ -112,14 +112,17 @@ public:
 };
 
 template<machine_integer_t Value>
-class EmptyConstantRule : public ExactlyNRule<0> {
+class EmptyConstantRule :
+    public ExactlyNRule<0>,
+    public ExtendedHeapObject<EmptyConstantRule<Value>> {
+
 private:
     const BaseExpressionRef m_value;
 
 public:
     EmptyConstantRule(const SymbolRef &head, const Definitions &definitions) :
         ExactlyNRule<0>(head, definitions),
-        m_value(Pool::MachineInteger(Value)) {
+        m_value(MachineInteger::construct(Value)) {
     }
 
     virtual optional<BaseExpressionRef> try_apply(
@@ -130,7 +133,10 @@ public:
     }
 };
 
-class IdentityRule : public ExactlyNRule<1> {
+class IdentityRule :
+    public ExactlyNRule<1>,
+    public ExtendedHeapObject<IdentityRule> {
+
 public:
     IdentityRule(const SymbolRef &head, const Definitions &definitions) :
         ExactlyNRule<1>(head, definitions) {
@@ -145,7 +151,10 @@ public:
 };
 
 template<typename Operator>
-class BinaryOperatorRule : public ExactlyNRule<2> {
+class BinaryOperatorRule :
+    public ExactlyNRule<2>,
+    public ExtendedHeapObject<BinaryOperatorRule<Operator>> {
+
 private:
     const Operator m_operator;
 

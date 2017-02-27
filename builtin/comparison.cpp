@@ -3,7 +3,10 @@
 #include <symengine/eval.h>
 
 template<int N>
-class ConstantTrueRule : public ExactlyNRule<N> {
+class ConstantTrueRule :
+    public ExactlyNRule<N>,
+    public ExtendedHeapObject<ConstantTrueRule<N>> {
+
 public:
     ConstantTrueRule(const SymbolRef &head, const Definitions &definitions) :
         ExactlyNRule<N>(head, definitions) {
@@ -281,7 +284,10 @@ public:
 };
 
 template<typename Operator>
-class CompareNRule : public AtLeastNRule<3> {
+class CompareNRule :
+    public AtLeastNRule<3>,
+    public ExtendedHeapObject<CompareNRule<Operator>> {
+
 private:
     const SymbolRef m_head;
     const Operator m_operator;
@@ -321,7 +327,7 @@ public:
     }
 };
 
-class CompareUnequalNRule : public AtLeastNRule<3> {
+class CompareUnequalNRule : public AtLeastNRule<3>, public ExtendedHeapObject<CompareUnequalNRule> {
 private:
     const SymbolRef m_head;
     const EqualComparison<false> m_is_equal;

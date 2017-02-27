@@ -22,8 +22,8 @@ BaseExpressionRef MachineComplex::custom_format(
 		case S::FullForm:
 			return expression(
 				expression(evaluation.HoldForm, evaluation.Complex),
-				Pool::MachineReal(value.real()),
-				Pool::MachineReal(value.imag()))->custom_format_or_copy(form, evaluation);
+				MachineReal::construct(value.real()),
+				MachineReal::construct(value.imag()))->custom_format_or_copy(form, evaluation);
 
 		default: {
 			UnsafeBaseExpressionRef leaf;
@@ -33,16 +33,16 @@ BaseExpressionRef MachineComplex::custom_format(
 
 			if (real) {
 				if (imag == 1.0) {
-					leaf = expression(evaluation.Plus, Pool::MachineReal(real), evaluation.I);
+					leaf = expression(evaluation.Plus, MachineReal::construct(real), evaluation.I);
 				} else {
-					leaf = expression(evaluation.Plus, Pool::MachineReal(real),
-						expression(evaluation.Times, Pool::MachineReal(imag), evaluation.I));
+					leaf = expression(evaluation.Plus, MachineReal::construct(real),
+						expression(evaluation.Times, MachineReal::construct(imag), evaluation.I));
 				}
 			} else {
 				if (imag == 1.0) {
 					leaf = evaluation.I;
 				} else {
-					leaf = expression(evaluation.Times, Pool::MachineReal(imag), evaluation.I);
+					leaf = expression(evaluation.Times, MachineReal::construct(imag), evaluation.I);
 				}
 			}
 
@@ -56,7 +56,7 @@ BaseExpressionPtr MachineComplex::head(const Symbols &symbols) const {
 }
 
 BaseExpressionRef MachineComplex::negate(const Evaluation &evaluation) const {
-    return Pool::MachineComplex(-value.real(), -value.imag());
+    return MachineComplex::construct(-value.real(), -value.imag());
 }
 
 std::string BigComplex::debugform() const {
@@ -73,8 +73,8 @@ BaseExpressionRef BigComplex::custom_format(
 		case S::FullForm:
 			return expression(
 				expression(evaluation.HoldForm, evaluation.Complex),
-				Pool::String(m_value->real_part()->__str__()),
-				Pool::String(m_value->imaginary_part()->__str__()))->custom_format_or_copy(form, evaluation);
+				String::construct(m_value->real_part()->__str__()),
+				String::construct(m_value->imaginary_part()->__str__()))->custom_format_or_copy(form, evaluation);
 
 		default: {
 			UnsafeBaseExpressionRef leaf;
@@ -115,6 +115,6 @@ BaseExpressionRef BigComplex::negate(const Evaluation &evaluation) const {
     SymEngine::RCP<const SymEngine::Number> real = m_value->real_part()->mul(minus_one);
     SymEngine::RCP<const SymEngine::Number> imag = m_value->imaginary_part()->mul(minus_one);
 
-    return Pool::BigComplex(SymEngine::rcp_static_cast<const SymEngine::Complex>(
+    return BigComplex::construct(SymEngine::rcp_static_cast<const SymEngine::Complex>(
         SymEngine::Complex::from_two_nums(*real, *imag)));
 }

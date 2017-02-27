@@ -8,7 +8,7 @@
 #include "integer.h"
 #include "symbol.h"
 
-class BigRational : public BaseExpression {
+class BigRational : public BaseExpression, public PoolObject<BigRational> {
 public:
     static constexpr Type Type = BigRationalType;
 
@@ -78,6 +78,11 @@ protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
         return SymbolicForm::construct(SymEngine::Rational::from_mpq(value.get_mpq_t()));
     }
+};
+
+class MachineRational : public BigRational { // for now
+public:
+    using BigRational::BigRational;
 };
 
 #endif

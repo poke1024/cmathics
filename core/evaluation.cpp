@@ -16,9 +16,9 @@ Evaluation::Evaluation(
 
     m_output(output),
 	definitions(new_definitions),
-	zero(Pool::MachineInteger(0)),
-	one(Pool::MachineInteger(1)),
-	minus_one(Pool::MachineInteger(-1)),
+	zero(MachineInteger::construct(0)),
+	one(MachineInteger::construct(1)),
+	minus_one(MachineInteger::construct(-1)),
     empty_list(expression(this->List)),
 	no_symbolic_form(SymbolicForm::construct(SymEngineRef())),
     default_match(Match::construct()) {
@@ -67,7 +67,7 @@ void Evaluation::sym_engine_exception(const SymEngine::SymEngineException &e) co
     const std::string what(e.what());
 
     if (what == "Indeterminate Expression: `0 * Infty` encountered") {
-        message(definitions.lookup("General"), "indet", Pool::String(std::string("0 Infinity")));
+        message(definitions.lookup("General"), "indet", String::construct(std::string("0 Infinity")));
     } else {
         std::cerr << "SymEngine error: " << what << std::endl;
     }

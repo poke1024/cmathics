@@ -3,7 +3,7 @@
 #include "collection.h"
 
 template<typename U>
-class PackExtent : public HeapShared<PackExtent<U>> {
+class PackExtent : public HeapObject<PackExtent<U>> {
 private:
     const std::vector<U> m_data;
 
@@ -72,14 +72,14 @@ public:
     }
 
     inline PackedSlice(const std::vector<U> &data) :
-        _extent(new PackExtent<U>(data)),
+        _extent(PackExtent<U>::construct(data)),
         _begin(_extent->address()),
         BaseSlice(nullptr, data.size()) {
         assert(data.size() >= MinPackedSliceSize);
     }
 
     inline PackedSlice(std::vector<U> &&data) :
-        _extent(new PackExtent<U>(data)),
+        _extent(PackExtent<U>::construct(data)),
         _begin(_extent->address()),
         BaseSlice(nullptr, data.size()) {
         assert(data.size() >= MinPackedSliceSize);

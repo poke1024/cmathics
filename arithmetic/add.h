@@ -5,7 +5,10 @@
 
 BaseExpressionRef add(const Expression *expr, const Evaluation &evaluation);
 
-class PlusNRule : public AtLeastNRule<3> {
+class PlusNRule :
+    public AtLeastNRule<3>,
+    public ExtendedHeapObject<PlusNRule> {
+
 public:
 	using AtLeastNRule<3>::AtLeastNRule;
 

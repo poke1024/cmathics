@@ -26,7 +26,7 @@ decltype(auto) apply_from_tuple(F&& fn, Tuple&& t)
 
 template<typename T>
 RuleRef NewRule(const SymbolRef &head, const Definitions &definitions) {
-	return RuleRef(new T(head, definitions));
+	return RuleRef(T::construct(head, definitions));
 }
 
 template<int N, typename... refs>
@@ -55,7 +55,7 @@ struct unpack_leaves<M, M> {
 };
 
 template<int N, typename F>
-class BuiltinRule : public ExactlyNRule<N> {
+class BuiltinRule : public ExactlyNRule<N>, public ExtendedHeapObject<BuiltinRule<N, F>> {
 private:
 	const F m_func;
 
@@ -86,7 +86,10 @@ public:
 };
 
 template<int N, typename F>
-class VariadicBuiltinRule : public AtLeastNRule<N> {
+class VariadicBuiltinRule :
+    public AtLeastNRule<N>,
+    public ExtendedHeapObject<VariadicBuiltinRule<N, F>> {
+
 private:
 	const F _func;
 
@@ -179,7 +182,7 @@ public:
 };
 
 template<int N, typename Options, typename F>
-class OptionsBuiltinRule : public AtLeastNRule<N> {
+class OptionsBuiltinRule : public AtLeastNRule<N>, public ExtendedHeapObject<OptionsBuiltinRule<N, Options, F>> {
 private:
 	const SymbolRef m_head;
 	const F m_func;
@@ -257,12 +260,12 @@ typedef std::function<RuleRef(const SymbolRef &head, Definitions &definitions)> 
 template<int N, typename F>
 inline NewRuleRef make_builtin_rule(const F &func) {
 	return [func] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
-		return new BuiltinRule<N, F>(head, definitions, func);
+		return BuiltinRule<N, F>::construct(head, definitions, func);
 	};
 }
 
 template<typename Matcher>
-class RewriteRule : public Rule {
+class RewriteRule : public Rule, public ExtendedHeapObject<RewriteRule<Matcher>> {
 private:
 	const BaseExpressionRef m_into;
 	const Matcher m_matcher;

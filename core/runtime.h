@@ -105,7 +105,7 @@ struct EmptyExpression {
     }
 };
 
-class Builtin : public HeapShared<Builtin> {
+class Builtin : public HeapObject<Builtin> {
 private:
     template<typename T>
     auto shared_from_this() {
@@ -314,7 +314,7 @@ private:
 			return (p->*method)(leaves, n, evaluation);
         };
 
-        add(new VariadicBuiltinRule<0, decltype(function)>(
+        add(VariadicBuiltinRule<0, decltype(function)>::construct(
             m_symbol,
             m_runtime.definitions(),
             function));
@@ -334,7 +334,7 @@ private:
             return (p->*method)(expr, evaluation);
         };
 
-        add(new VariadicBuiltinRule<0, decltype(function)>(
+        add(VariadicBuiltinRule<0, decltype(function)>::construct(
             m_symbol,
             m_runtime.definitions(),
             function));
@@ -344,7 +344,7 @@ private:
     inline void internal_add_options_rule(const OptionsInitializerList &options, F function, const Add &add) {
         const auto bridge = B<T, F, N>(this, function);
 
-        add(new OptionsBuiltinRule<N, Options, decltype(bridge)>(
+        add(OptionsBuiltinRule<N, Options, decltype(bridge)>::construct(
             m_symbol,
             m_runtime.definitions(),
             options,
@@ -367,7 +367,7 @@ private:
     inline void internal_add_arguments_rule(F function, const Add &add) {
         const auto bridge = B<T, F, N>(this, function);
 
-        add(new BuiltinRule<N, decltype(bridge)>(
+        add(BuiltinRule<N, decltype(bridge)>::construct(
             m_symbol,
             m_runtime.definitions(),
             bridge));
@@ -432,14 +432,14 @@ private:
     inline void internal_add_pattern_rule(const char *pattern, F function, const Add &add) {
         const auto bridge = B<T, F, N>(this, function);
         const BaseExpressionRef p = m_runtime.parse(pattern);
-	    add(new PatternMatchedBuiltinRule<N, decltype(bridge)>(p, bridge));
+	    add(PatternMatchedBuiltinRule<N, decltype(bridge)>::construct(p, bridge));
     }
 
 	template<typename T, typename Options, typename Add, typename F, int N, template<typename, typename, int> class B>
 	inline void internal_add_options_pattern_rule(const char *pattern, F function, const Add &add) {
 		const auto bridge = B<T, F, N>(this, function);
 		const BaseExpressionRef p = m_runtime.parse(pattern);
-		add(new PatternMatchedOptionsBuiltinRule<N, Options, decltype(bridge)>(
+		add(PatternMatchedOptionsBuiltinRule<N, Options, decltype(bridge)>::construct(
 			p, bridge, OptionsDefinitions<Options>(m_runtime.definitions())));
 	}
 
@@ -529,7 +529,7 @@ protected:
 
     template<typename T>
     inline void builtin() {
-        m_symbol->state().add_rule(RuleRef(new T(m_symbol, m_runtime.definitions())));
+        m_symbol->state().add_rule(RuleRef(T::construct(m_symbol, m_runtime.definitions())));
     }
 
 	template<typename F>
@@ -544,7 +544,7 @@ protected:
 		assert(lhs->is_expression() && lhs->as_expression()->head() == m_symbol.get());
         auto &definitions = m_runtime.definitions();
 	    for (SymbolPtr form : forms) {
-		    m_symbol->state().add_format(new DownRule(lhs, rhs, definitions), form, definitions);
+		    m_symbol->state().add_format(DownRule::construct(lhs, rhs, definitions), form, definitions);
 	    }
 	}
 

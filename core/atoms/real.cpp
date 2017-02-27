@@ -137,7 +137,7 @@ inline SExp real_to_s_exp(
         s += std::string(*n - s.length(), '0');
     }
 
-    return SExp(Pool::String(std::move(s)), exp, non_negative);
+    return SExp(String::construct(std::move(s)), exp, non_negative);
 }
 
 optional<SExp> MachineReal::to_s_exp(optional<machine_integer_t> &n) const {
@@ -296,7 +296,7 @@ BaseExpressionRef BigReal::negate(const Evaluation &evaluation) const {
     mpfr_t negated;
 	mpfr_init2(negated, prec.bits);
 	mpfr_neg(negated, value, MPFR_RNDN);
-    return Pool::BigReal(negated, prec);
+    return BigReal::construct(negated, prec);
 }
 
 optional<SExp> BigReal::to_s_exp(optional<machine_integer_t> &n) const {

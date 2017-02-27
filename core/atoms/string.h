@@ -7,7 +7,7 @@
 #include "core/types.h"
 #include "core/hash.h"
 
-class StringExtent : public HeapShared<StringExtent> {
+class StringExtent : public AbstractHeapObject<StringExtent> {
 public:
     enum Type {
         ascii,
@@ -50,7 +50,7 @@ public:
     virtual size_t walk_code_points(size_t offset, index_t cp_offset) const = 0;
 };
 
-class AsciiStringExtent : public StringExtent {
+class AsciiStringExtent : public StringExtent, public ExtendedHeapObject<AsciiStringExtent> {
 private:
     typedef std::shared_ptr<UnicodeString> UnicodeStringRef;
 
@@ -119,7 +119,7 @@ public:
 	}
 };
 
-class SimpleStringExtent : public StringExtent { // UTF16, fixed size
+class SimpleStringExtent : public StringExtent, public ExtendedHeapObject<SimpleStringExtent> { // UTF16, fixed size
 private:
     UnicodeString m_string;
 	std::vector<bool> m_word_boundaries;
@@ -163,7 +163,7 @@ public:
 
 std::vector<int32_t> make_character_offsets(const UnicodeString &normalized);
 
-class ComplexStringExtent : public StringExtent { // UTF16, varying size
+class ComplexStringExtent : public StringExtent, public ExtendedHeapObject<ComplexStringExtent> { // UTF16, varying size
 private:
 	// why are we using offset tables instead of UTF32 here? because we want to count and
 	// return characters, not code points. see myth 2 at http://utf8everywhere.org/.
@@ -235,7 +235,7 @@ StringExtentRef string_extent_from_normalized(UnicodeString &&normalized, uint8_
 template<typename Extent>
 class CharacterSequence;
 
-class String : public BaseExpression {
+class String : public BaseExpression, public PoolObject<String> {
 private:
 	mutable MutableSymbolRef m_option_symbol; // "System`" + value
     mutable optional<hash_t> m_hash;
@@ -383,7 +383,7 @@ public:
 
 	inline StringRef substr(index_t begin, index_t end = INDEX_MAX) const {
 		assert(begin >= 0);
-		return Pool::String(
+		return String::construct(
 			m_extent,
 			m_offset + begin,
 			std::max(index_t(0), std::min(end - begin, m_length - begin)));
@@ -391,25 +391,25 @@ public:
 
     inline StringRef take(index_t n) const {
         if (n >= 0) {
-            return Pool::String(m_extent, m_offset, std::min(n, index_t(m_length)));
+            return String::construct(m_extent, m_offset, std::min(n, index_t(m_length)));
         } else {
             n = std::min(-n, index_t(m_length));
-            return Pool::String(m_extent, m_offset + m_length - n, n);
+            return String::construct(m_extent, m_offset + m_length - n, n);
         }
     }
 
     inline StringRef drop(index_t n) const {
         if (n >= 0) {
             n = std::min(n, index_t(m_length));
-            return Pool::String(m_extent, m_offset + n, m_length - n);
+            return String::construct(m_extent, m_offset + n, m_length - n);
         } else {
             n = std::min(-n, index_t(m_length));
-            return Pool::String(m_extent, m_offset, m_length - n);
+            return String::construct(m_extent, m_offset, m_length - n);
         }
     }
 
 	inline StringRef repeat(size_t n) const {
-		return Pool::String(m_extent->repeat(m_offset, m_length, n));
+		return String::construct(m_extent->repeat(m_offset, m_length, n));
 	}
 
     inline size_t number_of_code_points() const {
@@ -418,7 +418,7 @@ public:
 
     inline StringRef strip_code_points(index_t cp_left, index_t cp_right) const {
         const size_t shift = m_extent->walk_code_points(m_offset, cp_left);
-        return Pool::String(
+        return String::construct(
             m_extent,
             m_offset + shift,
             m_length - shift - m_extent->walk_code_points(m_offset + m_length, -cp_right));
@@ -436,7 +436,7 @@ inline const String *BaseExpression::as_string() const {
 }
 
 inline BaseExpressionRef from_primitive(const std::string &value) {
-    return BaseExpressionRef(Pool::String(std::string(value)));
+    return BaseExpressionRef(String::construct(std::string(value)));
 }
 
 template<typename Extent>
@@ -465,7 +465,7 @@ public:
 
         inline const BaseExpressionRef &operator*() {
             if (!m_cached) {
-                m_cached = Pool::String(
+                m_cached = String::construct(
                     StringExtentRef(m_sequence->m_extent),
                     m_sequence->m_offset + m_begin,
                     1);
@@ -488,7 +488,7 @@ public:
 
         inline const BaseExpressionRef &operator*() {
             if (!m_cached) {
-                m_cached = Pool::String(
+                m_cached = String::construct(
                     StringExtentRef(m_sequence->m_extent),
                     m_sequence->m_offset + m_begin,
                     m_end - m_begin);
@@ -590,16 +590,16 @@ StringRef string_array_join(const StringArray &array) {
             assert(ascii);
             text.append(ascii, s->length());
         }
-        return Pool::String(new AsciiStringExtent(std::move(text)));
+        return String::construct(AsciiStringExtent::construct(std::move(text)));
     } else {
         UnicodeString text(number_of_code_points, 0, 0);
         for (const auto &leaf : array) {
             text.append(leaf->as_string()->unicode());
         }
         if (extent_type == StringExtent::simple) {
-            return Pool::String(new SimpleStringExtent(text));
+            return String::construct(SimpleStringExtent::construct(text));
         } else {
-            return Pool::String(new ComplexStringExtent(text));
+            return String::construct(ComplexStringExtent::construct(text));
         }
     }
 }
