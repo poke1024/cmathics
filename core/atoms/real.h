@@ -107,8 +107,8 @@ public:
     virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
 
 protected:
-    virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::real_double(value));
+    virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
+        return SymbolicForm::construct(SymEngine::real_double(value));
     }
 };
 
@@ -185,9 +185,9 @@ public:
     virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
 
 protected:
-    virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
+    virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
         SymEngine::mpfr_class x(value);
-        return Pool::SymbolicForm(SymEngine::real_mpfr(x));
+        return SymbolicForm::construct(SymEngine::real_mpfr(x));
     }
 };
 

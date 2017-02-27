@@ -105,7 +105,7 @@ struct EmptyExpression {
     }
 };
 
-class Builtin : public Shared<Builtin, SharedHeap> {
+class Builtin : public HeapShared<Builtin> {
 private:
     template<typename T>
     auto shared_from_this() {

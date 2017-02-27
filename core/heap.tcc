@@ -151,18 +151,6 @@ inline void Pool::release(BaseExpression *expr) {
 	}
 }
 
-inline MatchRef Pool::Match(const PatternMatcherRef &matcher) {
-	return _s_instance->_matches.construct(matcher);
-}
-
-inline MatchRef Pool::Match(const PatternMatcherRef &matcher, const OptionsProcessorRef &options_processor) {
-    return _s_instance->_matches.construct(matcher, options_processor);
-}
-
-inline MatchRef Pool::DefaultMatch() {
-	return _s_instance->_default_match;
-}
-
 inline OptionsProcessorRef Pool::DynamicOptionsProcessor() {
     return _s_instance->_dynamic_options_processors.construct();
 }
@@ -234,4 +222,9 @@ inline Match::Match(const PatternMatcherRef &matcher) :
 inline Match::Match(const PatternMatcherRef &matcher, const OptionsProcessorRef &options_processor) :
     Match(matcher) {
     m_options = options_processor;
+}
+
+template<typename T>
+void PoolShared<T>::destroy() {
+	::Pool::release(static_cast<T*>(this));
 }

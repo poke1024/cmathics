@@ -19,7 +19,9 @@ Evaluation::Evaluation(
 	zero(Pool::MachineInteger(0)),
 	one(Pool::MachineInteger(1)),
 	minus_one(Pool::MachineInteger(-1)),
-    empty_list(expression(this->List)) {
+    empty_list(expression(this->List)),
+	no_symbolic_form(SymbolicForm::construct(SymEngineRef())),
+    default_match(Match::construct()) {
 
     recursion_depth = 0;
     timeout = false;

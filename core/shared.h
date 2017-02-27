@@ -1,45 +1,47 @@
 // @formatter:off
 
-class SharedHeap {
-public:
-    template<typename T>
-    inline static void release(const T *obj) {
-        delete obj;
-    }
-};
-
-class SharedPool {
-public:
-    template<typename T>
-    inline static void release(const T *obj);
-};
-
-template<typename T, typename Owner>
+template<typename T>
 class Shared;
 
-template<typename T, typename Owner>
-inline void intrusive_ptr_add_ref(const Shared<T, Owner> *obj) {
+template<typename T>
+inline void intrusive_ptr_add_ref(const Shared<T> *obj) {
     obj->m_ref_count.fetch_add(1, std::memory_order_relaxed);
 };
 
-template<typename T, typename Owner>
-inline void intrusive_ptr_release(const Shared<T, Owner> *obj) {
+template<typename T>
+inline void intrusive_ptr_release(const Shared<T> *obj) {
     if (obj->m_ref_count.fetch_add(-1, std::memory_order_relaxed) == 1) {
-        Owner::release(static_cast<const T*>(obj));
+        const_cast<T*>(static_cast<const T*>(obj))->destroy();
     }
 };
 
-template<typename T, typename Owner>
+template<typename T>
 class Shared { // similar to boost::intrusive_ref_counter
 protected:
-    friend void ::intrusive_ptr_add_ref<T, Owner>(const Shared<T, Owner> *obj);
-    friend void ::intrusive_ptr_release<T, Owner>(const Shared<T, Owner> *obj);
+    friend void ::intrusive_ptr_add_ref<T>(const Shared<T> *obj);
+    friend void ::intrusive_ptr_release<T>(const Shared<T> *obj);
 
     mutable std::atomic<size_t> m_ref_count;
 
 public:
     inline Shared() : m_ref_count(0) {
     }
+
+	virtual void destroy() = 0;
+};
+
+template<typename T>
+class HeapShared : public Shared<T> {
+public:
+	virtual inline void destroy() {
+		delete this;
+	}
+};
+
+template<typename T>
+class PoolShared : public Shared<T> {
+public:
+	virtual inline void destroy();
 };
 
 template<typename T>
@@ -478,3 +480,24 @@ public:
 		}
 	}
 };
+
+#include "concurrent/pool.h"
+
+template<typename T>
+class Pooled : public Shared<T> {
+private:
+	static ObjectPool<T> s_pool;
+
+public:
+	virtual inline void destroy() final {
+		s_pool.destroy(static_cast<T*>(this));
+	}
+
+	template<typename... Args>
+	static ConstSharedPtr<T> construct(Args&&... args) {
+		return s_pool.construct(std::forward<Args>(args)...);
+	}
+};
+
+template<typename T>
+ObjectPool<T> Pooled<T>::s_pool;

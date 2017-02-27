@@ -75,8 +75,8 @@ public:
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
 protected:
-    virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::Rational::from_mpq(value.get_mpq_t()));
+    virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
+        return SymbolicForm::construct(SymEngine::Rational::from_mpq(value.get_mpq_t()));
     }
 };
 

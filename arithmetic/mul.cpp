@@ -133,14 +133,14 @@ inline BaseExpressionRef mul_slow(
 			if (is_active_form) {
 				expr->set_symbolic_form(multiplied);
 			} else {
-				expr->set_no_symbolic_form();
+				expr->set_no_symbolic_form(evaluation);
 			}
 			return BaseExpressionRef();
 		} else {
 			if (is_active_form) {
 				result->set_symbolic_form(multiplied);
 			} else {
-				result->set_no_symbolic_form();
+				result->set_no_symbolic_form(evaluation);
 			}
 			return result;
 		}

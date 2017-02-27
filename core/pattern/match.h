@@ -1,6 +1,6 @@
 #pragma once
 
-class Match : public Shared<Match, SharedPool> {
+class Match : public Pooled<Match> {
 private:
     PatternMatcherRef m_matcher;
     SlotVector m_slots;

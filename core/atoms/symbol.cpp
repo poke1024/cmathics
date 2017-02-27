@@ -64,19 +64,19 @@ StringRef Symbol::lookup_message(
     }
 }
 
-SymbolicFormRef Symbol::instantiate_symbolic_form() const {
+SymbolicFormRef Symbol::instantiate_symbolic_form(const Evaluation &evaluation) const {
     switch (symbol()) {
 	    case S::I:
-            return Pool::SymbolicForm(SymEngine::I);
+            return SymbolicForm::construct(SymEngine::I);
 
 	    case S::Pi:
-            return Pool::SymbolicForm(SymEngine::pi);
+            return SymbolicForm::construct(SymEngine::pi);
 
 	    case S::E:
-            return Pool::SymbolicForm(SymEngine::E);
+            return SymbolicForm::construct(SymEngine::E);
 
 	    case S::EulerGamma:
-            return Pool::SymbolicForm(SymEngine::EulerGamma);
+            return SymbolicForm::construct(SymEngine::EulerGamma);
 
         default: {
 	        std::string name;
@@ -90,7 +90,7 @@ SymbolicFormRef Symbol::instantiate_symbolic_form() const {
             const Symbol * const addr = this;
             name.append(reinterpret_cast<const char*>(&addr), sizeof(addr) / sizeof(char));
 #endif
-	        return Pool::SymbolicForm(SymEngine::symbol(name));
+	        return SymbolicForm::construct(SymEngine::symbol(name));
         }
     }
 }

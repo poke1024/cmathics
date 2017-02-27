@@ -5,7 +5,7 @@
 #include "pattern/rewrite.h"
 #include "pattern/matcher.h"
 
-class Cache : public Shared<Cache, SharedPool> {
+class Cache : public Pooled<Cache> {
 private:
 	CachedRewriteRef m_rewrite;
 

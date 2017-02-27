@@ -127,11 +127,11 @@ protected:
 
 	inline CacheRef ensure_cache() const { // concurrent.
         return CacheRef(m_cache.ensure([] () {
-            return Pool::new_cache();
+            return Cache::construct();
         }));
 	}
 
-    virtual SymbolicFormRef instantiate_symbolic_form() const;
+    virtual SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const;
 
 	void symbolic_initialize(
 		const std::function<SymEngineRef()> &f,

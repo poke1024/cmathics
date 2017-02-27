@@ -67,8 +67,8 @@ public:
     virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
 
 protected:
-	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::integer(value));
+	virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
+        return SymbolicForm::construct(SymEngine::integer(value));
 	}
 };
 
@@ -129,8 +129,8 @@ public:
     virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
 
 protected:
-	virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-		return Pool::SymbolicForm(SymEngine::integer(value.get_mpz_t()));
+	virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
+		return SymbolicForm::construct(SymEngine::integer(value.get_mpz_t()));
 	}
 };
 

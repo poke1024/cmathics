@@ -18,7 +18,7 @@ class Definitions;
 
 struct EvaluateVTable;
 
-class Messages : public Shared<Messages, SharedHeap> {
+class Messages : public HeapShared<Messages> {
 private:
 	Rules m_rules;
 
@@ -200,7 +200,7 @@ protected:
 	mutable SymbolState m_user_state;
 
 protected:
-    virtual SymbolicFormRef instantiate_symbolic_form() const;
+    virtual SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const;
 
 public:
     static constexpr Type Type = SymbolType;

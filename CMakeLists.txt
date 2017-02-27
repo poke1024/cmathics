@@ -141,7 +141,7 @@ set(SOURCE_FILES
     builtin/options.h
     builtin/patterns.h
     builtin/patterns.cpp
-        core/atoms/numeric.tcc core/slice/collection.h core/slice/slice.h core/slice/packed.h core/slice/big.h core/slice/tiny.h core/attributes.h core/slice/method.h core/slice/array.h core/slice/vcall.h core/expression/interface.h core/slice/code.h core/atoms/precision.cpp core/pattern/arguments.tcc)
+    core/atoms/numeric.tcc core/slice/collection.h core/slice/slice.h core/slice/packed.h core/slice/big.h core/slice/tiny.h core/attributes.h core/slice/method.h core/slice/array.h core/slice/vcall.h core/expression/interface.h core/slice/code.h core/atoms/precision.cpp core/pattern/arguments.tcc)
 
 add_custom_target(standalone)
 

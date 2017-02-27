@@ -3,7 +3,7 @@
 #include "collection.h"
 
 template<typename U>
-class PackExtent : public Shared<PackExtent<U>, SharedHeap> {
+class PackExtent : public HeapShared<PackExtent<U>> {
 private:
     const std::vector<U> m_data;
 

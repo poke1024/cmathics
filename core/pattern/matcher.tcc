@@ -64,7 +64,7 @@ public:
             const String *patt_string = m_patt->as_string();
             const auto string_unicode = string->unicode();
             const auto patt_unicode = patt_string->unicode();
-            const auto match = Pool::DefaultMatch();
+            const auto match = m_evaluation.default_match;
 
             while (true) {
                 const index_t next = string_unicode.indexOf(patt_unicode, curr);
@@ -89,7 +89,7 @@ public:
             }
         } else if (m_patt->type() == StringType) {
             if (m_patt->as_string()->same(string)) {
-                return Pool::DefaultMatch();
+                return m_evaluation.default_match;
             } else {
                 return MatchRef();
             }
@@ -188,10 +188,10 @@ private:
 
 private:
     MatchRef match_atom(
-            const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
 
         if (m_patt->same(item)) {
-            return Pool::DefaultMatch();
+            return evaluation.default_match;
         } else {
             return MatchRef(); // no match
         }

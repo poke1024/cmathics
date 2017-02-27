@@ -112,7 +112,7 @@ typedef ConstSharedPtr<Rewrite> RewriteRef;
 typedef QuasiConstSharedPtr<Rewrite> CachedRewriteRef;
 typedef UnsafeSharedPtr<Rewrite> UnsafeRewriteRef;
 
-class Rewrite : public RewriteBaseExpression, public Shared<Rewrite, SharedHeap> {
+class Rewrite : public RewriteBaseExpression, public HeapShared<Rewrite> {
 public:
     using RewriteBaseExpression::RewriteBaseExpression;
 
@@ -127,7 +127,7 @@ public:
         Definitions &definitions);
 };
 
-class RewriteExpression : public Shared<RewriteExpression, SharedHeap> {
+class RewriteExpression : public HeapShared<RewriteExpression> {
 private:
     const RewriteBaseExpression m_head;
     const std::vector<const RewriteBaseExpression> m_leaves;
@@ -284,7 +284,7 @@ typedef QuasiConstSharedPtr<SlotFunction> CachedSlotFunctionRef;
 typedef ConstSharedPtr<SlotFunction> ConstSlotFunctionRef;
 typedef UnsafeSharedPtr<SlotFunction> UnsafeSlotFunctionRef;
 
-struct SlotFunction : public Shared<SlotFunction, SharedHeap> {
+struct SlotFunction : public HeapShared<SlotFunction> {
 private:
     const RewriteRef m_rewrite;
     const size_t m_slot_count;

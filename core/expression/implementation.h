@@ -482,9 +482,9 @@ public:
             [] (const SymbolicFormRef &form) {
                 const SymEngineRef new_form = SymEngine::expand(form->get());
                 if (new_form.get() != form->get().get()) {
-                    return Pool::SymbolicForm(new_form);
+                    return SymbolicForm::construct(new_form);
                 } else {
-                    return Pool::SymbolicForm(SymEngineRef());
+                    return SymbolicForm::construct(SymEngineRef());
                 }
             },
             [] (const BaseExpressionRef &leaf, const Evaluation &evaluation) {
@@ -721,7 +721,7 @@ BaseExpressionRef ExpressionImplementation<Slice>::do_symbolic(
 	const Recurse &recurse,
 	const Evaluation &evaluation) const {
 
-	const SymbolicFormRef form = unsafe_symbolic_form(this);
+	const SymbolicFormRef form = unsafe_symbolic_form(this, evaluation);
 
 	if (form && !form->is_none()) {
 		const SymbolicFormRef new_form = compute(form);

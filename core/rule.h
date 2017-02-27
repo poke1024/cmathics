@@ -13,7 +13,7 @@ enum class DefinitionsPos : int {
 
 #include "sort.h"
 
-class Rule : public Shared<Rule, SharedHeap> {
+class Rule : public HeapShared<Rule> {
 public:
 	const BaseExpressionRef pattern;
 	const SortKey key;

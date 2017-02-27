@@ -120,7 +120,7 @@ inline BaseExpressionRef add_slow(
 		LeafVector rest;
 
 		for (const BaseExpressionRef leaf : slice.leaves()) {
-			const auto form = unsafe_symbolic_form(leaf);
+			const auto form = unsafe_symbolic_form(leaf, evaluation);
 			if (!form->is_none()) {
 				operands.push_back(form->get());
 			} else {
@@ -162,14 +162,14 @@ inline BaseExpressionRef add_slow(
 				if (is_active_form) {
 					expr->set_symbolic_form(added);
 				} else {
-					expr->set_no_symbolic_form();
+					expr->set_no_symbolic_form(evaluation);
 				}
 				return BaseExpressionRef();
 			} else {
 				if (is_active_form) {
 					result->set_symbolic_form(added);
 				} else {
-					result->set_no_symbolic_form();
+					result->set_no_symbolic_form(evaluation);
 				}
 				return result;
 			}

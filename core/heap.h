@@ -139,7 +139,7 @@ class FormatRule;
 typedef UnsafeSharedPtr<FormatRule> UnsafeFormatRuleRef;
 typedef ConstSharedPtr<FormatRule> FormatRuleRef;
 
-class FormatRule : public Shared<FormatRule, SharedHeap> {
+class FormatRule : public HeapShared<FormatRule> {
 public:
 	using Forms = std::unordered_set<SymbolRef, SymbolHash, SymbolEqual>;
 
@@ -265,15 +265,7 @@ private:
 	ObjectPool<String> _strings;
 
 private:
-	ObjectPool<Cache> _caches;
-	ObjectPool<RefsExtent> _refs_extents;
-
-	ObjectPool<Match> _matches;
-	UnsafeMatchRef _default_match;
     ObjectPool<DynamicOptionsProcessor> _dynamic_options_processors;
-
-	ObjectPool<SymbolicForm> _symbolic_forms;
-	UnsafeSymbolicFormRef _no_symbolic_form;
 
     SlotAllocator _slots;
     VectorAllocator<UnsafeBaseExpressionRef> _unsafe_ref_vector_allocator;
@@ -372,41 +364,10 @@ public:
 
 	static inline StringRef String(const StringExtentRef &extent, size_t offset, size_t length);
 
-	static inline CacheRef new_cache();
-
-	static inline RefsExtentRef RefsExtent(const std::vector<BaseExpressionRef> &data);
-
-	static inline RefsExtentRef RefsExtent(std::vector<BaseExpressionRef> &&data);
-
-	static inline RefsExtentRef RefsExtent(const std::initializer_list<BaseExpressionRef> &data);
-
-	static inline MatchRef Match(const PatternMatcherRef &matcher);
-
-    static inline MatchRef Match(const PatternMatcherRef &matcher, const OptionsProcessorRef &options_processor);
-
-	static inline MatchRef DefaultMatch();
-
     static inline OptionsProcessorRef DynamicOptionsProcessor();
-
-	static inline SymbolicFormRef SymbolicForm(const SymEngineRef &ref) {
-		return _s_instance->_symbolic_forms.construct(ref);
-	}
-
-	static inline SymbolicFormRef NoSymbolicForm() {
-		return _s_instance->_no_symbolic_form;
-	}
-
 
 public:
 	static inline void release(BaseExpression *expr);
-
-	static inline void release(class RefsExtent *extent);
-
-	static inline void release(Cache *cache);
-
-	static inline void release(class Match *match) {
-		_s_instance->_matches.destroy(match);
-	}
 
     static inline void release(class OptionsProcessor *processor) {
         switch (processor->type) {
@@ -422,10 +383,6 @@ public:
                 throw std::runtime_error("illegal OptionsProcessor type");
         }
     }
-
-	static inline void release(class SymbolicForm *form) {
-		return _s_instance->_symbolic_forms.destroy(form);
-	}
 };
 
 #endif //CMATHICS_HEAP_H

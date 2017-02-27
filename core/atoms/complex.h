@@ -71,8 +71,8 @@ public:
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
 protected:
-    virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(SymEngine::complex_double(value));
+    virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
+        return SymbolicForm::construct(SymEngine::complex_double(value));
     }
 };
 
@@ -138,8 +138,8 @@ public:
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
 protected:
-    virtual inline SymbolicFormRef instantiate_symbolic_form() const final {
-        return Pool::SymbolicForm(m_value);
+    virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
+        return SymbolicForm::construct(m_value);
     }
 };
 

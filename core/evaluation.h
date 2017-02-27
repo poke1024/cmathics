@@ -65,6 +65,8 @@ public:
     const BaseExpressionRef minus_one;
 
     const BaseExpressionRef empty_list;
+	const SymbolicFormRef no_symbolic_form;
+    const MatchRef default_match;
 
     Evaluation(
         const OutputRef &output,
@@ -98,7 +100,7 @@ inline SymbolRef String::option_symbol(const Evaluation &evaluation) const {
 template<typename T>
 inline SymbolicFormRef symbolic_form(const T &item, const Evaluation &evaluation) {
     try {
-        return unsafe_symbolic_form(item);
+        return unsafe_symbolic_form(item, evaluation);
     } catch (const SymEngine::SymEngineException &e) {
         evaluation.sym_engine_exception(e);
         return SymbolicFormRef();
@@ -149,6 +151,25 @@ inline bool BaseExpression::has_form(
     }
 }
 
+inline void BaseExpression::set_no_symbolic_form(const Evaluation &evaluation) const {
+	m_symbolic_form.ensure([&evaluation] () {
+		return evaluation.no_symbolic_form;
+	});
+}
+
+template<>
+inline SymbolicFormRef unsafe_symbolic_form<const ExpressionPtr&>(
+	const ExpressionPtr& expr, const Evaluation &evaluation) {
+
+	// caller must handle SymEngine::SymEngineException; non-core code should always
+	// call symbolic_form(item, evaluation).
+
+	return SymbolicFormRef(expr->m_symbolic_form.ensure([&evaluation] () {
+		return evaluation.no_symbolic_form;
+	}));
+}
+
 #include "expression/implementation.h"
 #include "evaluation.tcc"
 #include "cache.tcc"
+

@@ -41,6 +41,6 @@ BaseExpressionRef Expression::evaluate_expression(
 	}
 }
 
-SymbolicFormRef Expression::instantiate_symbolic_form() const {
-    return Pool::NoSymbolicForm();
+SymbolicFormRef Expression::instantiate_symbolic_form(const Evaluation &evaluation) const {
+    return evaluation.no_symbolic_form;
 }

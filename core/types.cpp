@@ -296,13 +296,13 @@ void Expression::symbolic_initialize(
 		try {
 			SymEngineRef ref = f();
 			if (ref.get()) {
-				return Pool::SymbolicForm(ref);
+				return SymbolicForm::construct(ref);
 			} else {
-				return Pool::NoSymbolicForm();
+				return evaluation.no_symbolic_form;
 			}
 		} catch (const SymEngine::SymEngineException &e) {
 			evaluation.sym_engine_exception(e);
-			return Pool::NoSymbolicForm();
+			return evaluation.no_symbolic_form;
 		}
 	});
 }
@@ -315,18 +315,18 @@ BaseExpressionRef Expression::symbolic_evaluate_unary(
 		if (size() == 1) {
 			try {
 				const SymbolicFormRef symbolic_a = unsafe_symbolic_form(
-					n_leaves<1>()[0]);
+					n_leaves<1>()[0], evaluation);
 				if (!symbolic_a->is_none()) {
-					return Pool::SymbolicForm(f(symbolic_a->get()));
+					return SymbolicForm::construct(f(symbolic_a->get()));
 				} else {
-					return Pool::NoSymbolicForm();
+					return evaluation.no_symbolic_form;
 				}
 			} catch (const SymEngine::SymEngineException &e) {
 				evaluation.sym_engine_exception(e);
-				return Pool::NoSymbolicForm();
+				return evaluation.no_symbolic_form;
 			}
 		} else {
-			return Pool::NoSymbolicForm();
+			return evaluation.no_symbolic_form;
 		}
 	});
 
@@ -359,21 +359,21 @@ BaseExpressionRef Expression::symbolic_evaluate_binary(
 				const BaseExpressionRef &a = leaves[0];
 				const BaseExpressionRef &b = leaves[1];
 
-				const SymbolicFormRef symbolic_a = unsafe_symbolic_form(a);
+				const SymbolicFormRef symbolic_a = unsafe_symbolic_form(a, evaluation);
 				if (!symbolic_a->is_none()) {
-					const SymbolicFormRef symbolic_b = unsafe_symbolic_form(b);
+					const SymbolicFormRef symbolic_b = unsafe_symbolic_form(b, evaluation);
 					if (!symbolic_b->is_none()) {
-						return Pool::SymbolicForm(f(symbolic_a->get(), symbolic_b->get()));
+						return SymbolicForm::construct(f(symbolic_a->get(), symbolic_b->get()));
 					}
 				}
 
-				return Pool::NoSymbolicForm();
+				return evaluation.no_symbolic_form;
 			} catch (const SymEngine::SymEngineException &e) {
 				evaluation.sym_engine_exception(e);
-				return Pool::NoSymbolicForm();
+				return evaluation.no_symbolic_form;
 			}
 		} else {
-			return Pool::NoSymbolicForm();
+			return evaluation.no_symbolic_form;
 		}
 	});
 

@@ -18,7 +18,7 @@ public:
         MatchOptions options_ = 0) :
 
         evaluation(evaluation_),
-        match(Pool::Match(matcher)),
+        match(Match::construct(matcher)),
         options(options_) {
     }
 
@@ -38,7 +38,7 @@ public:
         MatchOptions options_ = 0) :
 
         evaluation(evaluation_),
-        match(Pool::Match(matcher, options_processor)),
+        match(Match::construct(matcher, options_processor)),
         options(options_) {
     }
 

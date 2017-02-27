@@ -3,7 +3,7 @@
 #include "collection.h"
 #include "generator.h"
 
-class RefsExtent : public Shared<RefsExtent, SharedPool> {
+class RefsExtent : public Pooled<RefsExtent> {
 private:
     const std::vector<BaseExpressionRef> m_data;
 
@@ -25,22 +25,6 @@ public:
         return m_data.size();
     }
 };
-
-inline RefsExtentRef Pool::RefsExtent(const std::vector<BaseExpressionRef> &data) {
-    return RefsExtentRef(_s_instance->_refs_extents.construct(data));
-}
-
-inline RefsExtentRef Pool::RefsExtent(std::vector<BaseExpressionRef> &&data) {
-    return RefsExtentRef(_s_instance->_refs_extents.construct(data));
-}
-
-inline RefsExtentRef Pool::RefsExtent(const std::initializer_list<BaseExpressionRef> &data) {
-    return RefsExtentRef(_s_instance->_refs_extents.construct(data));
-}
-
-inline void Pool::release(class RefsExtent *extent) {
-    _s_instance->_refs_extents.destroy(extent);
-}
 
 class BigSlice : public BaseRefsSlice<SliceCode::BigSliceCode> {
 private:
@@ -97,7 +81,7 @@ public:
     }
 
     inline BigSlice(LeafVector &&leaves) :
-        BigSlice(Pool::RefsExtent(leaves.unsafe_grab_internal_vector()), leaves.type_mask()) {
+        BigSlice(RefsExtent::construct(leaves.unsafe_grab_internal_vector()), leaves.type_mask()) {
 
         assert(leaves.size() > MaxTinySliceSize);
     }
@@ -111,7 +95,7 @@ public:
     }
 
     inline BigSlice(const std::initializer_list<BaseExpressionRef> &data, TypeMask type_mask) :
-        BigSlice(Pool::RefsExtent(data), type_mask) {
+        BigSlice(RefsExtent::construct(data), type_mask) {
 
         assert(data.size() > MaxTinySliceSize);
     }

@@ -212,6 +212,7 @@ class Match;
 
 typedef ConstSharedPtr<Match> MatchRef;
 typedef UnsafeSharedPtr<Match> UnsafeMatchRef;
+typedef QuasiConstSharedPtr<Match> CachedMatchRef;
 
 std::ostream &operator<<(std::ostream &s, const MatchRef &m);
 
@@ -272,17 +273,18 @@ struct StyleBoxOptions {
     machine_real_t ImageSizeMultipliers[2];
 };
 
-class BaseExpression : public Shared<BaseExpression, SharedPool> {
+class BaseExpression : public PoolShared<BaseExpression> {
 protected:
     const ExtendedType _extended_type;
 
 protected:
 	template<typename T>
-	friend inline SymbolicFormRef unsafe_symbolic_form(const T &item);
+	friend inline SymbolicFormRef unsafe_symbolic_form(
+		const T &item, const Evaluation &evaluation);
 
 	mutable CachedSymbolicFormRef m_symbolic_form;
 
-	virtual SymbolicFormRef instantiate_symbolic_form() const {
+	virtual SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const {
 		throw std::runtime_error("instantiate_symbolic_form not implemented");
 	}
 
@@ -302,7 +304,7 @@ public:
     template<typename T>
     inline void set_symbolic_form(const SymEngine::RCP<const T> &ref) const;
 
-	inline void set_no_symbolic_form() const;
+	inline void set_no_symbolic_form(const Evaluation &evaluation) const;
 
 	inline bool is_symbolic_form_evaluated() const {
 		return m_symbolic_form; // might be active or passive or "no symbolic form"
@@ -559,45 +561,26 @@ public:
 #include "heap.h"
 
 template<typename T>
-inline void SharedPool::release(const T *obj) {
-    ::Pool::release(const_cast<T*>(obj));
-}
-
-template<typename T>
 inline void BaseExpression::set_symbolic_form(const SymEngine::RCP<const T> &ref) const {
 	m_symbolic_form.ensure([&ref] () {
-        return Pool::SymbolicForm(
+        return SymbolicForm::construct(
 		    SymEngine::rcp_static_cast<const SymEngine::Basic>(ref));
     });
-}
-
-inline void BaseExpression::set_no_symbolic_form() const {
-	m_symbolic_form.ensure([] () {
-		return Pool::NoSymbolicForm();
-	});
 }
 
 #include "core/slice/slice.h"
 #include "core/pattern/arguments.h"
 #include "cache.h"
 
-inline CacheRef Pool::new_cache() {
-	return CacheRef(_s_instance->_caches.construct());
-}
-
-inline void Pool::release(Cache *cache) {
-	_s_instance->_caches.destroy(cache);
-}
-
 #include "core/expression/interface.h"
 
 template<typename T>
-inline SymbolicFormRef unsafe_symbolic_form(const T &item) {
+inline SymbolicFormRef unsafe_symbolic_form(const T &item, const Evaluation &evaluation) {
     // caller must handle SymEngine::SymEngineException; non-core code should always
     // call symbolic_form(item, evaluation).
 
-    return SymbolicFormRef(item->m_symbolic_form.ensure([&item] () {
-        const auto form = item->instantiate_symbolic_form();
+    return SymbolicFormRef(item->m_symbolic_form.ensure([&item, &evaluation] () {
+        const auto form = item->instantiate_symbolic_form(evaluation);
 #if DEBUG_SYMBOLIC
 	    if (form && !form->is_none()) {
 		    std::cout << "sym form " << form->get()->__str__() << std::endl;
@@ -608,14 +591,8 @@ inline SymbolicFormRef unsafe_symbolic_form(const T &item) {
 }
 
 template<>
-inline SymbolicFormRef unsafe_symbolic_form<const ExpressionPtr&>(const ExpressionPtr& expr) {
-    // caller must handle SymEngine::SymEngineException; non-core code should always
-    // call symbolic_form(item, evaluation).
-
-    return SymbolicFormRef(expr->m_symbolic_form.ensure([] () {
-        return Pool::NoSymbolicForm();
-    }));
-}
+inline SymbolicFormRef unsafe_symbolic_form<const ExpressionPtr&>(
+	const ExpressionPtr& expr, const Evaluation &evaluation);
 
 #include "rule.h"
 

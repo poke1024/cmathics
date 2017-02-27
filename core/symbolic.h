@@ -12,13 +12,13 @@ typedef SymEngine::RCP<const SymEngine::Basic> SymEngineRef;
 
 typedef SymEngine::RCP<const SymEngine::Complex> SymEngineComplexRef;
 
-class SymbolicForm : public Shared<SymbolicForm, SharedPool> {
+class SymbolicForm : public Pooled<SymbolicForm> {
 private:
     const SymEngineRef m_ref;
 
 public:
     inline SymbolicForm(const SymEngineRef &ref) :
-            m_ref(ref) {
+        m_ref(ref) {
     }
 
     inline bool is_none() const {
@@ -46,4 +46,3 @@ typedef SymEngineRef (*SymEngineNAryFunction)(
     const SymEngine::vec_basic&);
 
 BaseExpressionRef from_symbolic_form(const SymEngineRef &ref, const Evaluation &evaluation);
-

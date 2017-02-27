@@ -3,7 +3,7 @@
 class FastLeafSequence;
 class SlowLeafSequence;
 
-class OptionsProcessor : public Shared<OptionsProcessor, SharedPool> {
+class OptionsProcessor : public PoolShared<OptionsProcessor> {
 public:
     using MatchRest = std::function<index_t(index_t begin, index_t t, index_t end)>;
 

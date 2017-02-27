@@ -7,7 +7,7 @@
 #include "core/types.h"
 #include "core/hash.h"
 
-class StringExtent : public Shared<StringExtent, SharedHeap> {
+class StringExtent : public HeapShared<StringExtent> {
 public:
     enum Type {
         ascii,

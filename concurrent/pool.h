@@ -401,22 +401,10 @@ private:
 
 public:
 	template<typename... Args>
-	inline T *construct(const Args&... args) {
+	inline T *construct(Args&&... args) {
 		T * const instance = Base::allocate();
 		try {
-			new(instance) T(args...);
-		} catch(...) {
-			Base::free(instance);
-			throw;
-		}
-		return instance;
-	}
-
-	template<typename X>
-	inline T *construct(X&& x) {
-		T * const instance = Base::allocate();
-		try {
-			new(instance) T(std::move(x));
+			new(instance) T(std::forward<Args>(args)...);
 		} catch(...) {
 			Base::free(instance);
 			throw;
@@ -432,6 +420,10 @@ public:
 		}
 
 		Base::free(instance);
+
+#if DEBUG_ALLOCATIONS
+		std::memset(instance, -1, sizeof(instance));
+#endif
 	}
 };
 
