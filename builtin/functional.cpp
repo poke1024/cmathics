@@ -309,6 +309,10 @@ public:
     Slots in inner functions are not affected by outer function application:
     >> g[#] & [h[#]] & [5]
      = g[h[5]]
+
+    #> g[x_,y_] := x+y
+    #> g[Sequence@@Slot/@Range[2]]&[1,2]
+     = #1 + #2
 	)";
 
     static constexpr auto attributes = Attributes::HoldAll;

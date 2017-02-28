@@ -6,7 +6,15 @@ Parallel *Parallel::s_instance = nullptr;
 
 constexpr int queue_size = 32;
 
-inline Parallel::Spinlock::Spinlock(Parallel *parallel) : m_parallel(parallel), m_acquired(false) {
+// FORCE_SEQUENTIAL_EXECUTION makes all parallelize calls
+// run in one thread thereby disabling parallelization.
+// useful for debugging.
+
+#define FORCE_SEQUENTIAL_EXECUTION 0
+
+inline Parallel::Spinlock::Spinlock(Parallel *parallel) :
+    m_parallel(parallel), m_acquired(false) {
+
     acquire();
 }
 
@@ -159,13 +167,24 @@ void Parallel::release(Task *task, bool owner) {
 }
 
 void Parallel::parallelize(const Lambda &lambda, size_t n) {
+    // calls lambda(i) for i = 0, ..., n - 1. if other threads are free,
+    // work is split among them. if no other threads are free, this is
+    // just a sequential execution. we check if a thread became free after
+    // each iteration (i.e. each call of lambda()).
+
+    // note that lambda must be thread safe in any case, as it might be
+    // called by multiple worker threads at the same time.
+
 	Task task(lambda, n);
 	bool enqueued = false;
 
 	while (true) {
+#if !FORCE_SEQUENTIAL_EXECUTION
 		if (!enqueued) {
 			enqueued = enqueue(&task);
 		}
+#endif
+
 		const size_t index = task.index.fetch_add(1, std::memory_order_relaxed);
 		if (index >= n) {
 			break;
@@ -175,7 +194,12 @@ void Parallel::parallelize(const Lambda &lambda, size_t n) {
 
 	if (enqueued) {
 		release(&task, true);
-	}
+	} else {
+        --task.busy;
+    }
+
+    assert(!task.enqueued);
+    assert(task.busy == 0);
 }
 
 Parallel::Thread::Thread(Parallel *parallel) :
@@ -197,6 +221,10 @@ void Parallel::Thread::set_state(ThreadState state)  {
 }
 
 void Parallel::Thread::work() {
+    // this runs in a thread and steals work from other
+    // threads by inspecting the queue (m_head) and grabbing
+    // work items.
+
 	Parallel * const parallel = m_parallel;
 
 	while (true) {
@@ -237,7 +265,7 @@ void Parallel::Thread::work() {
 			}
 
 			const size_t n = head->n;
-			const auto &lambda = head->lambda;
+			const Lambda &lambda = head->lambda;
 
 			while (true) {
 				const size_t index = head->index.fetch_add(1, std::memory_order_relaxed);

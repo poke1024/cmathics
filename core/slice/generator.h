@@ -113,7 +113,7 @@ inline auto sequential(F &f) {
 template<typename F>
 struct FPGenerator : public FGenerator { // [f]ixed size [p]arallel
 private:
-	const F &m_generate;
+	const F m_generate;
 	const size_t n;
 
 public:
@@ -153,7 +153,7 @@ public:
 template<typename F>
 struct VPGenerator : public VGenerator { // [v]ariable size [p]arallel
 private:
-	const F &m_generate;
+	const F m_generate;
 	const size_t n;
 
 public:
@@ -185,7 +185,7 @@ inline auto parallel(const F &f, size_t n) {
 #if FASTER_COMPILE
 	return FPGenerator<GenericPGeneratorCallback>(f, n);
 #else
-	return FPGenerator<F>(f, n);
+	return FPGenerator<const F&>(f, n);
 #endif
 }
 
@@ -207,6 +207,6 @@ inline auto parallel(const F &f, up_to n) {
 #if FASTER_COMPILE
 	return VPGenerator<GenericPGeneratorCallback>(f, *n);
 #else
-	return VPGenerator<F>(f, *n);
+	return VPGenerator<const F&>(f, *n);
 #endif
 }

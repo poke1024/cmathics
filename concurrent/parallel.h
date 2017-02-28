@@ -119,8 +119,22 @@ public:
 	void parallelize(const Lambda &lambda, size_t n);
 };
 
-inline void parallelize(const Parallel::Lambda &lambda, size_t n) {
-	Parallel::instance()->parallelize(lambda, n);
+template<typename F>
+inline void parallelize(const F &f, size_t n) {
+    if (n > 0) {
+        if (n == 1) {
+            f(0);
+        } else {
+            // the following assignment assures, that the
+            // Parallel::Lambda (i.e. std::function) we
+            // generate here only has one capture and thus
+            // does not need dynamic allocation.
+            Parallel::Lambda lambda = [&f] (size_t i) {
+                f(i);
+            };
+            Parallel::instance()->parallelize(lambda, n);
+        }
+    }
 }
 
 #endif // CMATHICS_PARALLEL_H
