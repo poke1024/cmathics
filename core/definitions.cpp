@@ -59,7 +59,7 @@ Symbol::Symbol(const char *name, ExtendedType symbol) :
 		_name = _short_name;
 	}
 
-	state().set_attributes(Attributes::None);
+	state().clear_attributes();
 }
 
 Symbol::~Symbol() {
@@ -77,9 +77,20 @@ BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
 	}
 }
 
-void SymbolState::set_attributes(Attributes attributes) {
-	m_attributes = attributes;
+
+void SymbolState::clear_attributes() {
+	m_attributes = Attributes::None;
+	m_dispatch = EvaluateDispatch::pick(Attributes::None);
+}
+
+void SymbolState::add_attributes(Attributes attributes) {
+	m_attributes = m_attributes + attributes;
     m_dispatch = EvaluateDispatch::pick(attributes);
+}
+
+void SymbolState::remove_attributes(Attributes attributes) {
+	m_attributes = m_attributes - attributes;
+	m_dispatch = EvaluateDispatch::pick(attributes);
 }
 
 void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs, Definitions &definitions) {

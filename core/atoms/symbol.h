@@ -143,7 +143,15 @@ public:
         const Definitions &definitions);
 
 
-	void set_attributes(Attributes attributes);
+	inline Attributes attributes() const {
+		return m_attributes;
+	}
+
+	void clear_attributes();
+
+	void add_attributes(Attributes attributes);
+
+	void remove_attributes(Attributes attributes);
 
 	inline bool has_attributes(Attributes attributes) const {
 		return m_attributes & attributes;
@@ -474,7 +482,7 @@ inline std::size_t SymbolHash::operator()(const SymbolRef &symbol) const {
 	return (*this)(symbol.get());
 }
 
-inline const Symbol *BaseExpression::lookup_name() const {
+inline SymbolPtr BaseExpression::lookup_name() const {
     switch (type()) {
         case SymbolType:
             return static_cast<const Symbol*>(this);

@@ -136,7 +136,7 @@ inline bool BaseExpression::has_form(
         return false;
     }
     const Expression * const expr = as_expression();
-    if (expr->head(evaluation)->symbol() == head && expr->size() == n_leaves) {
+    if (expr->head()->symbol() == head && expr->size() == n_leaves) {
         return true;
     } else {
         return false;

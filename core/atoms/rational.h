@@ -72,6 +72,10 @@ public:
         return value < 0;
     }
 
+	virtual bool is_positive() const {
+		return value > 0;
+	}
+
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
 protected:

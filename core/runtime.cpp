@@ -1,6 +1,7 @@
 #include "runtime.h"
 
 #include "builtin/arithmetic.h"
+#include "builtin/attributes.h"
 #include "builtin/assignment.h"
 #include "builtin/comparison.h"
 #include "builtin/control.h"
@@ -14,6 +15,7 @@
 #include "builtin/strings.h"
 #include "builtin/structure.h"
 #include "builtin/numbertheory.h"
+#include "builtin/numeric.h"
 
 #include "concurrent/parallel.h"
 
@@ -163,9 +165,13 @@ Runtime::Runtime() : _parser(_definitions) {
     General->add_message("optx", "Unknown option `1` in `2`.", _definitions);
     General->add_message("string", "String expected.", _definitions);
     General->add_message("indet", "Indeterminate expression `1` encountered.", _definitions);
+    General->add_message("sym", "Argument `1` at position `2` is expected to be a symbol.", _definitions);
+	General->add_message("locked", "Symbol `1` is locked.", _definitions);
+	General->add_message("string", "String expected.", _definitions);
 
     Experimental(*this).initialize();
 
+	Builtins::Attributes(*this).initialize();
     Builtins::Arithmetic(*this).initialize();
     Builtins::Assignment(*this).initialize();
     Builtins::Comparison(*this).initialize();
@@ -180,6 +186,7 @@ Runtime::Runtime() : _parser(_definitions) {
     Builtins::Strings(*this).initialize();
     Builtins::Structure(*this).initialize();
     Builtins::NumberTheory(*this).initialize();
+	Builtins::Numeric(*this).initialize();
 
     _definitions.freeze_as_builtin();
 
@@ -204,7 +211,7 @@ void Runtime::add(
 
     const std::string full_down = std::string("System`") + name;
     const SymbolRef symbol = _definitions.lookup(full_down.c_str());
-    symbol->state().set_attributes(attributes);
+    symbol->state().add_attributes(attributes);
     for (const NewRuleRef &new_rule : rules) {
         symbol->state().add_rule(new_rule(symbol, _definitions));
     }

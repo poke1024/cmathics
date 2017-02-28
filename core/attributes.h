@@ -44,3 +44,7 @@ inline size_t count(Attributes x, Attributes y) {
 inline constexpr Attributes operator+(Attributes x, Attributes y)  {
     return Attributes(attributes_bitmask_t(x) | attributes_bitmask_t(y));
 }
+
+inline constexpr Attributes operator-(Attributes x, Attributes y)  {
+    return Attributes(attributes_bitmask_t(x) & ~attributes_bitmask_t(y));
+}

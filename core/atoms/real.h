@@ -98,6 +98,10 @@ public:
         return value < 0.;
     }
 
+    virtual bool is_positive() const {
+        return value > 0.;
+    }
+
     virtual bool is_inexact() const final {
         return true;
     }
@@ -174,6 +178,10 @@ public:
 
     virtual bool is_negative() const {
         return mpfr_cmp_si(value, 0) < 0;
+    }
+
+    virtual bool is_positive() const {
+        return mpfr_cmp_si(value, 0) > 0;
     }
 
     virtual bool is_inexact() const final {

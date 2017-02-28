@@ -310,9 +310,11 @@ public:
     >> g[#] & [h[#]] & [5]
      = g[h[5]]
 
-    #> g[x_,y_] := x+y
-    #> g[Sequence@@Slot/@Range[2]]&[1,2]
+    >> g[x_,y_] := x+y
+    >> g[Sequence@@Slot/@Range[2]]&[1,2]
      = #1 + #2
+    >> Evaluate[g[Sequence@@Slot/@Range[2]]]&[1,2]
+     = 3
 	)";
 
     static constexpr auto attributes = Attributes::HoldAll;
@@ -329,6 +331,41 @@ public:
     }
 };
 
+class SlotBuiltin : public Builtin {
+public:
+	static constexpr const char *name = "Slot";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'#$n$'
+        <dd>represents the $n$th argument to a pure function.
+    <dt>'#'
+        <dd>is short-hand for '#1'.
+    <dt>'#0'
+        <dd>represents the pure function itself.
+    </dl>
+
+    >> #
+     = #1
+
+    Unused arguments are simply ignored:
+    >> {#1, #2, #3}&[1, 2, 3, 4, 5]
+     = {1, 2, 3}
+	)";
+
+	static constexpr auto attributes = Attributes::NHoldAll;
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("Slot[]", "Slot[1]");
+		builtin("MakeBoxes[Slot[n_Integer?NonNegative], f:StandardForm|TraditionalForm|InputForm|OutputForm]",
+			"\"#\" <> ToString[n]");
+	}
+};
+
 void Builtins::Functional::initialize() {
     add<Function>();
+	add<SlotBuiltin>();
 }

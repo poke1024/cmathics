@@ -6,8 +6,6 @@
 
 EvaluateDispatch *EvaluateDispatch::s_instance = nullptr;
 
-typedef std::pair<size_t, size_t> eval_range;
-
 typedef Slice GenericSlice;
 
 template<typename IntermediateExpression, typename Slice, typename ReducedAttributes>
@@ -84,40 +82,61 @@ BaseExpressionRef evaluate(
 
     const Slice &slice = static_cast<const Slice&>(generic_slice);
 
-    eval_range eval_leaf;
-
     const ReducedAttributes attributes(full_attributes);
+	const size_t n = slice.size();
+
+	const auto &evaluate_leaves = [self, &head, &slice, &evaluation]
+		(size_t begin, size_t end, const auto &hold) {
+			return conditional_map_indexed<ExpressionType, SymbolType>(
+				head,
+				head != self->_head,
+				lambda([&hold, &evaluation] (size_t i, const BaseExpressionRef &leaf) {
+					if (hold(i)) {
+						if (leaf->has_form(S::Evaluate, 1, evaluation)) {
+							return leaf->evaluate(evaluation);
+						} else {
+							return BaseExpressionRef();
+						}
+					} else {
+						if (!leaf->has_form(S::Unevaluated, 1, evaluation)) {
+							return leaf->evaluate(evaluation);
+						} else {
+							return BaseExpressionRef();
+						}
+					}
+				}),
+				slice,
+				begin,
+				end,
+				evaluation);
+		};
+
+	UnsafeExpressionRef intermediate_form;
 
     if (attributes & Attributes::HoldAllComplete) { // HoldAllComplete
-        eval_leaf = eval_range(0, 0);
+	    intermediate_form = evaluate_leaves(0, 0, [] (size_t i) {
+		    return false;
+	    });
     } else if (attributes & Attributes::HoldFirst) {
         if (attributes & Attributes::HoldRest) { // i.e. HoldAll
             // TODO flatten sequences
-            eval_leaf = eval_range(0, 0);
+	        intermediate_form = evaluate_leaves(0, n, [] (size_t i) {
+		        return true;
+	        });
         } else {
-            eval_leaf = eval_range(1, slice.size());
+	        intermediate_form = evaluate_leaves(0, n, [] (size_t i) {
+		        return i < 1;
+	        });
         }
     } else if (attributes & Attributes::HoldRest) {
-        eval_leaf = eval_range(0, 1);
+	    intermediate_form = evaluate_leaves(0, n, [] (size_t i) {
+		    return i > 0;
+	    });
     } else {
-        eval_leaf = eval_range(0, slice.size());
+	    intermediate_form = evaluate_leaves(0, n, [] (size_t i) {
+		    return false;
+	    });
     }
-
-    assert(0 <= eval_leaf.first);
-    assert(eval_leaf.first <= eval_leaf.second);
-    assert(eval_leaf.second <= slice.size());
-
-    const ExpressionRef intermediate_form =
-        conditional_map<ExpressionType, SymbolType>(
-            head,
-            head != self->_head,
-            lambda([&evaluation] (const BaseExpressionRef &leaf) {
-                return leaf->evaluate(evaluation);
-            }),
-            slice,
-            eval_leaf.first,
-            eval_leaf.second,
-            evaluation);
 
 #if 0
     std::cout

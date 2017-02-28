@@ -56,10 +56,6 @@ public:
         return true;
     }
 
-    virtual bool is_negative() const {
-        return value.real() < 0. && value.imag() < 0.;
-    }
-
     virtual bool is_inexact() const final {
         return true;
     }
@@ -115,10 +111,6 @@ public:
 
     virtual bool is_numeric() const {
         return true;
-    }
-
-    virtual bool is_negative() const {
-        return m_value->is_negative();
     }
 
     virtual bool is_inexact() const final {

@@ -96,7 +96,7 @@ SymbolicFormRef Symbol::instantiate_symbolic_form(const Evaluation &evaluation) 
 }
 
 void SymbolState::clear() {
-	set_attributes(Attributes::None);
+	clear_attributes();
     m_own_value.reset();
     m_rules.reset();
     m_copy_on_write = false;

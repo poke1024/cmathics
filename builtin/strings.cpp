@@ -135,7 +135,12 @@ public:
         size_t n,
         const Evaluation &evaluation) {
 
-	    return string_array_join(StringArray(leaves, n));
+	    StringRef s = string_array_join(StringArray(leaves, n));
+	    if (!s) {
+		    evaluation.message(m_symbol, "string");
+	    }
+
+	    return s;
     }
 };
 
@@ -293,6 +298,46 @@ public:
     }
 };
 
+class ToString : public Builtin {
+public:
+	static constexpr const char *name = "ToString";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'ToString[$expr$]'
+        <dd>returns a string representation of $expr$.
+    </dl>
+
+    >> ToString[2]
+     = 2
+    >> ToString[2] // InputForm
+     = "2"
+    >> ToString[a+b]
+     = a + b
+    #> "U" <> 2
+     : String expected.
+     = U <> 2
+    >> "U" <> ToString[2]
+     = U2
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&ToString::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		BaseExpressionPtr expr,
+		const Evaluation &evaluation) {
+
+		StyleBoxOptions options;
+		return String::construct(expr->format(
+			evaluation.OutputForm, evaluation)->boxes_to_text(options, evaluation));
+	}
+};
+
 void Builtins::Strings::initialize() {
 	add<StringMatchQ>();
 	add<StringCases>();
@@ -302,4 +347,5 @@ void Builtins::Strings::initialize() {
     add<StringTake>();
     add<StringDrop>();
     add<StringTrim>();
+	add<ToString>();
 }

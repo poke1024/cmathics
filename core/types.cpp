@@ -10,10 +10,6 @@ BaseExpressionRef BaseExpression::format(const BaseExpressionRef &form, const Ev
 	return expression(evaluation.MakeBoxes, expr, form)->evaluate_or_copy(evaluation);
 }
 
-bool BaseExpression::is_numeric() const {
-	throw std::runtime_error("is_numeric not implemented");
-}
-
 SortKey BaseExpression::sort_key() const {
 	return SortKey(0, 0); // FIXME
 }

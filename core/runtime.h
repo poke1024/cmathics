@@ -62,7 +62,14 @@ public:
 	void add() {
 		const std::string full_name = std::string("System`") + T::name;
 		const SymbolRef symbol = _definitions.lookup(full_name.c_str());
-		symbol->state().set_attributes(T::attributes);
+
+		Attributes attributes = T::attributes;
+
+		if (full_name != "System`MakeBoxes") {
+			attributes = attributes + Attributes::Protected;
+		}
+
+		symbol->state().add_attributes(attributes);
 
         Runtime &runtime_ref = *this;
         const SymbolRef &symbol_ref = symbol;

@@ -38,9 +38,9 @@ public:
         if (match) {
             assert(match->n_slots_fixed() == N);
             return apply_from_tuple(function, std::tuple_cat(
-                    std::forward_as_tuple(expr),
-                    match->unpack<N>(),
-                    std::forward_as_tuple(evaluation)));
+                std::forward_as_tuple(expr),
+                match->unpack<N>(),
+                std::forward_as_tuple(evaluation)));
         } else {
             return optional<BaseExpressionRef>();
         }

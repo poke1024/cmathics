@@ -62,6 +62,10 @@ public:
         return value < 0;
     }
 
+	virtual bool is_positive() const {
+		return value > 0;
+	}
+
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
     virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
@@ -124,7 +128,11 @@ public:
         return value < 0;
     }
 
-    virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
+	virtual bool is_positive() const {
+		return value > 0;
+	}
+
+	virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
     virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
 

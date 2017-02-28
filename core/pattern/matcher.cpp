@@ -323,7 +323,7 @@ public:
 
 	template<typename Sequence, typename Slice>
 	inline bool operator()(const Sequence &sequence, Slice &slice) const {
-        return expression(m_test, *slice)->evaluate(sequence.context().evaluation)->is_true();
+        return expression(m_test, *slice)->evaluate_or_copy(sequence.context().evaluation)->is_true();
 	}
 };
 

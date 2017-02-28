@@ -413,6 +413,10 @@ public:
         return false;
     }
 
+	virtual bool is_positive() const {
+		return false;
+	}
+
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const;
 
 	inline const Symbol *lookup_name() const;
@@ -452,7 +456,9 @@ public:
 
 	inline bool is_sequence() const;
 
-    virtual const char *get_string_value() const {
+	inline bool is_list() const;
+
+	virtual const char *get_string_value() const {
         return nullptr;
     }
 
@@ -520,7 +526,7 @@ public:
 		size_t n_leaves,
 		const Evaluation &evaluation) const;
 
-	virtual bool is_numeric() const;
+	virtual bool is_numeric() const = 0;
 
 	virtual SortKey sort_key() const;
 
@@ -601,8 +607,13 @@ inline const Expression *BaseExpression::as_expression() const {
 }
 
 inline bool BaseExpression::is_sequence() const {
-	return type() == ExpressionType && as_expression()->head()->symbol() == S::Sequence;
+	return is_expression() && as_expression()->head()->symbol() == S::Sequence;
 }
+
+inline bool BaseExpression::is_list() const {
+	return is_expression() && as_expression()->head()->symbol() == S::List;
+}
+
 
 inline TypeMask BaseExpression::type_mask() const {
     const Type t = type();

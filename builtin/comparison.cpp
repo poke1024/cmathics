@@ -678,6 +678,126 @@ public:
     using InequalityOperator<greater_equal>::InequalityOperator;
 };
 
+class Positive : public Builtin {
+public:
+	static constexpr const char *name = "Positive";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Positive[$x$]'
+        <dd>returns 'True' if $x$ is a positive real number.
+    </dl>
+
+    >> Positive[1]
+     = True
+
+    'Positive' returns 'False' if $x$ is zero or a complex number:
+    >> Positive[0]
+     = False
+    >> Positive[1 + 2 I]
+     = False
+
+    #> Positive[Pi]
+     = True
+    #> Positive[x]
+     = Positive[x]
+    #> Positive[Sin[{11, 14}]]
+     = {False, True}
+    )";
+
+	static constexpr auto attributes = Attributes::Listable;
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("Positive[x_?NumericQ]", "If[x > 0, True, False, False]");
+	}
+};
+
+class Negative : public Builtin {
+public:
+	static constexpr const char *name = "Negative";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Negative[$x$]'
+        <dd>returns 'True' if $x$ is a negative real number.
+    </dl>
+    >> Negative[0]
+     = False
+    >> Negative[-3]
+     = True
+    >> Negative[10/7]
+     = False
+    >> Negative[1+2I]
+     = False
+    >> Negative[a + b]
+     = Negative[a + b]
+    #> Negative[-E]
+     = True
+    #> Negative[Sin[{11, 14}]]
+     = {True, False}
+    )";
+
+	static constexpr auto attributes = Attributes::Listable;
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("Negative[x_?NumericQ]", "If[x < 0, True, False, False]");
+	}
+};
+
+class NonPositive : public Builtin {
+public:
+	static constexpr const char *name = "NonPositive";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'NonPositive[$x$]'
+        <dd>returns 'True' if $x$ is a positive real number or zero.
+    </dl>
+
+    >> {Negative[0], NonPositive[0]}
+     = {False, True}
+    )";
+
+	static constexpr auto attributes = Attributes::Listable;
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("NonPositive[x_?NumericQ]", "If[x <= 0, True, False, False]");
+	}
+};
+
+class NonNegative : public Builtin {
+public:
+	static constexpr const char *name = "NonNegative";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'NonNegative[$x$]'
+        <dd>returns 'True' if $x$ is a positive real number or zero.
+    </dl>
+
+    >> {Positive[0], NonNegative[0]}
+     = {False, True}
+    )";
+
+	static constexpr auto attributes = Attributes::Listable;
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("NonNegative[x_?NumericQ]", "If[x >= 0, True, False, False]");
+	}
+};
+
 void Builtins::Comparison::initialize() {
     add<Equal>();
     add<Unequal>();
@@ -685,4 +805,8 @@ void Builtins::Comparison::initialize() {
     add<LessEqual>();
     add<Greater>();
     add<GreaterEqual>();
+	add<Positive>();
+	add<Negative>();
+	add<NonPositive>();
+	add<NonNegative>();
 }
