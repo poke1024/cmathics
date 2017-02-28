@@ -19,22 +19,10 @@
 
 template<typename Slice>
 class ExpressionImplementation : public Expression, public PoolObject<ExpressionImplementation<Slice>> {
-protected:
-	virtual BaseExpressionRef materialize_leaf(size_t i) const {
-		return m_slice[i];
-	}
-
-	virtual TypeMask materialize_type_mask() const {
-		return type_mask();
-	}
-
-	virtual TypeMask materialize_exact_type_mask() const {
-		return m_slice.exact_type_mask();
-	}
-
-public:
+private:
 	const Slice m_slice;
 
+public:
 	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &slice) :
         Expression(head, Slice::code(), &m_slice), m_slice(slice) {
 		assert(head);
@@ -44,10 +32,6 @@ public:
 		Expression(head, Slice::code(), &m_slice), m_slice() {
 		assert(head);
 	}
-
-	/*inline ExpressionImplementation(ExpressionImplementation<Slice> &&expr) :
-		Expression(expr._head, Slice::code(), &m_slice), m_slice(expr.leaves) {
-	}*/
 
 	template<typename F>
 	inline ExpressionImplementation(const BaseExpressionRef &head, const FSGenerator<F> &generator) :
@@ -59,90 +43,15 @@ public:
 		Expression(head, Slice::code(), &m_slice), m_slice(generator) {
 	}
 
-    inline const auto &slice() const {
+    inline const Slice &slice() const {
         return m_slice;
     }
-
-	/*inline auto leaves() const {
-		return m_slice.leaves();
-	}
-
-	template<typename T>
-	inline auto primitives() const {
-		return m_slice.template primitives<T>();
-	}
-
-	inline TypeMask type_mask() const {
-		return m_slice.type_mask();
-	}
-
-	inline TypeMask exact_type_mask() const {
-		return m_slice.exact_type_mask();
-	}*/
-
-	inline void init_type_mask(TypeMask type_mask) const {
-		m_slice.init_type_mask(type_mask);
-	}
 
 	inline SliceCode slice_code() const { // FIXME: constexpr
 		return Slice::code();
 	}
 
-	virtual BaseExpressionRef replace_all(const MatchRef &match, const Evaluation &evaluation) const;
-
-	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement) const;
-
-	virtual BaseExpressionRef clone() const;
-
-	virtual ExpressionRef clone(const BaseExpressionRef &head) const;
-
 	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
-
-    template<typename Compute, typename Recurse>
-    BaseExpressionRef do_symbolic(
-        const Compute &compute,
-        const Recurse &recurse,
-        const Evaluation &evaluation) const;
-
-	virtual BaseExpressionRef expand(const Evaluation &evaluation) const final {
-        return do_symbolic(
-            [] (const SymbolicFormRef &form) {
-                const SymEngineRef new_form = SymEngine::expand(form->get());
-                if (new_form.get() != form->get().get()) {
-                    return SymbolicForm::construct(new_form);
-                } else {
-                    return SymbolicForm::construct(SymEngineRef());
-                }
-            },
-            [] (const BaseExpressionRef &leaf, const Evaluation &evaluation) {
-                return leaf->expand(evaluation);
-            },
-            evaluation);
-	}
-
-	template<enum Type... Types, typename F>
-	inline ExpressionRef conditional_map(
-		const F &f, const Evaluation &evaluation) const;
-
-	template<enum Type... Types, typename F>
-	inline ExpressionRef conditional_map(
-		const BaseExpressionRef &head, const F &f) const;
-
-	template<enum Type... Types, typename F>
-	inline ExpressionRef conditional_map(
-		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
-
-	template<typename F>
-	inline ExpressionRef conditional_map_all(
-		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
-
-    virtual BaseExpressionRef custom_format(
-        const BaseExpressionRef &form,
-        const Evaluation &evaluation) const;
-
-    virtual BaseExpressionRef custom_format_traverse(
-        const BaseExpressionRef &form,
-        const Evaluation &evaluation) const;
 };
 
 #include "../heap.tcc"
@@ -152,6 +61,70 @@ public:
 #include "../evaluation.h"
 #include "../evaluate.h"
 #include "../pattern/rewrite.tcc"
+
+inline BaseExpressionRef Expression::materialize_leaf(size_t i) const {
+	return with_slice([i] (const auto &slice) {
+		return slice[i];
+	});
+}
+
+inline TypeMask Expression::materialize_type_mask() const {
+	return with_slice_c([] (const auto &slice) {
+		return slice.type_mask();
+	});
+}
+
+inline TypeMask Expression::materialize_exact_type_mask() const {
+	return with_slice_c([] (const auto &slice) {
+		return slice.exact_type_mask();
+	});
+}
+
+template<Type... Types, typename F>
+inline ExpressionRef Expression::conditional_map(
+	const F &f,
+	const Evaluation &evaluation) const {
+
+	return with_slice_c([this, &f, &evaluation] (const auto &slice) {
+		return ::conditional_map<Types...>(
+			_head, false, lambda(f), slice, 0, slice.size(), evaluation);
+	});
+}
+
+template<Type... Types, typename F>
+inline ExpressionRef Expression::conditional_map(
+	const BaseExpressionRef &head,
+	const F &f) const {
+
+	return with_slice_c([this, &f] (const auto &slice) {
+		return ::conditional_map<Types...>(
+			_head, false, lambda(f), slice, 0, slice.size(), false);
+	});
+}
+
+template<Type... Types, typename F>
+inline ExpressionRef Expression::conditional_map(
+	const BaseExpressionRef &head,
+	const F &f,
+	const Evaluation &evaluation) const {
+
+	return with_slice_c([this, &head, &f, &evaluation] (const auto &slice) {
+		return ::conditional_map<Types...>(head,
+			head.get() != _head.get(), lambda(f), slice, 0, slice.size(), evaluation);
+	});
+}
+
+template<typename F>
+inline ExpressionRef Expression::conditional_map_all(
+	const BaseExpressionRef &head,
+	const F &f,
+	const Evaluation &evaluation) const {
+
+	return with_slice_c([this, &head, &f, &evaluation] (const auto &slice) {
+		return ::conditional_map_all(head,
+			head.get() != _head.get(), lambda(f), slice, 0, slice.size(), evaluation.parallelize);
+	});
+}
 
 template<size_t N>
 inline const BaseExpressionRef *Expression::n_leaves() const {
@@ -198,74 +171,10 @@ inline ExpressionRef Expression::slice(
 }
 
 template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::replace_all(
-	const MatchRef &match, const Evaluation &evaluation) const {
-
-	const BaseExpressionRef &old_head = _head;
-	const BaseExpressionRef new_head = old_head->replace_all(match);
-
-	return conditional_map<ExpressionType, SymbolType>(
-		new_head ? new_head : old_head,
-		[&match] (const BaseExpressionRef &leaf) {
-			return leaf->replace_all(match);
-		},
-		evaluation);
-}
-
-template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::replace_all(
-	const ArgumentsMap &replacement) const {
-
-	const BaseExpressionRef &old_head = _head;
-	const BaseExpressionRef new_head = old_head->replace_all(replacement);
-
-	return conditional_map<ExpressionType, SymbolType>(
-		new_head ? new_head : old_head,
-		[&replacement] (const BaseExpressionRef &leaf) {
-			return leaf->replace_all(replacement);
-		});
-}
-
-template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::clone() const {
-	return expression(_head, Slice(m_slice));
-}
-
-template<typename Slice>
-ExpressionRef ExpressionImplementation<Slice>::clone(const BaseExpressionRef &head) const {
-	return expression(head, Slice(m_slice));
-}
-
-template<typename Slice>
 const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(UnsafeBaseExpressionRef &materialized) const {
 	auto expr = expression(_head, m_slice.unpack());
 	materialized = expr;
-	return expr->m_slice.refs();
-}
-
-template<typename Slice>
-template<typename Compute, typename Recurse>
-BaseExpressionRef ExpressionImplementation<Slice>::do_symbolic(
-	const Compute &compute,
-	const Recurse &recurse,
-	const Evaluation &evaluation) const {
-
-	const SymbolicFormRef form = unsafe_symbolic_form(this, evaluation);
-
-	if (form && !form->is_none()) {
-		const SymbolicFormRef new_form = compute(form);
-		if (new_form && !new_form->is_none()) {
-			return from_symbolic_form(new_form->get(), evaluation);
-		} else {
-			return BaseExpressionRef();
-		}
-	} else {
-		return conditional_map<ExpressionType>(
-			[&recurse, &evaluation] (const BaseExpressionRef &leaf) {
-				return recurse(leaf, evaluation);
-			},
-			evaluation);
-	}
+	return expr->slice().refs();
 }
 
 std::tuple<bool, UnsafeExpressionRef> Expression::thread(const Evaluation &evaluation) const {
@@ -364,134 +273,6 @@ inline ExpressionRef TempVector::to_expression(const BaseExpressionRef &head) co
             store(BaseExpressionRef(v[i]));
         }
     }, size()));
-}
-
-template<typename Expression>
-BaseExpressionRef format_expr(
-    const Expression *expr,
-    const SymbolPtr form,
-    const Evaluation &evaluation) {
-
-    if (expr->is_expression() &&
-        expr->as_expression()->head()->is_expression()) {
-        // expr is of the form f[...][...]
-        return BaseExpressionRef();
-    }
-
-    const Symbol * const name = expr->lookup_name();
-    const SymbolRules * const rules = name->state().rules();
-    if (rules) {
-        const optional<BaseExpressionRef> result =
-            rules->format_values.apply(expr, form, evaluation);
-        if (result && *result) {
-            return (*result)->evaluate_or_copy(evaluation);
-        }
-    }
-
-    return BaseExpressionRef();
-}
-
-template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::custom_format_traverse(
-    const BaseExpressionRef &form,
-    const Evaluation &evaluation) const {
-
-    const BaseExpressionRef new_head =
-        head()->custom_format_or_copy(form, evaluation);
-
-    return conditional_map_all(
-        new_head, [&form, &evaluation] (const BaseExpressionRef &leaf) {
-            return leaf->custom_format(form, evaluation);
-        }, evaluation);
-}
-
-template<typename Slice>
-BaseExpressionRef ExpressionImplementation<Slice>::custom_format(
-    const BaseExpressionRef &form,
-    const Evaluation &evaluation) const {
-
-    // see BaseExpression.do_format in PyMathics
-
-    BaseExpressionPtr expr_form;
-    bool include_form;
-
-    UnsafeBaseExpressionRef expr;
-
-    if (size() == 1) {
-        switch (head()->symbol()) {
-	        case S::StandardForm:
-                if (form->symbol() == S::OutputForm) {
-                    expr_form = form.get();
-                    include_form = false;
-                    expr = m_slice[0];
-                    break;
-                }
-                // fallthrough
-
-	        case S::InputForm:
-            case S::OutputForm:
-            case S::FullForm:
-            case S::TraditionalForm:
-            case S::TeXForm:
-            case S::MathMLForm:
-                expr_form = head();
-                include_form = true;
-                expr = m_slice[0];
-                break;
-
-            default:
-                expr_form = form.get();
-                include_form = false;
-                expr = UnsafeBaseExpressionRef(this);
-                break;
-        }
-    } else {
-        expr_form = form.get();
-        include_form = false;
-        expr = UnsafeBaseExpressionRef(this);
-    }
-
-    if (expr_form->symbol() != S::FullForm && expr->is_expression()) {
-        if (expr_form->is_symbol()) {
-            const BaseExpressionRef formatted =
-                format_expr(expr->as_expression(), expr_form->as_symbol(), evaluation);
-            if (formatted) {
-                expr = formatted->custom_format_or_copy(expr_form, evaluation);
-                if (include_form) {
-                    expr = expression(expr_form, expr);
-                }
-                return expr;
-            }
-        }
-
-        switch (expr->as_expression()->head()->symbol()) {
-            case S::StandardForm:
-            case S::InputForm:
-            case S::OutputForm:
-            case S::FullForm:
-            case S::TraditionalForm:
-            case S::TeXForm:
-            case S::MathMLForm: {
-                expr = expr->custom_format(form, evaluation);
-                break;
-            }
-
-            case S::NumberForm:
-            case S::Graphics:
-                // nothing
-                break;
-
-            default:
-                expr = expr->custom_format_traverse(form, evaluation);
-                break;
-        }
-    }
-
-    if (include_form) {
-        expr = expression(expr_form, expr);
-    }
-
-    return expr;
 }
 
 inline SortKey Expression::pattern_key() const {

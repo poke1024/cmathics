@@ -274,48 +274,6 @@ inline auto conditional_map_indexed_all(const Args&... args) {
 	return apply_conditional_map_indexed<UnknownTypeMask>(args...);
 }
 
-template<typename Slice>
-template<Type... Types, typename F>
-inline ExpressionRef ExpressionImplementation<Slice>::conditional_map(
-	const F &f,
-	const Evaluation &evaluation) const {
-
-	return ::conditional_map<Types...>(
-		_head, false, lambda(f), m_slice, 0, m_slice.size(), evaluation);
-}
-
-template<typename Slice>
-template<Type... Types, typename F>
-inline ExpressionRef ExpressionImplementation<Slice>::conditional_map(
-    const BaseExpressionRef &head,
-    const F &f) const {
-
-    return ::conditional_map<Types...>(
-        _head, false, lambda(f), m_slice, 0, m_slice.size(), false);
-}
-
-template<typename Slice>
-template<Type... Types, typename F>
-inline ExpressionRef ExpressionImplementation<Slice>::conditional_map(
-	const BaseExpressionRef &head,
-	const F &f,
-	const Evaluation &evaluation) const {
-
-	return ::conditional_map<Types...>(
-		head, head.get() != _head.get(), lambda(f), m_slice, 0, m_slice.size(), evaluation);
-}
-
-template<typename Slice>
-template<typename F>
-inline ExpressionRef ExpressionImplementation<Slice>::conditional_map_all(
-    const BaseExpressionRef &head,
-    const F &f,
-    const Evaluation &evaluation) const {
-
-    return ::conditional_map_all(
-        head, head.get() != _head.get(), lambda(f), m_slice, 0, m_slice.size(), evaluation.parallelize);
-}
-
 using EvaluateFunction = std::function<BaseExpressionRef(
 	const Expression *expr,
 	const BaseExpressionRef &head,

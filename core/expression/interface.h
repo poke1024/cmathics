@@ -19,11 +19,11 @@ protected:
 
 	const Slice * const _slice_ptr;
 
-	virtual BaseExpressionRef materialize_leaf(size_t i) const = 0;
+	inline BaseExpressionRef materialize_leaf(size_t i) const;
 
-	virtual TypeMask materialize_type_mask() const = 0;
+	inline TypeMask materialize_type_mask() const;
 
-    virtual TypeMask materialize_exact_type_mask() const = 0;
+	inline TypeMask materialize_exact_type_mask() const;
 
  public:
     static constexpr Type Type = ExpressionType;
@@ -180,6 +180,46 @@ protected:
 	virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
 	inline std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const;
+
+	template<enum Type... Types, typename F>
+	inline ExpressionRef conditional_map(
+		const F &f, const Evaluation &evaluation) const;
+
+	template<enum Type... Types, typename F>
+	inline ExpressionRef conditional_map(
+		const BaseExpressionRef &head, const F &f) const;
+
+	template<enum Type... Types, typename F>
+	inline ExpressionRef conditional_map(
+		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
+
+	template<typename F>
+	inline ExpressionRef conditional_map_all(
+		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
+
+	template<typename Compute, typename Recurse>
+	BaseExpressionRef do_symbolic(
+		const Compute &compute,
+		const Recurse &recurse,
+		const Evaluation &evaluation) const;
+
+	virtual BaseExpressionRef expand(const Evaluation &evaluation) const final;
+
+	virtual BaseExpressionRef clone() const;
+
+	virtual ExpressionRef clone(const BaseExpressionRef &head) const;
+
+	virtual BaseExpressionRef replace_all(const MatchRef &match, const Evaluation &evaluation) const;
+
+	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement) const;
+
+	virtual BaseExpressionRef custom_format_traverse(
+		const BaseExpressionRef &form,
+		const Evaluation &evaluation) const;
+
+	virtual BaseExpressionRef custom_format(
+		const BaseExpressionRef &form,
+		const Evaluation &evaluation) const;
 };
 
 #include "../slice/method.tcc"

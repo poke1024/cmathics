@@ -3,7 +3,7 @@
 #include "implementation.h"
 
 inline BigExpressionRef expression(const BaseExpressionRef &head, BigSlice &&slice) {
-    return BigExpression::construct(head, slice);
+    return BigExpression::construct(head, std::move(slice));
 }
 
 template<int N>
@@ -13,7 +13,7 @@ inline TinyExpressionRef<N> expression(const BaseExpressionRef &head, TinySlice<
 
 template<typename U>
 inline PackedExpressionRef<U> expression(const BaseExpressionRef &head, PackedSlice<U> &&slice) {
-    return ExpressionImplementation<PackedSlice<U>>::construct(head, slice);
+    return ExpressionImplementation<PackedSlice<U>>::construct(head, std::move(slice));
 }
 
 template<typename E, typename T>
