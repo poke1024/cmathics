@@ -1211,7 +1211,7 @@ void Builtins::Lists::initialize() {
 				    }
 					const Expression *list = expr->as_expression();
 
-					return list->parallel_map(list->head(), [&func] (const auto &leaf) {
+					return list->parallel_map(list->head(), [func] (const auto &leaf) {
 						return expression(func, TinySlice<1>(&leaf, leaf->type_mask()));
 					});
 			    }

@@ -129,9 +129,8 @@ public:
 		std::array<BaseExpressionRef, N> array;
 		std::atomic<TypeMask> mask;
 		mask.store(0, std::memory_order_relaxed);
-		const F &f = m_generate;
-		parallelize([&array, &f, &mask] (size_t i) {
-			BaseExpressionRef leaf = f(i);
+		parallelize([this, &array, &mask] (size_t i) {
+			BaseExpressionRef leaf = m_generate(i);
 			mask.fetch_or(leaf->type_mask(), std::memory_order_relaxed);
 			array[i].unsafe_mutate(std::move(leaf));
 		}, N);
@@ -142,9 +141,8 @@ public:
 		std::vector<BaseExpressionRef> v(n);
 		std::atomic<TypeMask> mask;
 		mask.store(0, std::memory_order_relaxed);
-		const F &f = m_generate;
-		parallelize([&v, &f, &mask] (size_t i) {
-			BaseExpressionRef leaf = f(i);
+		parallelize([this, &v, &mask] (size_t i) {
+			BaseExpressionRef leaf = m_generate(i);
 			mask.fetch_or(leaf->type_mask(), std::memory_order_relaxed);
 			v[i].unsafe_mutate(std::move(leaf));
 		}, n);
@@ -167,9 +165,8 @@ public:
 		v.reserve(n); // allocate for worst case
 		std::atomic<TypeMask> mask;
 		mask.store(0, std::memory_order_relaxed);
-		const F &f = m_generate;
-		parallelize([&v, &f, &mask] (size_t i) {
-			BaseExpressionRef leaf = f(i);
+		parallelize([this, &v, &mask] (size_t i) {
+			BaseExpressionRef leaf = m_generate(i);
 			if (leaf) {
 				mask.fetch_or(leaf->type_mask(), std::memory_order_relaxed);
 				v.emplace_back(std::move(leaf)); // FIXME
