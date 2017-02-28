@@ -106,8 +106,8 @@ private:
 
     template<bool MatchHead>
     inline bool match(
-            MatchContext &context,
-            const Expression *expr) const {
+        MatchContext &context,
+        const Expression *expr) const {
 
         const PatternMatcherRef &match_leaves = m_match_leaves;
 
@@ -123,7 +123,7 @@ private:
             }
         }
 
-        if (slice_needs_no_materialize(expr->slice_code())) {
+        if (expr->has_leaves_array()) {
             if (expr->with_leaves_array([&context, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
                 return match_leaves->match(FastLeafSequence(context, leaves), 0, size);
             }) < 0) {

@@ -611,3 +611,11 @@ BaseExpressionRef Expression::custom_format(
 
 	return expr;
 }
+
+const BaseExpressionRef *Expression::materialize(UnsafeBaseExpressionRef &materialized) const {
+    return with_slice_c([this, &materialized] (const auto &slice) {
+        auto expr = expression(_head, slice.unpack());
+        materialized = expr;
+        return expr->slice().refs();
+    });
+}

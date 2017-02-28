@@ -54,6 +54,10 @@ protected:
 
 	inline BaseExpressionRef leaf(size_t i) const;
 
+    inline bool has_leaves_array() const {
+        return slice_needs_no_materialize(slice_code());
+    }
+
 	template<SliceCode StaticSliceCode = SliceCode::Unknown, typename F>
 	inline auto with_leaves_array(const F &f) const {
 		const BaseExpressionRef * const leaves = _slice_ptr->m_address;
@@ -103,8 +107,6 @@ protected:
 
 	template<typename F>
 	inline auto parallel_map(const BaseExpressionRef &head, const F &f) const;
-
-	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const = 0;
 
 	virtual inline BaseExpressionPtr head(const Symbols &symbols) const final {
 		return _head.get();
@@ -220,6 +222,8 @@ protected:
 	virtual BaseExpressionRef custom_format(
 		const BaseExpressionRef &form,
 		const Evaluation &evaluation) const;
+
+	const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
 };
 
 #include "../slice/method.tcc"

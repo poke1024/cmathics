@@ -17,42 +17,7 @@
 #include <symengine/mul.h>
 #include <symengine/pow.h>
 
-template<typename Slice>
-class ExpressionImplementation : public Expression, public PoolObject<ExpressionImplementation<Slice>> {
-private:
-	const Slice m_slice;
-
-public:
-	inline ExpressionImplementation(const BaseExpressionRef &head, const Slice &slice) :
-        Expression(head, Slice::code(), &m_slice), m_slice(slice) {
-		assert(head);
-	}
-
-	inline ExpressionImplementation(const BaseExpressionRef &head) :
-		Expression(head, Slice::code(), &m_slice), m_slice() {
-		assert(head);
-	}
-
-	template<typename F>
-	inline ExpressionImplementation(const BaseExpressionRef &head, const FSGenerator<F> &generator) :
-		Expression(head, Slice::code(), &m_slice), m_slice(generator) {
-	}
-
-	template<typename F>
-	inline ExpressionImplementation(const BaseExpressionRef &head, const FPGenerator<F> &generator) :
-		Expression(head, Slice::code(), &m_slice), m_slice(generator) {
-	}
-
-    inline const Slice &slice() const {
-        return m_slice;
-    }
-
-	inline SliceCode slice_code() const { // FIXME: constexpr
-		return Slice::code();
-	}
-
-	virtual const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
-};
+#include "memory.h"
 
 #include "../heap.tcc"
 #include "core/atoms/numeric.tcc"
@@ -168,13 +133,6 @@ inline ExpressionRef Expression::slice(
 			return expression(head, sequential(generate_leaves, new_size));
 		}
 	});
-}
-
-template<typename Slice>
-const BaseExpressionRef *ExpressionImplementation<Slice>::materialize(UnsafeBaseExpressionRef &materialized) const {
-	auto expr = expression(_head, m_slice.unpack());
-	materialized = expr;
-	return expr->slice().refs();
 }
 
 std::tuple<bool, UnsafeExpressionRef> Expression::thread(const Evaluation &evaluation) const {
