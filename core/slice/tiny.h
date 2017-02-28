@@ -139,19 +139,17 @@ public:
 
 	template<typename F>
 	inline TinySlice map(const F &f) const {
-		const auto &slice = *this;
-		return TinySlice(sequential([&f, &slice] (auto &store) {
+		return TinySlice(sequential([this, &f] (auto &store) {
 			for (size_t i = 0; i < N; i++) {
-				store(f(slice[i]));
+				store(f(leaf(i)));
 			}
 		}, N));
 	}
 
 	template<typename F>
 	inline TinySlice parallel_map(const F &f) const {
-		const auto &slice = *this;
-		return TinySlice(parallel([&f, &slice] (size_t i) {
-			return f(slice[i]);
+		return TinySlice(parallel([this, &f] (size_t i) {
+			return f(leaf(i));
 		}, N));
 	}
 
@@ -165,10 +163,6 @@ public:
     template<int M>
 	inline Rest<M> drop() const {
         return Rest<M>(Array::data() + M);
-	}
-
-	inline auto late_init() {
-		return std::make_tuple(Array::data(), &this->m_type_mask);
 	}
 
 	inline bool is_packed() const {
