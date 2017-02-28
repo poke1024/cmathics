@@ -273,7 +273,7 @@ std::string Expression::boxes_to_text(const StyleBoxOptions &options, const Eval
 
 				for (size_t i = 1; i < n; i++) {
 					const BaseExpressionRef &leaf = slice[i];
-					if (leaf->has_form(S::Rule, 2, evaluation)) {
+					if (leaf->has_form(S::Rule, 2)) {
 						const BaseExpressionRef *const leaves = leaf->as_expression()->n_leaves<2>();
 						const BaseExpressionRef &rhs = leaves[1];
 						switch (leaves[0]->symbol()) {

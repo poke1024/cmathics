@@ -129,8 +129,7 @@ public:
 
 inline bool BaseExpression::has_form(
 	SymbolName head,
-    size_t n_leaves,
-    const Evaluation &evaluation) const {
+    size_t n_leaves) const {
 
     if (!is_expression()) {
         return false;

@@ -868,7 +868,7 @@ public:
 
         if (n->symbol() == S::Automatic) {
             // ok
-        } else if (n->has_form(S::List, 2, evaluation)) {
+        } else if (n->has_form(S::List, 2)) {
             const auto * const leaves = n->as_expression()->n_leaves<2>();
             integer_n = leaves[0]->get_machine_int_value();
             integer_f = leaves[1]->get_machine_int_value();

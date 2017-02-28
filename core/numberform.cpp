@@ -104,7 +104,7 @@ void NumberFormatter::parse_option(
 
 	const auto extract_string_pair =
         [this, &rhs, &options, &evaluation] (StringPtr *ptr, const char *error) {
-            if (rhs->has_form(S::List, 2, evaluation)) {
+            if (rhs->has_form(S::List, 2)) {
                 const auto * const leaves =
                     rhs->as_expression()->n_leaves<2>();
 
@@ -259,7 +259,7 @@ void NumberFormatter::parse_options(
         const size_t n = slice.size();
         for (size_t i = 0; i < n; i++) {
             const BaseExpressionRef leaf = slice[i];
-            if (leaf->has_form(S::Rule, 2, evaluation)) {
+            if (leaf->has_form(S::Rule, 2)) {
                 const auto * const leaves =
                     leaf->as_expression()->n_leaves<2>();
 

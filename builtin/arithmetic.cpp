@@ -550,7 +550,7 @@ public:
                 }
 
                 case ExpressionType:
-                    if (leaf->has_form(S::Power, 2, evaluation)) {
+                    if (leaf->has_form(S::Power, 2)) {
                         const auto * const operands = leaf->as_expression()->n_leaves<2>();
                         const auto &exponent = operands[1];
                         if (exponent->is_non_complex_number() && exponent->is_negative()) {
@@ -1229,7 +1229,7 @@ public:
 				const BaseExpressionRef result = expr->symbolic_evaluate_unary(SymEngine::abs, evaluation);
 
 				// temporary work around for https://github.com/symengine/symengine/issues/1212
-				if (result && result->has_form(S::Abs, 1, evaluation)) {
+				if (result && result->has_form(S::Abs, 1)) {
 					const auto old_form = symbolic_form(x, evaluation);
 					const auto new_form = symbolic_form(result->as_expression()->n_leaves<1>()[0], evaluation);
 					if (!old_form->is_none() && !new_form->is_none()) {

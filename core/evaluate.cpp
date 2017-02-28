@@ -92,13 +92,13 @@ BaseExpressionRef evaluate(
 				head != self->_head,
 				lambda([&hold, &evaluation] (size_t i, const BaseExpressionRef &leaf) {
 					if (hold(i)) {
-						if (leaf->has_form(S::Evaluate, 1, evaluation)) {
+						if (leaf->has_form(S::Evaluate, 1)) {
 							return leaf->evaluate(evaluation);
 						} else {
 							return BaseExpressionRef();
 						}
 					} else {
-						if (!leaf->has_form(S::Unevaluated, 1, evaluation)) {
+						if (!leaf->has_form(S::Unevaluated, 1)) {
 							return leaf->evaluate(evaluation);
 						} else {
 							return BaseExpressionRef();

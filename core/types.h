@@ -523,8 +523,7 @@ public:
 
 	inline bool has_form(
 		SymbolName head,
-		size_t n_leaves,
-		const Evaluation &evaluation) const;
+		size_t n_leaves) const;
 
 	virtual bool is_numeric() const = 0;
 
