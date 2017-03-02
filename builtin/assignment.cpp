@@ -20,6 +20,77 @@ inline BaseExpressionRef assign(
 	return evaluation.Null;
 }
 
+class Values : public Builtin {
+protected:
+	bool check_symbol(BaseExpressionPtr symbol, const Evaluation &evaluation) {
+		if (!symbol->is_symbol()) {
+			evaluation.message(m_symbol, "sym", symbol, MachineInteger::construct(1));
+			return false;
+		} else {
+			return true;
+		}
+	}
+
+	BaseExpressionRef values(const Rules *rules, const Evaluation &evaluation) {
+		if (!rules) {
+			return evaluation.definitions.empty_list;
+		}
+		TempVector leaves;
+		for (const RuleEntry &entry : *rules) {
+			UnsafeBaseExpressionRef pattern = entry.pattern();
+			const BaseExpressionRef &rhs = entry.rule()->rhs();
+			if (!pattern->has_form(S::HoldPattern, 1)) {
+				pattern = expression(evaluation.HoldPattern, pattern);
+			}
+			leaves.push_back(expression(evaluation.RuleDelayed, pattern, rhs));
+		}
+		return leaves.to_expression(evaluation.List);
+	}
+
+public:
+	using Builtin::Builtin;
+};
+
+class DownValues : public Values {
+public:
+	static constexpr const char *name = "DownValues";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'DownValues[$symbol$]'
+        <dd>gives the list of downvalues associated with $symbol$.
+    </dl>
+
+    'DownValues' uses 'HoldPattern' and 'RuleDelayed' to protect the
+    downvalues from being evaluated. Moreover, it has attribute
+    'HoldAll' to get the specified symbol instead of its value.
+
+    >> f[x_] := x ^ 2
+    >> DownValues[f]
+     = {HoldPattern[f[x_]] :> x ^ 2}
+    )";
+
+	static constexpr auto attributes = Attributes::HoldAll;
+
+	void build(Runtime &runtime) {
+		builtin(&DownValues::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		const BaseExpressionPtr symbol,
+		const Evaluation &evaluation) {
+
+		if (!check_symbol(symbol, evaluation)) {
+			return BaseExpressionRef();
+		}
+		return values(
+			symbol->as_symbol()->state().down_rules(),
+			evaluation);
+	}
+
+	using Values::Values;
+};
+
 void Builtins::Assignment::initialize() {
 
 	add("SetDelayed",
@@ -32,4 +103,5 @@ void Builtins::Assignment::initialize() {
 			builtin<2>(assign)
 	});
 
+	add<DownValues>();
 }

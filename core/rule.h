@@ -171,15 +171,16 @@ inline optional<BaseExpressionRef> RulesVector<Entry>::apply(
 
 template<typename Entry>
 void RulesVector<Entry>::insert_rule(std::vector<Entry> &entries, const Entry &entry) {
-	static struct {
-		inline bool operator()(const Entry &entry, const SortKey &key) const {
-			return entry.key().compare(key) < 0;
-		}
-	} CompareSortKey;
-
 	const SortKey &key = entry.key();
+
 	const auto i = std::lower_bound(
-		entries.begin(), entries.end(), key, CompareSortKey);
+		entries.begin(),
+		entries.end(),
+		key,
+		[] (const Entry &entry, const SortKey &key) {
+			return entry.key().compare(key) < 0;
+		});
+
 	if (i != entries.end() && i->pattern()->same(entry.pattern())) {
 		Entry::merge(entries, i, entry);
 	} else {
@@ -196,6 +197,8 @@ void RulesVector<Entry>::add(const typename Entry::RuleRef &rule) {
 			insert_rule(m_rules[code], entry);
 		}
 	}
+
+	insert_rule(m_all_rules, entry);
 }
 
 inline RuleEntry::RuleEntry(const RuleRef &rule) :

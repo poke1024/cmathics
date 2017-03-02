@@ -11,11 +11,11 @@ BaseExpressionRef BaseExpression::format(const BaseExpressionRef &form, const Ev
 }
 
 SortKey BaseExpression::sort_key() const {
-	return SortKey(0, 0); // FIXME
+	return SortKey::construct(0, 0); // FIXME
 }
 
 SortKey BaseExpression::pattern_key() const {
-	return SortKey(0, 0, 1, 1, 0, 0, 0, 1);
+	return SortKey::construct(0, 0, 1, 1, 0, 0, 0, 1);
 }
 
 const char *type_name(Type type) {

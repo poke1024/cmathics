@@ -157,7 +157,7 @@ struct SortKey {
 	int8_t m_size;
 
     template<typename... Args>
-    SortKey(Args&&... args);
+    static inline SortKey construct(Args&&... args);
 
     int compare(const SortKey &key) const;
 
@@ -277,8 +277,10 @@ void make_sort_key(SortKey &data, T &&x, Args&&... args) {
 }
 
 template<typename... Args>
-SortKey::SortKey(Args&&... args) {
-    make_sort_key<0, 0>(*this, 0, std::move(args)...);
+inline SortKey SortKey::construct(Args&&... args) {
+	SortKey k;
+    make_sort_key<0, 0>(k, std::forward<Args>(args)...);
+	return k;
 }
 
 /*
@@ -294,11 +296,13 @@ Pattern sort key structure:
 */
 
 inline SortKey blank_sort_key(int pattern, bool leaves, const Expression *expression) {
-	return SortKey(2, pattern, 1, 1, 0, SortByHead(expression, true), SortByLeaves(expression, true), 1);
+	return SortKey::construct(
+		2, pattern, 1, 1, 0, SortByHead(expression, true), SortByLeaves(expression, true), 1);
 }
 
 inline SortKey not_a_pattern_sort_key(const Expression *expression) {
-	return SortKey(3, 0, 0, 0, 0, SortByHead(expression, true), SortByLeaves(expression, true), 1);
+	return SortKey::construct(
+		3, 0, 0, 0, 0, SortByHead(expression, true), SortByLeaves(expression, true), 1);
 }
 
 inline int compare_sort_keys(

@@ -1,4 +1,5 @@
 #include "patterns.h"
+#include "arithmetic/binary.h"
 
 template<typename Match>
 BaseExpressionRef replace_all(
@@ -72,6 +73,209 @@ public:
     }
 };
 
+class RuleDelayed : public BinaryOperatorBuiltin {
+public:
+	static constexpr const char *name = "RuleDelayed";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'RuleDelayed[$x$, $y$]'
+    <dt>'$x$ :> $y$'
+        <dd>represents a rule replacing $x$ with $y$, with $y$ held
+        unevaluated.
+    </dl>
+
+    >> Attributes[RuleDelayed]
+     = {HoldRest, Protected, SequenceHold}
+	)";
+
+	static constexpr auto attributes =
+		Attributes::SequenceHold + Attributes::HoldRest;
+
+public:
+	using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
+
+	void build(Runtime &runtime) {
+		add_binary_operator_formats();
+	}
+
+	virtual const char *operator_name() const {
+		return ":>";
+	}
+
+	virtual int precedence() const {
+		return 120;
+	}
+};
+
+class MatchQ : public Builtin {
+public:
+	static constexpr const char *name = "MatchQ";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'MatchQ[$expr$, $form$]'
+        <dd>tests whether $expr$ matches $form$.
+    </dl>
+
+    >> MatchQ[123, _Integer]
+     = True
+    >> MatchQ[123, _Real]
+     = False
+    >> MatchQ[_Integer][123]
+     = True
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("MatchQ[form_][expr_]", "MatchQ[expr, form]");
+		builtin(&MatchQ::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		const BaseExpressionPtr expr,
+		const BaseExpressionPtr pattern,
+		const Evaluation &evaluation) {
+
+		return match(pattern, [expr, &evaluation] (const auto &match) {
+			return evaluation.Boolean(match(expr));
+		}, evaluation);
+	}
+};
+
+
+class Verbatim : public Builtin {
+public:
+	static constexpr const char *name = "Verbatim";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Verbatim[$expr$]'
+        <dd>prevents pattern constructs in $expr$ from taking effect,
+        allowing them to match themselves.
+    </dl>
+
+    Create a pattern matching 'Blank':
+    >> _ /. Verbatim[_]->t
+     = t
+    >> x /. Verbatim[_]->t
+     = x
+
+    Without 'Verbatim', 'Blank' has its normal effect:
+    >> x /. _->t
+     = t
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+	}
+};
+
+class HoldPattern : public Builtin {
+public:
+	static constexpr const char *name = "HoldPattern";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'HoldPattern[$expr$]'
+        <dd>is equivalent to $expr$ for pattern matching, but
+        maintains it in an unevaluated form.
+    </dl>
+
+    >> HoldPattern[x + x]
+     = HoldPattern[x + x]
+    >> x /. HoldPattern[x] -> t
+     = t
+
+    'HoldPattern' has attribute 'HoldAll':
+    >> Attributes[HoldPattern]
+     = {HoldAll, Protected}
+	)";
+
+	static constexpr auto attributes = Attributes::HoldAll;
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+	}
+};
+
+
+class Pattern : public Builtin {
+public:
+	static constexpr const char *name = "Pattern";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Pattern[$symb$, $patt$]'
+    <dt>'$symb$ : $patt$'
+        <dd>assigns the name $symb$ to the pattern $patt$.
+    <dt>'$symb$_$head$'
+        <dd>is equivalent to '$symb$ : _$head$' (accordingly with '__'
+        and '___').
+    <dt>'$symb$ : $patt$ : $default$'
+        <dd>is a pattern with name $symb$ and default value $default$,
+        equivalent to 'Optional[$patt$ : $symb$, $default$]'.
+    </dl>
+
+    >> FullForm[a_b]
+     = Pattern[a, Blank[b]]
+    >> FullForm[a:_:b]
+     = Optional[Pattern[a, Blank[]], b]
+	)";
+
+	static constexpr auto attributes = Attributes::HoldFirst;
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("MakeBoxes[Verbatim[Pattern][symbol_Symbol, blank_Blank|blank_BlankSequence|blank_BlankNullSequence], "
+		    "f:StandardForm|TraditionalForm|InputForm|OutputForm]", "MakeBoxes[symbol, f] <> MakeBoxes[blank, f]");
+
+		format(
+			"Verbatim[Pattern][symbol_, pattern_?(!MatchQ[#, _Blank|_BlankSequence|_BlankNullSequence]&)]",
+			"Infix[{symbol, pattern}, \":\", 150, Left]");
+	}
+};
+
+class Blank : public Builtin {
+public:
+	static constexpr const char *name = "Blank";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Blank[]'
+    <dt>'_'
+        <dd>represents any single expression in a pattern.
+    <dt>'Blank[$h$]'
+    <dt>'_$h$'
+        <dd>represents any expression with head $h$.
+    </dl>
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("MakeBoxes[Verbatim[Blank][], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+			"\"_\"");
+		builtin("MakeBoxes[Verbatim[Blank][head_Symbol], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+			"\"_\" <> MakeBoxes[head, f]");
+	}
+};
+
 void Builtins::Patterns::initialize() {
-    Unit::add<ReplaceAll>();
+    add<ReplaceAll>();
+	add<RuleDelayed>();
+	add<MatchQ>();
+	add<Verbatim>();
+	add<HoldPattern>();
+	add<Pattern>();
+	add<Blank>();
 }

@@ -32,7 +32,11 @@ enum class Attributes : attributes_bitmask_t {
 };
 
 inline bool operator&(Attributes x, Attributes y)  {
-    return (attributes_bitmask_t(x) & attributes_bitmask_t(y)) != 0;
+	if (attributes_bitmask_t(y) == 0) {
+		return false;
+	} else {
+		return (attributes_bitmask_t(x) & attributes_bitmask_t(y)) == attributes_bitmask_t(y);
+	}
 }
 
 inline size_t count(Attributes x, Attributes y) {

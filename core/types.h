@@ -561,6 +561,10 @@ public:
 	}
 
 	inline ExpressionRef flatten_sequence() const;
+
+	virtual BaseExpressionRef deverbatim() const {
+		return this;
+	}
 };
 
 #include "heap.h"

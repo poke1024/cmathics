@@ -125,12 +125,24 @@ public:
 		mutable_rules()->down_rules.add(rule);
 	}
 
+	inline const Rules *down_rules() const {
+		return m_rules ? &m_rules->down_rules : nullptr;
+	}
+
     inline void add_up_rule(const RuleRef &rule) {
         mutable_rules()->up_rules.add(rule);
     }
 
+	inline const Rules *up_rules() const {
+		return m_rules ? &m_rules->up_rules : nullptr;
+	}
+
 	inline void add_sub_rule(const RuleRef &rule) {
 		mutable_rules()->sub_rules.add(rule);
+	}
+
+	inline const Rules *sub_rules() const {
+		return m_rules ? &m_rules->sub_rules : nullptr;
 	}
 
 	void add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs, Definitions &definitions);
@@ -302,7 +314,8 @@ public:
 	virtual SortKey sort_key() const final {
         MonomialMap map(LegacyPool::monomial_map_allocator());
         map[SymbolKey(SymbolRef(this))] = 1;
-		return SortKey(is_numeric() ? 1 : 2, 2, std::move(map), 0, name(), 1);
+		return SortKey::construct(
+			is_numeric() ? 1 : 2, 2, std::move(map), 0, name(), 1);
 	}
 
 	virtual bool is_numeric() const final {

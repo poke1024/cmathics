@@ -222,7 +222,9 @@ public:
 
     virtual int precedence() const = 0;
 
-    virtual const char *grouping() const = 0;
+    virtual const char *grouping() const {
+	    return "None";
+    }
 };
 
 #endif //CMATHICS_BINARY_H

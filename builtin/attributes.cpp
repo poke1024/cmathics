@@ -89,7 +89,7 @@ public:
 		TempVector list;
 
 		for (const Pair &p : m_attributes) {
-			if (attributes & p.positive && !(attributes & p.negative)) {
+			if ((attributes & p.positive) && !(attributes & p.negative)) {
 				list.push_back(p.symbol);
 			}
 		}

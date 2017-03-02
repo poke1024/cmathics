@@ -224,6 +224,8 @@ protected:
 		const Evaluation &evaluation) const;
 
 	const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
+
+	virtual BaseExpressionRef deverbatim() const;
 };
 
 #include "../slice/method.tcc"

@@ -548,7 +548,7 @@ protected:
 
     inline void format(const BaseExpressionRef &lhs, const char *into, const std::initializer_list<SymbolPtr> &forms) {
 		const BaseExpressionRef rhs = m_runtime.parse(into);
-		assert(lhs->is_expression() && lhs->as_expression()->head() == m_symbol.get());
+		assert(lhs->is_expression() && lhs->as_expression()->head()->deverbatim() == m_symbol.get());
         auto &definitions = m_runtime.definitions();
 	    for (SymbolPtr form : forms) {
 		    m_symbol->state().add_format(DownRule::construct(lhs, rhs, definitions), form, definitions);

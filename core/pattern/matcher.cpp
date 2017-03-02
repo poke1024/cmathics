@@ -2002,9 +2002,20 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			}
 			break;
 
-        case S::OptionsPattern: {
+		case S::Verbatim:
+			if (patt_end - patt_begin == 1) { // 1 leaf?
+				return factory.create<SameMatcher>(patt_begin[0]);
+			}
+			break;
+
+        case S::OptionsPattern:
             return factory.create<OptionsPatternMatcher>(std::make_tuple());
-        }
+
+		case S::HoldPattern:
+			if (patt_end - patt_begin == 1) { // 1 leaf?
+				return compile(*patt_begin, size.from_here(), factory);
+			}
+			break;
 
         default:
 			break;

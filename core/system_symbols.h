@@ -145,6 +145,7 @@ SYMBOL(SequenceHold)
 
 SYMBOL(Evaluate)
 SYMBOL(Unevaluated)
+SYMBOL(HoldPattern)
 
 SYMBOL(Graphics)
 

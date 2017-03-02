@@ -253,9 +253,11 @@ SortKey Expression::sort_key() const {
 	}
 
 	if (!m.empty()) {
-		return SortKey(is_numeric() ? 1 : 2, 2, std::move(m), 1, SortByHead(this), SortByLeaves(this), 1);
+		return SortKey::construct(
+			is_numeric() ? 1 : 2, 2, std::move(m), 1, SortByHead(this), SortByLeaves(this), 1);
 	} else {
-		return SortKey(is_numeric() ? 1 : 2, 3, SortByHead(this), SortByLeaves(this), 1);
+		return SortKey::construct(
+			is_numeric() ? 1 : 2, 3, SortByHead(this), SortByLeaves(this), 1);
 	}
 }
 
@@ -618,4 +620,12 @@ const BaseExpressionRef *Expression::materialize(UnsafeBaseExpressionRef &materi
         materialized = expr;
         return expr->slice().refs();
     });
+}
+
+BaseExpressionRef Expression::deverbatim() const {
+	if (head()->symbol() == S::Verbatim && size() == 1) {
+		return n_leaves<1>()[0];
+	} else {
+		return this;
+	}
 }

@@ -80,6 +80,7 @@ template<typename Entry>
 class RulesVector {
 protected:
     std::vector<Entry> m_rules[NumberOfSliceCodes];
+	std::vector<Entry> m_all_rules;
 
 	template<typename Filter>
 	inline optional<BaseExpressionRef> apply(
@@ -100,6 +101,14 @@ protected:
 
 public:
     void add(const typename Entry::RuleRef &rule);
+
+	inline auto begin() const {
+		return m_all_rules.begin();
+	}
+
+	inline auto end() const {
+		return m_all_rules.end();
+	}
 };
 
 class RuleEntry : public RuleHash {
@@ -117,6 +126,10 @@ public:
 	inline const auto &key() const;
 
 	inline const auto &pattern() const;
+
+	inline const auto &rule() const {
+		return m_rule;
+	}
 
     template<typename Entries, typename Iterator>
 	static void merge(const Entries &entries, const Iterator &i, const RuleEntry &entry) {

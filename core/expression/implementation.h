@@ -278,11 +278,17 @@ inline SortKey Expression::pattern_key() const {
 		case S::Alternatives:
 			// FIXME
 		case S::Verbatim:
-			// FIXME
+			if (size() != 1) {
+				return SortKey::construct(
+					3, 0, 0, 0, 0, SortByHead(this, true), SortByLeaves(this, true, true), 1);
+			} else {
+				return n_leaves<1>()[0]->pattern_key();
+			}
 		case S::OptionsPattern:
 			// FIXME
 		default: {
-			return SortKey(2, 0, 1, 1, 0, SortByHead(this, true), SortByLeaves(this, true, true), 1);
+			return SortKey::construct(
+				2, 0, 1, 1, 0, SortByHead(this, true), SortByLeaves(this, true, true), 1);
 		}
 	}
 }
