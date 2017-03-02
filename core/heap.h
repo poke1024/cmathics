@@ -89,6 +89,10 @@ protected:
 		Filter &filter,
 		const Evaluation &evaluation) const;
 
+	bool has_rule_with_pattern(
+		std::vector<Entry> &entries,
+		const BaseExpressionRef &lhs);
+
 	void insert_rule(
 		std::vector<Entry> &entries,
 		const Entry &entry);
@@ -101,6 +105,8 @@ protected:
 
 public:
     void add(const typename Entry::RuleRef &rule);
+
+	bool has_rule_with_pattern(const BaseExpressionRef &lhs);
 
 	inline auto begin() const {
 		return m_all_rules.begin();

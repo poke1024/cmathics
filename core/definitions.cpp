@@ -147,6 +147,10 @@ void SymbolState::add_format(
     mutable_rules()->format_values.add(format_rule);
 }
 
+bool SymbolState::has_format(const BaseExpressionRef &lhs) const {
+	return rules() && rules()->format_values.has_rule_with_pattern(lhs);
+}
+
 Definitions::Definitions() :
     m_symbols(*this),
     number_form(m_symbols),

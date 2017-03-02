@@ -568,6 +568,10 @@ protected:
 		return format(pattern, into, {m_runtime.symbols().All});
 	}
 
+	inline bool has_format(const char *pattern) const {
+		return m_symbol->state().has_format(m_runtime.parse(pattern));
+	}
+
 	inline void message(const char *tag, const char *text) {
 		m_symbol->add_message(tag, text, m_runtime.definitions());
 	}

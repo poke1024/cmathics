@@ -170,6 +170,21 @@ inline optional<BaseExpressionRef> RulesVector<Entry>::apply(
 }
 
 template<typename Entry>
+bool RulesVector<Entry>::has_rule_with_pattern(std::vector<Entry> &entries, const BaseExpressionRef &pattern) {
+	const SortKey key = pattern->pattern_key();
+
+	const auto i = std::lower_bound(
+		entries.begin(),
+		entries.end(),
+		key,
+		[] (const Entry &entry, const SortKey &key) {
+			return entry.key().compare(key) < 0;
+		});
+
+	return i != entries.end() && i->pattern()->same(pattern);
+}
+
+template<typename Entry>
 void RulesVector<Entry>::insert_rule(std::vector<Entry> &entries, const Entry &entry) {
 	const SortKey &key = entry.key();
 
@@ -199,6 +214,11 @@ void RulesVector<Entry>::add(const typename Entry::RuleRef &rule) {
 	}
 
 	insert_rule(m_all_rules, entry);
+}
+
+template<typename Entry>
+bool RulesVector<Entry>::has_rule_with_pattern(const BaseExpressionRef &lhs) {
+	return has_rule_with_pattern(m_all_rules, lhs);
 }
 
 inline RuleEntry::RuleEntry(const RuleRef &rule) :

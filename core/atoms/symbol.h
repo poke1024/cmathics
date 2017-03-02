@@ -154,6 +154,7 @@ public:
         const SymbolRef &form,
         const Definitions &definitions);
 
+	bool has_format(const BaseExpressionRef &lhs) const;
 
 	inline Attributes attributes() const {
 		return m_attributes;
