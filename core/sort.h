@@ -295,7 +295,12 @@ Pattern sort key structure:
 7: 0/1:        0 for Condition
 */
 
-inline SortKey blank_sort_key(int pattern, bool leaves, const Expression *expression) {
+inline SortKey blank_sort_key(int pattern, size_t size, const Expression *expression) {
+	if (size > 0) {
+		pattern += 10;
+	} else {
+		pattern += 20;
+	}
 	return SortKey::construct(
 		2, pattern, 1, 1, 0, SortByHead(expression, true), SortByLeaves(expression, true), 1);
 }

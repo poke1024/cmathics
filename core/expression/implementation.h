@@ -236,11 +236,11 @@ inline ExpressionRef TempVector::to_expression(const BaseExpressionRef &head) co
 inline SortKey Expression::pattern_key() const {
 	switch (_head->symbol()) {
 		case S::Blank:
-			return blank_sort_key(1, size() > 0, this);
+			return blank_sort_key(1, size(), this);
 		case S::BlankSequence:
-			return blank_sort_key(2, size() > 0, this);
+			return blank_sort_key(2, size(), this);
 		case S::BlankNullSequence:
-			return blank_sort_key(3, size() > 0, this);
+			return blank_sort_key(3, size(), this);
 		case S::PatternTest:
 			if (size() != 2) {
 				return not_a_pattern_sort_key(this);

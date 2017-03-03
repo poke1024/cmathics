@@ -68,6 +68,20 @@ public:
     >> f[x_] := x ^ 2
     >> DownValues[f]
      = {HoldPattern[f[x_]] :> x ^ 2}
+
+    Mathics will sort the rules you assign to a symbol according to
+    their specificity. If it cannot decide which rule is more special,
+    the newer one will get higher precedence.
+    >> f[x_Integer] := 2
+    >> f[x_Real] := 3
+    >> DownValues[f]
+     = {HoldPattern[f[x_Real]] :> 3, HoldPattern[f[x_Integer]] :> 2, HoldPattern[f[x_]] :> x ^ 2}
+    >> f[3]
+     = 2
+    >> f[3.]
+     = 3
+    >> f[a]
+     = a ^ 2
     )";
 
 	static constexpr auto attributes = Attributes::HoldAll;
