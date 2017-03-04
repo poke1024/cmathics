@@ -64,7 +64,7 @@ inline ExpressionRef RewriteExpression::rewrite_functions(
 
     if (expr->head()->symbol() == S::Function && (mask & SlotRewriteMask) && expr->size() >= 2) {
         return expr->with_slice([expr, &definitions] (const auto &slice) -> ExpressionRef {
-            TempVector names;
+            TemporaryRefVector names;
             ArgumentsMap renames;
 
             const auto add = [&names, &renames, &definitions] (SymbolPtr arg) {

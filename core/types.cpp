@@ -10,12 +10,8 @@ BaseExpressionRef BaseExpression::format(const BaseExpressionRef &form, const Ev
 	return expression(evaluation.MakeBoxes, expr, form)->evaluate_or_copy(evaluation);
 }
 
-SortKey BaseExpression::sort_key() const {
-	return SortKey::construct(0, 0); // FIXME
-}
-
-SortKey BaseExpression::pattern_key() const {
-	return SortKey::construct(0, 0, 1, 1, 0, 0, 0, 1);
+void BaseExpression::pattern_key(SortKey &key, const Evaluation &evaluation) const {
+	key.construct(0, 0, 1, 1, 0, 0, 0, 1);
 }
 
 const char *type_name(Type type) {
@@ -80,9 +76,7 @@ BaseExpressionRef from_symbolic_expr_canonical(
 	for (size_t i = 0; i < args.size(); i++) {
 		conv_args.push_back(from_symbolic_form(args[i], evaluation));
 	}
-	conv_args.sort();
-
-	return expression(head, std::move(conv_args));
+	return conv_args.sorted(head, evaluation);
 }
 
 BaseExpressionRef from_symbolic_form(const SymEngineRef &form, const Evaluation &evaluation) {

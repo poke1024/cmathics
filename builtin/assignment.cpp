@@ -11,7 +11,7 @@ inline BaseExpressionRef assign(
 	const Symbol *name = lhs->lookup_name();
 	if (name) {
 		const_cast<Symbol*>(name)->state().add_rule(
-            lhs, rhs, evaluation.definitions);
+            lhs, rhs, evaluation);
 	}
 
 	// f[x_] := f[x - 1] will end up in an inifinite recursion
@@ -35,7 +35,7 @@ protected:
 		if (!rules) {
 			return evaluation.definitions.empty_list;
 		}
-		TempVector leaves;
+		TemporaryRefVector leaves;
 		for (const RuleEntry &entry : *rules) {
 			UnsafeBaseExpressionRef pattern = entry.pattern();
 			const BaseExpressionRef &rhs = entry.rule()->rhs();

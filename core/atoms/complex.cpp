@@ -10,7 +10,7 @@ const std::hash<machine_real_t> MachineComplex::hash_function = std::hash<machin
 
 std::string MachineComplex::debugform() const {
 	std::ostringstream s;
-	s << "Complex[" << value.real() << ", " << value.imag() << "]";
+	s << "Complex[" << m_value.real() << ", " << m_value.imag() << "]";
 	return s.str();
 }
 
@@ -22,14 +22,14 @@ BaseExpressionRef MachineComplex::custom_format(
 		case S::FullForm:
 			return expression(
 				expression(evaluation.HoldForm, evaluation.Complex),
-				MachineReal::construct(value.real()),
-				MachineReal::construct(value.imag()))->custom_format_or_copy(form, evaluation);
+				MachineReal::construct(m_value.real()),
+				MachineReal::construct(m_value.imag()))->custom_format_or_copy(form, evaluation);
 
 		default: {
 			UnsafeBaseExpressionRef leaf;
 
-			const machine_real_t real = value.real();
-			const machine_real_t imag = value.imag();
+			const machine_real_t real = m_value.real();
+			const machine_real_t imag = m_value.imag();
 
 			if (real) {
 				if (imag == 1.0) {
@@ -56,7 +56,27 @@ BaseExpressionPtr MachineComplex::head(const Symbols &symbols) const {
 }
 
 BaseExpressionRef MachineComplex::negate(const Evaluation &evaluation) const {
-    return MachineComplex::construct(-value.real(), -value.imag());
+    return MachineComplex::construct(-m_value.real(), -m_value.imag());
+}
+
+void MachineComplex::sort_key(SortKey &key, const Evaluation &evaluation) const {
+	m_components.lock([this, &key] (auto &components) {
+		if (!components) {
+			components.emplace(ComplexComponents{
+				MachineReal::construct(m_value.real()),
+				MachineReal::construct(m_value.imag())
+			});
+		}
+
+		key.construct(
+			0,
+			0,
+			BaseExpressionPtr(components->real.get()),
+			BaseExpressionPtr(components->imag.get()),
+			1);
+
+		return nothing();
+	});
 }
 
 std::string BigComplex::debugform() const {
@@ -117,4 +137,24 @@ BaseExpressionRef BigComplex::negate(const Evaluation &evaluation) const {
 
     return BigComplex::construct(SymEngine::rcp_static_cast<const SymEngine::Complex>(
         SymEngine::Complex::from_two_nums(*real, *imag)));
+}
+
+void BigComplex::sort_key(SortKey &key, const Evaluation &evaluation) const {
+	m_components.lock([this, &key, &evaluation] (auto &components) {
+		if (!components) {
+			components.emplace(ComplexComponents{
+				from_symbolic_form(m_value->real_part(), evaluation),
+				from_symbolic_form(m_value->imaginary_part(), evaluation)
+			});
+		}
+
+		key.construct(
+			0,
+			0,
+			BaseExpressionPtr(components->real.get()),
+			BaseExpressionPtr(components->imag.get()),
+			1);
+
+		return nothing();
+	});
 }

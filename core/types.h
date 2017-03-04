@@ -339,6 +339,10 @@ public:
 		return type() == ExpressionType;
 	}
 
+	inline bool is_atom() const {
+		return type() != ExpressionType;
+	}
+
 	inline bool is_machine_integer() const {
 		return type() == MachineIntegerType;
 	}
@@ -527,9 +531,9 @@ public:
 
 	virtual bool is_numeric() const = 0;
 
-	virtual SortKey sort_key() const;
+	virtual void sort_key(SortKey &key, const Evaluation &evaluation) const = 0;
 
-	virtual SortKey pattern_key() const;
+	virtual void pattern_key(SortKey &key, const Evaluation &evaluation) const;
 
 	BaseExpressionRef format(const BaseExpressionRef &form, const Evaluation &evaluation) const;
 

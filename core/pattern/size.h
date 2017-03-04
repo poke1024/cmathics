@@ -49,9 +49,10 @@ public:
 
     inline bool matches(SliceCode code) const {
         if (is_tiny_slice(code)) {
-            return contains(tiny_slice_size(code));
+	        return contains(tiny_slice_size(code));
+        } else if (is_packed_slice(code)) {
+	        return _max >= MinPackedSliceSize;
         } else {
-            // inspect wrt minimum size of non-static slice
             const size_t min_size = MaxTinySliceSize + 1;
             return _max >= min_size;
         }

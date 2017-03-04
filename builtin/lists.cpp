@@ -1117,8 +1117,8 @@ private:
     }
 
 public:
-    IterationFunctionRule(const SymbolRef &head, const Definitions &definitions) :
-        AtLeastNRule<2>(head, definitions), m_head(head), m_function(head) {
+    IterationFunctionRule(const SymbolRef &head, const Evaluation &evaluation) :
+        AtLeastNRule<2>(head, evaluation), m_head(head), m_function(head) {
     }
 
     virtual optional<BaseExpressionRef> try_apply(
@@ -1136,8 +1136,8 @@ public:
 
 template<typename F>
 NewRuleRef make_iteration_function_rule() {
-    return [] (const SymbolRef &head, const Definitions &definitions) {
-        return IterationFunctionRule<F>::construct(head, definitions);
+    return [] (const SymbolRef &head, const Evaluation &evaluation) {
+        return IterationFunctionRule<F>::construct(head, evaluation);
     };
 }
 

@@ -227,6 +227,10 @@ BaseExpressionRef MachineReal::negate(const Evaluation &evaluation) const {
     return from_primitive(-value);
 }
 
+void MachineReal::sort_key(SortKey &key, const Evaluation &evaluation) const {
+	key.construct(0, 0, BaseExpressionPtr(this), evaluation.zero, 1);
+}
+
 std::string BigReal::debugform() const {
 	const char * const format = "%RNg";
 
@@ -317,4 +321,8 @@ optional<SExp> BigReal::to_s_exp(optional<machine_integer_t> &n) const {
     s = buffer.get();
 
     return real_to_s_exp(std::move(s), n, false);
+}
+
+void BigReal::sort_key(SortKey &key, const Evaluation &evaluation) const {
+	key.construct(0, 0, BaseExpressionPtr(this), evaluation.zero, 1);
 }

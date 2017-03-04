@@ -18,6 +18,7 @@ private:
     python::Context _python_context;
 	Definitions _definitions;
 	Parser _parser;
+	Evaluation _bootstrap_evaluation;
 
     static Runtime *s_instance;
 
@@ -31,6 +32,10 @@ public:
 
 	inline Definitions &definitions() {
 		return _definitions;
+	}
+
+	inline const Evaluation &evaluation() {
+		return _bootstrap_evaluation;
 	}
 
 	inline Parser &parser() {
@@ -323,7 +328,7 @@ private:
 
         add(VariadicBuiltinRule<0, decltype(function)>::construct(
             m_symbol,
-            m_runtime.definitions(),
+            m_runtime.evaluation(),
             function));
     }
 
@@ -343,7 +348,7 @@ private:
 
         add(VariadicBuiltinRule<0, decltype(function)>::construct(
             m_symbol,
-            m_runtime.definitions(),
+            m_runtime.evaluation(),
             function));
     }
 
@@ -353,7 +358,7 @@ private:
 
         add(OptionsBuiltinRule<N, Options, decltype(bridge)>::construct(
             m_symbol,
-            m_runtime.definitions(),
+            m_runtime.evaluation(),
             options,
             bridge));
     }
@@ -376,7 +381,7 @@ private:
 
         add(BuiltinRule<N, decltype(bridge)>::construct(
             m_symbol,
-            m_runtime.definitions(),
+            m_runtime.evaluation(),
             bridge));
     }
 
@@ -439,7 +444,7 @@ private:
     inline void internal_add_pattern_rule(const char *pattern, F function, const Add &add) {
         const auto bridge = B<T, F, N>(this, function);
         const BaseExpressionRef p = m_runtime.parse(pattern);
-	    add(PatternMatchedBuiltinRule<N, decltype(bridge)>::construct(p, bridge));
+	    add(PatternMatchedBuiltinRule<N, decltype(bridge)>::construct(p, bridge, m_runtime.evaluation()));
     }
 
 	template<typename T, typename Options, typename Add, typename F, int N, template<typename, typename, int> class B>
@@ -447,7 +452,7 @@ private:
 		const auto bridge = B<T, F, N>(this, function);
 		const BaseExpressionRef p = m_runtime.parse(pattern);
 		add(PatternMatchedOptionsBuiltinRule<N, Options, decltype(bridge)>::construct(
-			p, bridge, OptionsDefinitions<Options>(m_runtime.definitions())));
+			p, bridge, OptionsDefinitions<Options>(m_runtime.definitions()), m_runtime.evaluation()));
 	}
 
     template<typename T, typename Add>
@@ -501,57 +506,60 @@ protected:
     template<typename F>
     inline void builtin(F function) {
         add_rule(function, [this] (const RuleRef &rule) {
-            m_symbol->state().add_rule(rule);
+            m_symbol->state().add_rule(rule, m_runtime.evaluation());
         });
     }
 
 	template<typename F>
 	inline void builtin(const OptionsInitializerList &options, F function) {
         add_rule(options, function, [this] (const RuleRef &rule) {
-            m_symbol->state().add_rule(rule);
+            m_symbol->state().add_rule(rule, m_runtime.evaluation());
         });
 	}
 
     template<typename F>
     inline void builtin(const char *pattern, F function) {
         add_rule(pattern, function, [this] (const RuleRef &rule) {
-	        rule_owner(rule->pattern).add_rule(rule);
+	        rule_owner(rule->pattern).add_rule(rule, m_runtime.evaluation());
         });
     }
 
 	inline void builtin(const char *pattern, const char *into) {
 		const BaseExpressionRef lhs = m_runtime.parse(pattern);
 		const BaseExpressionRef rhs = m_runtime.parse(into);
-		rule_owner(lhs).add_rule(lhs.get(), rhs.get(), m_runtime.definitions());
+		rule_owner(lhs).add_rule(lhs.get(), rhs.get(), m_runtime.evaluation());
 	}
 
 	inline void builtin(const BaseExpressionRef &lhs, const char *into) {
 		const BaseExpressionRef rhs = m_runtime.parse(into);
-		rule_owner(lhs).add_rule(lhs.get(), rhs.get(), m_runtime.definitions());
+		rule_owner(lhs).add_rule(lhs.get(), rhs.get(), m_runtime.evaluation());
 	}
 
 	inline void builtin(const BaseExpressionRef &lhs, const BaseExpressionRef &rhs) {
-		rule_owner(lhs).add_rule(lhs.get(), rhs.get(), m_runtime.definitions());
+		rule_owner(lhs).add_rule(lhs.get(), rhs.get(), m_runtime.evaluation());
 	}
 
     template<typename T>
     inline void builtin() {
-        m_symbol->state().add_rule(RuleRef(T::construct(m_symbol, m_runtime.definitions())));
+	    const auto &evaluation = m_runtime.evaluation();
+        m_symbol->state().add_rule(
+		    RuleRef(T::construct(m_symbol, evaluation)),
+		    evaluation);
     }
 
 	template<typename F>
 	inline void format(F function, const SymbolRef &form) {
 		add_rule(function, [this, &form] (const RuleRef &rule) {
-			m_symbol->state().add_format(rule, form, m_runtime.definitions());
+			m_symbol->state().add_format(rule, form, m_runtime.evaluation());
 		});
 	}
 
     inline void format(const BaseExpressionRef &lhs, const char *into, const std::initializer_list<SymbolPtr> &forms) {
 		const BaseExpressionRef rhs = m_runtime.parse(into);
 		assert(lhs->is_expression() && lhs->as_expression()->head()->deverbatim() == m_symbol.get());
-        auto &definitions = m_runtime.definitions();
+        auto &evaluation = m_runtime.evaluation();
 	    for (SymbolPtr form : forms) {
-		    m_symbol->state().add_format(DownRule::construct(lhs, rhs, definitions), form, definitions);
+		    m_symbol->state().add_format(DownRule::construct(lhs, rhs, evaluation), form, evaluation);
 	    }
 	}
 
@@ -569,11 +577,12 @@ protected:
 	}
 
 	inline bool has_format(const char *pattern) const {
-		return m_symbol->state().has_format(m_runtime.parse(pattern));
+		return m_symbol->state().has_format(
+			m_runtime.parse(pattern), m_runtime.evaluation());
 	}
 
 	inline void message(const char *tag, const char *text) {
-		m_symbol->add_message(tag, text, m_runtime.definitions());
+		m_symbol->add_message(tag, text, m_runtime.evaluation());
 	}
 
 public:
@@ -631,7 +640,8 @@ public:
 	}
 
 public:
-	Unit(Runtime &runtime) : m_runtime(runtime) {
+	Unit(Runtime &runtime) :
+		m_runtime(runtime) {
 	}
 };
 

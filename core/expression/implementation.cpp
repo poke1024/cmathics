@@ -214,8 +214,8 @@ bool Expression::is_numeric() const {
 }
 
 
-SortKey Expression::sort_key() const {
-	MonomialMap m(LegacyPool::monomial_map_allocator());
+void Expression::sort_key(SortKey &key, const Evaluation &evaluation) const {
+	MonomialMap m;
 
 	switch (_head->symbol()) {
 		case S::Times: {
@@ -253,10 +253,10 @@ SortKey Expression::sort_key() const {
 	}
 
 	if (!m.empty()) {
-		return SortKey::construct(
+		key.construct(
 			is_numeric() ? 1 : 2, 2, std::move(m), 1, SortByHead(this), SortByLeaves(this), 1);
 	} else {
-		return SortKey::construct(
+		key.construct(
 			is_numeric() ? 1 : 2, 3, SortByHead(this), SortByLeaves(this), 1);
 	}
 }

@@ -124,10 +124,8 @@ inline BaseExpressionRef mul_slow(
 			}
 		}
 
-		new_rest.sort();
-
 		const BaseExpressionRef result =
-			expression(evaluation.Times, std::move(new_rest));
+			new_rest.sorted(evaluation.Times, evaluation);
 
 		if (result->same(expr)) {
 			if (is_active_form) {

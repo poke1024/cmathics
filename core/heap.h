@@ -91,11 +91,13 @@ protected:
 
 	bool has_rule_with_pattern(
 		std::vector<Entry> &entries,
-		const BaseExpressionRef &lhs);
+		const BaseExpressionRef &lhs,
+		const Evaluation &evaluation);
 
 	void insert_rule(
 		std::vector<Entry> &entries,
-		const Entry &entry);
+		const Entry &entry,
+		const Evaluation &evaluation);
 
 	template<typename Expression, typename Filter>
 	inline optional<BaseExpressionRef> apply(
@@ -104,9 +106,13 @@ protected:
 		const Evaluation &evaluation) const;
 
 public:
-    void add(const typename Entry::RuleRef &rule);
+    void add(
+	    const typename Entry::RuleRef &rule,
+	    const Evaluation &evaluation);
 
-	bool has_rule_with_pattern(const BaseExpressionRef &lhs);
+	bool has_rule_with_pattern(
+		const BaseExpressionRef &lhs,
+		const Evaluation &evaluation);
 
 	inline auto begin() const {
 		return m_all_rules.begin();
@@ -246,7 +252,7 @@ public:
 		const Evaluation &evaluation) const;
 };
 
-using SymbolRulesMap = SymbolRefMap<Rules>;
+using SymbolRulesMap = CustomAllocatedMap<SymbolRefMap<Rules>>;
 
 class Cache;
 
@@ -266,46 +272,15 @@ private:
 
 private:
     SlotAllocator _slots;
-    VectorAllocator<UnsafeBaseExpressionRef> _unsafe_ref_vector_allocator;
     VectorAllocator<BaseExpressionRef> _ref_vector_allocator;
 
-	ObjectAllocator<VariableMap::value_type> _variable_map;
-    ObjectAllocator<OptionsMap::value_type> _options_map;
-	ObjectAllocator<SymbolStateMap::value_type> _symbol_state_map;
-    ObjectAllocator<MonomialMap::value_type> _monomial_map;
-    ObjectAllocator<SymbolRulesMap::value_type> _rules_map_allocator;
-
 public:
-	static inline auto &variable_map_allocator() {
-		return _s_instance->_variable_map;
-	}
-
-    static inline auto &options_map_allocator() {
-        return _s_instance->_options_map;
-    }
-
-	static inline auto &symbol_state_map_allocator() {
-		return _s_instance->_symbol_state_map;
-	}
-
-    static inline auto &monomial_map_allocator() {
-        return _s_instance->_monomial_map;
-    }
-
 	static inline auto &slots_allocator() {
 		return _s_instance->_slots;
 	}
 
-    static inline auto &unsafe_ref_vector_allocator() {
-        return _s_instance->_unsafe_ref_vector_allocator;
-    }
-
     static inline auto &safe_ref_vector_allocator() {
         return _s_instance->_ref_vector_allocator;
-    }
-
-    static inline auto &rules_map_allocator() {
-        return _s_instance->_rules_map_allocator;
     }
 
 public:

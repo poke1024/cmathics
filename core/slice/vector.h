@@ -1,133 +1,42 @@
 #pragma once
 
-class SwappableBaseExpressionRef {
+class TemporaryRefVector : public std::vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>> {
 private:
-    BaseExpressionRef *m_ref;
+	using Allocator = VectorAllocator<UnsafeBaseExpressionRef>;
+
+	static Allocator s_allocator;
 
 public:
-    inline SwappableBaseExpressionRef() : m_ref(nullptr) {
-    }
+	inline TemporaryRefVector() : vector<UnsafeBaseExpressionRef, Allocator>(s_allocator) {
+	}
 
-    inline SwappableBaseExpressionRef(BaseExpressionRef &ref) : m_ref(&ref) {
-    }
-
-    inline SwappableBaseExpressionRef &operator=(const SwappableBaseExpressionRef &ref) {
-        m_ref = ref.m_ref;
-        return *this;
-    }
-
-    inline BaseExpressionPtr operator->() const {
-        return m_ref->get();
-    }
-
-    friend void swap(SwappableBaseExpressionRef a, SwappableBaseExpressionRef b) {
-        a.m_ref->unsafe_swap(*b.m_ref);
-    }
+	inline ExpressionRef to_expression(const BaseExpressionRef &head) const;
 };
 
-class MutableIterator {
+class SortKeyVector : public std::vector<SortKey, VectorAllocator<SortKey>> {
 private:
-    std::vector<BaseExpressionRef>::iterator m_iterator;
+	using Allocator = VectorAllocator<SortKey>;
+
+	static Allocator s_allocator;
 
 public:
-    using iterator_type = std::vector<BaseExpressionRef>::iterator;
-
-    inline MutableIterator() {
-    }
-
-    inline MutableIterator(const std::vector<BaseExpressionRef>::iterator &iterator) :
-        m_iterator(iterator) {
-    }
-
-    inline MutableIterator &operator=(const MutableIterator &i) {
-        m_iterator = i.m_iterator;
-        return *this;
-    }
-
-    inline bool operator==(const MutableIterator &i) const {
-        return m_iterator == i.m_iterator;
-    }
-
-    inline bool operator>=(const MutableIterator &i) const {
-        return m_iterator >= i.m_iterator;
-    }
-
-    inline bool operator>(const MutableIterator &i) const {
-        return m_iterator > i.m_iterator;
-    }
-
-    inline bool operator<=(const MutableIterator &i) const {
-        return m_iterator <= i.m_iterator;
-    }
-
-    inline bool operator<(const MutableIterator &i) const {
-        return m_iterator < i.m_iterator;
-    }
-
-    inline bool operator!=(const MutableIterator &i) const {
-        return m_iterator != i.m_iterator;
-    }
-
-    inline SwappableBaseExpressionRef operator[](size_t i) const {
-        return SwappableBaseExpressionRef(m_iterator[i]);
-    }
-
-    inline SwappableBaseExpressionRef operator*() const {
-        return SwappableBaseExpressionRef(*m_iterator);
-    }
-
-    inline auto operator-(const MutableIterator &i) const {
-        return m_iterator - i.m_iterator;
-    }
-
-    inline MutableIterator operator--(int) {
-        MutableIterator previous(*this);
-        --m_iterator;
-        return previous;
-    }
-
-    inline MutableIterator &operator--() {
-        --m_iterator;
-        return *this;
-    }
-
-    inline MutableIterator operator++(int) {
-        MutableIterator previous(*this);
-        ++m_iterator;
-        return previous;
-    }
-
-    inline MutableIterator &operator++() {
-        ++m_iterator;
-        return *this;
-    }
-
-    inline MutableIterator operator+(size_t i) const {
-        return MutableIterator(m_iterator + i);
-    }
-
-    inline MutableIterator &operator+=(size_t i) {
-        m_iterator += i;
-        return *this;
-    }
-
-    inline MutableIterator operator-(size_t i) const {
-        return MutableIterator(m_iterator - i);
-    }
-
-    inline MutableIterator &operator-=(size_t i) {
-        m_iterator -= i;
-        return *this;
-    }
+	inline SortKeyVector(size_t n) : vector<SortKey, Allocator>(n, s_allocator) {
+	}
 };
 
-namespace std {
-    template<>
-    struct iterator_traits<MutableIterator> {
-        using difference_type = MutableIterator::iterator_type::difference_type;
-        using value_type = SwappableBaseExpressionRef;
-    };
-}
+class IndexVector : public std::vector<size_t, VectorAllocator<size_t>> {
+private:
+	using Allocator = VectorAllocator<size_t>;
+
+	static Allocator s_allocator;
+
+public:
+	inline IndexVector() : vector<size_t, Allocator>(s_allocator) {
+	}
+};
+
+template<typename V>
+ExpressionRef sorted(const V &vector, const BaseExpressionRef &head, const Evaluation &evaluation);
 
 template<typename Allocator>
 class LeafVectorBase {
@@ -196,23 +105,9 @@ public:
         return std::move(m_leaves[i]);
     }
 
-    inline void sort() {
-        std::sort(
-            MutableIterator(m_leaves.begin()),
-            MutableIterator(m_leaves.end()),
-            [] (const SwappableBaseExpressionRef &x, const SwappableBaseExpressionRef &y) {
-                return x->sort_key().compare(y->sort_key()) < 0;
-            });
+    inline ExpressionRef sorted(const BaseExpressionRef &head, const Evaluation &evaluation) const {
+	    return ::sorted(m_leaves, head, evaluation);
     }
 };
 
 using LeafVector = LeafVectorBase<std::allocator<BaseExpressionRef>>;
-
-class TempVector : public std::vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>> {
-public:
-    inline TempVector() : vector<UnsafeBaseExpressionRef, VectorAllocator<UnsafeBaseExpressionRef>>(
-        LegacyPool::unsafe_ref_vector_allocator()) {
-    }
-
-    inline ExpressionRef to_expression(const BaseExpressionRef &head) const;
-};

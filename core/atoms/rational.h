@@ -13,7 +13,7 @@ public:
     static constexpr Type Type = BigRationalType;
 
     mpq_class value;
-    mutable optional<hash_t> m_hash;
+    mutable Spinlocked<optional<hash_t>> m_hash;
 
     inline explicit BigRational(machine_integer_t x, machine_integer_t y) :
         BaseExpression(BigRationalExtendedType),
@@ -33,10 +33,14 @@ public:
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
     virtual hash_t hash() const {
-        if (!m_hash) {
-            m_hash = hash_combine(hash_mpz(value.get_num()), hash_mpz(value.get_den()));
-        }
-        return *m_hash;
+	    return m_hash.lock([this] (auto &hash) {
+		    if (!hash) {
+			    hash = hash_combine(
+					hash_mpz(value.get_num()),
+					hash_mpz(value.get_den()));
+		    }
+		    return *hash;
+	    });
     }
 
     virtual inline bool same(const BaseExpression &expr) const final {
@@ -77,6 +81,8 @@ public:
 	}
 
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
+
+	virtual void sort_key(SortKey &key, const Evaluation &evaluation) const final;
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {

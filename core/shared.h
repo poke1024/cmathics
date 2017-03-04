@@ -1,5 +1,7 @@
 // @formatter:off
 
+#include <thread>
+
 template<typename T>
 class ConstSharedPtr;
 
@@ -413,19 +415,23 @@ private:
 
 public:
 	template<typename F>
-	inline void store(const F &f)  {
+	inline auto lock(const F &f)  {
 		std::atomic_flag &lock = m_lock;
-		while (true) {
-			if (lock.test_and_set(std::memory_order_acq_rel) == false) {
-				f(m_data);
-				lock.clear(std::memory_order_release);
-				return;
-			}
+		while (lock.test_and_set(std::memory_order_acq_rel)) {
+			std::this_thread::yield();
+		}
+		try {
+			auto result = f(m_data);
+			lock.clear(std::memory_order_release);
+			return result;
+		} catch(...) {
+			lock.clear(std::memory_order_release);
+			throw;
 		}
 	}
 
 	template<typename F>
-	inline auto load(const F &f) const  {
+	inline auto lock_and_release_early(const F &f) const  {
 		std::atomic_flag &lock = m_lock;
 		while (true) {
 			if (lock.test_and_set(std::memory_order_acq_rel) == false) {

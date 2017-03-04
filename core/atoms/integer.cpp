@@ -48,6 +48,10 @@ optional<SExp> MachineInteger::to_s_exp(optional<machine_integer_t> &n) const {
         true);
 }
 
+void MachineInteger::sort_key(SortKey &key, const Evaluation &evaluation) const {
+	key.construct(0, 0, BaseExpressionPtr(this), evaluation.zero, 1);
+}
+
 std::string BigInteger::debugform() const {
 	return value.get_str();
 }
@@ -87,5 +91,9 @@ optional<SExp> BigInteger::to_s_exp(optional<machine_integer_t> &n) const {
     n = s.length();
     const StringRef str(String::construct(std::move(s)));
     return std::make_tuple(str, exp, non_negative, true);
-
 }
+
+void BigInteger::sort_key(SortKey &key, const Evaluation &evaluation) const {
+	key.construct(0, 0, BaseExpressionPtr(this), evaluation.zero, 1);
+}
+

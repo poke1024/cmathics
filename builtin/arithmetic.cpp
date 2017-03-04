@@ -282,6 +282,8 @@ inline BaseExpressionRef operator*(const BigRational &x, const BigRational &y) {
 }
 
 struct plus {
+	using Function = BinaryArithmeticFunction;
+
 	template<typename U, typename V>
 	static inline BaseExpressionRef function(const U &u, const V &v, const Evaluation &) {
 		return u + v;
@@ -296,6 +298,8 @@ struct plus {
 };
 
 struct times {
+	using Function = BinaryArithmeticFunction;
+
 	template<typename U, typename V>
 	static inline BaseExpressionRef function(const U &u, const V &v, const Evaluation &) {
 		return u * v;
@@ -323,9 +327,9 @@ inline const BaseExpression *if_divisor(const BaseExpression *b_base) {
 	return args[0].get();
 }
 
-class TimesArithmetic : public BinaryArithmetic<times> {
+class TimesArithmetic : public BinaryOperator<times> {
 public:
-    using Base = BinaryArithmetic<times>;
+    using Base = BinaryOperator<times>;
 
 	TimesArithmetic(const Definitions& definitions) : Base(definitions) {
 		// detect Times[x, Power[y, -1]] and use fast divide if possible.
@@ -464,7 +468,7 @@ public:
 
         builtin<EmptyConstantRule<0>>();
         builtin<IdentityRule>();
-        builtin<BinaryOperatorRule<BinaryArithmetic<plus>>>();
+        builtin<BinaryArithmeticRule<BinaryOperator<plus>>>();
         builtin<PlusNRule>();
 
         format(&Plus::do_format, runtime.symbols().All);
@@ -484,7 +488,7 @@ private:
     CachedBaseExpressionRef m_precedence;
 
     inline BaseExpressionRef create_infix(
-        const TempVector &items,
+        const TemporaryRefVector &items,
         const BaseExpressionRef &op,
         const BaseExpressionRef &precedence,
         const SymbolRef &grouping,
@@ -510,7 +514,7 @@ public:
 	void build(Runtime &runtime) {
         builtin<EmptyConstantRule<1>>();
         builtin<IdentityRule>();
-        builtin<BinaryOperatorRule<TimesArithmetic>>();
+        builtin<BinaryArithmeticRule<TimesArithmetic>>();
         builtin<TimesNRule>();
 
         const auto &symbols = runtime.symbols();
@@ -530,8 +534,8 @@ public:
         const Evaluation &evaluation,
         const BaseExpressionRef &op) {
 
-        TempVector positive;
-        TempVector negative;
+        TemporaryRefVector positive;
+        TemporaryRefVector negative;
         positive.reserve(n);
 
         for (size_t i = 0; i < n; i++) {
@@ -1054,7 +1058,7 @@ public:
 
 		switch (expr->type()) {
 			case MachineComplexType:
-				return MachineReal::construct(static_cast<const MachineComplex*>(expr)->value.real());
+				return MachineReal::construct(static_cast<const MachineComplex*>(expr)->m_value.real());
 
 			case BigComplexType:
 				return from_symbolic_form(
@@ -1103,7 +1107,7 @@ public:
 
 		switch (expr->type()) {
 			case MachineComplexType:
-				return MachineReal::construct(static_cast<const MachineComplex*>(expr)->value.imag());
+				return MachineReal::construct(static_cast<const MachineComplex*>(expr)->m_value.imag());
 
 			case BigComplexType:
 				return from_symbolic_form(

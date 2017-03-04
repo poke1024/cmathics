@@ -210,3 +210,27 @@ inline auto parallel(const F &f, up_to n) {
 	return VPGenerator<const F&>(f, *n);
 #endif
 }
+
+template<typename V>
+ExpressionRef sorted(const V &vector, const BaseExpressionRef &head, const Evaluation &evaluation) {
+	const size_t n = vector.size();
+
+	SortKeyVector keys(n);
+	IndexVector indices;
+	indices.reserve(n);
+
+	for (size_t i = 0; i < n; i++) {
+		vector[i]->sort_key(keys[i], evaluation);
+		indices.push_back(i);
+	}
+
+	std::sort(indices.begin(), indices.end(), [&keys, &evaluation] (size_t i, size_t j) {
+		return keys[i].compare(keys[j], evaluation) < 0;
+	});
+
+	return expression(head, sequential([n, &vector, &indices] (auto &store) {
+		for (size_t i = 0; i < n; i++) {
+			store(BaseExpressionRef(vector[indices[i]]));
+		}
+	}, n));
+}

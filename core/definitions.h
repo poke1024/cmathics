@@ -28,6 +28,9 @@ public:
 	}
 };
 
+template<typename T>
+class BinaryOperator;
+
 class Definitions {
 private:
     std::unordered_map<SymbolKey, MutableSymbolRef> m_definitions;
@@ -43,6 +46,8 @@ protected:
 
 public:
     Definitions();
+
+	virtual ~Definitions();
 
     SymbolRef lookup(const char *name);
 
@@ -73,6 +78,8 @@ public:
     const SymbolicFormRef no_symbolic_form;
     const MatchRef default_match;
     const ExpressionRef empty_list;
+
+	const BinaryOperator<struct order> *order;
 };
 
 #endif

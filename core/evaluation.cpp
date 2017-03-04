@@ -13,6 +13,7 @@ Evaluation::Evaluation(
     bool new_catch_interrupts) :
 
 	Symbols(new_definitions.symbols()),
+    zero(new_definitions.zero.get()),
 
     m_output(output),
 	definitions(new_definitions) {

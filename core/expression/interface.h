@@ -155,9 +155,9 @@ protected:
 
     inline ExpressionRef flatten_sequence_or_copy() const;
 
-	virtual SortKey sort_key() const final;
+	virtual void sort_key(SortKey &key, const Evaluation &evaluation) const final;
 
-	virtual SortKey pattern_key() const final;
+	virtual void pattern_key(SortKey &key, const Evaluation &evaluation) const final;
 
 	virtual inline bool same(const BaseExpression &item) const final;
 

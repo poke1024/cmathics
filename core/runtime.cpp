@@ -157,18 +157,22 @@ void Runtime::init() {
     Parallel::init();
 }
 
-Runtime::Runtime() : _parser(_definitions) {
-    const SymbolRef General = _definitions.symbols().General;
+Runtime::Runtime() :
+	_parser(_definitions),
+     _bootstrap_evaluation(std::make_shared<NoOutput>(), _definitions, true) {
 
-    General->add_message("normal", "Nonatomic expression expected.", _definitions);
-    General->add_message("iterb", "Iterator does not have appropriate bounds.", _definitions);
-	General->add_message("level", "Level specification `1` is not of the form n, {n}, or {m, n}.", _definitions);
-    General->add_message("optx", "Unknown option `1` in `2`.", _definitions);
-    General->add_message("string", "String expected.", _definitions);
-    General->add_message("indet", "Indeterminate expression `1` encountered.", _definitions);
-    General->add_message("sym", "Argument `1` at position `2` is expected to be a symbol.", _definitions);
-	General->add_message("locked", "Symbol `1` is locked.", _definitions);
-	General->add_message("string", "String expected.", _definitions);
+    const SymbolRef General = _definitions.symbols().General;
+	const auto &evaluation = _bootstrap_evaluation;
+
+    General->add_message("normal", "Nonatomic expression expected.", evaluation);
+    General->add_message("iterb", "Iterator does not have appropriate bounds.", evaluation);
+	General->add_message("level", "Level specification `1` is not of the form n, {n}, or {m, n}.", evaluation);
+    General->add_message("optx", "Unknown option `1` in `2`.", evaluation);
+    General->add_message("string", "String expected.", evaluation);
+    General->add_message("indet", "Indeterminate expression `1` encountered.", evaluation);
+    General->add_message("sym", "Argument `1` at position `2` is expected to be a symbol.", evaluation);
+	General->add_message("locked", "Symbol `1` is locked.", evaluation);
+	General->add_message("string", "String expected.", evaluation);
 
     Experimental(*this).initialize();
 
@@ -215,7 +219,8 @@ void Runtime::add(
     const SymbolRef symbol = _definitions.lookup(full_down.c_str());
     symbol->state().add_attributes(attributes);
     for (const NewRuleRef &new_rule : rules) {
-        symbol->state().add_rule(new_rule(symbol, _definitions));
+        symbol->state().add_rule(
+		    new_rule(symbol, _bootstrap_evaluation), _bootstrap_evaluation);
     }
 }
 

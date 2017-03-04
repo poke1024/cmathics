@@ -60,8 +60,8 @@ private:
 	const F m_func;
 
 public:
-	BuiltinRule(const SymbolRef &head, const Definitions &definitions, const F &func) :
-		ExactlyNRule<N>(head, definitions), m_func(func) {
+	BuiltinRule(const SymbolRef &head, const Evaluation &evaluation, const F &func) :
+		ExactlyNRule<N>(head, evaluation), m_func(func) {
 	}
 
 	virtual optional<BaseExpressionRef> try_apply(
@@ -94,8 +94,8 @@ private:
 	const F _func;
 
 public:
-	VariadicBuiltinRule(const SymbolRef &head, const Definitions &definitions, const F &func) :
-		AtLeastNRule<N>(head, definitions), _func(func) {
+	VariadicBuiltinRule(const SymbolRef &head, const Evaluation &evaluation, const F &func) :
+		AtLeastNRule<N>(head, evaluation), _func(func) {
 	}
 
 	virtual optional<BaseExpressionRef> try_apply(
@@ -195,11 +195,11 @@ private:
 public:
 	OptionsBuiltinRule(
 		const SymbolRef &head,
-		Definitions &definitions,
+		const Evaluation &evaluation,
 		const OptionsInitializerList &options,
 		const F &func) :
 
-		AtLeastNRule<N>(head, definitions), m_head(head), m_func(func), m_options(definitions, options) {
+		AtLeastNRule<N>(head, evaluation), m_head(head), m_func(func), m_options(evaluation.definitions, options) {
 	}
 
 	virtual optional<BaseExpressionRef> try_apply(
@@ -255,12 +255,12 @@ public:
 	}
 };
 
-typedef std::function<RuleRef(const SymbolRef &head, Definitions &definitions)> NewRuleRef;
+typedef std::function<RuleRef(const SymbolRef &head, Evaluation &evaluation)> NewRuleRef;
 
 template<int N, typename F>
 inline NewRuleRef make_builtin_rule(const F &func) {
-	return [func] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
-		return BuiltinRule<N, F>::construct(head, definitions, func);
+	return [func] (const SymbolRef &head, Evaluation &evaluation) -> RuleRef {
+		return BuiltinRule<N, F>::construct(head, evaluation, func);
 	};
 }
 
@@ -272,8 +272,9 @@ private:
 	const RewriteBaseExpression m_rewrite;
 
 public:
-	RewriteRule(const BaseExpressionRef &patt, const BaseExpressionRef &into, Definitions &definitions) :
-		Rule(patt), m_into(into), m_matcher(patt), m_rewrite(m_matcher.prepare(into, definitions)) {
+	RewriteRule(const BaseExpressionRef &patt, const BaseExpressionRef &into, const Evaluation &evaluation) :
+		Rule(patt, evaluation), m_into(into), m_matcher(patt),
+		m_rewrite(m_matcher.prepare(into, evaluation.definitions)) {
 	}
 
 	virtual optional<BaseExpressionRef> try_apply(

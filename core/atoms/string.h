@@ -429,6 +429,8 @@ public:
 	virtual bool is_numeric() const {
 		return false;
 	}
+
+	virtual void sort_key(SortKey &key, const Evaluation &evaluation) const final;
 };
 
 inline const String *BaseExpression::as_string() const {

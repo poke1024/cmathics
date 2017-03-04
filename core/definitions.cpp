@@ -4,6 +4,8 @@
 #include "core/pattern/arguments.h"
 #include "builtin.h"
 #include "core/pattern/matcher.tcc"
+#include "arithmetic/binary.h"
+#include "arithmetic/compare.tcc"
 
 inline DefinitionsPos get_definitions_pos(
 	BaseExpressionPtr pattern,
@@ -93,7 +95,11 @@ void SymbolState::remove_attributes(Attributes attributes) {
 	m_dispatch = EvaluateDispatch::pick(attributes);
 }
 
-void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs, Definitions &definitions) {
+void SymbolState::add_rule(
+	BaseExpressionPtr lhs,
+	BaseExpressionPtr rhs,
+	const Evaluation &evaluation) {
+
 	switch (get_definitions_pos(lhs, m_symbol)) {
 		case DefinitionsPos::None:
 			break;
@@ -101,18 +107,21 @@ void SymbolState::add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs, Definit
 			m_own_value = rhs;
 			break;
         case DefinitionsPos::Up:
-            add_up_rule(UpRule::construct(lhs, rhs, definitions));
+            add_up_rule(UpRule::construct(lhs, rhs, evaluation), evaluation);
             break;
 		case DefinitionsPos::Down:
-			add_down_rule(DownRule::construct(lhs, rhs, definitions));
+			add_down_rule(DownRule::construct(lhs, rhs, evaluation), evaluation);
 			break;
 		case DefinitionsPos::Sub:
-			add_sub_rule(SubRule::construct(lhs, rhs, definitions));
+			add_sub_rule(SubRule::construct(lhs, rhs, evaluation), evaluation);
 			break;
 	}
 }
 
-void SymbolState::add_rule(const RuleRef &rule) {
+void SymbolState::add_rule(
+	const RuleRef &rule,
+	const Evaluation &evaluation) {
+
 	switch (get_definitions_pos(rule->pattern.get(), m_symbol)) {
 		case DefinitionsPos::None:
 			break;
@@ -120,13 +129,13 @@ void SymbolState::add_rule(const RuleRef &rule) {
 			m_own_value = rule->rhs();
 			break;
         case DefinitionsPos::Up:
-            add_up_rule(rule);
+            add_up_rule(rule, evaluation);
             break;
 		case DefinitionsPos::Down:
-			add_down_rule(rule);
+			add_down_rule(rule, evaluation);
 			break;
 		case DefinitionsPos::Sub:
-			add_sub_rule(rule);
+			add_sub_rule(rule, evaluation);
 			break;
 	}
 }
@@ -134,21 +143,24 @@ void SymbolState::add_rule(const RuleRef &rule) {
 void SymbolState::add_format(
     const RuleRef &rule,
     const SymbolRef &form,
-    const Definitions &definitions) {
+    const Evaluation &evaluation) {
 
     UnsafeFormatRuleRef format_rule;
 
-    if (form == definitions.symbols().All) {
+    if (form == evaluation.All) {
         format_rule = FormatRule::construct(rule);
     } else {
         format_rule = FormatRule::construct(rule, form);
     }
 
-    mutable_rules()->format_values.add(format_rule);
+    mutable_rules()->format_values.add(format_rule, evaluation);
 }
 
-bool SymbolState::has_format(const BaseExpressionRef &lhs) const {
-	return rules() && rules()->format_values.has_rule_with_pattern(lhs);
+bool SymbolState::has_format(
+	const BaseExpressionRef &lhs,
+	const Evaluation &evaluation) const {
+
+	return rules() && rules()->format_values.has_rule_with_pattern(lhs, evaluation);
 }
 
 Definitions::Definitions() :
@@ -159,7 +171,11 @@ Definitions::Definitions() :
     minus_one(MachineInteger::construct(-1)),
     no_symbolic_form(SymbolicForm::construct(SymEngineRef())),
     default_match(Match::construct()),
-    empty_list(expression(m_symbols.List)) {
+    empty_list(expression(m_symbols.List)),
+    order(new BinaryOperator<struct order>(*this)) {
+}
+
+Definitions::~Definitions() {
 }
 
 SymbolRef Definitions::new_symbol(const char *name, SymbolName symbol_name) {

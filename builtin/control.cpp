@@ -154,10 +154,8 @@ public:
     void build(Runtime &runtime) {
         builtin(&Switch::apply);
 
-        m_symbol->add_message(
-            "argct",
-            "Switch called with `1` arguments. Switch must be called with an odd number of arguments.",
-            runtime.definitions());
+        message("argct",
+            "Switch called with `1` arguments. Switch must be called with an odd number of arguments.");
     }
 
     inline BaseExpressionRef apply(

@@ -10,13 +10,14 @@ void Messages::add(
     const SymbolRef &name,
     const char *tag,
     const char *text,
-    Definitions &definitions) {
+    const Evaluation &evaluation) {
 
 	m_rules.add(
 		DownRule::construct(
-			expression(definitions.symbols().MessageName, name, String::construct(std::string(tag))),
+			expression(evaluation.MessageName, name, String::construct(std::string(tag))),
 			String::construct(std::string(text)),
-            definitions));
+			evaluation),
+		evaluation);
 }
 
 StringRef Messages::lookup(
@@ -44,12 +45,12 @@ BaseExpressionPtr Symbol::head(const Symbols &symbols) const {
 void Symbol::add_message(
     const char *tag,
     const char *text,
-    Definitions &definitions) const {
+    const Evaluation &evaluation) const {
 
 	SymbolRules *rules = state().mutable_rules();
     rules->messages.ensure([] () {
         return Messages::construct();
-    })->add(SymbolRef(this), tag, text, definitions);
+    })->add(SymbolRef(this), tag, text, evaluation);
 }
 
 StringRef Symbol::lookup_message(

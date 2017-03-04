@@ -47,6 +47,8 @@ inline std::string message_placeholder(size_t index) {
 class Evaluation : public Symbols {
 public:
     Definitions &definitions;
+	BaseExpressionPtr zero;
+
     int64_t recursion_depth;
     bool timeout;
     bool stopped;

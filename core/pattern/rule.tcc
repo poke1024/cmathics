@@ -10,8 +10,8 @@ typedef RewriteRule<Matcher> UpRule;
 typedef RewriteRule<SequenceMatcher> DownRule;
 
 inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
-    return [patt, into] (const SymbolRef &head, Definitions &definitions) -> RuleRef {
-        return RuleRef(DownRule::construct(patt, into, definitions));
+    return [patt, into] (const SymbolRef &head, Evaluation &evaluation) -> RuleRef {
+        return RuleRef(DownRule::construct(patt, into, evaluation));
     };
 }
 
@@ -26,8 +26,8 @@ private:
     const SequenceMatcher matcher;
 
 public:
-    inline PatternMatchedBuiltinRule(const BaseExpressionRef &patt, const F &f) :
-        Rule(patt), function(f), matcher(pattern) {
+    inline PatternMatchedBuiltinRule(const BaseExpressionRef &patt, const F &f, const Evaluation &evaluation) :
+        Rule(patt, evaluation), function(f), matcher(pattern) {
     }
 
     virtual optional<BaseExpressionRef> try_apply(
@@ -51,8 +51,8 @@ public:
         return pattern->as_expression()->leaf_match_size();
     }
 
-    virtual SortKey pattern_key() const {
-        return pattern->pattern_key();
+    virtual void pattern_key(SortKey &key, const Evaluation &evaluation) const {
+	    pattern->pattern_key(key, evaluation);
     }
 };
 
@@ -69,13 +69,14 @@ public:
     inline PatternMatchedOptionsBuiltinRule(
         const BaseExpressionRef &patt,
         const F &f,
-        const OptionsDefinitions<Options> &options) :
-        Rule(patt), m_function(f), m_matcher(pattern), m_options(options) {
+        const OptionsDefinitions<Options> &options,
+        const Evaluation &evaluation) :
+        Rule(patt, evaluation), m_function(f), m_matcher(pattern), m_options(options) {
     }
 
     virtual optional<BaseExpressionRef> try_apply(
-            const Expression *expr,
-            const Evaluation &evaluation) const {
+        const Expression *expr,
+        const Evaluation &evaluation) const {
 
         StaticOptionsProcessor<Options> processor(m_options);
         const MatchRef match = m_matcher(
@@ -96,8 +97,8 @@ public:
         return pattern->as_expression()->leaf_match_size();
     }
 
-    virtual SortKey pattern_key() const {
-        return pattern->pattern_key();
+    virtual void pattern_key(SortKey &key, const Evaluation &evaluation) const {
+        pattern->pattern_key(key, evaluation);
     }
 };
 

@@ -134,7 +134,7 @@ public:
         const size_t end = base::m_end;
         const FReference f = base::m_f;
 
-        TempVector v;
+        TemporaryRefVector v;
 
         std::atomic_flag lock = ATOMIC_FLAG_INIT;
         bool changed = false;

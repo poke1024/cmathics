@@ -42,7 +42,7 @@ inline BaseExpressionRef from_primitive(const Numeric::Z &value) {
 }
 
 inline DynamicOptionsProcessor::DynamicOptionsProcessor() :
-	OptionsProcessor(Dynamic), m_options(LegacyPool::options_map_allocator()) {
+	OptionsProcessor(Dynamic) {
 }
 
 inline SlotVector::SlotVector(size_t size) : m_size(size) {

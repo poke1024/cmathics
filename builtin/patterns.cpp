@@ -270,6 +270,122 @@ public:
 	}
 };
 
+class BlankSequence : public Builtin {
+public:
+	static constexpr const char *name = "BlankSequence";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'BlankSequence[]'
+    <dt>'__'
+        <dd>represents any non-empty sequence of expression leaves in
+        a pattern.
+    <dt>'BlankSequence[$h$]'
+    <dt>'__$h$'
+        <dd>represents any sequence of leaves, all of which have head $h$.
+    </dl>
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("MakeBoxes[Verbatim[BlankSequence][], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+		    "\"__\"");
+		builtin("MakeBoxes[Verbatim[BlankSequence][head_Symbol], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+	        "\"__\" <> MakeBoxes[head, f]");
+	}
+};
+
+class BlankNullSequence : public Builtin {
+public:
+	static constexpr const char *name = "BlankNullSequence";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'BlankNullSequence[]'
+    <dt>'___'
+        <dd>represents any sequence of expression leaves in a pattern,
+        including an empty sequence.
+    </dl>
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin("MakeBoxes[Verbatim[BlankNullSequence][], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+	        "\"___\"");
+		builtin("MakeBoxes[Verbatim[BlankNullSequence][head_Symbol], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+	        "\"___\" <> MakeBoxes[head, f]");
+	}
+};
+
+class PatternTest : public BinaryOperatorBuiltin {
+public:
+	static constexpr const char *name = "PatternTest";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'PatternTest[$pattern$, $test$]'
+    <dt>'$pattern$ ? $test$'
+        <dd>constrains $pattern$ to match $expr$ only if the
+        evaluation of '$test$[$expr$]' yields 'True'.
+    </dl>
+
+    >> MatchQ[3, _Integer?(#>0&)]
+     = True
+    >> MatchQ[-3, _Integer?(#>0&)]
+     = False
+	)";
+
+public:
+	using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
+
+	void build(Runtime &runtime) {
+		add_binary_operator_formats();
+	}
+
+	virtual const char *operator_name() const {
+		return "?";
+	}
+
+	virtual int precedence() const {
+		return 680;
+	}
+};
+
+class Condition : public BinaryOperatorBuiltin {
+public:
+	static constexpr const char *name = "Condition";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Condition[$pattern$, $expr$]'
+    <dt>'$pattern$ /; $expr$'
+        <dd>places an additional constraint on $pattern$ that only
+        allows it to match if $expr$ evaluates to 'True'.
+    </dl>
+	)";
+
+	static constexpr auto attributes = Attributes::HoldRest;
+
+public:
+	using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
+
+	void build(Runtime &runtime) {
+		add_binary_operator_formats();
+	}
+
+	virtual const char *operator_name() const {
+		return "/;";
+	}
+
+	virtual int precedence() const {
+		return 130;
+	}
+};
+
 void Builtins::Patterns::initialize() {
     add<ReplaceAll>();
 	add<RuleDelayed>();
@@ -278,4 +394,8 @@ void Builtins::Patterns::initialize() {
 	add<HoldPattern>();
 	add<Pattern>();
 	add<Blank>();
+	add<BlankSequence>();
+	add<BlankNullSequence>();
+	add<PatternTest>();
+	add<Condition>();
 }

@@ -70,6 +70,8 @@ public:
 
     virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
 
+	virtual void sort_key(SortKey &key, const Evaluation &evaluation) const final;
+
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
         return SymbolicForm::construct(SymEngine::integer(value));
@@ -135,6 +137,8 @@ public:
 	virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
     virtual optional<SExp> to_s_exp(optional<machine_integer_t> &n) const final;
+
+	virtual void sort_key(SortKey &key, const Evaluation &evaluation) const final;
 
 protected:
 	virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {

@@ -54,7 +54,7 @@ inline StringRef NumberFormatter::blocks(
     machine_integer_t step,
     StringPtr separator) const {
 
-    TempVector strings;
+    TemporaryRefVector strings;
 
     if (start > 0) {
         strings.push_back(s->substr(0, start));

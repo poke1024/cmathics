@@ -4,7 +4,7 @@
 
 BaseExpressionRef function_pattern(
 	const SymbolRef &head,
-    const Definitions &definitions);
+    const Evaluation &evaluation);
 
 class SlotArguments {
 private:
@@ -238,20 +238,20 @@ private:
     }
 
 public:
-	FunctionRule(const SymbolRef &head, const Definitions &definitions) :
-		Rule(function_pattern(head, definitions)) {
+	FunctionRule(const SymbolRef &head, const Evaluation &evaluation) :
+		Rule(function_pattern(head, evaluation), evaluation) {
 	}
 
 	virtual optional<BaseExpressionRef> try_apply(
         const Expression *function,
         const Evaluation &evaluation) const {
 
-		const BaseExpressionRef &head = function->_head;
+		const BaseExpressionPtr head = function->head();
 		if (!head->is_expression()) {
 			return optional<BaseExpressionRef>();
 		}
 
-        const Expression * const head_expr = head->as_expression();
+        const ExpressionPtr head_expr = head->as_expression();
         switch (head_expr->size()) {
             case 1: // Function[body_][args___]
                 return slot(function, head_expr->n_leaves<1>()[0], evaluation);

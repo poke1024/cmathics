@@ -13,6 +13,11 @@
 #include "core/types.h"
 #include "core/hash.h"
 
+struct ComplexComponents {
+	BaseExpressionRef real;
+	BaseExpressionRef imag;
+};
+
 class MachineComplex : public BaseExpression, public PoolObject<MachineComplex> {
 private:
     static const std::hash<machine_real_t> hash_function;
@@ -20,10 +25,11 @@ private:
 public:
     static constexpr Type Type = MachineComplexType;
 
-    const std::complex<machine_real_t> value;
+    const std::complex<machine_real_t> m_value;
+    mutable Spinlocked<optional<ComplexComponents>> m_components;
 
     explicit MachineComplex(machine_real_t real, machine_real_t imag) :
-        BaseExpression(MachineComplexExtendedType), value(real, imag) {
+        BaseExpression(MachineComplexExtendedType), m_value(real, imag) {
     }
 
     virtual std::string debugform() const;
@@ -36,7 +42,7 @@ public:
 
     virtual inline bool same(const BaseExpression &expr) const final {
         if (expr.is_machine_complex()) {
-            return value == static_cast<const MachineComplex*>(&expr)->value;
+            return m_value == static_cast<const MachineComplex*>(&expr)->m_value;
         } else {
             return false;
         }
@@ -44,7 +50,7 @@ public:
 
     virtual hash_t hash() const {
         const hash_t value_hash = hash_pair(
-            hash_function(value.real()), hash_function(value.imag()));
+            hash_function(m_value.real()), hash_function(m_value.imag()));
         return hash_pair(machine_complex_hash, value_hash);
     }
 
@@ -61,14 +67,16 @@ public:
     }
 
     inline BaseExpressionRef conjugate() const {
-        return MachineComplex::construct(value.real(), -value.imag());
+        return MachineComplex::construct(m_value.real(), -m_value.imag());
     }
 
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
 
+    virtual void sort_key(SortKey &key, const Evaluation &evaluation) const final;
+
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {
-        return SymbolicForm::construct(SymEngine::complex_double(value));
+        return SymbolicForm::construct(SymEngine::complex_double(m_value));
     }
 };
 
@@ -76,10 +84,8 @@ class BigComplex : public BaseExpression, public PoolObject<BigComplex> {
 public:
     static constexpr Type Type = BigComplexType;
 
-    //acb_t value;
-    //const Precision prec;
-
-    SymEngineComplexRef m_value;
+    const SymEngineComplexRef m_value;
+	mutable Spinlocked<optional<ComplexComponents>> m_components;
 
     explicit inline BigComplex(const SymEngineComplexRef &value) :
         BaseExpression(BigComplexExtendedType), m_value(value) {
@@ -128,6 +134,8 @@ public:
     }
 
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const final;
+
+	virtual void sort_key(SortKey &key, const Evaluation &evaluation) const final;
 
 protected:
     virtual inline SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const final {

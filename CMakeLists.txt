@@ -130,7 +130,7 @@ set(SOURCE_FILES
     arithmetic/add.h
     arithmetic/mul.cpp
     arithmetic/mul.h
-    builtin/comparison.cpp
+        builtin/compare.cpp
     builtin/comparison.h
     arithmetic/binary.h
     builtin/evaluation.cpp
@@ -141,7 +141,27 @@ set(SOURCE_FILES
     builtin/options.h
     builtin/patterns.h
     builtin/patterns.cpp
-    core/atoms/numeric.tcc core/slice/collection.h core/slice/slice.h core/slice/packed.h core/slice/big.h core/slice/tiny.h core/attributes.h core/slice/method.h core/slice/array.h core/slice/vcall.h core/expression/interface.h core/slice/code.h core/atoms/precision.cpp core/pattern/arguments.tcc builtin/attributes.cpp builtin/attributes.h builtin/numeric.cpp builtin/numeric.h builtin/logic.cpp builtin/logic.h)
+    core/slice/vector.cpp
+    core/atoms/numeric.tcc
+        core/slice/collection.h
+        core/slice/slice.h
+        core/slice/packed.h
+        core/slice/big.h
+        core/slice/tiny.h
+        core/attributes.h
+        core/slice/method.h
+        core/slice/array.h
+        core/slice/vcall.h
+        core/expression/interface.h
+        core/slice/code.h
+        core/atoms/precision.cpp
+        core/pattern/arguments.tcc
+        builtin/attributes.cpp
+        builtin/attributes.h
+        builtin/numeric.cpp
+        builtin/numeric.h
+        builtin/logic.cpp
+        builtin/logic.h)
 
 add_custom_target(standalone)
 

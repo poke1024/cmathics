@@ -47,3 +47,7 @@ BaseExpressionPtr BigRational::head(const Symbols &symbols) const {
 BaseExpressionRef BigRational::negate(const Evaluation &evaluation) const {
     return from_primitive(-value);
 }
+
+void BigRational::sort_key(SortKey &key, const Evaluation &evaluation) const {
+	key.construct(0, 0, BaseExpressionPtr(this), evaluation.zero, 1);
+}

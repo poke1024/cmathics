@@ -37,6 +37,10 @@ std::string String::format(const SymbolRef &form, const Evaluation &evaluation) 
     return utf8();
 }
 
+void String::sort_key(SortKey &key, const Evaluation &evaluation) const {
+	return key.construct(0, 1, BaseExpressionPtr(this), 0, 1);
+}
+
 bool is_simple_encoding(BreakIterator *bi) {
     int32_t last_p = -1;
     int32_t p = bi->first();

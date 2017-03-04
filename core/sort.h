@@ -4,7 +4,8 @@
 inline int compare_sort_keys(
     const BaseExpressionRef &x,
     const BaseExpressionRef &y,
-    int pattern_sort);
+    int pattern_sort,
+	const Evaluation &evaluation);
 
 inline void increment_monomial(
 	MonomialMap &m,
@@ -25,10 +26,8 @@ private:
 
 public:
     int compare(const Monomial &other) const {
-        MonomialMap self_expressions(
-            m_expressions, LegacyPool::monomial_map_allocator());
-        MonomialMap other_expressions(
-            other.m_expressions, LegacyPool::monomial_map_allocator());
+        MonomialMap self_expressions(m_expressions);
+        MonomialMap other_expressions(other.m_expressions);
 
         auto i = self_expressions.begin();
         while (i != self_expressions.end()) {
@@ -105,6 +104,15 @@ public:
     inline Monomial(Monomial &&monomial) :
         m_expressions(std::move(monomial.m_expressions)) {
     }
+
+	inline Monomial(const Monomial &monomial) :
+		m_expressions(monomial.m_expressions) {
+	}
+
+	Monomial &operator=(const Monomial &monomial) {
+		m_expressions = monomial.m_expressions;
+		return *this;
+	}
 };
 
 class SortByHead {
@@ -130,17 +138,19 @@ public:
 
 struct SortKey {
     enum Type {
-        IntegerType = 0,
-        StringType = 1,
-        HeadType = 2,
-        LeavesType = 3,
-        MonomialType = 4
+        IntegerType,
+        CharPointerType,
+        HeadType,
+        LeavesType,
+        MonomialType,
+	    GenericType
     };
 
 	struct Data {
 		union {
-			const char *string;
-			const Expression *expression;
+			const char *char_pointer;
+			ExpressionPtr expression;
+			BaseExpressionPtr generic;
 		};
 	};
 
@@ -151,37 +161,55 @@ struct SortKey {
 	    unsigned integer: 8;
     } __attribute__ ((__packed__));
 
-    Element m_elements[10];
-	Data m_data[3];
+	enum {
+		n_elements = 10,
+		n_data = 3
+	};
+
+    Element m_elements[n_elements];
+	Data m_data[n_data];
 	optional<Monomial> m_monomial;
 	int8_t m_size;
+	int8_t m_data_size;
+
+	inline SortKey() {
+	}
 
     template<typename... Args>
-    static inline SortKey construct(Args&&... args);
+    inline void construct(Args&&... args);
 
-    int compare(const SortKey &key) const;
+    int compare(const SortKey &key, const Evaluation &evaluation) const;
 
 	template<int index>
-	Data &data() {
-		static_assert(index < sizeof(m_data) / sizeof(Data), "too many data elements");
+	inline Data &data() {
+		static_assert(index < n_data, "too many data elements");
 		return m_data[index];
 	}
 
-	void set_integer(int index, int value) {
+	inline void set_integer(int index, int value) {
 		assert(m_elements[index].type == IntegerType);
 		m_elements[index].integer = value;
 	}
 
-	void set_pattern_test(int value) {
+	inline void set_pattern_test(int value) {
 		set_integer(2, value); // see Pattern sort key structure
 	}
 
-	void set_condition(int value) {
+	inline void set_condition(int value) {
 		set_integer(7, value); // see Pattern sort key structure
 	}
 
-	void set_optional(int value) {
+	inline void set_optional(int value) {
 		set_integer(4, value); // see Pattern sort key structure
+	}
+
+	inline void append(const char *name) {
+		assert(m_size < n_elements);
+		assert(m_data_size < n_data);
+		auto &element = m_elements[m_size++];
+		element.type = SortKey::CharPointerType;
+		element.integer = m_data_size;
+		m_data[m_data_size++].char_pointer = name;
 	}
 };
 
@@ -211,9 +239,9 @@ struct BuildSortKey<const char*, ElementPosition, DataPosition> {
 
 	inline void store(SortKey &key, const char *x) {
 		auto &element = key.m_elements[ElementPosition];
-		element.type = SortKey::StringType;
+		element.type = SortKey::CharPointerType;
 		element.integer = DataPosition;
-		key.data<DataPosition>().string = x;
+		key.data<DataPosition>().char_pointer = x;
 
 	}
 };
@@ -264,23 +292,37 @@ struct BuildSortKey<MonomialMap, ElementPosition, DataPosition> {
 };
 
 template<int ElementPosition, int DataPosition>
+struct BuildSortKey<BaseExpressionPtr, ElementPosition, DataPosition> {
+	constexpr int next_data_position() const {
+		return DataPosition + 1;
+	}
+
+	inline void store(SortKey &key, BaseExpressionPtr item) {
+		auto &element = key.m_elements[ElementPosition];
+		element.type = SortKey::GenericType;
+		element.integer = DataPosition;
+		key.data<DataPosition>().generic = item;
+	}
+};
+
+template<int ElementPosition, int DataPosition>
 void make_sort_key(SortKey &data) {
     data.m_size = ElementPosition;
+	data.m_data_size = DataPosition;
 }
 
 template<int ElementPosition, int DataPosition, typename T, typename... Args>
 void make_sort_key(SortKey &data, T &&x, Args&&... args) {
     static_assert(ElementPosition < sizeof(data.m_elements) / sizeof(SortKey::Element), "too many elements");
-	BuildSortKey<T, ElementPosition, DataPosition> build;
-	build.store(data, std::move(x));
-    return make_sort_key<ElementPosition + 1, build.next_data_position()>(data, std::move(args)...);
+	BuildSortKey<typename std::remove_const<
+		typename std::remove_reference<T>::type>::type, ElementPosition, DataPosition> build;
+	build.store(data, std::forward<T>(x));
+    return make_sort_key<ElementPosition + 1, build.next_data_position()>(data, std::forward<Args>(args)...);
 }
 
 template<typename... Args>
-inline SortKey SortKey::construct(Args&&... args) {
-	SortKey k;
-    make_sort_key<0, 0>(k, std::forward<Args>(args)...);
-	return k;
+inline void SortKey::construct(Args&&... args) {
+    make_sort_key<0, 0>(*this, std::forward<Args>(args)...);
 }
 
 /*
@@ -295,30 +337,38 @@ Pattern sort key structure:
 7: 0/1:        0 for Condition
 */
 
-inline SortKey blank_sort_key(int pattern, size_t size, const Expression *expression) {
+inline void blank_sort_key(SortKey &key, int pattern, size_t size, const Expression *expression) {
 	if (size > 0) {
 		pattern += 10;
 	} else {
 		pattern += 20;
 	}
-	return SortKey::construct(
+	key.construct(
 		2, pattern, 1, 1, 0, SortByHead(expression, true), SortByLeaves(expression, true), 1);
 }
 
-inline SortKey not_a_pattern_sort_key(const Expression *expression) {
-	return SortKey::construct(
+inline void not_a_pattern_sort_key(SortKey &key, const Expression *expression) {
+	key.construct(
 		3, 0, 0, 0, 0, SortByHead(expression, true), SortByLeaves(expression, true), 1);
 }
 
 inline int compare_sort_keys(
     const BaseExpressionRef &x,
     const BaseExpressionRef &y,
-    int pattern_sort) {
+    int pattern_sort,
+    const Evaluation &evaluation) {
+
+	SortKey kx;
+	SortKey ky;
 
     if (pattern_sort) {
-        return x->pattern_key().compare(y->pattern_key());
+        x->pattern_key(kx, evaluation);
+	    y->pattern_key(ky, evaluation);
+	    return kx.compare(ky, evaluation);
     } else {
-        return x->sort_key().compare(y->sort_key());
+	    x->sort_key(kx, evaluation);
+	    y->sort_key(ky, evaluation);
+        return kx.compare(ky, evaluation);
     }
 }
 

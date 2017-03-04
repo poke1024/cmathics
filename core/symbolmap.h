@@ -40,6 +40,9 @@ public:
 	inline SymbolKey(const char *name) : _name(name) {
 	}
 
+	inline SymbolKey(const SymbolKey &key) : _symbol(key._symbol), _name(key._name) {
+	}
+
 	inline int compare(const SymbolKey &key) const;
 
 	inline bool operator==(const SymbolKey &key) const;
@@ -81,12 +84,47 @@ using SymbolPtrMap = SymbolMap<const Symbol*, Value>;
 template<typename Value>
 using SymbolRefMap = SymbolMap<const SymbolRef, Value>;
 
-using VariableMap = SymbolPtrMap<const BaseExpressionRef*>;
+template<typename T>
+class CustomAllocatedMap : public T {
+private:
+	static ObjectAllocator<typename T::value_type> s_allocator;
 
-using OptionsMap = SymbolRefMap<UnsafeBaseExpressionRef>;
+public:
+	inline CustomAllocatedMap() : T(s_allocator) {
+	}
 
-using ArgumentsMap = SymbolRefMap<UnsafeBaseExpressionRef>;
+	inline CustomAllocatedMap(const CustomAllocatedMap<T> &map) :
+		T(map, s_allocator) {
+	}
 
-using SymbolStateMap = SymbolRefMap<SymbolState>;
+	inline CustomAllocatedMap(const CustomAllocatedMap<T> &&map) :
+		T(std::move(map), s_allocator) {
+	}
+};
 
-using MonomialMap = std::map<SymbolKey, size_t>;
+template<typename T>
+ObjectAllocator<typename T::value_type> CustomAllocatedMap<T>::s_allocator;
+
+using VariableMap = CustomAllocatedMap<SymbolPtrMap<const BaseExpressionRef*>>;
+
+using OptionsMap = CustomAllocatedMap<SymbolRefMap<UnsafeBaseExpressionRef>>;
+
+using ArgumentsMap = CustomAllocatedMap<SymbolRefMap<UnsafeBaseExpressionRef>>;
+
+using SymbolStateMap = CustomAllocatedMap<SymbolRefMap<SymbolState>>;
+
+using MonomialMapBase = std::map<SymbolKey, size_t, std::less<SymbolKey>,
+	ObjectAllocator<std::pair<const SymbolKey, size_t>>>;
+
+class MonomialMap : public CustomAllocatedMap<MonomialMapBase> {
+public:
+	using CustomAllocatedMap<MonomialMapBase>::CustomAllocatedMap;
+
+	MonomialMap &operator=(const MonomialMap &m) {
+		clear();
+		for (auto i = m.begin(); i != m.end(); i++) {
+			insert(*i);
+		}
+		return *this;
+	}
+};

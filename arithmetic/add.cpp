@@ -153,9 +153,7 @@ inline BaseExpressionRef add_slow(
 					rest.push_back(BaseExpressionRef(result));
 				}
 
-				rest.sort();
-
-				result = expression(expr->head(), std::move(rest));
+				result = rest.sorted(expr->head(), evaluation);
 			}
 
 			if (result->same(expr)) {

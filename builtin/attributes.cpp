@@ -86,7 +86,7 @@ protected:
 
 public:
 	BaseExpressionRef operator()(const Attributes attributes) const {
-		TempVector list;
+		TemporaryRefVector list;
 
 		for (const Pair &p : m_attributes) {
 			if ((attributes & p.positive) && !(attributes & p.negative)) {

@@ -28,7 +28,7 @@
 #include "../pattern/rewrite.tcc"
 
 inline BaseExpressionRef Expression::materialize_leaf(size_t i) const {
-	return with_slice([i] (const auto &slice) {
+	return with_slice_c([i] (const auto &slice) {
 		return slice[i];
 	});
 }
@@ -94,6 +94,7 @@ inline ExpressionRef Expression::conditional_map_all(
 template<size_t N>
 inline const BaseExpressionRef *Expression::n_leaves() const {
     static_assert(N >= 0 && N <= MaxTinySliceSize, "N is too large");
+	assert(size() == N); // must be guaranteed by caller
     return static_cast<const TinySlice<N>*>(_slice_ptr)->refs();
 }
 
@@ -223,7 +224,7 @@ std::tuple<bool, UnsafeExpressionRef> Expression::thread(const Evaluation &evalu
 	});
 }
 
-inline ExpressionRef TempVector::to_expression(const BaseExpressionRef &head) const {
+inline ExpressionRef TemporaryRefVector::to_expression(const BaseExpressionRef &head) const {
     const auto &v = *this;
     return expression(head, sequential([&v] (auto &store) {
         const size_t n = v.size();
@@ -233,63 +234,100 @@ inline ExpressionRef TempVector::to_expression(const BaseExpressionRef &head) co
     }, size()));
 }
 
-inline SortKey Expression::pattern_key() const {
+inline void Expression::pattern_key(SortKey &key, const Evaluation &evaluation) const {
 	switch (_head->symbol()) {
 		case S::Blank:
-			return blank_sort_key(1, size(), this);
+			blank_sort_key(key, 1, size(), this);
+			break;
+
 		case S::BlankSequence:
-			return blank_sort_key(2, size(), this);
+			blank_sort_key(key, 2, size(), this);
+			break;
+
 		case S::BlankNullSequence:
-			return blank_sort_key(3, size(), this);
+			blank_sort_key(key, 3, size(), this);
+			break;
+
 		case S::PatternTest:
 			if (size() != 2) {
-				return not_a_pattern_sort_key(this);
+				not_a_pattern_sort_key(key, this);
 			} else {
-				SortKey key = n_leaves<2>()[0]->pattern_key();
+				n_leaves<2>()[0]->pattern_key(key, evaluation);
 				key.set_pattern_test(0);
-				return key;
 			}
+			break;
+
 		case S::Condition:
 			if (size() != 2) {
-				return not_a_pattern_sort_key(this);
+				not_a_pattern_sort_key(key, this);
 			} else {
-				SortKey key = n_leaves<2>()[0]->pattern_key();
+				n_leaves<2>()[0]->pattern_key(key, evaluation);
 				key.set_condition(0);
-				return key;
 			}
+			break;
+
 		case S::Pattern:
 			if (size() != 2) {
-				return not_a_pattern_sort_key(this);
+				not_a_pattern_sort_key(key, this);
 			} else {
-				SortKey key = n_leaves<2>()[1]->pattern_key();
+				n_leaves<2>()[1]->pattern_key(key, evaluation);
 				key.set_pattern_test(0);
-				return key;
+				const BaseExpressionPtr name = n_leaves<2>()[0].get();
+				if (name->is_symbol()) {
+					key.append(name->as_symbol()->name());
+				}
 			}
+			break;
+
 		case S::Optional:
 			if (size() < 1 || size() > 2) {
-				return not_a_pattern_sort_key(this);
+				not_a_pattern_sort_key(key, this);
 			} else {
-				return with_slice([] (const auto &slice) {
-					SortKey key = slice[0]->pattern_key();
+				with_slice([&key, &evaluation] (const auto &slice) {
+					slice[0]->pattern_key(key, evaluation);
 					key.set_optional(1);
-					return key;
 				});
 			}
-		case S::Alternatives:
-			// FIXME
+			break;
+
 		case S::Verbatim:
 			if (size() != 1) {
-				return SortKey::construct(
+				key.construct(
 					3, 0, 0, 0, 0, SortByHead(this, true), SortByLeaves(this, true, true), 1);
 			} else {
-				return n_leaves<1>()[0]->pattern_key();
+				n_leaves<1>()[0]->pattern_key(key, evaluation);
 			}
-		case S::OptionsPattern:
-			// FIXME
-		default: {
-			return SortKey::construct(
-				2, 0, 1, 1, 0, SortByHead(this, true), SortByLeaves(this, true, true), 1);
+			break;
+
+		case S::Alternatives: {
+			SortKey min_key;
+			min_key.construct(4);
+			SortKey &return_key = key;
+			return_key.construct(2, 1);
+
+			with_slice([&min_key, &return_key, &evaluation] (const auto &slice) {
+				for (auto leaf : slice) {
+					SortKey key;
+					leaf->pattern_key(key, evaluation);
+					if (key.compare(min_key, evaluation) < 0) {
+						min_key = key;
+						return_key = key;
+					}
+				}
+			});
+
+			break;
 		}
+
+		case S::OptionsPattern:
+			key.construct(
+				2, 40, 0, 1, 1, 0, SortByHead(this, true), SortByLeaves(this, true, true), 1);
+			break;
+
+		default:
+			key.construct(
+				2, 0, 1, 1, 0, SortByHead(this, true), SortByLeaves(this, true, true), 1);
+			break;
 	}
 }
 

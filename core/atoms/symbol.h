@@ -23,7 +23,7 @@ private:
 	Rules m_rules;
 
 public:
-	void add(const SymbolRef &name, const char *tag, const char *text, Definitions &definitions);
+	void add(const SymbolRef &name, const char *tag, const char *text, const Evaluation &evaluation);
 
 	StringRef lookup(const Expression *message, const Evaluation &evaluation) const;
 };
@@ -121,40 +121,47 @@ public:
 		return m_rules.get();
 	}
 
-	inline void add_down_rule(const RuleRef &rule) {
-		mutable_rules()->down_rules.add(rule);
+	inline void add_down_rule(const RuleRef &rule, const Evaluation &evaluation) {
+		mutable_rules()->down_rules.add(rule, evaluation);
 	}
 
 	inline const Rules *down_rules() const {
 		return m_rules ? &m_rules->down_rules : nullptr;
 	}
 
-    inline void add_up_rule(const RuleRef &rule) {
-        mutable_rules()->up_rules.add(rule);
+    inline void add_up_rule(const RuleRef &rule, const Evaluation &evaluation) {
+        mutable_rules()->up_rules.add(rule, evaluation);
     }
 
 	inline const Rules *up_rules() const {
 		return m_rules ? &m_rules->up_rules : nullptr;
 	}
 
-	inline void add_sub_rule(const RuleRef &rule) {
-		mutable_rules()->sub_rules.add(rule);
+	inline void add_sub_rule(const RuleRef &rule, const Evaluation &evaluation) {
+		mutable_rules()->sub_rules.add(rule, evaluation);
 	}
 
 	inline const Rules *sub_rules() const {
 		return m_rules ? &m_rules->sub_rules : nullptr;
 	}
 
-	void add_rule(BaseExpressionPtr lhs, BaseExpressionPtr rhs, Definitions &definitions);
+	void add_rule(
+		BaseExpressionPtr lhs,
+		BaseExpressionPtr rhs,
+		const Evaluation &evaluation);
 
-	void add_rule(const RuleRef &rule);
+	void add_rule(
+		const RuleRef &rule,
+		const Evaluation &evaluation);
 
     void add_format(
         const RuleRef &rule,
         const SymbolRef &form,
-        const Definitions &definitions);
+        const Evaluation &evaluation);
 
-	bool has_format(const BaseExpressionRef &lhs) const;
+	bool has_format(
+		const BaseExpressionRef &lhs,
+		const Evaluation &evaluation) const;
 
 	inline Attributes attributes() const {
 		return m_attributes;
@@ -189,7 +196,7 @@ private:
 
 public:
 	inline EvaluationContext(EvaluationContext *parent) :
-		m_parent(parent), m_symbols(LegacyPool::symbol_state_map_allocator()) {
+		m_parent(parent) {
 
 		EvaluationContext *&current = s_current;
 		m_saved_context = current;
@@ -298,7 +305,7 @@ public:
 	void add_message(
 		const char *tag,
 		const char *text,
-		Definitions &definitions) const;
+		const Evaluation &evaluation) const;
 
 	StringRef lookup_message(
 		const Expression *message,
@@ -312,10 +319,10 @@ public:
 
 	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement) const;
 
-	virtual SortKey sort_key() const final {
-        MonomialMap map(LegacyPool::monomial_map_allocator());
+	virtual void sort_key(SortKey &key, const Evaluation &evaluation) const final {
+        MonomialMap map;
         map[SymbolKey(SymbolRef(this))] = 1;
-		return SortKey::construct(
+		return key.construct(
 			is_numeric() ? 1 : 2, 2, std::move(map), 0, name(), 1);
 	}
 

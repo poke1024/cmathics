@@ -513,7 +513,7 @@ public:
 
 class OptionsList {
 private:
-    TempVector m_options;
+    TemporaryRefVector m_options;
 
 public:
     OptionsList() {
@@ -533,7 +533,7 @@ public:
         return m_options.to_expression(evaluation.List);
     }
 
-    inline const TempVector &rules() const {
+    inline const TemporaryRefVector &rules() const {
         return m_options;
     }
 };

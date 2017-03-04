@@ -16,9 +16,10 @@ enum class DefinitionsPos : int {
 class Rule : public AbstractHeapObject<Rule> {
 public:
 	const BaseExpressionRef pattern;
-	const SortKey key;
+	SortKey key;
 
-	inline Rule(const BaseExpressionRef &patt) : pattern(patt), key(patt->pattern_key()) {
+	inline Rule(const BaseExpressionRef &patt, const Evaluation &evaluation) : pattern(patt) {
+		patt->pattern_key(key, evaluation);
 	}
 
     virtual ~Rule() {
@@ -40,16 +41,16 @@ public:
 };
 
 BaseExpressionRef exactly_n_pattern(
-	const SymbolRef &head, size_t n, const Definitions &definitions);
+	const SymbolRef &head, size_t n, const Evaluation &evaluation);
 
 BaseExpressionRef at_least_n_pattern(
-	const SymbolRef &head, size_t n, const Definitions &definitions);
+	const SymbolRef &head, size_t n, const Evaluation &evaluation);
 
 template<size_t N>
 class ExactlyNRule : public Rule {
 public:
-	ExactlyNRule(const SymbolRef &head, const Definitions &definitions) :
-		Rule(exactly_n_pattern(head, N, definitions)) {
+	ExactlyNRule(const SymbolRef &head, const Evaluation &evaluation) :
+		Rule(exactly_n_pattern(head, N, evaluation), evaluation) {
 	}
 
 	virtual MatchSize match_size() const {
@@ -60,8 +61,8 @@ public:
 template<size_t N>
 class AtLeastNRule : public Rule {
 public:
-	AtLeastNRule(const SymbolRef &head, const Definitions &definitions) :
-		Rule(at_least_n_pattern(head, N, definitions)) {
+	AtLeastNRule(const SymbolRef &head, const Evaluation &evaluation) :
+		Rule(at_least_n_pattern(head, N, evaluation), evaluation) {
 	}
 
 	virtual MatchSize match_size() const {
@@ -170,30 +171,39 @@ inline optional<BaseExpressionRef> RulesVector<Entry>::apply(
 }
 
 template<typename Entry>
-bool RulesVector<Entry>::has_rule_with_pattern(std::vector<Entry> &entries, const BaseExpressionRef &pattern) {
-	const SortKey key = pattern->pattern_key();
+bool RulesVector<Entry>::has_rule_with_pattern(
+	std::vector<Entry> &entries,
+	const BaseExpressionRef &pattern,
+	const Evaluation &evaluation) {
+
+	SortKey key;
+	pattern->pattern_key(key, evaluation);
 
 	const auto i = std::lower_bound(
 		entries.begin(),
 		entries.end(),
 		key,
-		[] (const Entry &entry, const SortKey &key) {
-			return entry.key().compare(key) < 0;
+		[&evaluation] (const Entry &entry, const SortKey &key) {
+			return entry.key().compare(key, evaluation) < 0;
 		});
 
 	return i != entries.end() && i->pattern()->same(pattern);
 }
 
 template<typename Entry>
-void RulesVector<Entry>::insert_rule(std::vector<Entry> &entries, const Entry &entry) {
+void RulesVector<Entry>::insert_rule(
+	std::vector<Entry> &entries,
+	const Entry &entry,
+	const Evaluation &evaluation) {
+
 	const SortKey &key = entry.key();
 
 	const auto i = std::lower_bound(
 		entries.begin(),
 		entries.end(),
 		key,
-		[] (const Entry &entry, const SortKey &key) {
-			return entry.key().compare(key) < 0;
+		[&evaluation] (const Entry &entry, const SortKey &key) {
+			return entry.key().compare(key, evaluation) < 0;
 		});
 
 	if (i != entries.end() && i->pattern()->same(entry.pattern())) {
@@ -204,21 +214,27 @@ void RulesVector<Entry>::insert_rule(std::vector<Entry> &entries, const Entry &e
 }
 
 template<typename Entry>
-void RulesVector<Entry>::add(const typename Entry::RuleRef &rule) {
+void RulesVector<Entry>::add(
+	const typename Entry::RuleRef &rule,
+	const Evaluation &evaluation) {
+
 	const Entry entry(rule);
 
 	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
 		if (entry.size.matches(SliceCode(code))) {
-			insert_rule(m_rules[code], entry);
+			insert_rule(m_rules[code], entry, evaluation);
 		}
 	}
 
-	insert_rule(m_all_rules, entry);
+	insert_rule(m_all_rules, entry, evaluation);
 }
 
 template<typename Entry>
-bool RulesVector<Entry>::has_rule_with_pattern(const BaseExpressionRef &lhs) {
-	return has_rule_with_pattern(m_all_rules, lhs);
+bool RulesVector<Entry>::has_rule_with_pattern(
+	const BaseExpressionRef &lhs,
+	const Evaluation &evaluation) {
+
+	return has_rule_with_pattern(m_all_rules, lhs, evaluation);
 }
 
 inline RuleEntry::RuleEntry(const RuleRef &rule) :
