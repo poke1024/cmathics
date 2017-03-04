@@ -171,7 +171,7 @@ protected:
 
 	virtual std::string boxes_to_text(const StyleBoxOptions &options, const Evaluation &evaluation) const;
 
-	virtual bool is_negative() const;
+	virtual bool is_negative_introspect() const;
 
 	virtual std::string debugform() const;
 

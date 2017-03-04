@@ -461,7 +461,14 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		builtin("Positive[x_?NumericQ]", "If[x > 0, True, False, False]");
+		builtin("Positive[x_?NumericQ]", &Positive::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		const BaseExpressionPtr x,
+		const Evaluation &evaluation) {
+
+		return evaluation.Boolean(x->is_positive());
 	}
 };
 
@@ -496,7 +503,14 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		builtin("Negative[x_?NumericQ]", "If[x < 0, True, False, False]");
+		builtin("Negative[x_?NumericQ]", &Negative::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		const BaseExpressionPtr x,
+		const Evaluation &evaluation) {
+
+		return evaluation.Boolean(x->is_negative());
 	}
 };
 
@@ -520,7 +534,14 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		builtin("NonPositive[x_?NumericQ]", "If[x <= 0, True, False, False]");
+		builtin("NonPositive[x_?NumericQ]", &NonPositive::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		const BaseExpressionPtr x,
+		const Evaluation &evaluation) {
+
+		return evaluation.Boolean(x->is_non_positive());
 	}
 };
 
@@ -544,7 +565,14 @@ public:
 	using Builtin::Builtin;
 
 	void build(Runtime &runtime) {
-		builtin("NonNegative[x_?NumericQ]", "If[x >= 0, True, False, False]");
+		builtin("NonNegative[x_?NumericQ]", &NonNegative::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		const BaseExpressionPtr x,
+		const Evaluation &evaluation) {
+
+		return evaluation.Boolean(x->is_non_negative());
 	}
 };
 

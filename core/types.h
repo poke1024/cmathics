@@ -393,7 +393,7 @@ public:
         }
     }
 
-	inline bool is_number() const {
+	inline bool is_number() const { // i.e. NumberQ
 		switch (type()) {
 			case MachineIntegerType:
 			case BigIntegerType:
@@ -413,12 +413,24 @@ public:
         return false;
     }
 
-    virtual bool is_negative() const {
+    virtual bool is_negative() const { // i.e. Negative
         return false;
     }
 
-	virtual bool is_positive() const {
+	virtual bool is_positive() const { // i.e. Positive
 		return false;
+	}
+
+	inline bool is_non_negative() const { // i.e. NonNegative
+		return !is_negative();
+	}
+
+	inline bool is_non_positive() const { // i.e. NonPositive
+		return !is_positive();
+	}
+
+	virtual bool is_negative_introspect() const {
+		return is_negative();
 	}
 
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const;

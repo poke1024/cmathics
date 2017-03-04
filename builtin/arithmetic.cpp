@@ -436,7 +436,7 @@ public:
         const ExpressionRef ops = expression(evaluation.List, sequential(
             [this, leaves, n, &evaluation] (auto &store) {
                 for (size_t i = 1; i < n; i++) {
-                    store(leaves[i]->is_negative() ? m_minus : m_plus);
+                    store(leaves[i]->is_negative_introspect() ? m_minus : m_plus);
                 }
             }, std::max(index_t(0), index_t(n) - 1)));
 

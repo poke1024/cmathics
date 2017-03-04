@@ -312,6 +312,14 @@ public:
 	}
 };
 
+class NoPatternTest {
+public:
+	template<typename Sequence, typename Slice>
+	inline bool operator()(const Sequence &sequence, Slice &slice) const {
+		return true;
+	}
+};
+
 class PatternTest {
 private:
     const BaseExpressionRef m_test;
@@ -327,13 +335,37 @@ public:
 	}
 };
 
-class NoPatternTest {
-public:
-	template<typename Sequence, typename Slice>
-	inline bool operator()(const Sequence &sequence, Slice &slice) const {
-		return true;
+template<typename F>
+auto with_pattern_test(const BaseExpressionRef &test, const F& f) {
+	if (test) {
+		switch (test->symbol()) {
+			case S::NumberQ:
+				return f([] (const auto&, auto &slice) {
+					return (*slice)->is_number();
+				});
+			case S::Positive:
+				return f([] (const auto&, auto &slice) {
+					return (*slice)->is_positive();
+				});
+			case S::Negative:
+				return f([] (const auto&, auto &slice) {
+					return (*slice)->is_negative();
+				});
+			case S::NonPositive:
+				return f([] (const auto&, auto &slice) {
+					return (*slice)->is_non_positive();
+				});
+			case S::NonNegative:
+				return f([] (const auto&, auto &slice) {
+					return (*slice)->is_non_negative();
+				});
+			default:
+				return f(PatternTest(test));
+		}
+	} else {
+		return f(NoPatternTest());
 	}
-};
+}
 
 class NoVariable {
 public:
@@ -1532,11 +1564,9 @@ public:
 
 	template<template<typename, typename> class Matcher, typename Parameter>
 	PatternMatcherRef create(Parameter &&parameter) const {
-		if (m_test) {
-			return create<Matcher>(std::forward<Parameter>(parameter), PatternTest(m_test));
-		} else {
-			return create<Matcher>(std::forward<Parameter>(parameter), NoPatternTest());
-		}
+		return with_pattern_test(m_test, [this, &parameter] (auto &&test) {
+			return create<Matcher>(std::forward<Parameter>(parameter), test);
+		});
 	}
 
 	PatternMatcherRef create_empty() const {

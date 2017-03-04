@@ -147,6 +147,12 @@ SYMBOL(Evaluate)
 SYMBOL(Unevaluated)
 SYMBOL(HoldPattern)
 
+SYMBOL(NumberQ)
+SYMBOL(Positive)
+SYMBOL(NonPositive)
+SYMBOL(Negative)
+SYMBOL(NonNegative)
+
 SYMBOL(Graphics)
 
 SYMBOL(General)

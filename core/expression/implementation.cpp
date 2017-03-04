@@ -334,10 +334,10 @@ std::string Expression::boxes_to_text(const StyleBoxOptions &options, const Eval
 	});
 }
 
-bool Expression::is_negative() const {
+bool Expression::is_negative_introspect() const {
 	if (head()->symbol() == S::Times && size() >= 1) {
 		return with_slice([] (const auto &slice) {
-			return slice[0]->is_negative();
+			return slice[0]->is_negative_introspect();
 		});
 	} else {
 		return false;
