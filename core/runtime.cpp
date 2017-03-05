@@ -164,6 +164,7 @@ Runtime::Runtime() :
     const SymbolRef General = _definitions.symbols().General;
 	const auto &evaluation = _bootstrap_evaluation;
 
+    General->add_message("argrx", "`1` called with `2` arguments; `3` arguments are expected.", evaluation);
     General->add_message("normal", "Nonatomic expression expected.", evaluation);
     General->add_message("iterb", "Iterator does not have appropriate bounds.", evaluation);
 	General->add_message("level", "Level specification `1` is not of the form n, {n}, or {m, n}.", evaluation);

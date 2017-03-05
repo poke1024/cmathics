@@ -43,7 +43,7 @@ public:
 	    });
     }
 
-    virtual inline bool same(const BaseExpression &expr) const final {
+    virtual inline bool same_indeed(const BaseExpression &expr) const final {
         if (expr.is_big_rational()) {
 	        const auto other = static_cast<const BigRational*>(&expr);
 	        return mpq_equal(value.get_mpq_t(), other->value.get_mpq_t());

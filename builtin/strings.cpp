@@ -76,7 +76,7 @@ public:
 			}));
 		};
 
-		const RuleForm rule_form(patt);
+		const OptionalRuleForm rule_form(patt);
 		if (rule_form.is_rule()) {
 			return generate(rule_form.left_side().get(),
 			    [&rule_form] (auto &store, index_t begin, index_t end, const auto &match) {

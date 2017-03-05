@@ -87,9 +87,8 @@ BaseExpressionRef evaluate(
 
 	const auto &evaluate_leaves = [self, &head, &slice, &evaluation]
 		(size_t begin, size_t end, const auto &hold) {
-			return conditional_map_indexed<ExpressionType, SymbolType>(
-				head,
-				head != self->_head,
+			return selective_conditional_map_indexed<ExpressionType, SymbolType>(
+				replace_head(self->_head, head),
 				lambda([&hold, &evaluation] (size_t i, const BaseExpressionRef &leaf) {
 					if (hold(i)) {
 						if (leaf->has_form(S::Evaluate, 1)) {

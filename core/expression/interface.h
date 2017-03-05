@@ -3,6 +3,11 @@
 
 #include "../slice/method.h"
 
+struct conditional_map_head {
+	const BaseExpressionRef &head;
+	bool is_new_head;
+};
+
 class Expression : public BaseExpression {
 private:
 	mutable CachedCacheRef m_cache;
@@ -159,7 +164,7 @@ protected:
 
 	virtual void pattern_key(SortKey &key, const Evaluation &evaluation) const final;
 
-	virtual inline bool same(const BaseExpression &item) const final;
+	virtual inline bool same_indeed(const BaseExpression &item) const final;
 
 	virtual optional<hash_t> compute_match_hash() const final;
 
@@ -184,20 +189,20 @@ protected:
 	inline std::tuple<bool, UnsafeExpressionRef> thread(const Evaluation &evaluation) const;
 
 	template<enum Type... Types, typename F>
-	inline ExpressionRef conditional_map(
+	inline ExpressionRef selective_conditional_map(
 		const F &f, const Evaluation &evaluation) const;
 
 	template<enum Type... Types, typename F>
-	inline ExpressionRef conditional_map(
-		const BaseExpressionRef &head, const F &f) const;
+	inline ExpressionRef selective_conditional_map(
+		const conditional_map_head &head, const F &f) const;
 
 	template<enum Type... Types, typename F>
-	inline ExpressionRef conditional_map(
-		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
+	inline ExpressionRef selective_conditional_map(
+		const conditional_map_head &head, const F &f, const Evaluation &evaluation) const;
 
 	template<typename F>
-	inline ExpressionRef conditional_map_all(
-		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
+	inline ExpressionRef conditional_map(
+		const conditional_map_head &head, const F &f, const Evaluation &evaluation) const;
 
 	template<typename Compute, typename Recurse>
 	BaseExpressionRef do_symbolic(
@@ -242,8 +247,8 @@ inline auto Expression::with_slice_implementation(const F &f) const {
 template<SliceMethodOptimizeTarget Optimize, typename F>
 inline auto Expression::with_slice_implementation(F &f) const { // see above
     using R = typename std::result_of<F(const BigSlice&)>::type;
-    static const SliceMethod<Optimize, R, decltype(lambda(f))> method;
-    return method(lambda(f), this);
+    static const SliceMethod<Optimize, R, decltype(mutable_lambda(f))> method;
+    return method(mutable_lambda(f), this);
 }
 
 template<typename F>

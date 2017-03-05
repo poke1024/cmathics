@@ -46,48 +46,46 @@ inline TypeMask Expression::materialize_exact_type_mask() const {
 }
 
 template<Type... Types, typename F>
-inline ExpressionRef Expression::conditional_map(
+inline ExpressionRef Expression::selective_conditional_map(
 	const F &f,
 	const Evaluation &evaluation) const {
 
 	return with_slice_c([this, &f, &evaluation] (const auto &slice) {
 		return ::conditional_map<Types...>(
-			_head, false, lambda(f), slice, 0, slice.size(), evaluation);
+			keep_head(_head), lambda(f), slice, 0, slice.size(), evaluation);
 	});
 }
 
 template<Type... Types, typename F>
-inline ExpressionRef Expression::conditional_map(
-	const BaseExpressionRef &head,
+inline ExpressionRef Expression::selective_conditional_map(
+	const conditional_map_head &head,
 	const F &f) const {
 
-	return with_slice_c([this, &f] (const auto &slice) {
-		return ::conditional_map<Types...>(
-			_head, false, lambda(f), slice, 0, slice.size(), false);
+	return with_slice_c([this, &head, &f] (const auto &slice) {
+		return ::selective_conditional_map<Types...>(
+			head, lambda(f), slice, false);
 	});
 }
 
 template<Type... Types, typename F>
-inline ExpressionRef Expression::conditional_map(
-	const BaseExpressionRef &head,
+inline ExpressionRef Expression::selective_conditional_map(
+	const conditional_map_head &head,
 	const F &f,
 	const Evaluation &evaluation) const {
 
 	return with_slice_c([this, &head, &f, &evaluation] (const auto &slice) {
-		return ::conditional_map<Types...>(head,
-			head.get() != _head.get(), lambda(f), slice, 0, slice.size(), evaluation);
+		return ::selective_conditional_map<Types...>(head, lambda(f), slice, evaluation);
 	});
 }
 
 template<typename F>
-inline ExpressionRef Expression::conditional_map_all(
-	const BaseExpressionRef &head,
+inline ExpressionRef Expression::conditional_map(
+	const conditional_map_head &head,
 	const F &f,
 	const Evaluation &evaluation) const {
 
 	return with_slice_c([this, &head, &f, &evaluation] (const auto &slice) {
-		return ::conditional_map_all(head,
-			head.get() != _head.get(), lambda(f), slice, 0, slice.size(), evaluation.parallelize);
+		return ::conditional_map(head, lambda(f), slice, evaluation);
 	});
 }
 
@@ -384,7 +382,7 @@ inline auto with_slices(const Expression *a, const Expression *b, const F &f) {
 	});
 };
 
-inline bool Expression::same(const BaseExpression &item) const {
+inline bool Expression::same_indeed(const BaseExpression &item) const {
 	if (this == &item) {
 		return true;
 	}

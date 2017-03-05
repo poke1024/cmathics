@@ -181,14 +181,18 @@ template<typename OptionsProcessorRef>
 class CompleteMatcher : public MatcherBase {
 private:
     typedef MatchRef (CompleteMatcher::*MatchFunction)(
-        const BaseExpressionRef &, const OptionsProcessorRef &, const Evaluation &) const;
+        const BaseExpressionRef &,
+        const OptionsProcessorRef &,
+        const Evaluation &) const;
 
     const BaseExpressionRef m_patt;
     MatchFunction m_perform_match;
 
 private:
     MatchRef match_atom(
-        const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item,
+        const OptionsProcessorRef &options,
+        const Evaluation &evaluation) const {
 
         if (m_patt->same(item)) {
             return evaluation.definitions.default_match;
@@ -198,7 +202,9 @@ private:
     }
 
     MatchRef match_expression(
-            const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item,
+        const OptionsProcessorRef &options,
+        const Evaluation &evaluation) const {
 
         MatchContext context(m_matcher, options, evaluation);
         const index_t match = m_matcher->match(
@@ -233,7 +239,9 @@ public:
     }
 
     inline MatchRef operator()(
-        const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item,
+        const OptionsProcessorRef &options,
+        const Evaluation &evaluation) const {
 
         return (this->*m_perform_match)(item, options, evaluation);
     }
@@ -246,7 +254,8 @@ public:
     using CompleteMatcher<nothing>::CompleteMatcher;
 
     inline MatchRef operator()(
-        const BaseExpressionRef &item, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item,
+        const Evaluation &evaluation) const {
 
         return CompleteMatcher<nothing>::operator()(item, nothing(), evaluation);
     }
@@ -317,108 +326,301 @@ public:
     }
 };
 
-template<typename Rule, typename F>
-inline auto match(
-    const Rule &rule,
-    const F &f,
-    const Expression *cache_owner,
+class Replacer : public virtual Shared {
+public:
+	virtual BaseExpressionRef apply(
+		optional<MatchContext> &context,
+		const BaseExpressionRef &item,
+		const Evaluation &evaluation) const = 0;
+};
+
+using ReplacerRef = ConstSharedPtr<Replacer>;
+
+class NoMatchReplacer : public Replacer, public PoolObject<NoMatchReplacer> {
+public:
+	virtual inline BaseExpressionRef apply(
+		optional<MatchContext> &context,
+		const BaseExpressionRef &item,
+		const Evaluation &evaluation) const final {
+
+		return BaseExpressionRef();
+	}
+};
+
+template<typename Rewrite>
+class SimpleReplacer : public Replacer, public PoolObject<SimpleReplacer<Rewrite>> {
+private:
+	const BaseExpressionRef m_lhs;
+	const Rewrite m_rewrite;
+
+public:
+	inline SimpleReplacer(
+		const BaseExpressionRef &lhs,
+		const Rewrite &rewrite) : m_lhs(lhs), m_rewrite(rewrite) {
+	}
+
+	virtual inline BaseExpressionRef apply(
+		optional<MatchContext> &context,
+		const BaseExpressionRef &item,
+		const Evaluation &evaluation) const final {
+
+		if (m_lhs->same(item)) {
+			return m_rewrite(item);
+		} else {
+			return BaseExpressionRef(); // no match
+		}
+	}
+};
+
+template<typename Rewrite>
+class ComplexReplacer : public Replacer, public PoolObject<ComplexReplacer<Rewrite>> {
+private:
+	PatternMatcherRef m_matcher;
+	Rewrite m_rewrite;
+
+public:
+	inline ComplexReplacer(
+		const PatternMatcherRef &matcher,
+		const Rewrite &rewrite) : m_matcher(matcher), m_rewrite(rewrite) {
+	}
+
+    virtual inline BaseExpressionRef apply(
+	    optional<MatchContext> &context,
+		const BaseExpressionRef &item,
+		const Evaluation &evaluation) const final {
+
+	    if (!context) {
+		    context.emplace(MatchContext(m_matcher, evaluation));
+	    } else {
+		    context->reset();
+	    }
+
+	    const index_t match = m_matcher->match(
+		    FastLeafSequence(*context, &item), 0, 1);
+	    if (match >= 0) {
+		    return m_rewrite(*context, item, evaluation);
+	    } else {
+		    return BaseExpressionRef(); // no match
+	    }
+    }
+};
+
+class EvaluationMessage {
+public:
+	using Function = std::function<void(
+		const SymbolRef &name, const Evaluation &evaluation)>;
+
+private:
+	const Function m_message;
+
+public:
+	EvaluationMessage(const Function &message) : m_message(message) {
+	}
+
+	void operator()(
+		const SymbolRef &name,
+		const Evaluation &evaluation) const {
+
+		m_message(name, evaluation);
+	}
+};
+
+class RuleForm {
+protected:
+	// RuleForm scope must always exceed that of the
+	// inspected item, since only pointers are kept.
+
+	const BaseExpressionRef *m_leaves;
+
+public:
+	inline bool is_rule() const {
+		return m_leaves;
+	}
+
+	inline const BaseExpressionRef &left_side() const {
+		return m_leaves[0];
+	}
+
+	inline const BaseExpressionRef &right_side() const {
+		return m_leaves[1];
+	}
+};
+
+class OptionalRuleForm : public RuleForm {
+public:
+	inline OptionalRuleForm(const BaseExpressionRef &item) {
+		if (!item->is_expression()) {
+			m_leaves = nullptr;
+		} else {
+			const ExpressionPtr expr = item->as_expression();
+
+			if (expr->size() != 2) {
+				m_leaves = nullptr;
+			} else {
+				switch (expr->head()->symbol()) {
+					case S::Rule:
+					case S::RuleDelayed:
+						m_leaves = expr->n_leaves<2>();
+						break;
+
+					default:
+						m_leaves = nullptr;
+						break;
+				}
+			}
+		}
+	}
+};
+
+class MandatoryRuleForm : public RuleForm {
+private:
+	void reps(const BaseExpressionRef &item) const {
+		throw EvaluationMessage([item] (const SymbolRef &name, const Evaluation &evaluation) {
+			evaluation.message(name, "reps", item);
+		});
+	}
+
+	void argrx(const ExpressionRef &expr) const {
+		assert(expr->head()->is_symbol());
+		throw EvaluationMessage([expr] (const SymbolRef &name, const Evaluation &evaluation) {
+			evaluation.message(
+				expr->head()->as_symbol(), "argrx",
+			    expr->head(), MachineInteger::construct(3), MachineInteger::construct(2));
+		});
+	}
+
+public:
+	inline MandatoryRuleForm(const BaseExpressionRef &item) {
+		if (!item->is_expression()) {
+			reps(item);
+		} else {
+			const ExpressionPtr expr = item->as_expression();
+
+			switch (expr->head()->symbol()) {
+				case S::Rule:
+				case S::RuleDelayed:
+					if (expr->size() != 2) {
+						argrx(expr);
+					} else {
+						m_leaves = expr->n_leaves<2>();
+						return;
+					}
+
+				default:
+					reps(item);
+			}
+		}
+	}
+
+	inline constexpr bool is_rule() const {
+		return true;
+	}
+};
+
+template<typename RuleForm, typename Factory>
+inline auto instantiate_replacer(
+    const BaseExpressionRef &pattern,
+    const Factory &factory,
     const Evaluation &evaluation) {
 
-    constexpr int has_rhs = std::tuple_size<Rule>::value > 1;
-    const BaseExpressionRef &lhs = std::get<0>(rule);
-    const BaseExpressionRef &rhs = std::get<std::tuple_size<Rule>::value - 1>(rule);
+	// using Factory here might look convoluted, but with immediate_replace this allows
+	// us to save one vcall per matched element in the inner matching loop (namely the
+	// one call to Replacer::apply).
 
-    if (lhs->type() == ExpressionType) {
+	const RuleForm rule(pattern);
+
+    const BaseExpressionRef &lhs =
+		rule.is_rule() ? rule.left_side() : pattern;
+
+    if (lhs->is_expression()) {
         const auto matcher = lhs->as_expression()->expression_matcher();
         if (matcher->might_match(1)) {
-            MatchContext context(matcher, evaluation);
+            if (rule.is_rule()) {
+	            const BaseExpressionRef rhs = rule.right_side();
 
-            const auto make = [&f, &matcher, &context] (const auto &extract) {
-                return f([&matcher, &context, &extract] (const BaseExpressionRef &item) {
-                    context.reset();
-                    const index_t match = matcher->match(
-                        FastLeafSequence(context, &item), 0, 1);
-                    if (match >= 0) {
-                        return extract(item);
-                    } else {
-                        return BaseExpressionRef(); // no match
-                    }
-                });
-            };
+	            const ExpressionPtr cache_owner = pattern->as_expression();
 
-            if (has_rhs) {
-                const RewriteRef rewrite = cache_owner->ensure_cache()->rewrite(matcher, rhs, evaluation);
+                const RewriteRef do_rewrite =
+		            cache_owner->ensure_cache()->rewrite(matcher, rhs, evaluation);
 
-                return make([&rewrite, &context, &rhs, &evaluation] (const BaseExpressionRef &item) {
-                    return rewrite->rewrite_root_or_copy(
-                        rhs->as_expression(),
-                        [&context] (index_t i, const BaseExpressionRef &prev) {
-                            return context.match->slot(i);
-                        },
-                        context.match->options(), evaluation);
-                });
+	            const auto rewrite = [rhs, do_rewrite] (
+			        const MatchContext &context,
+			        const BaseExpressionRef &item,
+			        const Evaluation &evaluation) -> BaseExpressionRef {
+
+		            return do_rewrite->rewrite_root_or_copy(
+			            rhs->as_expression(),
+			            [&context] (index_t i, const BaseExpressionRef &prev) {
+				            return context.match->slot(i);
+			            },
+			            context.match->options(), evaluation);
+	            };
+
+	            return factory.template
+			        create<ComplexReplacer<decltype(rewrite)>>(matcher, rewrite);
             } else {
-                return make([] (const BaseExpressionRef &item) {
-                    return item;
-                });
+	            const auto rewrite = [] (
+			        const MatchContext &context,
+			        const BaseExpressionRef &item,
+			        const Evaluation &evaluation) -> BaseExpressionRef {
+
+		            return item;
+	            };
+
+	            return factory.template
+			        create<ComplexReplacer<decltype(rewrite)>>(matcher, rewrite);
             }
         } else {
-            return f([] (const BaseExpressionRef &item) {
-                return BaseExpressionRef(); // no match
-            });
+            return factory.template create<NoMatchReplacer>();
         }
     } else {
-        return f([&lhs, &rhs, &has_rhs] (const BaseExpressionRef &item) {
-            if (lhs->same(item)) {
-                return has_rhs ? rhs : item;
-            } else {
-                return BaseExpressionRef(); // no match
-            }
-        });
+	    if (rule.is_rule()) {
+		    const BaseExpressionRef rhs = rule.right_side();
+
+		    const auto rewrite = [rhs] (const BaseExpressionRef &item) -> BaseExpressionRef {
+			    return rhs;
+		    };
+
+		    return factory.template
+				create<SimpleReplacer<decltype(rewrite)>>(lhs, rewrite);
+	    } else {
+		    const auto rewrite = [] (const BaseExpressionRef &item) -> BaseExpressionRef {
+			    return item;
+		    };
+
+		    return factory.template
+				create<SimpleReplacer<decltype(rewrite)>>(lhs, rewrite);
+	    }
     }
 }
 
-class RuleForm {
+template<typename F>
+class immediate_replace {
 private:
-    const BaseExpressionRef *m_leaves;
+	const F &m_f;
+	const Evaluation &m_evaluation;
 
 public:
-    // note that the scope of "item" must contain that of
-    // RuleForm, i.e. item must be referenced at least as
-    // long as RuleForm lives.
-    inline RuleForm(const BaseExpressionPtr item) {
-        if (!item->is_expression()) {
-            m_leaves = nullptr;
-        } else {
-            const auto expr = item->as_expression();
+	inline immediate_replace(const F &f, const Evaluation &evaluation) :
+		m_f(f), m_evaluation(evaluation) {
+	}
 
-            if (expr->size() != 2) {
-                m_leaves = nullptr;
-            } else {
-                switch (expr->head()->symbol()) {
-                    case S::Rule:
-                    case S::RuleDelayed:
-                        m_leaves = expr->n_leaves<2>();
-                        break;
-                    default:
-                        m_leaves = nullptr;
-                        break;
-                }
-            }
-        }
-    }
+	template<typename Replacer, typename... Args>
+	inline auto create(Args&&... args) const {
+		Replacer replacer(std::forward<Args>(args)...);
+		optional<MatchContext> context;
+		return m_f([this, &replacer, &context] (const auto &item) {
+			return replacer.apply(context, item, m_evaluation);
+		});
+	}
+};
 
-    inline bool is_rule() const {
-        return m_leaves;
-    }
-
-    inline const BaseExpressionRef &left_side() const {
-        return m_leaves[0];
-    }
-
-    inline const BaseExpressionRef &right_side() const {
-        return m_leaves[1];
-    }
+class replacer_factory {
+public:
+	template<typename Replacer, typename... Args>
+	inline ReplacerRef create(Args&&... args) const {
+		return Replacer::construct(std::forward<Args>(args)...);
+	}
 };
 
 template<typename F>
@@ -427,21 +629,8 @@ inline auto match(
     const F &f,
     const Evaluation &evaluation) {
 
-    const RuleForm rule(pattern.get());
-
-    if (rule.is_rule()) {
-        return match(
-            std::make_tuple(rule.left_side(), rule.right_side()),
-            f,
-            pattern->as_expression(),
-            evaluation);
-    } else {
-        return match(
-            std::make_tuple(pattern),
-            f,
-            nullptr,
-            evaluation);
-}
+	return instantiate_replacer<OptionalRuleForm>(
+		pattern, immediate_replace<F>(f, evaluation), evaluation);
 }
 
 #include "rule.tcc"

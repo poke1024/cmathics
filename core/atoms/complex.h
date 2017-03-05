@@ -40,7 +40,7 @@ public:
 
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
-    virtual inline bool same(const BaseExpression &expr) const final {
+    virtual inline bool same_indeed(const BaseExpression &expr) const final {
         if (expr.is_machine_complex()) {
             return m_value == static_cast<const MachineComplex*>(&expr)->m_value;
         } else {
@@ -97,7 +97,7 @@ public:
         const BaseExpressionRef &form,
         const Evaluation &evaluation) const;
 
-    virtual bool same(const BaseExpression &expr) const {
+    virtual bool same_indeed(const BaseExpression &expr) const {
         if (expr.is_big_complex()) {
             return m_value->__eq__(*static_cast<const BigComplex*>(&expr)->m_value.get());
         } else {

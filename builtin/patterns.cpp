@@ -7,6 +7,8 @@ BaseExpressionRef replace_all(
     const Match &match,
     const Evaluation &evaluation) {
 
+	// see Expression.apply_rules
+
     BaseExpressionRef result = match(expr);
     if (result) {
         return result;
@@ -15,16 +17,13 @@ BaseExpressionRef replace_all(
     if (expr->is_expression()) {
         // FIXME replace head
 
-        return expr->as_expression()->with_slice([&expr, &match, &evaluation] (const auto &slice) {
-            return ::apply_conditional_map<UnknownTypeMask>(
-                expr->as_expression()->head(),
-                false, // is_new_head
+        return expr->as_expression()->with_slice_c([&expr, &match, &evaluation] (const auto &slice) {
+            return conditional_map(
+                keep_head(expr->as_expression()->head()),
                 lambda([&match, &evaluation](const BaseExpressionRef &leaf) {
                     return replace_all(leaf, match, evaluation);
                 }),
                 slice,
-                0,
-                expr->as_expression()->size(),
                 evaluation
             );
         });
@@ -33,7 +32,99 @@ BaseExpressionRef replace_all(
     }
 }
 
-class ReplaceAll : public Builtin {
+template<typename F>
+inline BaseExpressionRef match_and_replace_nested(
+	const SymbolRef &name,
+	const BaseExpressionPtr expr,
+	const BaseExpressionPtr pattern,
+	const F &f,
+	const Evaluation &evaluation) {
+
+	try {
+		if (pattern->is_list()) {
+			return pattern->as_expression()->with_slice_c([expr, pattern, &name, &f, &evaluation] (const auto &slice) {
+				const size_t n = slice.size();
+
+				bool any_lists = false;
+
+				for (size_t i = 0; i < n; i++) {
+					if (slice[i]->is_list()) {
+						any_lists = true;
+					} else if (any_lists) {
+						evaluation.message(name, "rmix", pattern);
+						return BaseExpressionRef();
+					}
+				}
+
+				if (any_lists) {
+					if (false) { // compatibility mode
+						return BaseExpressionRef(expression(
+							evaluation.List, sequential([expr, &name, &slice](auto &store) {
+								const size_t n = slice.size();
+
+								for (size_t i = 0; i < n; i++) {
+									store(expression(name, expr, slice[i]));
+								}
+							})));
+					} else {
+						const auto recurse = lambda(
+							[expr, &name, &f, &evaluation] (const BaseExpressionRef &leaf) {
+								const BaseExpressionRef result =
+									match_and_replace_nested(name, expr, leaf.get(), f, evaluation);
+								if (!result) {
+									return BaseExpressionRef(expression(name, expr, leaf));
+								} else {
+									return result;
+								}
+							});
+
+						return BaseExpressionRef(conditional_map(
+							keep_head(evaluation.List),
+							recurse,
+							slice,
+							evaluation));
+					}
+				}
+
+				std::vector<ReplacerRef> replacers;
+				replacers.reserve(n);
+				for (size_t i = 0; i < n; i++) {
+					replacers.push_back(instantiate_replacer<MandatoryRuleForm>(
+						slice[i], replacer_factory(), evaluation));
+				}
+
+				std::vector<optional<MatchContext>> contexts(n);
+				return f([&replacers, &contexts, &evaluation] (const BaseExpressionRef &item) {
+					const size_t n = replacers.size();
+
+					for (size_t i = 0; i < n; i++) {
+						const BaseExpressionRef result =
+							replacers[i]->apply(contexts[i], item, evaluation);
+						if (result) {
+							return result;
+						}
+					}
+
+					return BaseExpressionRef();
+				});
+			});
+		} else {
+			BaseExpressionRef result = instantiate_replacer<MandatoryRuleForm>(
+				pattern, immediate_replace<F>(f, evaluation), evaluation);
+			if (!result) {
+				// if not match happened, we do not want ReplaceAll[x, y], but x.
+				return expr;
+			} else {
+				return result;
+			}
+		}
+	} catch (const EvaluationMessage& message) {
+		message(name, evaluation);
+		return BaseExpressionRef();
+	}
+}
+
+class ReplaceAll : public BinaryOperatorBuiltin {
 public:
     static constexpr const char *name = "ReplaceAll";
 
@@ -55,11 +146,28 @@ public:
      = a + b + d
 	)";
 
+	virtual const char *operator_name() const {
+		return "/.";
+	}
+
+	virtual int precedence() const {
+		return 110;
+	}
+
+	virtual const char *grouping() const {
+		return "Left";
+	}
+
 public:
-    using Builtin::Builtin;
+    using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
 
     void build(Runtime &runtime) {
+	    message("reps", "`1` is not a valid replacement rule.");
+		message("rmix", "Elements of `1` are a mixture of lists and nonlists.");
+
         builtin(&ReplaceAll::apply);
+
+	    add_binary_operator_formats();
     }
 
     inline BaseExpressionRef apply(
@@ -67,11 +175,57 @@ public:
         BaseExpressionPtr pattern,
         const Evaluation &evaluation) {
 
-        return coalesce(match(pattern, [expr, &evaluation] (const auto &match) {
-            return replace_all(expr, match, evaluation);
-        }, evaluation), expr);
+		return match_and_replace_nested(
+		    m_symbol, expr, pattern, [expr, &evaluation] (const auto &match) {
+	            return replace_all(expr, match, evaluation);
+            }, evaluation);
     }
 };
+
+class RuleBuiltin : public BinaryOperatorBuiltin {
+public:
+	static constexpr const char *name = "Rule";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Rule[$x$, $y$]'
+    <dt>'$x$ -> $y$'
+        <dd>represents a rule replacing $x$ with $y$.
+    </dl>
+
+    >> a+b+c /. c->d
+    = a + b + d
+    >> {x,x^2,y} /. x->3
+     = {3, 9, y}
+
+    #> a /. Rule[1, 2, 3] -> t
+     : Rule called with 3 arguments; 2 arguments are expected.
+     = a
+	)";
+
+	static constexpr auto attributes =
+		Attributes::SequenceHold;
+
+	virtual const char *operator_name() const {
+		return "->";
+	}
+
+	virtual int precedence() const {
+		return 120;
+	}
+
+	virtual const char *grouping() const {
+		return "Right";
+	}
+
+public:
+	using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
+
+	void build(Runtime &runtime) {
+		add_binary_operator_formats();
+	}
+};
+
 
 class RuleDelayed : public BinaryOperatorBuiltin {
 public:
@@ -92,19 +246,19 @@ public:
 	static constexpr auto attributes =
 		Attributes::SequenceHold + Attributes::HoldRest;
 
-public:
-	using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
-
-	void build(Runtime &runtime) {
-		add_binary_operator_formats();
-	}
-
 	virtual const char *operator_name() const {
 		return ":>";
 	}
 
 	virtual int precedence() const {
 		return 120;
+	}
+
+public:
+	using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
+
+	void build(Runtime &runtime) {
+		add_binary_operator_formats();
 	}
 };
 
@@ -388,6 +542,7 @@ public:
 
 void Builtins::Patterns::initialize() {
     add<ReplaceAll>();
+	add<RuleBuiltin>();
 	add<RuleDelayed>();
 	add<MatchQ>();
 	add<Verbatim>();

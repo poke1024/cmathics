@@ -82,9 +82,76 @@ public:
 	}
 };
 
+class Order : public Builtin {
+public:
+	static constexpr const char *name = "Order";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Order[$x$, $y$]'
+        <dd>returns a number indicating the canonical ordering of $x$ and $y$. 1 indicates that $x$ is before $y$,
+        -1 that $y$ is before $x$. 0 indicates that there is no specific ordering. Uses the same order as 'Sort'.
+    </dl>
+
+    >> Order[7, 11]
+     = 1
+
+    >> Order[100, 10]
+     = -1
+
+    >> Order[x, z]
+     = 1
+
+    >> Order[x, x]
+     = 0
+	)";
+
+public:
+	using Builtin::Builtin;
+
+	void build(Runtime &runtime) {
+		builtin(&Order::apply);
+	}
+
+	inline BaseExpressionRef apply(
+		BaseExpressionPtr p1,
+		BaseExpressionPtr p2,
+		const Evaluation &evaluation) {
+
+		SortKey k1, k2;
+
+		p1->sort_key(k1, evaluation);
+		p2->sort_key(k2, evaluation);
+
+		const auto x = k1.compare(k2, evaluation);
+
+		if (x < 0) {
+			return evaluation.definitions.one;
+		} else if (x > 0) {
+			return evaluation.definitions.minus_one;
+		} else {
+			return evaluation.zero;
+		}
+	}
+};
+
 class Head : public Builtin {
 public:
     static constexpr const char *name = "Head";
+
+	static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Head[$expr$]'
+        <dd>returns the head of the expression or atom $expr$.
+    </dl>
+
+    >> Head[a * b]
+     = Times
+    >> Head[6]
+     = Integer
+    >> Head[x]
+     = Symbol
+	)";
 
 public:
     using Builtin::Builtin;
@@ -182,6 +249,7 @@ public:
 
 void Builtins::Structure::initialize() {
 	add<Sort>();
+	add<Order>();
     add<Head>();
 	add<PatternsOrderedQ>();
 	add<OrderedQ>();

@@ -67,7 +67,7 @@ public:
 };
 
 template<typename F>
-auto lambda(F &l) {
+auto mutable_lambda(F &l) {
 	return mutable_lambda_class<F>(l);
 }
 
@@ -449,13 +449,27 @@ public:
 		return BaseExpressionRef();
 	}
 
+    virtual bool same_indeed(const BaseExpression &expr) const = 0;
+
+	inline bool same(const BaseExpression &expr) const {
+		if (&expr == this) {
+			return true;
+		}
+		const auto t = type();
+		if (t == SymbolType) {
+			return false;
+		} else if (t == expr.type()) {
+			return same_indeed(expr);
+		} else {
+			return false;
+		}
+	}
+
 	inline bool same(const BaseExpressionRef &expr) const {
-        return same(*expr); // redirect to same(const BaseExpression &expr)
-    }
+		return same(*expr);
+	}
 
-    virtual bool same(const BaseExpression &expr) const = 0;
-
-    virtual tribool equals(const BaseExpression &expr) const {
+	virtual tribool equals(const BaseExpression &expr) const {
         return same(expr);
     }
 

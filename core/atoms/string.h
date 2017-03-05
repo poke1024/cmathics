@@ -310,11 +310,11 @@ public:
             s->extent().get(), m_offset, s->to_extent_offset(offset), n);
     }
 
-    inline bool same(const String *s) const {
+    inline bool same_indeed(const String *s) const {
         return s->m_length == m_length && same_n(s, 0, s->m_length);
     }
 
-    virtual inline bool same(const BaseExpression &expr) const final {
+    virtual inline bool same_indeed(const BaseExpression &expr) const final {
         if (expr.is_string()) {
             const String * const other = static_cast<const String*>(&expr);
             const size_t n = m_length;

@@ -418,7 +418,7 @@ BaseExpressionRef Expression::do_symbolic(
 			return BaseExpressionRef();
 		}
 	} else {
-		return conditional_map<ExpressionType>(
+		return selective_conditional_map<ExpressionType>(
 			[&recurse, &evaluation] (const BaseExpressionRef &leaf) {
 				return recurse(leaf, evaluation);
 			},
@@ -445,11 +445,8 @@ BaseExpressionRef Expression::expand(const Evaluation &evaluation) const {
 BaseExpressionRef Expression::replace_all(
 	const MatchRef &match, const Evaluation &evaluation) const {
 
-	const BaseExpressionRef &old_head = _head;
-	const BaseExpressionRef new_head = old_head->replace_all(match);
-
-	return conditional_map<ExpressionType, SymbolType>(
-		new_head ? new_head : old_head,
+	return selective_conditional_map<ExpressionType, SymbolType>(
+		replace_head(_head, _head->replace_all(match)),
 		[&match] (const BaseExpressionRef &leaf) {
 			return leaf->replace_all(match);
 		},
@@ -459,11 +456,8 @@ BaseExpressionRef Expression::replace_all(
 BaseExpressionRef Expression::replace_all(
 	const ArgumentsMap &replacement) const {
 
-	const BaseExpressionRef &old_head = _head;
-	const BaseExpressionRef new_head = old_head->replace_all(replacement);
-
-	return conditional_map<ExpressionType, SymbolType>(
-		new_head ? new_head : old_head,
+	return selective_conditional_map<ExpressionType, SymbolType>(
+		replace_head(_head, _head->replace_all(replacement)),
 		[&replacement] (const BaseExpressionRef &leaf) {
 			return leaf->replace_all(replacement);
 		});
@@ -515,11 +509,9 @@ BaseExpressionRef Expression::custom_format_traverse(
 	const BaseExpressionRef &form,
 	const Evaluation &evaluation) const {
 
-	const BaseExpressionRef new_head =
-		head()->custom_format_or_copy(form, evaluation);
-
-	return conditional_map_all(
-		new_head, [&form, &evaluation] (const BaseExpressionRef &leaf) {
+	return conditional_map(
+		replace_head(_head, _head->custom_format(form, evaluation)),
+        [&form, &evaluation] (const BaseExpressionRef &leaf) {
 			return leaf->custom_format(form, evaluation);
 		}, evaluation);
 }

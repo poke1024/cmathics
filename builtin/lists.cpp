@@ -296,10 +296,10 @@ public:
 			        return std::get<0>(result);
 		        };
 
-		        return conditional_map_indexed_all(
-			        new_head ? new_head : head, new_head,
+		        return conditional_map_indexed(
+			        replace_head(head, new_head),
 			        lambda(recurse),
-			        slice, 0, slice.size(),
+			        slice,
 			        evaluation);
 	        };
 

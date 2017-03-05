@@ -34,7 +34,7 @@ public:
 
     virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
-    virtual inline bool same(const BaseExpression &expr) const final {
+    virtual inline bool same_indeed(const BaseExpression &expr) const final {
         if (expr.is_machine_integer()) {
             return value == static_cast<const MachineInteger*>(&expr)->value;
         } else {
@@ -103,7 +103,7 @@ public:
 
 	virtual BaseExpressionPtr head(const Symbols &symbols) const final;
 
-    virtual inline bool same(const BaseExpression &expr) const final {
+    virtual inline bool same_indeed(const BaseExpression &expr) const final {
         if (expr.is_big_integer()) {
             return value == static_cast<const BigInteger*>(&expr)->value;
         } else {
