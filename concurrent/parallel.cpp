@@ -1,8 +1,12 @@
+#include "../core/runtime.h"
 #include "parallel.h"
 #include <cassert>
 #include <iostream>
 
 Parallel *Parallel::s_instance = nullptr;
+
+thread_local Parallel::ThreadNumber Parallel::t_thread_number;
+UnsafeSharedPtr<ParallelExecution> Parallel::s_execution_id;
 
 constexpr int queue_size = 32;
 
@@ -63,6 +67,8 @@ inline void Parallel::Barrier::signal() {
 
 void Parallel::init() {
 	s_instance = new Parallel();
+	// we're now in the main thread, so set the thread number.
+	Parallel::t_thread_number = 0;
 }
 
 void Parallel::shutdown() {
@@ -71,7 +77,7 @@ void Parallel::shutdown() {
 
 Parallel::Parallel() : m_head(nullptr), m_size(0) {
 	for (int i = 0L; i < std::max(1L, long(std::thread::hardware_concurrency()) - 1L); i++) {
-		m_threads.push_back(std::make_unique<Thread>(this));
+		m_threads.push_back(std::make_unique<Thread>(this, i + 1));
 	}
 }
 
@@ -166,14 +172,14 @@ void Parallel::release(Task *task, bool owner) {
 	}
 }
 
-void Parallel::parallelize(const Lambda &lambda, size_t n) {
-    // calls lambda(i) for i = 0, ..., n - 1. if other threads are free,
-    // work is split among them. if no other threads are free, this is
-    // just a sequential execution. we check if a thread became free after
-    // each iteration (i.e. each call of lambda()).
+void Parallel::execute(const Lambda &lambda, size_t n) {
+	// calls lambda(i) for i = 0, ..., n - 1. if other threads are free,
+	// work is split among them. if no other threads are free, this is
+	// just a sequential execution. we check if a thread became free after
+	// each iteration (i.e. each call of lambda()).
 
-    // note that lambda must be thread safe in any case, as it might be
-    // called by multiple worker threads at the same time.
+	// note that lambda must be thread safe in any case, as it might be
+	// called by multiple worker threads at the same time.
 
 	Task task(lambda, n);
 	bool enqueued = false;
@@ -195,16 +201,47 @@ void Parallel::parallelize(const Lambda &lambda, size_t n) {
 	if (enqueued) {
 		release(&task, true);
 	} else {
-        --task.busy;
-    }
+		--task.busy;
+	}
 
-    assert(!task.enqueued);
-    assert(task.busy == 0);
+	assert(!task.enqueued);
+	assert(task.busy == 0);
 }
 
-Parallel::Thread::Thread(Parallel *parallel) :
+void Parallel::parallelize(const Lambda &lambda, size_t n) {
+	bool begun_execution = false;
+
+	if (thread_number() == 0) {
+		// we're now in the main thread, so no concurrency
+		// issues here.
+
+		if (!s_execution_id) {
+			// this is an outer parallelize call. no other
+			// threads are running at this point.
+
+			s_execution_id = ParallelExecution::construct();
+			begun_execution = true;
+		}
+	}
+
+	try {
+		execute(lambda, n);
+	} catch(...) {
+		if (begun_execution) {
+			s_execution_id.reset();
+		}
+		throw;
+	}
+
+	if (begun_execution) {
+		s_execution_id.reset();
+	}
+}
+
+Parallel::Thread::Thread(Parallel *parallel, ThreadNumber thread_number) :
 	m_parallel(parallel),
 	m_state(block),
+	m_thread_number(thread_number),
 	m_thread(&Parallel::Thread::work, this) {
 
 }
@@ -224,6 +261,8 @@ void Parallel::Thread::work() {
     // this runs in a thread and steals work from other
     // threads by inspecting the queue (m_head) and grabbing
     // work items.
+
+	t_thread_number = m_thread_number;
 
 	Parallel * const parallel = m_parallel;
 

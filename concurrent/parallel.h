@@ -5,6 +5,11 @@
 #include <list>
 #include <mutex>
 
+class ParallelExecution : public PoolObject<ParallelExecution> {
+};
+
+using ParallelExecutionId = ConstSharedPtr<ParallelExecution>;
+
 class Parallel {
 public:
 	using Lambda = std::function<void(size_t)>;
@@ -49,6 +54,11 @@ public:
 private:
 	static Parallel *s_instance;
 
+	using ThreadNumber = int16_t;
+
+	static thread_local ThreadNumber t_thread_number;
+	static UnsafeSharedPtr<ParallelExecution> s_execution_id;
+
 	enum ThreadState {
 		run,
 		block,
@@ -62,9 +72,10 @@ private:
 		std::condition_variable m_event;
 		ThreadState m_state;
 		std::thread m_thread;
+		const ThreadNumber m_thread_number;
 
 	public:
-		Thread(Parallel *parallel);
+		Thread(Parallel *parallel, ThreadNumber thread_number);
 
 		~Thread();
 
@@ -107,6 +118,8 @@ private:
 
 	void release(Task *task, bool owner);
 
+	void execute(const Lambda &lambda, size_t n);
+
 public:
 	static void init();
 
@@ -117,6 +130,25 @@ public:
 	}
 
 	void parallelize(const Lambda &lambda, size_t n);
+
+	static inline ThreadNumber thread_number() {
+		// returns a number between 0 and n - 1 (n being the number of
+		// threads) indicating the thread we're currently in. 0 is the
+		// main thread. if no parallelize() is active, this will always
+		// be 0.
+
+		return t_thread_number;
+	}
+
+	static inline ParallelExecutionId execution_id() {
+		// returns a unique identifier for the current parallel execution
+		// started by the outermost parallelize().
+		// note that s_execution_id is safe to access here as it's only
+		// written at the start of parallelize() when no other threads
+		// than the main threads are running.
+
+		return s_execution_id;
+	}
 };
 
 template<typename F>
@@ -125,14 +157,14 @@ inline void parallelize(const F &f, size_t n) {
         if (n == 1) {
             f(0);
         } else {
-            // the following assignment assures, that the
-            // Parallel::Lambda (i.e. std::function) we
-            // generate here only has one capture and thus
-            // does not need dynamic allocation.
-            Parallel::Lambda lambda = [&f] (size_t i) {
-                f(i);
-            };
-            Parallel::instance()->parallelize(lambda, n);
+	        // the following assignment assures, that the
+	        // Parallel::Lambda (i.e. std::function) we
+	        // generate here only has one capture and thus
+	        // does not need dynamic allocation.
+	        Parallel::Lambda lambda = [&f] (size_t i) {
+		        f(i);
+	        };
+	        Parallel::instance()->parallelize(lambda, n);
         }
     }
 }
