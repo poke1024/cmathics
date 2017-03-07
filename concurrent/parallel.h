@@ -5,11 +5,6 @@
 #include <list>
 #include <mutex>
 
-class ParallelExecution : public PoolObject<ParallelExecution> {
-};
-
-using ParallelExecutionId = ConstSharedPtr<ParallelExecution>;
-
 class Parallel {
 public:
 	using Lambda = std::function<void(size_t)>;
@@ -33,6 +28,11 @@ public:
 		void signal();
 	};
 
+	class TaskRecord : public PoolObject<TaskRecord> {
+	};
+
+	using TaskId = ConstSharedPtr<TaskRecord>;
+
 	struct Task {
 		Task *prev;
 		Task *next;
@@ -44,9 +44,13 @@ public:
 		const Lambda &lambda;
 		const size_t n;
 
+		const TaskId id;
+
 		Barrier *barrier;
 
-		inline Task(const Lambda &lambda_, size_t n_) : lambda(lambda_), n(n_), busy(1), enqueued(false) {
+		inline Task(const Lambda &lambda_, size_t n_, const TaskId &id_) :
+			lambda(lambda_), n(n_), id(id_), busy(1), enqueued(false) {
+
 			index.store(0, std::memory_order_relaxed);
 		}
 	};
@@ -56,8 +60,18 @@ private:
 
 	using ThreadNumber = int16_t;
 
-	static thread_local ThreadNumber t_thread_number;
-	static UnsafeSharedPtr<ParallelExecution> s_execution_id;
+	struct Context {
+		// a number between 0 and n - 1 (n being the number of threads)
+		// indicating the thread we're currently in. 0 is the main thread.
+		// if no parallelize() is active, this will always be 0.
+		ThreadNumber thread_number;
+
+		// a unique identifier for the current parallel execution
+		// started by the innermost parallelize().
+		UnsafeSharedPtr<TaskRecord> task_id;
+	};
+
+	static thread_local Context t_context;
 
 	enum ThreadState {
 		run,
@@ -118,8 +132,6 @@ private:
 
 	void release(Task *task, bool owner);
 
-	void execute(const Lambda &lambda, size_t n);
-
 public:
 	static void init();
 
@@ -129,26 +141,11 @@ public:
 		return s_instance;
 	}
 
+	static inline const Context &context() {
+		return t_context;
+	}
+
 	void parallelize(const Lambda &lambda, size_t n);
-
-	static inline ThreadNumber thread_number() {
-		// returns a number between 0 and n - 1 (n being the number of
-		// threads) indicating the thread we're currently in. 0 is the
-		// main thread. if no parallelize() is active, this will always
-		// be 0.
-
-		return t_thread_number;
-	}
-
-	static inline ParallelExecutionId execution_id() {
-		// returns a unique identifier for the current parallel execution
-		// started by the outermost parallelize().
-		// note that s_execution_id is safe to access here as it's only
-		// written at the start of parallelize() when no other threads
-		// than the main threads are running.
-
-		return s_execution_id;
-	}
 };
 
 template<typename F>

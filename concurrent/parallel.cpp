@@ -5,8 +5,7 @@
 
 Parallel *Parallel::s_instance = nullptr;
 
-thread_local Parallel::ThreadNumber Parallel::t_thread_number;
-UnsafeSharedPtr<ParallelExecution> Parallel::s_execution_id;
+thread_local Parallel::Context Parallel::t_context;
 
 constexpr int queue_size = 32;
 
@@ -68,7 +67,7 @@ inline void Parallel::Barrier::signal() {
 void Parallel::init() {
 	s_instance = new Parallel();
 	// we're now in the main thread, so set the thread number.
-	Parallel::t_thread_number = 0;
+	Parallel::t_context.thread_number = 0;
 }
 
 void Parallel::shutdown() {
@@ -172,7 +171,7 @@ void Parallel::release(Task *task, bool owner) {
 	}
 }
 
-void Parallel::execute(const Lambda &lambda, size_t n) {
+void Parallel::parallelize(const Lambda &lambda, size_t n) {
 	// calls lambda(i) for i = 0, ..., n - 1. if other threads are free,
 	// work is split among them. if no other threads are free, this is
 	// just a sequential execution. we check if a thread became free after
@@ -181,7 +180,7 @@ void Parallel::execute(const Lambda &lambda, size_t n) {
 	// note that lambda must be thread safe in any case, as it might be
 	// called by multiple worker threads at the same time.
 
-	Task task(lambda, n);
+	Task task(lambda, n, TaskRecord::construct());
 	bool enqueued = false;
 
 	while (true) {
@@ -208,36 +207,6 @@ void Parallel::execute(const Lambda &lambda, size_t n) {
 	assert(task.busy == 0);
 }
 
-void Parallel::parallelize(const Lambda &lambda, size_t n) {
-	bool begun_execution = false;
-
-	if (thread_number() == 0) {
-		// we're now in the main thread, so no concurrency
-		// issues here.
-
-		if (!s_execution_id) {
-			// this is an outer parallelize call. no other
-			// threads are running at this point.
-
-			s_execution_id = ParallelExecution::construct();
-			begun_execution = true;
-		}
-	}
-
-	try {
-		execute(lambda, n);
-	} catch(...) {
-		if (begun_execution) {
-			s_execution_id.reset();
-		}
-		throw;
-	}
-
-	if (begun_execution) {
-		s_execution_id.reset();
-	}
-}
-
 Parallel::Thread::Thread(Parallel *parallel, ThreadNumber thread_number) :
 	m_parallel(parallel),
 	m_state(block),
@@ -262,7 +231,9 @@ void Parallel::Thread::work() {
     // threads by inspecting the queue (m_head) and grabbing
     // work items.
 
-	t_thread_number = m_thread_number;
+	Context * const context = &t_context;
+
+	context->thread_number = m_thread_number;
 
 	Parallel * const parallel = m_parallel;
 
@@ -303,16 +274,25 @@ void Parallel::Thread::work() {
 				head->busy += 1;
 			}
 
-			const size_t n = head->n;
-			const Lambda &lambda = head->lambda;
+			context->task_id = head->id;
 
-			while (true) {
-				const size_t index = head->index.fetch_add(1, std::memory_order_relaxed);
-				if (index >= n) {
-					break;
+			try {
+				const size_t n = head->n;
+				const Lambda &lambda = head->lambda;
+
+				while (true) {
+					const size_t index = head->index.fetch_add(
+						1, std::memory_order_relaxed);
+					if (index >= n) {
+						break;
+					}
+					lambda(index);
 				}
-				lambda(index);
+			} catch(...) {
+				std::cerr << "Parallel::Thread::work: uncaught error";
 			}
+
+			context->task_id.reset();
 
 			parallel->release(head, false);
 		}
