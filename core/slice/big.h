@@ -117,8 +117,10 @@ public:
     }
 
     template<typename F>
-    static inline BigSlice parallel_create(const F &f, size_t n) {
-        return BigSlice(parallel(f, n));
+    static inline BigSlice parallel_create(
+        const F &f, size_t n, const Evaluation &evaluation) {
+
+        return BigSlice(parallel(f, n, evaluation));
     }
 
     template<typename F>
@@ -133,11 +135,11 @@ public:
     }
 
     template<typename F>
-    inline BigSlice parallel_map(const F &f) const {
+    inline BigSlice parallel_map(const F &f, const Evaluation &evaluation) const {
         const auto &slice = *this;
         return BigSlice(parallel([&f, &slice] (size_t i) {
             return f(slice[i]);
-        }, size()));
+        }, size(), evaluation));
     }
 
     inline BigSlice slice(size_t begin, size_t end) const {

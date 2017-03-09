@@ -1274,7 +1274,7 @@ public:
 	void build(Runtime &runtime) {
 		SymEngineComplexRef value = SymEngineComplexRef(
 			new SymEngine::Complex(SymEngine::rational_class(0, 1), SymEngine::rational_class(1, 1)));
-		runtime.definitions().lookup("System`I")->state().set_own_value(BigComplex::construct(value));
+		runtime.definitions().lookup("System`I")->mutable_state().set_own_value(BigComplex::construct(value));
 	}
 };
 

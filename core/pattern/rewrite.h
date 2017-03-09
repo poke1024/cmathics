@@ -85,7 +85,7 @@ public:
     static inline RewriteBaseExpression from_arguments(
         Arguments &arguments,
         const BaseExpressionRef &expr,
-        Definitions &definitions);
+        const Evaluation &evaluation);
 
     template<typename Arguments, typename Options>
     inline BaseExpressionRef rewrite_or_copy(
@@ -124,7 +124,7 @@ public:
     static inline RewriteRef from_arguments(
         Arguments &arguments,
         const BaseExpressionRef &expr,
-        Definitions &definitions);
+        const Evaluation &evaluation);
 };
 
 class RewriteExpression : public HeapObject<RewriteExpression> {
@@ -138,12 +138,12 @@ private:
     static std::vector<const RewriteBaseExpression> nodes(
         Arguments &arguments,
         const Expression *expr,
-        Definitions &definitions);
+        const Evaluation &evaluation);
 
-    inline static ExpressionRef rewrite_functions(
+    static ExpressionRef rewrite_functions(
         const ExpressionPtr expr,
         const RewriteMask mask,
-        Definitions &definitions);
+        const Evaluation &evaluation);
 
 public:
     inline RewriteExpression(
@@ -168,7 +168,7 @@ public:
     static RewriteExpressionRef from_arguments(
         Arguments &arguments,
         const Expression *expr,
-        Definitions &definitions,
+        const Evaluation &evaluation,
         bool is_rewritten = false);
 
 	inline RewriteMask mask() const {
@@ -200,7 +200,7 @@ template<typename Arguments>
 inline RewriteBaseExpression RewriteBaseExpression::from_arguments(
     Arguments &arguments,
     const BaseExpressionRef &expr,
-    Definitions &definitions) {
+    const Evaluation &evaluation) {
 
     const SlotDirective directive = arguments(expr);
 
@@ -221,7 +221,7 @@ inline RewriteBaseExpression RewriteBaseExpression::from_arguments(
         case SlotDirective::Descend:
             if (expr->is_expression()) {
 	            const RewriteExpressionRef rewrite(RewriteExpression::from_arguments(
-                     arguments, expr->as_expression(), definitions));
+                     arguments, expr->as_expression(), evaluation));
 
 	            if (!rewrite->is_pure_copy()) {
 		            return RewriteBaseExpression(
@@ -271,10 +271,10 @@ template<typename Arguments>
 inline RewriteRef Rewrite::from_arguments(
     Arguments &arguments,
     const BaseExpressionRef &expr,
-    Definitions &definitions) {
+    const Evaluation &evaluation) {
 
     return Rewrite::construct(std::move(
-        RewriteBaseExpression::from_arguments(arguments, expr, definitions)));
+        RewriteBaseExpression::from_arguments(arguments, expr, evaluation)));
 }
 
 class SlotFunction;
@@ -306,7 +306,7 @@ public:
 
     static UnsafeSlotFunctionRef from_expression(
         const Expression *body,
-        Definitions &definitions);
+        const Evaluation &evaluation);
 
     template<typename Arguments>
     inline BaseExpressionRef rewrite_or_copy(

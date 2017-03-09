@@ -8,6 +8,10 @@
 #include <vector>
 
 TEST_CASE("parallelize") {
+	auto &definitions = Runtime::get()->definitions();
+	const auto output = std::make_shared<TestOutput>();
+	Evaluation evaluation(output, definitions, false);
+
 	constexpr size_t n = 1000000;
 
 	std::vector<int> numbers(n);
@@ -20,7 +24,7 @@ TEST_CASE("parallelize") {
 	parallelize([&numbers, &ids] (size_t i) {
 		numbers[i] = 3 * i + (i >> 2);
 		ids[i] = std::this_thread::get_id();
-	}, n);
+	}, n, evaluation);
 
 	std::unordered_set<std::thread::id> distinct_ids;
 

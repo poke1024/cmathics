@@ -170,7 +170,7 @@ public:
 
 class ModifyAttributes : public Builtin {
 protected:
-	virtual void modify(SymbolPtr symbol, Attributes attributes) const = 0;
+	virtual void modify(SymbolPtr symbol, Attributes attributes, const Evaluation &evaluation) const = 0;
 
 private:
 	ListToAttributes m_converter;
@@ -202,7 +202,7 @@ public:
 				if (s->state().attributes() & Attributes::Locked) {
 					evaluation.message(m_symbol, "locked", s);
 				} else {
-					modify(s, attributes);
+					modify(s, attributes, evaluation);
 				}
 			});
 		} catch (const NotASymbol &e) {
@@ -239,8 +239,8 @@ public:
 	using ModifyAttributes::ModifyAttributes;
 
 protected:
-	virtual void modify(SymbolPtr symbol, Attributes attributes) const {
-		symbol->state().add_attributes(attributes);
+	virtual void modify(SymbolPtr symbol, Attributes attributes, const Evaluation &evaluation) const {
+		symbol->mutable_state().add_attributes(attributes, evaluation.definitions);
 	}
 };
 
@@ -271,8 +271,8 @@ public:
 	using ModifyAttributes::ModifyAttributes;
 
 protected:
-	virtual void modify(SymbolPtr symbol, Attributes attributes) const {
-		symbol->state().remove_attributes(attributes);
+	virtual void modify(SymbolPtr symbol, Attributes attributes, const Evaluation &evaluation) const {
+		symbol->mutable_state().remove_attributes(attributes, evaluation.definitions);
 	}
 };
 

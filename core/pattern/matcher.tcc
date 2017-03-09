@@ -174,7 +174,7 @@ protected:
 public:
     RewriteBaseExpression prepare(
         const BaseExpressionRef &item,
-        Definitions &definitions) const;
+        const Evaluation &evaluation) const;
 };
 
 template<typename OptionsProcessorRef>

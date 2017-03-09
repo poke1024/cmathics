@@ -506,7 +506,7 @@ public:
 		return BaseExpressionRef();
     }
 
-	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement) const {
+	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const {
 		return BaseExpressionRef();
 	}
 

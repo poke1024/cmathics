@@ -5,8 +5,42 @@
 #include <list>
 #include <mutex>
 
+class Definitions;
+class Evaluation;
+
+class Symbol;
+class SymbolState;
+
+class Version : public PoolObject<Version> {
+private:
+	const ConstSharedPtr<Version> m_master;
+
+public:
+	inline Version() {
+	}
+
+	inline Version(const ConstSharedPtr<Version> &master) : m_master(master) {
+	}
+
+	inline const auto &master() const {
+		return m_master;
+	}
+
+	bool equivalent_to(const Version *version) const;
+};
+
+using VersionRef = ConstSharedPtr<Version>;
+
+using ThreadNumber = uint16_t;
+
+struct ParallelTask;
+
 class Parallel {
 public:
+	enum {
+		MaxParallelism = 8
+	};
+
 	using Lambda = std::function<void(size_t)>;
 
 	class Barrier {
@@ -28,48 +62,21 @@ public:
 		void signal();
 	};
 
-	class TaskRecord : public PoolObject<TaskRecord> {
-	};
-
-	using TaskId = ConstSharedPtr<TaskRecord>;
-
-	struct Task {
-		Task *prev;
-		Task *next;
-		bool enqueued;
-
-		volatile int16_t busy;
-		std::atomic<size_t> index;
-
-		const Lambda &lambda;
-		const size_t n;
-
-		const TaskId id;
-
-		Barrier *barrier;
-
-		inline Task(const Lambda &lambda_, size_t n_, const TaskId &id_) :
-			lambda(lambda_), n(n_), id(id_), busy(1), enqueued(false) {
-
-			index.store(0, std::memory_order_relaxed);
-		}
-	};
-
-private:
-	static Parallel *s_instance;
-
-	using ThreadNumber = int16_t;
-
 	struct Context {
 		// a number between 0 and n - 1 (n being the number of threads)
 		// indicating the thread we're currently in. 0 is the main thread.
 		// if no parallelize() is active, this will always be 0.
 		ThreadNumber thread_number;
 
-		// a unique identifier for the current parallel execution
-		// started by the innermost parallelize().
-		UnsafeSharedPtr<TaskRecord> task_id;
+		// the task currently processed in the innermost parallelize().
+		ParallelTask *task;
+
+		// the parent context that this context's execution is embedded in.
+		Context *parent;
 	};
+
+private:
+	static Parallel *s_instance;
 
 	static thread_local Context t_context;
 
@@ -120,7 +127,7 @@ private:
 
 	std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 
-	Task *m_head;
+	ParallelTask *m_head;
 	std::atomic<int16_t> m_size;
 
 private:
@@ -128,9 +135,9 @@ private:
 
 	~Parallel();
 
-	bool enqueue(Task *task);
+	bool enqueue(ParallelTask *task);
 
-	void release(Task *task, bool owner);
+	void release(ParallelTask *task, bool owner);
 
 public:
 	static void init();
@@ -145,11 +152,11 @@ public:
 		return t_context;
 	}
 
-	void parallelize(const Lambda &lambda, size_t n);
+	void parallelize(const Lambda &lambda, size_t n, const Evaluation &evaluation);
 };
 
 template<typename F>
-inline void parallelize(const F &f, size_t n) {
+inline void parallelize(const F &f, size_t n, const Evaluation &evaluation) {
     if (n > 0) {
         if (n == 1) {
             f(0);
@@ -161,9 +168,17 @@ inline void parallelize(const F &f, size_t n) {
 	        Parallel::Lambda lambda = [&f] (size_t i) {
 		        f(i);
 	        };
-	        Parallel::instance()->parallelize(lambda, n);
+	        Parallel::instance()->parallelize(lambda, n, evaluation);
         }
     }
 }
+
+const SymbolState &symbol_state(const Symbol *symbol);
+
+SymbolState &mutable_symbol_state(const Symbol *symbol);
+
+void update_definitions_version(Definitions &definitions);
+
+VersionRef definitions_version(const Definitions &definitions);
 
 #endif // CMATHICS_PARALLEL_H

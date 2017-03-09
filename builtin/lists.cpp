@@ -1213,7 +1213,7 @@ void Builtins::Lists::initialize() {
 
 					return list->parallel_map(list->head(), [func] (const auto &leaf) {
 						return expression(func, TinySlice<1>(&leaf, leaf->type_mask()));
-					});
+					}, evaluation);
 			    }
 		    )
 	    });

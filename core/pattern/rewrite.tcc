@@ -44,85 +44,30 @@ template<typename Arguments>
 std::vector<const RewriteBaseExpression> RewriteExpression::nodes(
     Arguments &arguments,
     const Expression *expr,
-    Definitions &definitions) {
+    const Evaluation &evaluation) {
 
-    return expr->with_slice([&arguments, &definitions] (const auto &slice) {
+    return expr->with_slice([&arguments, &evaluation] (const auto &slice) {
         std::vector<const RewriteBaseExpression> refs;
         const size_t n = slice.size();
         refs.reserve(n);
         for (size_t i = 0; i < n; i++) {
-            refs.emplace_back(RewriteBaseExpression::from_arguments(arguments, slice[i], definitions));
+            refs.emplace_back(RewriteBaseExpression::from_arguments(arguments, slice[i], evaluation));
         }
         return refs;
     });
-}
-
-inline ExpressionRef RewriteExpression::rewrite_functions(
-    const ExpressionPtr expr,
-    const RewriteMask mask,
-    Definitions &definitions) {
-
-    if (expr->head()->symbol() == S::Function && (mask & SlotRewriteMask) && expr->size() >= 2) {
-        return expr->with_slice([expr, &definitions] (const auto &slice) -> ExpressionRef {
-            TemporaryRefVector names;
-            ArgumentsMap renames;
-
-            const auto add = [&names, &renames, &definitions] (SymbolPtr arg) {
-                std::string name(arg->as_symbol()->name());
-                name.append("$");
-                const BaseExpressionRef new_arg = definitions.lookup(name.c_str());
-                renames[arg->as_symbol()] = BaseExpressionRef(new_arg);
-                names.push_back(new_arg);
-            };
-
-            const BaseExpressionRef args = slice[0];
-            if (args->is_expression() && args->as_expression()->head()->symbol() == S::List) {
-                args->as_expression()->with_slice([&names, &renames, &add](const auto &args) {
-                    for (auto arg : args) {
-                        if (arg->is_symbol()) {
-                            add(arg->as_symbol());
-                        } else {
-                            names.push_back(BaseExpressionRef(arg));
-                        }
-                    }
-                });
-            } else if (args->is_symbol()) {
-                add(args->as_symbol());
-            } else {
-                return expr;
-            }
-
-            const auto &symbols = definitions.symbols();
-
-            const BaseExpressionRef new_args = names.to_expression(symbols.List);
-
-            const BaseExpressionRef new_body =
-                coalesce(BaseExpressionRef(slice[1]->replace_all(renames)), slice[1]);
-
-            return expression(symbols.Function, sequential([&new_args, &new_body, &slice] (auto &store) {
-                store(BaseExpressionRef(new_args));
-                store(BaseExpressionRef(new_body));
-                for (size_t i = 2; i < slice.size(); i++) {
-                    store(BaseExpressionRef(slice[i]));
-                }
-            }, slice.size()));
-        });
-    } else {
-        return ExpressionRef();
-    }
 }
 
 template<typename Arguments>
 RewriteExpressionRef RewriteExpression::from_arguments(
     Arguments &arguments,
     const Expression *expr,
-    Definitions &definitions,
+    const Evaluation &evaluation,
     bool is_rewritten) {
 
     const RewriteBaseExpression head(
-        RewriteBaseExpression::from_arguments(arguments, expr->head(), definitions));
+        RewriteBaseExpression::from_arguments(arguments, expr->head(), evaluation));
     std::vector<const RewriteBaseExpression> leaves(
-        RewriteExpression::nodes(arguments, expr, definitions));
+        RewriteExpression::nodes(arguments, expr, evaluation));
 
     RewriteMask mask = head.mask();
     for (const RewriteBaseExpression &leaf : leaves) {
@@ -130,14 +75,14 @@ RewriteExpressionRef RewriteExpression::from_arguments(
     }
 
     if (!is_rewritten) {
-        const ExpressionRef new_expr(rewrite_functions(expr, mask, definitions));
+        const ExpressionRef new_expr(rewrite_functions(expr, mask, evaluation));
 
         // if a rewrite of the expression happened, we actually also need to redo
         // all our RewriteBaseExpressions (since the embedded RewritesExpressions
         // in RewriteBaseExpression::m_down need updating too).
 
         if (new_expr) {
-            return from_arguments(arguments, new_expr.get(), definitions, true);
+            return from_arguments(arguments, new_expr.get(), evaluation, true);
         }
     }
 

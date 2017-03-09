@@ -76,6 +76,11 @@ private:
 	SymbolRulesRef m_rules;
 	bool m_copy_on_write;
 
+protected:
+	friend class Symbol;
+
+	void clear_attributes();
+
 public:
 	inline SymbolState(const Symbol *symbol) : m_symbol(symbol), m_copy_on_write(false) {
 	}
@@ -167,11 +172,11 @@ public:
 		return m_attributes;
 	}
 
-	void clear_attributes();
+	void clear_attributes(Definitions &definitions);
 
-	void add_attributes(Attributes attributes);
+	void add_attributes(Attributes attributes, Definitions &definitions);
 
-	void remove_attributes(Attributes attributes);
+	void remove_attributes(Attributes attributes, Definitions &definitions);
 
 	inline bool has_attributes(Attributes attributes) const {
 		return m_attributes & attributes;
@@ -223,6 +228,9 @@ protected:
 
 protected:
 	friend class EvaluationContext;
+	friend class ParallelTask;
+	friend const SymbolState &symbol_state(const Symbol *symbol);
+	friend SymbolState &mutable_symbol_state(const Symbol *symbol);
 
 	mutable optional<SymbolState> m_builtin_state;
 	mutable SymbolState m_user_state;
@@ -239,13 +247,12 @@ public:
 
 	virtual std::string debugform() const;
 
-	inline SymbolState &state() const {
-		EvaluationContext *context = EvaluationContext::current();
-		if (context == nullptr) {
-			return m_user_state;
-		} else {
-			return context->state(this);
-		}
+	inline const SymbolState &state() const {
+		return symbol_state(this);
+	}
+
+	inline SymbolState &mutable_state() const {
+		return mutable_symbol_state(this);
 	}
 
 	inline void freeze_as_builtin() const {
@@ -317,7 +324,7 @@ public:
 
 	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
 
-	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement) const;
+	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const;
 
 	virtual void sort_key(SortKey &key, const Evaluation &evaluation) const final {
         MonomialMap map;
@@ -452,7 +459,7 @@ inline BaseExpressionRef scope(
 	const F &f) {
 
 #if 1
-	SymbolState &state = symbol->state();
+	SymbolState &state = symbol->mutable_state();
 	const BaseExpressionRef old_value(state.own_value());
 	state.set_own_value(value);
 

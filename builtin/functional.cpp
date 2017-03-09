@@ -112,10 +112,10 @@ public:
     }
 };
 
-UnsafeSlotFunctionRef SlotFunction::from_expression(const Expression *body, Definitions &definitions) {
+UnsafeSlotFunctionRef SlotFunction::from_expression(const Expression *body, const Evaluation &evaluation) {
     SlotArguments arguments;
     return UnsafeSlotFunctionRef(SlotFunction::construct(
-        Rewrite::from_arguments(arguments, body, definitions), arguments.slot_count()));
+        Rewrite::from_arguments(arguments, body, evaluation), arguments.slot_count()));
 }
 
 template<typename Arguments>
@@ -162,7 +162,7 @@ private:
         const CacheRef cache = body->as_expression()->ensure_cache();
 
         ConstSlotFunctionRef slot_function = cache->slot_function.ensure([&body, &evaluation] () {
-            return SlotFunction::from_expression(body->as_expression(), evaluation.definitions);
+            return SlotFunction::from_expression(body->as_expression(), evaluation);
         });
 
         return args->with_leaves_array(
@@ -220,7 +220,7 @@ private:
                     }
 
                     return UnsafeRewriteExpressionRef(RewriteExpression::from_arguments(
-                        arguments, body->as_expression(), evaluation.definitions));
+                        arguments, body->as_expression(), evaluation));
                 });
 
             return args->with_leaves_array(

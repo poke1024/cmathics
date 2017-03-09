@@ -112,6 +112,7 @@ set(SOURCE_FILES
     core/runtime.cpp
     core/rule.cpp
         core/pattern/matcher.cpp
+        core/pattern/rewrite.cpp
     builtin/strings.cpp
     builtin/strings.h
     builtin/numbertheory.cpp

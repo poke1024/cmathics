@@ -9,6 +9,7 @@ protected:
 	const size_t m_begin;
 	const size_t m_end;
 	const FReference m_f;
+	const Evaluation &m_evaluation;
 
 	inline ExpressionRef keep() const {
 		if (m_is_new_head) {
@@ -25,14 +26,16 @@ public:
 		const FReference f,
 		const Slice &slice,
 		const size_t begin,
-		const size_t end) :
+		const size_t end,
+		const Evaluation &evaluation) :
 
 		m_head(head),
 		m_is_new_head(is_new_head),
 		m_f(f),
 		m_slice(slice),
 		m_begin(begin),
-		m_end(end) {
+		m_end(end),
+		m_evaluation(evaluation) {
 	}
 };
 
@@ -160,14 +163,14 @@ public:
 				v[i] = std::move(leaf);
 				lock.clear();
 			}
-		}, end - begin);
+		}, end - begin, base::m_evaluation);
 
 		if (changed) {
 			if (begin == 0 && end == slice.size()) {
 				return expression(base::m_head, parallel([&v, &slice] (size_t i) {
 					const BaseExpressionRef &leaf = v[i];
 					return leaf ? leaf : slice[i];
-				}, slice.size()));
+				}, slice.size(), base::m_evaluation));
 			} else {
 				return expression(base::m_head, parallel([begin, end, &v, &slice] (size_t i) {
 					if (i < begin || i >= end) {
@@ -176,21 +179,13 @@ public:
 						const BaseExpressionRef &leaf = v[i - begin];
 						return leaf ? leaf : slice[i];
 					}
-				}, slice.size()));
+				}, slice.size(), base::m_evaluation));
 			}
 		} else {
 			return base::keep();
 		}
 	}
 };
-
-inline bool check_parallelize(bool parallelize) {
-	return parallelize;
-}
-
-inline bool check_parallelize(const Evaluation &evaluation) {
-	return evaluation.parallelize;
-}
 
 inline conditional_map_head keep_head(const BaseExpressionRef &head) {
 	return conditional_map_head{head, false};
@@ -210,29 +205,29 @@ inline conditional_map_head replace_head(
 	}
 }
 
-template<TypeMask T = UnknownTypeMask, typename F, typename Slice, typename Parallelize>
+template<TypeMask T = UnknownTypeMask, typename F, typename Slice>
 inline ExpressionRef conditional_map_indexed(
 	const conditional_map_head &head,
 	const F &f,
 	const Slice &slice,
 	const size_t begin,
 	const size_t end,
-	const Parallelize &parallelize) {
+	const Evaluation &evaluation) {
 
 #if FASTER_COMPILE
 	const std::function<BaseExpressionRef(size_t, const BaseExpressionRef&)> generic_f = f.lambda;
 
-	if (!check_parallelize(parallelize)) {
+	if (!evaluation.parallelize) {
 		const sequential_map<T, Slice, decltype(generic_f)> map(
-			head.head, head.is_new_head, generic_f, slice, begin, end);
+			head.head, head.is_new_head, generic_f, slice, begin, end, evaluation);
 		return map();
 	} else {
 		const parallel_map<T, Slice, decltype(generic_f)> map(
-			head.head, head.is_new_head, generic_f, slice, begin, end);
+			head.head, head.is_new_head, generic_f, slice, begin, end, evaluation);
 		return map();
 	}
 #else
-	if (!check_parallelize(parallelize)) {
+	if (!!evaluation.parallelize) {
 		const sequential_map<T, Slice, typename std::add_lvalue_reference<decltype(f.lambda)>::type> map(
 			head, is_new_head, f.lambda, slice, begin, end);
 		return map();
@@ -244,40 +239,40 @@ inline ExpressionRef conditional_map_indexed(
 #endif
 }
 
-template<TypeMask T = UnknownTypeMask, typename F, typename Slice, typename Parallelize>
+template<TypeMask T = UnknownTypeMask, typename F, typename Slice>
 inline ExpressionRef conditional_map_indexed(
 	const conditional_map_head &head,
 	const F &f,
 	const Slice &slice,
-	const Parallelize &parallelize) {
+	const Evaluation &evaluation) {
 
-	return conditional_map_indexed(head, f, slice, 0, slice.size(), parallelize);
+	return conditional_map_indexed(head, f, slice, 0, slice.size(), evaluation);
 }
 
-template<TypeMask T = UnknownTypeMask, typename F, typename Slice, typename Parallelize>
+template<TypeMask T = UnknownTypeMask, typename F, typename Slice>
 inline ExpressionRef conditional_map(
 	const conditional_map_head &head,
 	const F &f,
 	const Slice &slice,
 	const size_t begin,
 	const size_t end,
-	const Parallelize &parallelize) {
+	const Evaluation &evaluation) {
 
 	return conditional_map_indexed<T>(
 		head,
 		lambda([&f] (size_t i, const BaseExpressionRef &leaf) -> BaseExpressionRef {
 			return f.lambda(leaf);
-		}), slice, begin, end, parallelize);
+		}), slice, begin, end, evaluation);
 }
 
-template<TypeMask T = UnknownTypeMask, typename F, typename Slice, typename Parallelize>
+template<TypeMask T = UnknownTypeMask, typename F, typename Slice>
 inline ExpressionRef conditional_map(
 	const conditional_map_head &head,
 	const F &f,
 	const Slice &slice,
-	const Parallelize &parallelize) {
+	const Evaluation &evaluation) {
 
-	return conditional_map(head, f, slice, 0, slice.size(), parallelize);
+	return conditional_map(head, f, slice, 0, slice.size(), evaluation);
 }
 
 template<TypeMask T, Type T1, Type... Types, typename... Args>

@@ -74,7 +74,7 @@ public:
 			attributes = attributes + Attributes::Protected;
 		}
 
-		symbol->state().add_attributes(attributes);
+		symbol->mutable_state().add_attributes(attributes, _definitions);
 
         Runtime &runtime_ref = *this;
         const SymbolRef &symbol_ref = symbol;
@@ -131,9 +131,9 @@ private:
 
 		const auto &symbols = m_runtime.symbols();
 		if (lhs->head(symbols) == symbols.MakeBoxes) {
-			return symbols.MakeBoxes->state();
+			return symbols.MakeBoxes->mutable_state();
 		} else {
-			return m_symbol->state();
+			return m_symbol->mutable_state();
 		}
 	}
 
@@ -506,14 +506,14 @@ protected:
     template<typename F>
     inline void builtin(F function) {
         add_rule(function, [this] (const RuleRef &rule) {
-            m_symbol->state().add_rule(rule, m_runtime.evaluation());
+            m_symbol->mutable_state().add_rule(rule, m_runtime.evaluation());
         });
     }
 
 	template<typename F>
 	inline void builtin(const OptionsInitializerList &options, F function) {
         add_rule(options, function, [this] (const RuleRef &rule) {
-            m_symbol->state().add_rule(rule, m_runtime.evaluation());
+            m_symbol->mutable_state().add_rule(rule, m_runtime.evaluation());
         });
 	}
 
@@ -542,7 +542,7 @@ protected:
     template<typename T>
     inline void builtin() {
 	    const auto &evaluation = m_runtime.evaluation();
-        m_symbol->state().add_rule(
+        m_symbol->mutable_state().add_rule(
 		    RuleRef(T::construct(m_symbol, evaluation)),
 		    evaluation);
     }
@@ -550,7 +550,7 @@ protected:
 	template<typename F>
 	inline void format(F function, const SymbolRef &form) {
 		add_rule(function, [this, &form] (const RuleRef &rule) {
-			m_symbol->state().add_format(rule, form, m_runtime.evaluation());
+			m_symbol->mutable_state().add_format(rule, form, m_runtime.evaluation());
 		});
 	}
 
@@ -559,7 +559,7 @@ protected:
 		assert(lhs->is_expression() && lhs->as_expression()->head()->deverbatim() == m_symbol.get());
         auto &evaluation = m_runtime.evaluation();
 	    for (SymbolPtr form : forms) {
-		    m_symbol->state().add_format(DownRule::construct(lhs, rhs, evaluation), form, evaluation);
+		    m_symbol->mutable_state().add_format(DownRule::construct(lhs, rhs, evaluation), form, evaluation);
 	    }
 	}
 

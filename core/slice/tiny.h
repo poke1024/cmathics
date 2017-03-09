@@ -147,10 +147,10 @@ public:
 	}
 
 	template<typename F>
-	inline TinySlice parallel_map(const F &f) const {
+	inline TinySlice parallel_map(const F &f, const Evaluation &evaluation) const {
 		return TinySlice(parallel([this, &f] (size_t i) {
 			return f(leaf(i));
-		}, N));
+		}, N, evaluation));
 	}
 
 	inline TinySlice slice(size_t begin, size_t end) const {

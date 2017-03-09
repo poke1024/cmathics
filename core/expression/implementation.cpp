@@ -454,13 +454,14 @@ BaseExpressionRef Expression::replace_all(
 }
 
 BaseExpressionRef Expression::replace_all(
-	const ArgumentsMap &replacement) const {
+	const ArgumentsMap &replacement,
+	const Evaluation &evaluation) const {
 
 	return selective_conditional_map<ExpressionType, SymbolType>(
-		replace_head(_head, _head->replace_all(replacement)),
-		[&replacement] (const BaseExpressionRef &leaf) {
-			return leaf->replace_all(replacement);
-		});
+		replace_head(_head, _head->replace_all(replacement, evaluation)),
+		[&replacement, &evaluation] (const BaseExpressionRef &leaf) {
+			return leaf->replace_all(replacement, evaluation);
+		}, evaluation);
 }
 
 template<typename Slice>

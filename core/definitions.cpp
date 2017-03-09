@@ -61,7 +61,7 @@ Symbol::Symbol(const char *name, ExtendedType symbol) :
 		_name = _short_name;
 	}
 
-	state().clear_attributes();
+	mutable_state().clear_attributes();
 }
 
 Symbol::~Symbol() {
@@ -79,20 +79,26 @@ BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
 	}
 }
 
-
 void SymbolState::clear_attributes() {
 	m_attributes = Attributes::None;
 	m_dispatch = EvaluateDispatch::pick(Attributes::None);
 }
 
-void SymbolState::add_attributes(Attributes attributes) {
-	m_attributes = m_attributes + attributes;
-    m_dispatch = EvaluateDispatch::pick(attributes);
+void SymbolState::clear_attributes(Definitions &definitions) {
+	clear_attributes();
+	definitions.update_version();
 }
 
-void SymbolState::remove_attributes(Attributes attributes) {
+void SymbolState::add_attributes(Attributes attributes, Definitions &definitions) {
+	m_attributes = m_attributes + attributes;
+    m_dispatch = EvaluateDispatch::pick(attributes);
+	definitions.update_version();
+}
+
+void SymbolState::remove_attributes(Attributes attributes, Definitions &definitions) {
 	m_attributes = m_attributes - attributes;
 	m_dispatch = EvaluateDispatch::pick(attributes);
+	definitions.update_version();
 }
 
 void SymbolState::add_rule(
@@ -116,6 +122,8 @@ void SymbolState::add_rule(
 			add_sub_rule(SubRule::construct(lhs, rhs, evaluation), evaluation);
 			break;
 	}
+
+	evaluation.definitions.update_version();
 }
 
 void SymbolState::add_rule(
@@ -138,6 +146,8 @@ void SymbolState::add_rule(
 			add_sub_rule(rule, evaluation);
 			break;
 	}
+
+	evaluation.definitions.update_version();
 }
 
 void SymbolState::add_format(
@@ -154,6 +164,8 @@ void SymbolState::add_format(
     }
 
     mutable_rules()->format_values.add(format_rule, evaluation);
+
+	evaluation.definitions.update_version();
 }
 
 bool SymbolState::has_format(
@@ -165,6 +177,7 @@ bool SymbolState::has_format(
 
 Definitions::Definitions() :
     m_symbols(*this),
+    m_master_version(Version::construct()),
     number_form(m_symbols),
     zero(MachineInteger::construct(0)),
     one(MachineInteger::construct(1)),
@@ -182,6 +195,7 @@ SymbolRef Definitions::new_symbol(const char *name, SymbolName symbol_name) {
     assert(m_definitions.find(name) == m_definitions.end());
     const SymbolRef symbol = Symbol::construct(name, ExtendedType(symbol_name));
     m_definitions[SymbolKey(symbol)] = symbol;
+	update_master_version();
     return symbol;
 }
 
@@ -224,4 +238,14 @@ void Definitions::reset_user_definitions() {
         i++;
         // i = m_definitions.erase(i);
     }
+	update_master_version();
 }
+
+void Definitions::update_master_version() {
+	m_master_version = Version::construct();
+}
+
+VersionRef Definitions::master_version() const {
+	return m_master_version;
+}
+

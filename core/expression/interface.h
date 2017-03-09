@@ -111,7 +111,8 @@ protected:
 	inline auto map(const BaseExpressionRef &head, const F &f) const;
 
 	template<typename F>
-	inline auto parallel_map(const BaseExpressionRef &head, const F &f) const;
+	inline auto parallel_map(
+		const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const;
 
 	virtual inline BaseExpressionPtr head(const Symbols &symbols) const final {
 		return _head.get();
@@ -192,9 +193,9 @@ protected:
 	inline ExpressionRef selective_conditional_map(
 		const F &f, const Evaluation &evaluation) const;
 
-	template<enum Type... Types, typename F>
+	/*template<enum Type... Types, typename F>
 	inline ExpressionRef selective_conditional_map(
-		const conditional_map_head &head, const F &f) const;
+		const conditional_map_head &head, const F &f) const;*/
 
 	template<enum Type... Types, typename F>
 	inline ExpressionRef selective_conditional_map(
@@ -218,7 +219,7 @@ protected:
 
 	virtual BaseExpressionRef replace_all(const MatchRef &match, const Evaluation &evaluation) const;
 
-	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement) const;
+	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const;
 
 	virtual BaseExpressionRef custom_format_traverse(
 		const BaseExpressionRef &form,
@@ -259,9 +260,11 @@ inline auto Expression::map(const BaseExpressionRef &head, const F &f) const {
 }
 
 template<typename F>
-inline auto Expression::parallel_map(const BaseExpressionRef &head, const F &f) const {
-    return with_slice_c([&f, &head] (const auto &slice) {
-        return ExpressionRef(expression(head, slice.parallel_map(f)));
+inline auto Expression::parallel_map(
+	const BaseExpressionRef &head, const F &f, const Evaluation &evaluation) const {
+
+	return with_slice_c([&f, &head, &evaluation] (const auto &slice) {
+        return ExpressionRef(expression(head, slice.parallel_map(f, evaluation)));
     });
 }
 

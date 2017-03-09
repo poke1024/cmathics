@@ -47,7 +47,7 @@ void Symbol::add_message(
     const char *text,
     const Evaluation &evaluation) const {
 
-	SymbolRules *rules = state().mutable_rules();
+	SymbolRules *rules = mutable_state().mutable_rules();
     rules->messages.ensure([] () {
         return Messages::construct();
     })->add(SymbolRef(this), tag, text, evaluation);
@@ -111,7 +111,7 @@ void Symbol::reset_user_definitions() const {
 	}
 }
 
-BaseExpressionRef Symbol::replace_all(const ArgumentsMap &replacement) const {
+BaseExpressionRef Symbol::replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const {
 	const auto i = replacement.find(this);
 	if (i != replacement.end()) {
 		return i->second;

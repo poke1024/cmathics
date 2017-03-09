@@ -32,10 +32,25 @@ template<typename T>
 class BinaryOperator;
 
 class Definitions {
+public:
+	void update_master_version();
+
+	VersionRef master_version() const;
+
+	inline void update_version() {
+		::update_definitions_version(*this);
+	}
+
+	inline VersionRef version() const {
+		return ::definitions_version(*this);
+	}
+
 private:
     std::unordered_map<SymbolKey, MutableSymbolRef> m_definitions;
 
 	const Symbols m_symbols;
+
+	UnsafeSharedPtr<Version> m_master_version;
 
 protected:
 	friend class Symbols;

@@ -114,14 +114,16 @@ template<typename F>
 struct FPGenerator : public FGenerator { // [f]ixed size [p]arallel
 private:
 	const F m_generate;
-	const size_t n;
+	const size_t m_n;
+	const Evaluation &m_evaluation;
 
 public:
-	inline FPGenerator(const F &f_, size_t n_) : m_generate(f_), n(n_) {
+	inline FPGenerator(const F &f, size_t n, const Evaluation &evaluation) :
+		m_generate(f), m_n(n), m_evaluation(evaluation) {
 	}
 
 	inline size_t size() const {
-		return n;
+		return m_n;
 	}
 
 	template<size_t N>
@@ -133,19 +135,19 @@ public:
 			BaseExpressionRef leaf = m_generate(i);
 			mask.fetch_or(leaf->type_mask(), std::memory_order_relaxed);
 			array[i].unsafe_mutate(std::move(leaf));
-		}, N);
+		}, N, m_evaluation);
 		return std::make_tuple(std::move(array), mask.load(std::memory_order_relaxed));
 	}
 
 	LeafVector vector() const {
-		std::vector<BaseExpressionRef> v(n);
+		std::vector<BaseExpressionRef> v(m_n);
 		std::atomic<TypeMask> mask;
 		mask.store(0, std::memory_order_relaxed);
 		parallelize([this, &v, &mask] (size_t i) {
 			BaseExpressionRef leaf = m_generate(i);
 			mask.fetch_or(leaf->type_mask(), std::memory_order_relaxed);
 			v[i].unsafe_mutate(std::move(leaf));
-		}, n);
+		}, m_n, m_evaluation);
 		return LeafVector(std::move(v), mask.load(std::memory_order_relaxed));
 	}
 };
@@ -181,11 +183,11 @@ using GenericPGeneratorCallback = std::function<BaseExpressionRef(size_t)>;
 #endif
 
 template<typename F>
-inline auto parallel(const F &f, size_t n) {
+inline auto parallel(const F &f, size_t n, const Evaluation &evaluation) {
 #if FASTER_COMPILE
-	return FPGenerator<GenericPGeneratorCallback>(f, n);
+	return FPGenerator<GenericPGeneratorCallback>(f, n, evaluation);
 #else
-	return FPGenerator<const F&>(f, n);
+	return FPGenerator<const F&>(f, n, evaluation);
 #endif
 }
 
@@ -203,11 +205,11 @@ public:
 };
 
 template<typename F>
-inline auto parallel(const F &f, up_to n) {
+inline auto parallel(const F &f, up_to n, const Evaluation &evaluation) {
 #if FASTER_COMPILE
-	return VPGenerator<GenericPGeneratorCallback>(f, *n);
+	return VPGenerator<GenericPGeneratorCallback>(f, *n, evaluation);
 #else
-	return VPGenerator<const F&>(f, *n);
+	return VPGenerator<const F&>(f, *n, evaluation);
 #endif
 }
 

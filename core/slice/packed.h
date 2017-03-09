@@ -106,7 +106,7 @@ public:
     inline BigSlice map(const F &f) const;
 
     template<typename F>
-    inline BigSlice parallel_map(const F &f) const;
+    inline BigSlice parallel_map(const F &f, const Evaluation &evaluation) const;
 
     inline PackedSlice<U> slice(size_t begin, size_t end) const {
         assert(end - begin >= MinPackedSliceSize);
@@ -168,11 +168,11 @@ inline BigSlice PackedSlice<U>::map(const F &f) const {
 
 template<typename U>
 template<typename F>
-inline BigSlice PackedSlice<U>::parallel_map(const F &f) const {
+inline BigSlice PackedSlice<U>::parallel_map(const F &f, const Evaluation &evaluation) const {
     const auto &slice = *this;
     return BigSlice(parallel([&f, &slice] (size_t i) {
         return f(slice[i]);
-    }, size()));
+    }, size(), evaluation));
 }
 
 template<typename U>

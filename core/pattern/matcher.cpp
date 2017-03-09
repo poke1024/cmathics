@@ -2102,10 +2102,10 @@ index_t PatternMatcher::match(
 
 RewriteBaseExpression MatcherBase::prepare(
     const BaseExpressionRef &item,
-    Definitions &definitions) const {
+    const Evaluation &evaluation) const {
 
     CompiledArguments arguments(
         m_matcher->variables());
     return RewriteBaseExpression::from_arguments(
-        arguments, item->as_expression(), definitions);
+        arguments, item->as_expression(), evaluation);
 }

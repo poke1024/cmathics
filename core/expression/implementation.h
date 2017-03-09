@@ -56,7 +56,7 @@ inline ExpressionRef Expression::selective_conditional_map(
 	});
 }
 
-template<Type... Types, typename F>
+/*template<Type... Types, typename F>
 inline ExpressionRef Expression::selective_conditional_map(
 	const conditional_map_head &head,
 	const F &f) const {
@@ -65,7 +65,7 @@ inline ExpressionRef Expression::selective_conditional_map(
 		return ::selective_conditional_map<Types...>(
 			head, lambda(f), slice, false);
 	});
-}
+}*/
 
 template<Type... Types, typename F>
 inline ExpressionRef Expression::selective_conditional_map(

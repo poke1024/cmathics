@@ -10,7 +10,7 @@ inline BaseExpressionRef assign(
 
 	const Symbol *name = lhs->lookup_name();
 	if (name) {
-		const_cast<Symbol*>(name)->state().add_rule(
+		const_cast<Symbol*>(name)->mutable_state().add_rule(
             lhs, rhs, evaluation);
 	}
 

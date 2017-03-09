@@ -7,6 +7,6 @@ inline RewriteRef Cache::rewrite(
 
     return RewriteRef(m_rewrite.ensure([&matcher, &rhs, &evaluation] () {
         CompiledArguments arguments(matcher->variables());
-        return Rewrite::from_arguments(arguments, rhs, evaluation.definitions);
+        return Rewrite::from_arguments(arguments, rhs, evaluation);
     }));
 }
