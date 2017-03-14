@@ -330,7 +330,9 @@ std::string Expression::boxes_to_text(const StyleBoxOptions &options, const Eval
 				break;
 		}
 
-		throw std::runtime_error("box error");
+        std::stringstream s;
+        s << "box error. cannot handle " << debugform();
+		throw std::runtime_error(s.str());
 	});
 }
 

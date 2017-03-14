@@ -59,7 +59,7 @@ inline BaseExpressionRef match_and_replace_nested(
 				if (any_lists) {
 					if (false) { // compatibility mode
 						return BaseExpressionRef(expression(
-							evaluation.List, sequential([expr, &name, &slice](auto &store) {
+							evaluation.List, sequential([expr, &name, &slice] (auto &store) {
 								const size_t n = slice.size();
 
 								for (size_t i = 0; i < n; i++) {
@@ -72,7 +72,9 @@ inline BaseExpressionRef match_and_replace_nested(
 								const BaseExpressionRef result =
 									match_and_replace_nested(name, expr, leaf.get(), f, evaluation);
 								if (!result) {
-									return BaseExpressionRef(expression(name, expr, leaf));
+									ExpressionRef unevaluated = expression(name, expr, leaf);
+                                    unevaluated->set_last_evaluated(evaluation.definitions.version());
+                                    return BaseExpressionRef(unevaluated);
 								} else {
 									return result;
 								}
@@ -112,7 +114,7 @@ inline BaseExpressionRef match_and_replace_nested(
 			BaseExpressionRef result = instantiate_replacer<MandatoryRuleForm>(
 				pattern, immediate_replace<F>(f, evaluation), evaluation);
 			if (!result) {
-				// if not match happened, we do not want ReplaceAll[x, y], but x.
+				// if no match happened, we do not want ReplaceAll[x, y], but x.
 				return expr;
 			} else {
 				return result;

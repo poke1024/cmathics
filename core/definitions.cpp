@@ -176,6 +176,7 @@ bool SymbolState::has_format(
 }
 
 Definitions::Definitions() :
+    m_version(Version::construct()), // needed first
     m_symbols(*this),
     number_form(m_symbols),
     zero(MachineInteger::construct(0)),
@@ -184,8 +185,7 @@ Definitions::Definitions() :
     no_symbolic_form(SymbolicForm::construct(SymEngineRef())),
     default_match(Match::construct()),
     empty_list(expression(m_symbols.List)),
-    order(new BinaryOperator<struct order>(*this)),
-	m_version(Version::construct()) {
+    order(new BinaryOperator<struct order>(*this)) {
 }
 
 Definitions::~Definitions() {

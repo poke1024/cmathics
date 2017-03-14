@@ -32,6 +32,7 @@ public:
 };
 
 using VersionRef = ConstSharedPtr<Version>;
+using UnsafeVersionRef = UnsafeSharedPtr<Version>;
 
 using ThreadNumber = uint16_t;
 

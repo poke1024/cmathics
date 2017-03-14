@@ -80,6 +80,14 @@ BaseExpressionRef evaluate(
     const Implementation * const self =
 		static_cast<const ExpressionImplementation<Slice>*>(generic_self);
 
+    const VersionRef version = evaluation.definitions.version();
+
+    if (self->last_evaluated()) {
+        if (self->last_evaluated()->equivalent_to(version.get())) {
+            return BaseExpressionRef();
+        }
+    }
+
     const Slice &slice = static_cast<const Slice&>(generic_slice);
 
     const ReducedAttributes attributes(full_attributes);
@@ -158,11 +166,23 @@ BaseExpressionRef evaluate(
     const bool should_flatten_sequence =
         (attributes & (Attributes::SequenceHold + Attributes::HoldAllComplete)) == 0;
 
+    const auto prepare_result = [generic_self, &version] (const BaseExpressionRef &expr) {
+        if (!expr) {
+            generic_self->set_last_evaluated(version);
+            return BaseExpressionRef();
+        } else {
+            return expr;
+        }
+        /*if (expr && expr->is_expression()) {
+            expr->as_expression()->set_last_evaluated(version);
+        }*/
+    };
+
     if (intermediate_form) {
         if (should_flatten_sequence) {
             const ExpressionRef flattened = intermediate_form->flatten_sequence();
             if (flattened) {
-                return evaluate_unknown_size(flattened.get());
+                return prepare_result(evaluate_unknown_size(flattened.get()));
             }
         }
 
@@ -170,24 +190,24 @@ BaseExpressionRef evaluate(
             assert(intermediate_form->slice_code() == Slice::code());
             const auto *expr = static_cast<const Implementation*>(intermediate_form.get());
 
-            return coalesce(evaluate_intermediate_form(
+            return prepare_result(coalesce(evaluate_intermediate_form(
                 expr,
                 expr->slice(),
                 attributes,
-                evaluation), intermediate_form);
+                evaluation), intermediate_form));
         } else { // non-tiny slices might produce a variety of slice types; we need to check
-            return evaluate_unknown_size(intermediate_form.get());
+            return prepare_result(evaluate_unknown_size(intermediate_form.get()));
         }
     } else {
         if (should_flatten_sequence) {
             const ExpressionRef flattened = self->flatten_sequence();
             if (flattened) {
-                return evaluate_unknown_size(flattened.get());
+                return prepare_result(evaluate_unknown_size(flattened.get()));
             }
         }
 
-        return evaluate_intermediate_form(
-            self, slice, attributes, evaluation);
+        return prepare_result(evaluate_intermediate_form(
+            self, slice, attributes, evaluation));
     }
 }
 

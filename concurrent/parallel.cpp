@@ -20,12 +20,12 @@ bool Version::equivalent_to(const Version *version) const {
 
 	do {
 		if (version == compare) {
-			return false;
+			return true;
 		}
 		compare = compare->master().get();
 	} while (compare);
 
-	return true;
+	return false;
 }
 
 using UnsafeVersionRef = UnsafeSharedPtr<Version>;

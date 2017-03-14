@@ -32,6 +32,9 @@ template<typename T>
 class BinaryOperator;
 
 class Definitions {
+private:
+    TaskLocalStorage<UnsafeSharedPtr<Version>> m_version;
+
 public:
 	void update_master_version();
 
@@ -54,8 +57,6 @@ private:
     std::unordered_map<SymbolKey, MutableSymbolRef> m_definitions;
 
 	const Symbols m_symbols;
-
-	TaskLocalStorage<UnsafeSharedPtr<Version>> m_version;
 
 protected:
 	friend class Symbols;

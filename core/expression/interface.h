@@ -11,6 +11,7 @@ struct conditional_map_head {
 class Expression : public BaseExpression {
 private:
 	mutable CachedCacheRef m_cache;
+    mutable TaskLocalStorage<UnsafeVersionRef> m_last_evaluated;
     const Symbol * const m_lookup_name;
 
 protected:
@@ -232,6 +233,14 @@ protected:
 	const BaseExpressionRef *materialize(UnsafeBaseExpressionRef &materialized) const;
 
 	virtual BaseExpressionRef deverbatim() const;
+
+    inline UnsafeVersionRef last_evaluated() const {
+        return m_last_evaluated.get();
+    }
+
+    inline void set_last_evaluated(const VersionRef &version) const {
+        m_last_evaluated.set(version);
+    }
 };
 
 #include "../slice/method.tcc"

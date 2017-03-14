@@ -64,7 +64,7 @@ void mini_console() {
 	const SymbolRef Line = runtime.definitions().symbols().StateLine;
     const OutputRef output = std::make_shared<DefaultOutput>();
 
-	Line->state().set_own_value(MachineInteger::construct(1));
+	Line->mutable_state().set_own_value(MachineInteger::construct(1));
     std::cout << "In[" << 1 << "]:= ";
     for (std::string line; std::getline(std::cin, line);) {
 	    if (line.empty()) {
@@ -91,7 +91,7 @@ void mini_console() {
 		assert(line_number && line_number->type() == MachineIntegerType);
         const BaseExpressionRef new_line_number = MachineInteger::construct(
 			static_cast<const MachineInteger*>(line_number.get())->value + 1);
-        Line->state().set_own_value(new_line_number);
+        Line->mutable_state().set_own_value(new_line_number);
 
 		std::cout << std::endl;
 		std::cout << "In[" << evaluation.format_output(new_line_number) << "]:= ";
