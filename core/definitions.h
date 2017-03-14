@@ -38,11 +38,16 @@ public:
 	VersionRef master_version() const;
 
 	inline void update_version() {
-		::update_definitions_version(*this);
+		const auto &context = Parallel::context();
+		if (context.task) {
+			m_version.set(Version::construct(context.task->base_version));
+		} else {
+			m_version.set(Version::construct());
+		}
 	}
 
 	inline VersionRef version() const {
-		return ::definitions_version(*this);
+		return m_version.get();
 	}
 
 private:
@@ -50,7 +55,7 @@ private:
 
 	const Symbols m_symbols;
 
-	UnsafeSharedPtr<Version> m_master_version;
+	TaskLocalStorage<UnsafeSharedPtr<Version>> m_version;
 
 protected:
 	friend class Symbols;

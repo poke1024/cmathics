@@ -4,7 +4,7 @@
 #include "core/builtin.h"
 #include "core/pattern/matcher.tcc"
 
-thread_local EvaluationContext *EvaluationContext::s_current = nullptr;
+// thread_local EvaluationContext *EvaluationContext::s_current = nullptr;
 
 void Messages::add(
     const SymbolRef &name,
@@ -105,9 +105,9 @@ void SymbolState::clear() {
 
 void Symbol::reset_user_definitions() const {
 	if (m_builtin_state) {
-		m_user_state.set_as_copy_of(*m_builtin_state);
+		m_state.modify().set_as_copy_of(*m_builtin_state);
 	} else {
-		m_user_state.clear();
+		m_state.modify().clear();
 	}
 }
 

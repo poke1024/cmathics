@@ -50,7 +50,7 @@ Symbols::Symbols(Definitions &definitions) :
 }
 
 Symbol::Symbol(const char *name, ExtendedType symbol) :
-    BaseExpression(symbol), m_user_state(this) {
+    BaseExpression(symbol), m_state(this) {
 
 	const size_t n = snprintf(
 		_short_name, sizeof(_short_name), "%s", name);
@@ -177,7 +177,6 @@ bool SymbolState::has_format(
 
 Definitions::Definitions() :
     m_symbols(*this),
-    m_master_version(Version::construct()),
     number_form(m_symbols),
     zero(MachineInteger::construct(0)),
     one(MachineInteger::construct(1)),
@@ -185,7 +184,8 @@ Definitions::Definitions() :
     no_symbolic_form(SymbolicForm::construct(SymEngineRef())),
     default_match(Match::construct()),
     empty_list(expression(m_symbols.List)),
-    order(new BinaryOperator<struct order>(*this)) {
+    order(new BinaryOperator<struct order>(*this)),
+	m_version(Version::construct()) {
 }
 
 Definitions::~Definitions() {
@@ -242,10 +242,10 @@ void Definitions::reset_user_definitions() {
 }
 
 void Definitions::update_master_version() {
-	m_master_version = Version::construct();
+	m_version.set_master(Version::construct());
 }
 
 VersionRef Definitions::master_version() const {
-	return m_master_version;
+	return m_version.get_master();
 }
 

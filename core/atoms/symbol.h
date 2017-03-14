@@ -66,7 +66,7 @@ class SymbolState {
 	// only ever to be accessed by one single thread.
 
 private:
-	const Symbol * const m_symbol;
+	SymbolPtr m_symbol;
 
 	Attributes m_attributes;
 	DispatchableAttributes m_dispatch;
@@ -82,7 +82,7 @@ protected:
 	void clear_attributes();
 
 public:
-	inline SymbolState(const Symbol *symbol) : m_symbol(symbol), m_copy_on_write(false) {
+	inline SymbolState(SymbolPtr symbol) : m_symbol(symbol), m_copy_on_write(false) {
 	}
 
 	inline void set_as_copy_of(const SymbolState &state) {
@@ -189,7 +189,7 @@ public:
 		const Evaluation &evaluation) const;
 };
 
-class EvaluationContext {
+/*class EvaluationContext {
 private:
 	EvaluationContext * const m_parent;
 
@@ -217,7 +217,7 @@ public:
 	}
 
 	inline SymbolState &state(const Symbol *symbol);
-};
+};*/
 
 class Symbol : public BaseExpression, public PoolObject<Symbol> {
 protected:
@@ -227,13 +227,13 @@ protected:
 	char *_name;
 
 protected:
-	friend class EvaluationContext;
+	//friend class EvaluationContext;
 	friend class ParallelTask;
 	friend const SymbolState &symbol_state(const Symbol *symbol);
 	friend SymbolState &mutable_symbol_state(const Symbol *symbol);
 
 	mutable optional<SymbolState> m_builtin_state;
-	mutable SymbolState m_user_state;
+	mutable TaskLocalStorage<SymbolState> m_state;
 
 protected:
     virtual SymbolicFormRef instantiate_symbolic_form(const Evaluation &evaluation) const;
@@ -248,16 +248,16 @@ public:
 	virtual std::string debugform() const;
 
 	inline const SymbolState &state() const {
-		return symbol_state(this);
+		return m_state.get();
 	}
 
 	inline SymbolState &mutable_state() const {
-		return mutable_symbol_state(this);
+		return m_state.modify();
 	}
 
 	inline void freeze_as_builtin() const {
-		m_builtin_state.emplace(SymbolState(m_user_state));
-		m_user_state.mark_as_copy();
+		m_builtin_state.emplace(SymbolState(state()));
+		m_state.modify().mark_as_copy();
 	}
 
     void reset_user_definitions() const;
@@ -352,7 +352,7 @@ public:
 	}
 };
 
-inline SymbolState &EvaluationContext::state(const Symbol *symbol) {
+/*inline SymbolState &EvaluationContext::state(const Symbol *symbol) {
 	const auto i = m_symbols.find(symbol);
 	if (i != m_symbols.end()) {
 		return i->second;
@@ -362,7 +362,7 @@ inline SymbolState &EvaluationContext::state(const Symbol *symbol) {
 			symbol->m_user_state;
 		return m_symbols.emplace(SymbolRef(symbol), state).first->second;
 	}
-}
+}*/
 
 inline int SymbolKey::compare(const SymbolKey &key) const {
     if (_symbol) {

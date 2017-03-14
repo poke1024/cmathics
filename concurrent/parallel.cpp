@@ -5,7 +5,7 @@
 
 Parallel *Parallel::s_instance = nullptr;
 
-thread_local Parallel::Context Parallel::t_context;
+thread_local ParallelContext Parallel::t_context;
 
 constexpr int queue_size = 32;
 
@@ -30,56 +30,12 @@ bool Version::equivalent_to(const Version *version) const {
 
 using UnsafeVersionRef = UnsafeSharedPtr<Version>;
 
-struct ConcurrentDefinitions {
+/*struct ConcurrentDefinitions {
 	UnsafeVersionRef version;
 	SymbolStateMap states;
-};
+};*/
 
-struct ParallelTask {
-	ParallelTask *prev;
-	ParallelTask *next;
-	bool enqueued;
-
-	volatile int16_t busy;
-	std::atomic<size_t> index;
-
-	const Parallel::Lambda &lambda;
-	const size_t n;
-
-	const Evaluation &evaluation;
-	const VersionRef base_version;
-	ConcurrentDefinitions *definitions[Parallel::MaxParallelism];
-
-	Parallel::Barrier *barrier;
-
-	inline const SymbolState *symbol_state(const Parallel::Context &context, const Symbol *symbol) const;
-
-	inline SymbolState *mutable_symbol_state(const Parallel::Context &context, const Symbol *symbol);
-
-	inline VersionRef definitions_version(const Parallel::Context &context) const;
-
-	inline void update_definitions_version(const Parallel::Context &context);
-
-	inline ParallelTask(const Parallel::Lambda &lambda_, size_t n_, const VersionRef &version_, const Evaluation &evaluation_) :
-		lambda(lambda_), n(n_), base_version(version_), evaluation(evaluation_), busy(1), enqueued(false) {
-
-		index.store(0, std::memory_order_relaxed);
-
-		for (size_t i = 0; i < Parallel::MaxParallelism; i++) {
-			definitions[i] = nullptr;
-		}
-	}
-
-	inline ~ParallelTask();
-};
-
-ParallelTask::~ParallelTask() {
-	for (size_t i = 0; i < Parallel::MaxParallelism; i++) {
-		delete definitions[i];
-	}
-}
-
-inline const SymbolState *ParallelTask::symbol_state(
+/*inline const SymbolState *ParallelTask::symbol_state(
 	const Parallel::Context &context, const Symbol *symbol) const {
 
 	const ConcurrentDefinitions * const def = definitions[context.thread_number];
@@ -135,7 +91,7 @@ inline void ParallelTask::update_definitions_version(const Parallel::Context &co
 		def = new ConcurrentDefinitions;
 	}
 	def->version = Version::construct(base_version);
-}
+}*/
 
 inline Parallel::Spinlock::Spinlock(Parallel *parallel) :
     m_parallel(parallel), m_acquired(false) {
@@ -163,23 +119,23 @@ inline void Parallel::Spinlock::release() {
 	}
 }
 
-thread_local std::mutex Parallel::Barrier::t_mutex;
-thread_local std::condition_variable Parallel::Barrier::t_condition;
+thread_local std::mutex ParallelBarrier::t_mutex;
+thread_local std::condition_variable ParallelBarrier::t_condition;
 
-inline Parallel::Barrier::Barrier() :
+inline ParallelBarrier::ParallelBarrier() :
 	m_done(false),
 	m_mutex(t_mutex),
 	m_condition(t_condition),
 	m_lock(t_mutex) {
 }
 
-inline void Parallel::Barrier::wait() {
+inline void ParallelBarrier::wait() {
 	while (!m_done) {
 		m_condition.wait(m_lock);
 	}
 }
 
-inline void Parallel::Barrier::signal() {
+inline void ParallelBarrier::signal() {
 	std::unique_lock<std::mutex> lock(m_mutex);
 	m_done = true;
 	m_condition.notify_all();
@@ -280,7 +236,7 @@ void Parallel::release(ParallelTask *task, bool owner) {
         task->barrier = nullptr;
         spinlock.release();
 
-		Barrier barrier;
+		ParallelBarrier barrier;
 		spinlock.acquire();
         if (task->busy > 0) {
             task->barrier = &barrier;
@@ -289,7 +245,7 @@ void Parallel::release(ParallelTask *task, bool owner) {
             barrier.wait();
         }
 	} else if (!owner && busy == 0) {
-		Barrier * const barrier = task->barrier;
+		ParallelBarrier * const barrier = task->barrier;
 		spinlock.release();
         if (barrier != nullptr) {
             barrier->signal();
@@ -299,7 +255,7 @@ void Parallel::release(ParallelTask *task, bool owner) {
 	}
 }
 
-void Parallel::parallelize(const Lambda &lambda, size_t n, const Evaluation &evaluation) {
+void Parallel::parallelize(const ParallelTask::Lambda &lambda, size_t n, const Evaluation &evaluation) {
 	// calls lambda(i) for i = 0, ..., n - 1. if other threads are free,
 	// work is split among them. if no other threads are free, this is
 	// just a sequential execution. we check if a thread became free after
@@ -308,10 +264,10 @@ void Parallel::parallelize(const Lambda &lambda, size_t n, const Evaluation &eva
 	// note that lambda must be thread safe in any case, as it might be
 	// called by multiple worker threads at the same time.
 
-	Context &context = t_context;
-	Context parent = context;
+	ParallelContext &context = t_context;
+	ParallelContext parent = context;
 
-	ParallelTask task(lambda, n, definitions_version(evaluation.definitions), evaluation);
+	ParallelTask task(lambda, n, evaluation.definitions.version(), evaluation);
 	bool enqueued = false;
 
 	context.task = &task;
@@ -373,7 +329,7 @@ void Parallel::Thread::work() {
     // threads by inspecting the queue (m_head) and grabbing
     // work items.
 
-	Context &context = t_context;
+	ParallelContext &context = t_context;
 
 	context.thread_number = m_thread_number;
 	context.task = nullptr;
@@ -422,7 +378,7 @@ void Parallel::Thread::work() {
 
 			try {
 				const size_t n = head->n;
-				const Lambda &lambda = head->lambda;
+				const ParallelTask::Lambda &lambda = head->lambda;
 
 				while (true) {
 					const size_t index = head->index.fetch_add(
@@ -443,7 +399,7 @@ void Parallel::Thread::work() {
 	}
 }
 
-const SymbolState &symbol_state(const Symbol *symbol) {
+/*const SymbolState &symbol_state(const Symbol *symbol) {
 	const Parallel::Context &c = Parallel::context();
 	if (c.task) { // parallelize?
 		return *c.task->symbol_state(c, symbol);
@@ -477,4 +433,4 @@ VersionRef definitions_version(const Definitions &definitions) {
 	} else {
 		return definitions.master_version();
 	}
-}
+}*/
