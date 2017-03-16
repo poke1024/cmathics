@@ -1,130 +1,271 @@
 #include "patterns.h"
+#include "levelspec.tcc"
 #include "arithmetic/binary.h"
 
-template<typename Match>
-BaseExpressionRef replace_all(
-    const BaseExpressionRef &expr,
-    const Match &match,
-    const Evaluation &evaluation) {
+template<bool Repeated, typename Match>
+class DoReplaceAll {
+private:
+    // see PyMathics Expression.apply_rules
 
-	// see Expression.apply_rules
+    const Match &m_match;
+    const Evaluation &m_evaluation;
 
-    BaseExpressionRef result = match(expr);
-    if (result) {
-        return result;
+    inline BaseExpressionRef leaf(UnsafeBaseExpressionRef expr) {
+        if (Repeated) {
+            bool changed = false;
+            while (true) {
+                BaseExpressionRef t = m_match(expr);
+                if (!t) {
+                    if (changed) {
+                        return expr;
+                    } else {
+                        return BaseExpressionRef();
+                    }
+                }
+                expr = t->evaluate_or_copy(m_evaluation);
+                changed = true;
+            }
+        } else {
+            return m_match(expr);
+        }
     }
 
-    if (expr->is_expression()) {
-        // FIXME replace head
+    BaseExpressionRef descend(const BaseExpressionRef &expr) {
+        if (expr->is_expression()) {
+            // FIXME replace head
 
-        return expr->as_expression()->with_slice_c([&expr, &match, &evaluation] (const auto &slice) {
-            return conditional_map(
-                keep_head(expr->as_expression()->head()),
-                lambda([&match, &evaluation](const BaseExpressionRef &leaf) {
-                    return replace_all(leaf, match, evaluation);
-                }),
-                slice,
-                evaluation
-            );
-        });
-    } else {
-        return BaseExpressionRef();
+            return expr->as_expression()->with_slice_c([this, &expr] (const auto &slice) {
+                return conditional_map(
+                    keep_head(expr->as_expression()->head()),
+                    lambda([this] (const BaseExpressionRef &leaf) {
+                        return (*this)(leaf);
+                    }),
+                    slice,
+                    m_evaluation
+                );
+            });
+        } else {
+            return BaseExpressionRef();
+        }
     }
-}
+
+public:
+    DoReplaceAll(
+        const Match &match,
+        const Evaluation &evaluation) :
+
+        m_match(match), m_evaluation(evaluation) {
+
+    }
+
+    BaseExpressionRef operator()(const BaseExpressionRef &expr) {
+        BaseExpressionRef t = leaf(expr);
+        if (t) {
+            return coalesce(descend(t), t);
+        } else {
+            return descend(expr);
+        }
+    }
+};
 
 template<typename F>
-inline BaseExpressionRef match_and_replace_nested(
+inline BaseExpressionRef match_and_replace(
 	const SymbolRef &name,
 	const BaseExpressionPtr expr,
 	const BaseExpressionPtr pattern,
-	const F &f,
+	const F &replace,
 	const Evaluation &evaluation) {
 
 	try {
 		if (pattern->is_list()) {
-			return pattern->as_expression()->with_slice_c([expr, pattern, &name, &f, &evaluation] (const auto &slice) {
-				const size_t n = slice.size();
+			return pattern->as_expression()->with_slice_c(
+                [expr, pattern, &name, &replace, &evaluation] (const auto &slice) {
+                    const size_t n = slice.size();
 
-				bool any_lists = false;
+                    bool any_lists = false;
 
-				for (size_t i = 0; i < n; i++) {
-					if (slice[i]->is_list()) {
-						any_lists = true;
-					} else if (any_lists) {
-						evaluation.message(name, "rmix", pattern);
-						return BaseExpressionRef();
-					}
-				}
+                    for (size_t i = 0; i < n; i++) {
+                        if (slice[i]->is_list()) {
+                            any_lists = true;
+                        } else if (any_lists) {
+                            evaluation.message(name, "rmix", pattern);
+                            return BaseExpressionRef();
+                        }
+                    }
 
-				if (any_lists) {
-					if (false) { // compatibility mode
-						return BaseExpressionRef(expression(
-							evaluation.List, sequential([expr, &name, &slice] (auto &store) {
-								const size_t n = slice.size();
+                    if (any_lists) {
+                        if (false) { // compatibility mode
+                            return BaseExpressionRef(expression(
+                                evaluation.List, sequential([expr, &name, &slice] (auto &store) {
+                                    const size_t n = slice.size();
 
-								for (size_t i = 0; i < n; i++) {
-									store(expression(name, expr, slice[i]));
-								}
-							})));
-					} else {
-						const auto recurse = lambda(
-							[expr, &name, &f, &evaluation] (const BaseExpressionRef &leaf) {
-								const BaseExpressionRef result =
-									match_and_replace_nested(name, expr, leaf.get(), f, evaluation);
-								if (!result) {
-									ExpressionRef unevaluated = expression(name, expr, leaf);
-                                    unevaluated->set_last_evaluated(evaluation.definitions.version());
-                                    return BaseExpressionRef(unevaluated);
-								} else {
-									return result;
-								}
-							});
+                                    for (size_t i = 0; i < n; i++) {
+                                        store(expression(name, expr, slice[i]));
+                                    }
+                                })));
+                        } else {
+                            const auto recurse = lambda(
+                                [expr, &name, &replace, &evaluation] (const BaseExpressionRef &leaf) {
+                                    const BaseExpressionRef result =
+                                        match_and_replace(name, expr, leaf.get(), replace, evaluation);
+                                    if (!result) {
+                                        ExpressionRef unevaluated = expression(name, expr, leaf);
+                                        unevaluated->set_last_evaluated(evaluation.definitions.version());
+                                        return BaseExpressionRef(unevaluated);
+                                    } else {
+                                        return result;
+                                    }
+                                });
 
-						return BaseExpressionRef(conditional_map(
-							keep_head(evaluation.List),
-							recurse,
-							slice,
-							evaluation));
-					}
-				}
+                            return BaseExpressionRef(conditional_map(
+                                keep_head(evaluation.List),
+                                recurse,
+                                slice,
+                                evaluation));
+                        }
+                    }
 
-				std::vector<ReplacerRef> replacers;
-				replacers.reserve(n);
-				for (size_t i = 0; i < n; i++) {
-					replacers.push_back(instantiate_replacer<MandatoryRuleForm>(
-						slice[i], replacer_factory(), evaluation));
-				}
+                    std::vector<ReplacerRef> replacers;
+                    replacers.reserve(n);
+                    for (size_t i = 0; i < n; i++) {
+                        replacers.push_back(instantiate_replacer<MandatoryRuleForm>(
+                            slice[i], replacer_factory(), evaluation));
+                    }
 
-				std::vector<optional<MatchContext>> contexts(n);
-				return f([&replacers, &contexts, &evaluation] (const BaseExpressionRef &item) {
-					const size_t n = replacers.size();
+                    std::vector<optional<MatchContext>> contexts(n);
+                    return replace([&replacers, &contexts, &evaluation] (const BaseExpressionRef &item) {
+                        const size_t n = replacers.size();
 
-					for (size_t i = 0; i < n; i++) {
-						const BaseExpressionRef result =
-							replacers[i]->apply(contexts[i], item, evaluation);
-						if (result) {
-							return result;
-						}
-					}
+                        for (size_t i = 0; i < n; i++) {
+                            const BaseExpressionRef result =
+                                replacers[i]->apply(contexts[i], item, evaluation);
+                            if (result) {
+                                return result;
+                            }
+                        }
 
-					return BaseExpressionRef();
-				});
-			});
+                        return BaseExpressionRef();
+                    });
+                });
 		} else {
-			BaseExpressionRef result = instantiate_replacer<MandatoryRuleForm>(
-				pattern, immediate_replace<F>(f, evaluation), evaluation);
-			if (!result) {
-				// if no match happened, we do not want ReplaceAll[x, y], but x.
-				return expr;
-			} else {
-				return result;
-			}
+			return instantiate_replacer<MandatoryRuleForm>(
+				pattern, immediate_replace<F>(replace, evaluation), evaluation);
 		}
 	} catch (const EvaluationMessage& message) {
 		message(name, evaluation);
 		return BaseExpressionRef();
 	}
 }
+
+struct ReplaceOptions {
+    BaseExpressionPtr Heads;
+
+    static OptionsInitializerList meta() {
+        return {
+            {"Heads", offsetof(ReplaceOptions, Heads), "False"}
+        };
+    };
+};
+
+class Replace : public Builtin {
+public:
+    static constexpr const char *name = "Replace";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Replace[$expr$, $x$ -> $y$]'
+        <dd>yields the result of replacing $expr$ with $y$ if it
+        matches the pattern $x$.
+    <dt>'Replace[$expr$, $x$ -> $y$, $levelspec$]'
+        <dd>replaces only subexpressions at levels specified through
+        $levelspec$.
+    <dt>'Replace[$expr$, {$x$ -> $y$, ...}]'
+        <dd>performs replacement with multiple rules, yielding a
+        single result expression.
+    <dt>'Replace[$expr$, {{$a$ -> $b$, ...}, {$c$ -> $d$, ...}, ...}]'
+        <dd>returns a list containing the result of performing each
+        set of replacements.
+    </dl>
+
+    >> Replace[x, {x -> 2}]
+     = 2
+
+    By default, only the top level is searched for matches
+    >> Replace[1 + x, {x -> 2}]
+     = 1 + x
+
+    >> Replace[x, {{x -> 1}, {x -> 2}}]
+     = {1, 2}
+
+    Replace stops after the first replacement
+    >> Replace[x, {x -> {}, _List -> y}]
+     = {}
+
+    Replace replaces the deepest levels first
+    >> Replace[x[1], {x[1] -> y, 1 -> 2}, All]
+     = x[2]
+
+    By default, heads are not replaced
+    >> Replace[x[x[y]], x -> z, All]
+     = x[x[y]]
+
+    Heads can be replaced using the Heads option
+    >> Replace[x[x[y]], x -> z, All, Heads -> True]
+     = z[z[y]]
+
+    Note that heads are handled at the level of leaves
+    >> Replace[x[x[y]], x -> z, {1}, Heads -> True]
+     = z[x[y]]
+
+    You can use Replace as an operator
+    >> Replace[{x_ -> x + 1}][10]
+     = 11
+	)";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        message("reps", "`1` is not a valid replacement rule.");
+        message("rmix", "Elements of `1` are a mixture of lists and nonlists.");
+
+        builtin(
+            "Replace[list_, patt_, Shortest[ls_:{0}], OptionsPattern[Replace]]",
+            &Replace::apply);
+
+        builtin("Replace[rules_][expr_]", "Replace[expr, rules]");
+    }
+
+    inline BaseExpressionRef apply(
+        BaseExpressionPtr expr,
+        BaseExpressionPtr pattern,
+        BaseExpressionPtr ls,
+        const ReplaceOptions &options,
+        const Evaluation &evaluation) {
+
+        try {
+            const Levelspec levelspec(ls);
+
+            // if no match happened, we do not want Replace[x, y], but x.
+            return coalesce(match_and_replace(
+                m_symbol, expr, pattern, [expr, &levelspec, &options, &evaluation] (const auto &match) {
+
+                    return BaseExpressionRef(std::get<0>(
+                        levelspec.walk<UnsafeBaseExpressionRef, Levelspec::NoPosition>(
+                            expr,
+                            options.Heads->is_true(),
+                            [&match] (const BaseExpressionRef &node, Levelspec::NoPosition) {
+                                return match(node);
+                            },
+                            evaluation)));
+
+                }, evaluation), expr);
+        } catch (const Levelspec::InvalidError&) {
+            evaluation.message(m_symbol, "level", ls);
+            return BaseExpressionRef();
+        }
+    }
+};
 
 class ReplaceAll : public BinaryOperatorBuiltin {
 public:
@@ -146,6 +287,32 @@ public:
 
     >> a+b+c /. c->d
      = a + b + d
+
+    If $rules$ is a list of lists, a list of all possible respective
+    replacements is returned:
+    >> {a, b} /. {{a->x, b->y}, {a->u, b->v}}
+     = {{x, y}, {u, v}}
+    The list can be arbitrarily nested:
+    >> {a, b} /. {{{a->x, b->y}, {a->w, b->z}}, {a->u, b->v}}
+     = {{{x, y}, {w, z}}, {u, v}}
+    >> {a, b} /. {{{a->x, b->y}, a->w, b->z}, {a->u, b->v}}
+     : Elements of {{a -> x, b -> y}, a -> w, b -> z} are a mixture of lists and nonlists.
+     = {{a, b} /. {{a -> x, b -> y}, a -> w, b -> z}, {u, v}}
+
+    ReplaceAll also can be used as an operator:
+    >> ReplaceAll[{a -> 1}][{a, b}]
+     = {1, b}
+
+    #> a + b /. x_ + y_ -> {x, y}
+     = {a, b}
+
+    ReplaceAll stops after the first replacement
+    >> ReplaceAll[x, {x -> {}, _List -> y}]
+     = {}
+
+    ReplaceAll replaces the shallowest levels first:
+    >> ReplaceAll[x[1], {x[1] -> y, 1 -> 2}]
+     = y
 	)";
 
 	virtual const char *operator_name() const {
@@ -168,6 +335,7 @@ public:
 		message("rmix", "Elements of `1` are a mixture of lists and nonlists.");
 
         builtin(&ReplaceAll::apply);
+        builtin("ReplaceAll[rules_][expr_]", "ReplaceAll[expr, rules]");
 
 	    add_binary_operator_formats();
     }
@@ -177,10 +345,64 @@ public:
         BaseExpressionPtr pattern,
         const Evaluation &evaluation) {
 
-		return match_and_replace_nested(
+        // if no match happened, we do not want ReplaceAll[x, y], but x.
+		return coalesce(match_and_replace(
 		    m_symbol, expr, pattern, [expr, &evaluation] (const auto &match) {
-	            return replace_all(expr, match, evaluation);
-            }, evaluation);
+                return DoReplaceAll<false, decltype(match)>(match, evaluation)(expr);
+            }, evaluation), expr);
+    }
+};
+
+class ReplaceRepeated : public BinaryOperatorBuiltin {
+public:
+    static constexpr const char *name = "ReplaceRepeated";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'ReplaceRepeated[$expr$, $x$ -> $y$]'
+    <dt>'$expr$ //. $x$ -> $y$'
+        <dd>repeatedly applies the rule '$x$ -> $y$' to $expr$ until
+        the result no longer changes.
+    </dl>
+
+    >> a+b+c //. c->d
+     = a + b + d
+	)";
+
+    virtual const char *operator_name() const {
+        return "//.";
+    }
+
+    virtual int precedence() const {
+        return 110;
+    }
+
+    virtual const char *grouping() const {
+        return "Left";
+    }
+
+public:
+    using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
+
+    void build(Runtime &runtime) {
+        message("reps", "`1` is not a valid replacement rule.");
+        message("rmix", "Elements of `1` are a mixture of lists and nonlists.");
+
+        builtin(&ReplaceRepeated::apply);
+
+        add_binary_operator_formats();
+    }
+
+    inline BaseExpressionRef apply(
+        BaseExpressionPtr expr,
+        BaseExpressionPtr pattern,
+        const Evaluation &evaluation) {
+
+        // if no match happened, we do not want ReplaceRepeated[x, y], but x.
+        return coalesce(match_and_replace(
+            m_symbol, expr, pattern, [expr, &evaluation] (const auto &match) {
+                return DoReplaceAll<true, decltype(match)>(match, evaluation)(expr);
+            }, evaluation), expr);
     }
 };
 
@@ -543,7 +765,9 @@ public:
 };
 
 void Builtins::Patterns::initialize() {
+    add<Replace>();
     add<ReplaceAll>();
+    add<ReplaceRepeated>();
 	add<RuleBuiltin>();
 	add<RuleDelayed>();
 	add<MatchQ>();
