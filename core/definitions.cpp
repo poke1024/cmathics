@@ -3,7 +3,7 @@
 #include "evaluation.h"
 #include "core/pattern/arguments.h"
 #include "builtin.h"
-#include "core/pattern/matcher.tcc"
+#include "core/matcher/matcher.tcc"
 #include "arithmetic/binary.h"
 #include "arithmetic/compare.tcc"
 
@@ -79,26 +79,42 @@ BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
 	}
 }
 
+void SymbolRules::set_attributes(
+    Attributes attributes,
+    const Evaluation &evaluation) {
+
+    down_rules.set_governing_attributes(attributes, evaluation);
+}
+
 void SymbolState::clear_attributes() {
 	m_attributes = Attributes::None;
 	m_dispatch = EvaluateDispatch::pick(Attributes::None);
 }
 
-void SymbolState::clear_attributes(Definitions &definitions) {
+void SymbolState::clear_attributes(const Evaluation &evaluation) {
 	clear_attributes();
-	definitions.update_version();
+	evaluation.definitions.update_version();
+    if (m_rules) {
+        m_rules->set_attributes(m_attributes, evaluation);
+    }
 }
 
-void SymbolState::add_attributes(Attributes attributes, Definitions &definitions) {
+void SymbolState::add_attributes(Attributes attributes, const Evaluation &evaluation) {
 	m_attributes = m_attributes + attributes;
     m_dispatch = EvaluateDispatch::pick(attributes);
-	definitions.update_version();
+    evaluation.definitions.update_version();
+    if (m_rules) {
+        m_rules->set_attributes(m_attributes, evaluation);
+    }
 }
 
-void SymbolState::remove_attributes(Attributes attributes, Definitions &definitions) {
+void SymbolState::remove_attributes(Attributes attributes, const Evaluation &evaluation) {
 	m_attributes = m_attributes - attributes;
 	m_dispatch = EvaluateDispatch::pick(attributes);
-	definitions.update_version();
+    evaluation.definitions.update_version();
+    if (m_rules) {
+        m_rules->set_attributes(m_attributes, evaluation);
+    }
 }
 
 void SymbolState::add_rule(

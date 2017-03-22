@@ -218,7 +218,7 @@ void Runtime::add(
 
     const std::string full_down = std::string("System`") + name;
     const SymbolRef symbol = _definitions.lookup(full_down.c_str());
-    symbol->mutable_state().add_attributes(attributes, _definitions);
+    symbol->mutable_state().add_attributes(attributes, _bootstrap_evaluation);
     for (const NewRuleRef &new_rule : rules) {
         symbol->mutable_state().add_rule(
 		    new_rule(symbol, _bootstrap_evaluation), _bootstrap_evaluation);

@@ -2,7 +2,7 @@
 #include "core/expression/implementation.h"
 #include "evaluate.h"
 #include "definitions.h"
-#include "core/pattern/matcher.tcc"
+#include "core/matcher/matcher.tcc"
 
 EvaluateDispatch *EvaluateDispatch::s_instance = nullptr;
 
@@ -42,6 +42,9 @@ BaseExpressionRef evaluate_intermediate_form(
                 const optional<BaseExpressionRef> up_form = up_rules->up_rules.apply(
                     expr, evaluation);
                 if (up_form) {
+                    /*if (*up_form) {
+                        std::cout << "applied up value: " << expr->debugform() << " to " << (*up_form)->debugform() << std::endl;
+                    }*/
                     return *up_form;
                 }
             }
@@ -60,6 +63,9 @@ BaseExpressionRef evaluate_intermediate_form(
         const optional<BaseExpressionRef> down_form = rules->down_rules.apply(
             expr, evaluation);
         if (down_form) {
+            /*if (*down_form) {
+                std::cout << "applied down value: " << expr->debugform() << " to " << (*down_form)->debugform() << std::endl;
+            }*/
             return *down_form;
         }
     }
@@ -74,6 +80,8 @@ BaseExpressionRef evaluate(
     const GenericSlice &generic_slice,
     const Attributes full_attributes,
     const Evaluation &evaluation) {
+
+    // std::cout << "entering evaluate with " << generic_self->debugform() << std::endl;
 
     using Implementation = const ExpressionImplementation<Slice>;
 

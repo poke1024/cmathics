@@ -82,7 +82,7 @@ set(SOURCE_FILES
     core/types.cpp
         core/builtin.h
         core/atoms/symbol.h
-        core/pattern/matcher.h
+        core/matcher/matcher.h
     core/heap.cpp
     core/heap.h
     core/evaluate.h
@@ -111,7 +111,7 @@ set(SOURCE_FILES
     builtin/exptrig.h
     core/runtime.cpp
     core/rule.cpp
-        core/pattern/matcher.cpp
+        core/matcher/matcher.cpp
         core/pattern/rewrite.cpp
     builtin/strings.cpp
     builtin/strings.h
@@ -162,7 +162,7 @@ set(SOURCE_FILES
         builtin/numeric.cpp
         builtin/numeric.h
         builtin/logic.cpp
-        builtin/logic.h)
+        builtin/logic.h core/matcher/generic.tcc)
 
 add_custom_target(standalone)
 

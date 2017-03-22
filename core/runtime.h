@@ -6,7 +6,7 @@
 #include "types.h"
 #include "builtin.h"
 #include "parser.h"
-#include "core/pattern/matcher.tcc"
+#include "core/matcher/matcher.tcc"
 #include "python.h"
 
 using TestList = std::initializer_list<const char*[2]>;
@@ -74,7 +74,8 @@ public:
 			attributes = attributes + Attributes::Protected;
 		}
 
-		symbol->mutable_state().add_attributes(attributes, _definitions);
+		symbol->mutable_state().add_attributes(
+            attributes, _bootstrap_evaluation);
 
         Runtime &runtime_ref = *this;
         const SymbolRef &symbol_ref = symbol;

@@ -61,7 +61,11 @@ public:
     BaseExpressionRef operator()(const BaseExpressionRef &expr) {
         BaseExpressionRef t = leaf(expr);
         if (t) {
-            return coalesce(descend(t), t);
+            if (!Repeated) {
+                return t;
+            } else {
+                return coalesce(descend(t), t);
+            }
         } else {
             return descend(expr);
         }
@@ -287,6 +291,8 @@ public:
 
     >> a+b+c /. c->d
      = a + b + d
+    >> g[a+b+c,a]/.g[x_+y_,x_]->{x,y}
+     = {a, b + c}
 
     If $rules$ is a list of lists, a list of all possible respective
     replacements is returned:
@@ -346,10 +352,12 @@ public:
         const Evaluation &evaluation) {
 
         // if no match happened, we do not want ReplaceAll[x, y], but x.
-		return coalesce(match_and_replace(
+		BaseExpressionRef new_expr = coalesce(match_and_replace(
 		    m_symbol, expr, pattern, [expr, &evaluation] (const auto &match) {
                 return DoReplaceAll<false, decltype(match)>(match, evaluation)(expr);
             }, evaluation), expr);
+
+        return new_expr;
     }
 };
 

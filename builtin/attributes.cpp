@@ -240,7 +240,7 @@ public:
 
 protected:
 	virtual void modify(SymbolPtr symbol, Attributes attributes, const Evaluation &evaluation) const {
-		symbol->mutable_state().add_attributes(attributes, evaluation.definitions);
+		symbol->mutable_state().add_attributes(attributes, evaluation);
 	}
 };
 
@@ -272,7 +272,7 @@ public:
 
 protected:
 	virtual void modify(SymbolPtr symbol, Attributes attributes, const Evaluation &evaluation) const {
-		symbol->mutable_state().remove_attributes(attributes, evaluation.definitions);
+		symbol->mutable_state().remove_attributes(attributes, evaluation);
 	}
 };
 

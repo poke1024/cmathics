@@ -5,8 +5,8 @@
 #include "core/atoms/symbol.h"
 #include "core/expression/implementation.h"
 #include "core/builtin.h"
-#include "context.h"
-#include "sequence.tcc"
+#include "core/pattern/context.h"
+#include "core/pattern/sequence.tcc"
 
 class StringMatcher {
 private:
@@ -99,49 +99,43 @@ public:
     }
 };
 
+class PatternMatcherVariants {
+private:
+    const PatternMatcherRef m_ordered;
+    const PatternMatcherRef m_generic;
+
+public:
+    PatternMatcherVariants(const PatternMatcherRef &ordered, const PatternMatcherRef &generic) :
+        m_ordered(ordered), m_generic(generic) {
+    }
+
+    inline const PatternMatcherRef &operator()(Attributes attributes) const {
+        if (any(attributes, Attributes::Flat + Attributes::Orderless)) {
+            return m_generic;
+        } else {
+            return m_ordered;
+        }
+    }
+
+    inline std::string name(const MatchContext &context) const {
+        return m_generic->name(context);
+    }
+};
+
 class HeadLeavesMatcher {
 private:
     const PatternMatcherRef m_match_head;
-    const PatternMatcherRef m_match_leaves;
+    const PatternMatcherVariants m_match_leaves;
 
     template<bool MatchHead>
     inline bool match(
         MatchContext &context,
-        const Expression *expr) const {
-
-        const PatternMatcherRef &match_leaves = m_match_leaves;
-
-        if (!match_leaves->might_match(expr->size())) {
-            return false;
-        }
-
-        if (MatchHead) {
-            const BaseExpressionRef &head = expr->head();
-
-            if (m_match_head->match(FastLeafSequence(context, &head), 0, 1) < 0) {
-                return false;
-            }
-        }
-
-        if (expr->has_leaves_array()) {
-            if (expr->with_leaves_array([&context, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
-                return match_leaves->match(FastLeafSequence(context, leaves), 0, size);
-            }) < 0) {
-                return false;
-            }
-        } else {
-            if (match_leaves->match(SlowLeafSequence(context, expr), 0, expr->size()) < 0) {
-                return false;
-            }
-        }
-
-        return true;
-    }
+        const Expression *expr) const;
 
 public:
     inline HeadLeavesMatcher(
         const PatternMatcherRef &match_head,
-        const PatternMatcherRef &match_leaves) :
+        const PatternMatcherVariants &match_leaves) :
 
         m_match_head(match_head),
         m_match_leaves(match_leaves) {
@@ -150,21 +144,17 @@ public:
     inline std::string name(const MatchContext &context) const {
         std::ostringstream s;
         s << "HeadLeavesMatcher(" << m_match_head->name(context) << ", ";
-        s << m_match_leaves->name(context) << ")";
+        s << m_match_leaves.name(context) << ")";
         return s.str();
     }
 
-    inline bool with_head(
-            MatchContext &context,
-            const Expression *expr) const {
-        return match<true>(context, expr);
-    }
+    bool with_head(
+        MatchContext &context,
+        const Expression *expr) const;
 
-    inline bool without_head(
-            MatchContext &context,
-            const Expression *expr) const {
-        return match<false>(context, expr);
-    }
+    bool without_head(
+        MatchContext &context,
+        const Expression *expr) const;
 };
 
 class MatcherBase {
@@ -208,7 +198,7 @@ private:
 
         MatchContext context(m_matcher, options, evaluation);
         const index_t match = m_matcher->match(
-                FastLeafSequence(context, &item), 0, 1);
+            FastLeafSequence(context, nullptr, &item), 0, 1);
         if (match >= 0) {
             return context.match;
         } else {
@@ -396,7 +386,7 @@ public:
 	    }
 
 	    const index_t match = m_matcher->match(
-		    FastLeafSequence(*context, &item), 0, 1);
+		    FastLeafSequence(*context, nullptr, &item), 0, 1);
 	    if (match >= 0) {
 		    return m_rewrite(*context, item, evaluation);
 	    } else {
@@ -633,5 +623,5 @@ inline auto match(
 		pattern, immediate_replace<F>(f, evaluation), evaluation);
 }
 
-#include "rule.tcc"
-#include "match.tcc"
+#include "core/pattern/rule.tcc"
+#include "core/pattern/match.tcc"

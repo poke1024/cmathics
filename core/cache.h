@@ -3,7 +3,7 @@
 
 #include <unordered_set>
 #include "pattern/rewrite.h"
-#include "pattern/matcher.h"
+#include "core/matcher/matcher.h"
 
 class Cache : public PoolObject<Cache> {
 private:

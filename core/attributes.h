@@ -39,6 +39,10 @@ inline bool operator&(Attributes x, Attributes y)  {
 	}
 }
 
+inline bool any(Attributes x, Attributes y)  {
+    return attributes_bitmask_t(attributes_bitmask_t(x) & attributes_bitmask_t(y)) != 0;
+}
+
 inline size_t count(Attributes x, Attributes y) {
     std::bitset<sizeof(attributes_bitmask_t) * 8> bits(
         attributes_bitmask_t(x) & attributes_bitmask_t(y));
@@ -51,4 +55,8 @@ inline constexpr Attributes operator+(Attributes x, Attributes y)  {
 
 inline constexpr Attributes operator-(Attributes x, Attributes y)  {
     return Attributes(attributes_bitmask_t(x) & ~attributes_bitmask_t(y));
+}
+
+inline bool is_match_size_known(Attributes x) {
+    return !any(x, Attributes::Orderless + Attributes::Flat);
 }

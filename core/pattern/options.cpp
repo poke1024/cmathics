@@ -1,7 +1,7 @@
 #include "core/types.h"
 #include "core/expression/implementation.h"
 #include "arguments.h"
-#include "core/pattern/matcher.tcc"
+#include "core/matcher/matcher.tcc"
 
 index_t DynamicOptionsProcessor::match(
 	const SlowLeafSequence &sequence,

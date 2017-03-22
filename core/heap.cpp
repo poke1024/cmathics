@@ -3,7 +3,7 @@
 #include "core/atoms/integer.h"
 #include "core/expression/implementation.h"
 #include "definitions.h"
-#include "core/pattern/matcher.tcc"
+#include "core/matcher/matcher.tcc"
 
 LegacyPool *LegacyPool::_s_instance = nullptr;
 

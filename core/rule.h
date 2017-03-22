@@ -214,6 +214,31 @@ void RulesVector<Entry>::insert_rule(
 }
 
 template<typename Entry>
+void RulesVector<Entry>::set_governing_attributes(
+    Attributes attributes,
+    const Evaluation &evaluation) {
+
+    const bool new_is_match_size_known =
+        is_match_size_known(attributes);
+
+    if (new_is_match_size_known == m_is_match_size_known) {
+        return;
+    }
+
+    m_is_match_size_known = new_is_match_size_known;
+
+    for (size_t code = 0; code < NumberOfSliceCodes; code++) {
+        m_rules[code].clear();
+        for (const Entry &entry : m_all_rules) {
+            if (!m_is_match_size_known || entry.size.matches(SliceCode(code))) {
+                insert_rule(m_rules[code], entry, evaluation);
+            }
+        }
+    }
+}
+
+
+template<typename Entry>
 void RulesVector<Entry>::add(
 	const typename Entry::RuleRef &rule,
 	const Evaluation &evaluation) {
@@ -221,7 +246,7 @@ void RulesVector<Entry>::add(
 	const Entry entry(rule);
 
 	for (size_t code = 0; code < NumberOfSliceCodes; code++) {
-		if (entry.size.matches(SliceCode(code))) {
+		if (!m_is_match_size_known || entry.size.matches(SliceCode(code))) {
 			insert_rule(m_rules[code], entry, evaluation);
 		}
 	}

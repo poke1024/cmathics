@@ -9,6 +9,7 @@
 #include "gmpxx.h"
 #include <arb.h>
 
+#include "attributes.h"
 #include "concurrent/pool.h"
 
 class MachineInteger;
@@ -81,6 +82,7 @@ class RulesVector {
 protected:
     std::vector<Entry> m_rules[NumberOfSliceCodes];
 	std::vector<Entry> m_all_rules;
+    bool m_is_match_size_known;
 
 	template<typename Filter>
 	inline optional<BaseExpressionRef> apply(
@@ -106,6 +108,13 @@ protected:
 		const Evaluation &evaluation) const;
 
 public:
+    RulesVector() : m_is_match_size_known(true) {
+    }
+
+    void set_governing_attributes(
+        Attributes attributes,
+        const Evaluation &evaluation);
+
     void add(
 	    const typename Entry::RuleRef &rule,
 	    const Evaluation &evaluation);
@@ -261,7 +270,7 @@ typedef QuasiConstSharedPtr<Cache> CachedCacheRef;
 typedef UnsafeSharedPtr<Cache> UnsafeCacheRef;
 
 #include "core/pattern/arguments.h"
-#include "core/pattern/matcher.h"
+#include "core/matcher/matcher.h"
 #include "core/pattern/options.h"
 #include "core/pattern/match.h"
 #include "slice/heap.h"

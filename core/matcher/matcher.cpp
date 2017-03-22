@@ -66,6 +66,8 @@
 	DECLARE_MATCH_EXPRESSION_METHODS                                                                          \
 	DECLARE_MATCH_CHARACTER_METHODS
 
+#include "generic.tcc"
+
 class Element {
 private:
     const BaseExpressionRef &m_element;
@@ -114,7 +116,7 @@ private:
 
 public:
     inline ExpressionMatcher(
-        const std::tuple<PatternMatcherRef, PatternMatcherRef> &match,
+        const std::tuple<PatternMatcherRef, PatternMatcherVariants> &match,
         const MatchRest &next) :
 
         m_matcher(std::get<0>(match), std::get<1>(match)),
@@ -391,7 +393,7 @@ public:
 			return -1;
 		}
 
-		const index_t match = f();
+        const index_t match = f();
 
 		if (match < 0 && is_owner) {
 			context.match->unassign(m_slot_index);
@@ -998,7 +1000,7 @@ private:
 		index_t end) const {
 
 		const index_t match = m_matcher->match(
-			FastLeafSequence(sequence.context(), &m_default), 0, 1);
+			FastLeafSequence(sequence.context(), nullptr, &m_default), 0, 1);
 		if (match == 1) {
 			auto slice = sequence.slice(begin, begin);
 			return m_rest(sequence, begin, end, slice);
@@ -1542,7 +1544,11 @@ public:
 		return PatternFactory(m_variables, m_test, m_variable, n, m_length, m_anchored);
 	}
 
-	PatternFactory for_shortest() const {
+    PatternFactory unanchored() const {
+        return PatternFactory(m_variables, m_test, m_variable, m_next, m_length, false);
+    }
+
+    PatternFactory for_shortest() const {
 		return PatternFactory(m_variables, m_test, m_variable, m_next, m_length.shortest(), m_anchored);
 	}
 
@@ -1591,7 +1597,7 @@ protected:
         const PatternMatcherSize &size,
         const PatternFactory &factory);
 
-	PatternMatcherRef compile_sequence(
+	PatternMatcherRef compile_expression(
 		const BaseExpressionRef &patt_head,
 		const BaseExpressionRef *patt_begin,
 		const BaseExpressionRef *patt_end,
@@ -1602,9 +1608,15 @@ public:
     PatternCompiler(
         bool is_string_pattern);
 
-	PatternMatcherRef compile(
+	PatternMatcherRef compile_ordered(
 		const BaseExpressionRef *begin,
 		const BaseExpressionRef *end,
+        const MatchSize &size_from_here,
+        const PatternFactory &factory);
+
+    PatternMatcherRef compile_generic(
+        const BaseExpressionRef *begin,
+        const BaseExpressionRef *end,
         const MatchSize &size_from_here,
         const PatternFactory &factory);
 
@@ -1705,7 +1717,7 @@ PatternMatcherRef PatternCompiler::compile_element(
 			matcher = patt_expr->with_leaves_array(
 				[compiler, patt_expr, &size, &factory]
 				(const BaseExpressionRef *leaves, size_t n) {
-					return compiler->compile_sequence(
+					return compiler->compile_expression(
 						patt_expr->head(), leaves, leaves + n, size, factory);
 				});
 			break;
@@ -1728,6 +1740,8 @@ PatternMatcherRef PatternCompiler::compile_element(
 			matcher = factory.create<SameMatcher>(curr);
 			break;
 	}
+
+    matcher->set_size(size);
 
 	return matcher;
 }
@@ -1756,7 +1770,7 @@ public:
     }
 };
 
-PatternMatcherRef PatternCompiler::compile(
+PatternMatcherRef PatternCompiler::compile_ordered(
 	const BaseExpressionRef *begin,
 	const BaseExpressionRef *end,
     const MatchSize &size_from_here,
@@ -1790,13 +1804,37 @@ PatternMatcherRef PatternCompiler::compile(
             begin[i], size, factory.for_next(next_matcher));
 
 		next_matcher = matcher;
-
-		matcher->set_size(size);
     }
 
 	next_matcher->set_variables(factory.variables());
 
 	return next_matcher;
+}
+
+PatternMatcherRef PatternCompiler::compile_generic(
+    const BaseExpressionRef *begin,
+    const BaseExpressionRef *end,
+    const MatchSize &size_from_here,
+    const PatternFactory &factory) {
+
+    const index_t n = end - begin;
+    std::vector<PatternMatcherRef> matchers;
+    matchers.reserve(n);
+
+    const auto unanchored = factory.unanchored();
+
+    const PatternMatcherSize any_size(
+        MatchSize::at_least(0), MatchSize::at_least(0));
+
+    for (index_t i = 0; i < n; i++) {
+        matchers.push_back(compile_element(
+            begin[i], any_size, unanchored));
+    }
+
+    PatternMatcherRef matcher =
+        factory.create<GenericPatternMatcher>(std::move(matchers));
+
+    return matcher;
 }
 
 PatternMatcherRef PatternCompiler::compile(
@@ -1806,14 +1844,12 @@ PatternMatcherRef PatternCompiler::compile(
 
 	if (patt->is_expression() &&
 		patt->as_expression()->head()->symbol() == S::StringExpression) {
-
-		PatternCompiler * const compiler = this;
 		return patt->as_expression()->with_leaves_array(
-			[&compiler, &size_from_here, &factory] (const BaseExpressionRef *leaves, size_t n) {
-				return compiler->compile(leaves, leaves + n, size_from_here, factory);
+			[this, &size_from_here, &factory] (const BaseExpressionRef *leaves, size_t n) {
+				return compile_ordered(leaves, leaves + n, size_from_here, factory);
 			});
 	} else {
-		return compile(&patt, &patt + 1, size_from_here, factory);
+		return compile_ordered(&patt, &patt + 1, size_from_here, factory);
 	}
 }
 
@@ -1921,7 +1957,7 @@ public:
 	}
 };
 
-PatternMatcherRef PatternCompiler::compile_sequence(
+PatternMatcherRef PatternCompiler::compile_expression(
 	const BaseExpressionRef &patt_head,
 	const BaseExpressionRef *patt_begin,
 	const BaseExpressionRef *patt_end,
@@ -2051,12 +2087,17 @@ PatternMatcherRef PatternCompiler::compile_sequence(
 			break;
 	}
 
-	const PatternMatcherRef match_head = compile(
+	const PatternMatcherRef match_head = compile_ordered(
 		&patt_head, &patt_head + 1, MatchSize::exactly(0), factory.stripped());
 
-	const PatternMatcherRef match_leaves = compile(
-		patt_begin, patt_end, MatchSize::exactly(0), factory.stripped());
+    const PatternMatcherRef match_leaves_ordered = compile_ordered(
+        patt_begin, patt_end, MatchSize::exactly(0), factory.stripped());
 
+    const PatternMatcherRef match_leaves_generic = compile_generic(
+        patt_begin, patt_end, MatchSize::exactly(0), factory.stripped());
+
+    PatternMatcherVariants match_leaves(
+        match_leaves_ordered, match_leaves_generic);
 	return factory.create<ExpressionMatcher>(
 		std::make_tuple(match_head, match_leaves));
 }
@@ -2108,4 +2149,56 @@ RewriteBaseExpression MatcherBase::prepare(
         m_matcher->variables());
     return RewriteBaseExpression::from_arguments(
         arguments, item->as_expression(), evaluation);
+}
+
+template<bool MatchHead>
+inline bool HeadLeavesMatcher::match(
+    MatchContext &context,
+    const Expression *expr) const {
+
+    const BaseExpressionPtr head = expr->head();
+    const Attributes attributes = head->lookup_name()->state().attributes();
+    const PatternMatcherRef &match_leaves = m_match_leaves(attributes);
+
+    if (!match_leaves->might_match(expr->size())) {
+        return false;
+    }
+
+    if (MatchHead) {
+        const BaseExpressionRef head_ref(head);
+
+        if (m_match_head->match(FastLeafSequence(context, nullptr, &head_ref), 0, 1) < 0) {
+            return false;
+        }
+    }
+
+    if (expr->has_leaves_array()) {
+        if (expr->with_leaves_array(
+            [&context, head, &match_leaves] (const BaseExpressionRef *leaves, size_t size) {
+                return match_leaves->match(FastLeafSequence(context, head, leaves), 0, size);
+            }) < 0) {
+
+            return false;
+        }
+    } else {
+        if (match_leaves->match(SlowLeafSequence(context, expr), 0, expr->size()) < 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool HeadLeavesMatcher::with_head(
+    MatchContext &context,
+    const Expression *expr) const {
+
+    return match<true>(context, expr);
+}
+
+bool HeadLeavesMatcher::without_head(
+    MatchContext &context,
+    const Expression *expr) const {
+
+    return match<false>(context, expr);
 }

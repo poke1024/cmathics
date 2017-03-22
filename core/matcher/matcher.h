@@ -14,7 +14,7 @@ protected:
     CompiledVariables m_variables;
 
 public:
-    inline void set_size(const PatternMatcherSize &size) {
+    virtual void set_size(const PatternMatcherSize &size) {
         m_size = size;
     }
 

@@ -2,7 +2,7 @@
 #include "core/expression/implementation.h"
 #include "symbol.h"
 #include "core/builtin.h"
-#include "core/pattern/matcher.tcc"
+#include "core/matcher/matcher.tcc"
 
 // thread_local EvaluationContext *EvaluationContext::s_current = nullptr;
 

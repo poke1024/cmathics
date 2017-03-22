@@ -3,6 +3,7 @@
 class FastLeafSequence {
 private:
     MatchContext &m_context;
+    const BaseExpressionPtr m_head;
     const BaseExpressionRef * const m_array;
 
 public:
@@ -50,12 +51,16 @@ public:
         }
     };
 
-    inline FastLeafSequence(MatchContext &context, const BaseExpressionRef *array) :
-            m_context(context), m_array(array) {
+    inline FastLeafSequence(MatchContext &context, BaseExpressionPtr head, const BaseExpressionRef *array) :
+        m_context(context), m_head(head), m_array(array) {
     }
 
     inline MatchContext &context() const {
         return m_context;
+    }
+
+    inline BaseExpressionPtr head() const {
+        return m_head;
     }
 
     inline Element element(index_t begin) const {
@@ -127,11 +132,15 @@ public:
     };
 
     inline SlowLeafSequence(MatchContext &context, const Expression *expr) :
-            m_context(context), m_expr(expr) {
+        m_context(context), m_expr(expr) {
     }
 
     inline MatchContext &context() const {
         return m_context;
+    }
+
+    inline BaseExpressionPtr head() const {
+        return m_expr->head();
     }
 
     inline Element element(index_t begin) const {

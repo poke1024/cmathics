@@ -42,7 +42,11 @@ struct SymbolRules {
 		messages(rules.messages) {
 	}
 
-	Rules sub_rules;
+    void set_attributes(
+        Attributes attributes,
+        const Evaluation &evaluation);
+
+    Rules sub_rules;
 	Rules up_rules;
 	Rules down_rules;
 	FormatRules format_values;
@@ -172,15 +176,15 @@ public:
 		return m_attributes;
 	}
 
-	void clear_attributes(Definitions &definitions);
+    inline bool has_attributes(Attributes attributes) const {
+        return m_attributes & attributes;
+    }
 
-	void add_attributes(Attributes attributes, Definitions &definitions);
+    void clear_attributes(const Evaluation &evaluation);
 
-	void remove_attributes(Attributes attributes, Definitions &definitions);
+	void add_attributes(Attributes attributes, const Evaluation &evaluation);
 
-	inline bool has_attributes(Attributes attributes) const {
-		return m_attributes & attributes;
-	}
+	void remove_attributes(Attributes attributes, const Evaluation &evaluation);
 
 	BaseExpressionRef dispatch(
 		const Expression *expr,
