@@ -206,13 +206,7 @@ struct BaseExpressionTuple<0, refs...> {
     typedef std::tuple<refs...> type;
 };
 
-class MatchContext;
-
-class Match;
-
-typedef ConstSharedPtr<Match> MatchRef;
-typedef UnsafeSharedPtr<Match> UnsafeMatchRef;
-typedef QuasiConstSharedPtr<Match> CachedMatchRef;
+#include "core/pattern/context.h"
 
 std::ostream &operator<<(std::ostream &s, const MatchRef &m);
 
@@ -432,6 +426,10 @@ public:
 	virtual bool is_negative_introspect() const {
 		return is_negative();
 	}
+
+	inline optional<machine_integer_t> is_infinity() const;
+
+	inline bool is_positive_infinity() const;
 
     virtual BaseExpressionRef negate(const Evaluation &evaluation) const;
 

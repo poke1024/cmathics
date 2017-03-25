@@ -375,6 +375,14 @@ public:
 
     >> a+b+c //. c->d
      = a + b + d
+
+    Simplification of logarithms:
+    >> logrules = {Log[x_ * y_] :> Log[x] + Log[y], Log[x_ ^ y_] :> y * Log[x]};
+    >> Log[a * (b * c) ^ d ^ e * f] //. logrules
+     = Log[a] + Log[f] + (Log[b] + Log[c]) d ^ e
+    'ReplaceAll' just performs a single replacement:
+    >> Log[a * (b * c) ^ d ^ e * f] /. logrules
+     = Log[a] + Log[f (b c) ^ d ^ e]
 	)";
 
     virtual const char *operator_name() const {
@@ -741,6 +749,45 @@ public:
 	}
 };
 
+class Alternatives : public BinaryOperatorBuiltin {
+public:
+    static constexpr const char *name = "Alternatives";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Alternatives[$p1$, $p2$, ..., $p_i$]'
+    <dt>'$p1$ | $p2$ | ... | $p_i$'
+        <dd>is a pattern that matches any of the patterns '$p1$, $p2$,
+        ...., $p_i$'.
+    </dl>
+
+    >> a+b+c+d/.(a|b)->t
+     = c + d + 2 t
+
+    Alternatives can also be used for string expressions
+    >> StringReplace["0123 3210", "1" | "2" -> "X"]
+     = 0XX3 3XX0
+
+    #> StringReplace["h1d9a f483", DigitCharacter | WhitespaceCharacter -> ""]
+     = hdaf
+	)";
+
+public:
+    using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
+
+    void build(Runtime &runtime) {
+        add_binary_operator_formats();
+    }
+
+    virtual const char *operator_name() const {
+        return "|";
+    }
+
+    virtual int precedence() const {
+        return 160;
+    }
+};
+
 class Condition : public BinaryOperatorBuiltin {
 public:
 	static constexpr const char *name = "Condition";
@@ -786,5 +833,6 @@ void Builtins::Patterns::initialize() {
 	add<BlankSequence>();
 	add<BlankNullSequence>();
 	add<PatternTest>();
+    add<Alternatives>();
 	add<Condition>();
 }

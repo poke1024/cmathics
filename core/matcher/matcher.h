@@ -78,12 +78,29 @@ public:
         index_t end) const;
 };
 
-typedef ConstSharedPtr<PatternMatcher> PatternMatcherRef;
-typedef QuasiConstSharedPtr<PatternMatcher> CachedPatternMatcherRef;
-// typedef SharedPtr<PatternMatcher> MutablePatternMatcherRef;
-typedef UnsafeSharedPtr<PatternMatcher> UnsafePatternMatcherRef;
-
 class Matcher;
+
+class IllegalStringPattern {
+private:
+    const BaseExpressionRef m_what;
+    const BaseExpressionRef m_where;
+
+public:
+    IllegalStringPattern(const BaseExpressionRef &what) : m_what(what) {
+    }
+
+    IllegalStringPattern(const BaseExpressionRef &what, const BaseExpressionRef &where) :
+        m_what(what), m_where(where) {
+    }
+
+    const BaseExpressionRef &what() const {
+        return m_what;
+    }
+
+    const BaseExpressionRef &where() const {
+        return m_where;
+    }
+};
 
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt);
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt);

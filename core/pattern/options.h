@@ -155,6 +155,3 @@ public:
         return *m_options_ptr;
     }
 };
-
-using OptionsProcessorRef = ConstSharedPtr<OptionsProcessor>;
-using UnsafeOptionsProcessorRef = UnsafeSharedPtr<OptionsProcessor>;

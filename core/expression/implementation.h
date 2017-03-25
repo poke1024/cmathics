@@ -450,6 +450,23 @@ inline MatchSize Expression::leaf_match_size() const {
 	});
 }
 
+inline optional<machine_integer_t> BaseExpression::is_infinity() const {
+	if (symbol() == S::Infinity) {
+		return 1;
+	} else if (is_expression()) {
+		const Expression *expr = as_expression();
+		if (expr->head()->symbol() == S::DirectedInfinity && expr->size() == 1) {
+			return expr->n_leaves<1>()[0]->get_machine_int_value();
+		}
+	}
+	return optional<machine_integer_t>();
+}
+
+inline bool BaseExpression::is_positive_infinity() const {
+	const auto infinity = is_infinity();
+	return *infinity && *infinity > 0;
+}
+
 inline ExpressionRef BaseExpression::flatten_sequence() const {
 	if (is_expression()) {
 		return as_expression()->flatten_sequence();

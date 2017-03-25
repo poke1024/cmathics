@@ -145,7 +145,7 @@ class StartMatcher :
     public ExtendedHeapObject<StartMatcher<Dummy,MatchRest>> {
 
 private:
-	const MatchRest &m_rest;
+	const MatchRest m_rest;
 
 	template<typename Sequence>
 	inline index_t do_match(
@@ -1737,6 +1737,10 @@ PatternMatcherRef PatternCompiler::compile_element(
 		}
 
 		default:
+            if (m_is_string_pattern) {
+                throw IllegalStringPattern(curr);
+            }
+
 			matcher = factory.create<SameMatcher>(curr);
 			break;
 	}
@@ -2087,7 +2091,15 @@ PatternMatcherRef PatternCompiler::compile_expression(
 			break;
 	}
 
-	const PatternMatcherRef match_head = compile_ordered(
+    if (m_is_string_pattern) {
+        throw IllegalStringPattern(expression(patt_head, sequential([patt_begin, patt_end] (auto &store) {
+            for (const BaseExpressionRef *leaf = patt_begin; leaf != patt_end; leaf++) {
+                store(BaseExpressionRef(*leaf));
+            }
+        })));
+    }
+
+    const PatternMatcherRef match_head = compile_ordered(
 		&patt_head, &patt_head + 1, MatchSize::exactly(0), factory.stripped());
 
     const PatternMatcherRef match_leaves_ordered = compile_ordered(

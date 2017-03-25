@@ -162,7 +162,7 @@ set(SOURCE_FILES
         builtin/numeric.cpp
         builtin/numeric.h
         builtin/logic.cpp
-        builtin/logic.h core/matcher/generic.tcc)
+        builtin/logic.h core/matcher/generic.tcc core/pattern/context.tcc)
 
 add_custom_target(standalone)
 

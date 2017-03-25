@@ -168,40 +168,122 @@ hash_t StringExtent::hash(size_t offset, size_t length) const {
     return djb2(s.c_str());
 }
 
-bool eq_ascii_simple(const AsciiStringExtent *y, size_t iy, const SimpleStringExtent *x, size_t ix, size_t n) {
-    const char * const ascii = y->data() + iy;
-    const auto simple = x->unicode();
+struct eq_ascii_ascii {
+    template<typename Eq>
+    static inline bool equals(
+        const Eq &eq,
+        const char *x,
+        const char *y,
+        size_t n) {
 
-    for (size_t i = 0; i < n; i++) {
-        if (simple.charAt(ix + i) != ascii[i]) {
+        for (size_t i = 0; i < n; i++) {
+            if (!eq(x[i], y[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+};
+
+struct eq_ascii_simple {
+    template<typename Eq>
+    static inline bool equals(
+        const Eq &eq,
+        const AsciiStringExtent *y,
+        size_t iy,
+        const SimpleStringExtent *x,
+        size_t ix,
+        size_t n) {
+
+        const char *const ascii = y->data() + iy;
+        const auto simple = x->unicode();
+
+        for (size_t i = 0; i < n; i++) {
+            if (!eq(simple.charAt(ix + i), ascii[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+};
+
+struct eq_ascii_complex {
+    template<typename Eq>
+    static inline bool equals(
+        const Eq &eq,
+        const AsciiStringExtent *y,
+        size_t iy,
+        const ComplexStringExtent *x,
+        size_t ix,
+        size_t n) {
+
+        const char *const ascii = y->data() + iy;
+        const auto complex = x->unicode();
+
+        const size_t cp_ix = x->offsets()[ix];
+        const size_t cp_n = x->offsets()[ix + n] - cp_ix;
+
+        if (cp_n != n) {
             return false;
         }
-    }
 
-	return true;
+        for (size_t i = 0; i < n; i++) {
+            if (!eq(complex.charAt(cp_ix + i), ascii[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
+
+template<typename Func, typename... Args>
+bool eq_string(bool ignore_case, Args... args) {
+    if (!ignore_case) {
+        const auto eq = [] (auto c1, auto c2) {
+            return c1 == c2;
+        };
+        return Func::equals(eq, args...);
+    } else {
+        const auto eq = [] (UChar c1, UChar c2) {
+            UErrorCode error;
+            return u_strCaseCompare(&c1, 1, &c2, 1, 0, &error) == 0;
+        };
+        return Func::equals(eq, args...);
+    }
 }
 
-bool eq_ascii_complex(const AsciiStringExtent *y, size_t iy, const ComplexStringExtent *x, size_t ix, size_t n) {
-	const char * const ascii = y->data() + iy;
-	const auto complex = x->unicode();
+inline int compare_unicode(
+    const UnicodeString &a,
+    int32_t a_start,
+    int32_t a_length,
+    const UnicodeString& b,
+    int32_t b_start,
+    int32_t b_length,
+    bool ignore_case) {
 
-	const size_t cp_ix = x->offsets()[ix];
-	const size_t cp_n = x->offsets()[ix + n] - cp_ix;
-
-	if (cp_n != n) {
-		return false;
-	}
-
-	for (size_t i = 0; i < n; i++) {
-		if (complex.charAt(cp_ix + i) != ascii[i]) {
-			return false;
-		}
-	}
-	return true;
-
+    if (!ignore_case) {
+        return a.compare(a_start, a_length, b, b_start, b_length);
+    } else {
+        return a.caseCompare(a_start, a_length, b, b_start, b_length, 0);
+    }
 }
 
 AsciiStringExtent::~AsciiStringExtent() {
+}
+
+UnicodeString AsciiStringExtent::unicode() const { // concurrent
+    const UnicodeStringRef string = std::atomic_load(&m_string);
+    if (string) {
+        return *string;
+    } else {
+        const UnicodeStringRef new_string = std::make_shared<UnicodeString>(
+            UnicodeString::fromUTF8(StringPiece(m_ascii)));
+
+        std::atomic_store(&m_string, new_string);
+        return *new_string;
+    }
 }
 
 size_t AsciiStringExtent::length() const {
@@ -221,24 +303,24 @@ std::string AsciiStringExtent::utf8(size_t offset, size_t length) const {
 }
 
 UnicodeString AsciiStringExtent::unicode(size_t offset, size_t length) const {
-	return unicode().tempSubString(offset, length);
+	return UnicodeString(unicode(), offset, length);
 }
 
-bool AsciiStringExtent::same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n) const {
+bool AsciiStringExtent::same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n, bool ignore_case) const {
     switch (extent->type()) {
         case StringExtent::ascii: {
             const AsciiStringExtent *ascii_extent = static_cast<const AsciiStringExtent*>(extent);
-            return std::memcmp(m_ascii.data() + offset, ascii_extent->m_ascii.data() + extent_offset, n) == 0;
+            return eq_string<eq_ascii_ascii>(ignore_case, m_ascii.data() + offset, ascii_extent->m_ascii.data() + extent_offset, n);
         }
 
         case StringExtent::simple: {
             const SimpleStringExtent *simple_extent = static_cast<const SimpleStringExtent*>(extent);
-            return eq_ascii_simple(this, offset, simple_extent, extent_offset, n);
+            return eq_string<eq_ascii_simple>(ignore_case, this, offset, simple_extent, extent_offset, n);
         }
 
 	    case StringExtent::complex: {
 		    const ComplexStringExtent *complex_extent = static_cast<const ComplexStringExtent*>(extent);
-		    return eq_ascii_complex(this, offset, complex_extent, extent_offset, n);
+		    return eq_string<eq_ascii_complex>(ignore_case, this, offset, complex_extent, extent_offset, n);
 	    }
 
 	    default:
@@ -268,7 +350,7 @@ std::string SimpleStringExtent::utf8(size_t offset, size_t length) const {
 }
 
 UnicodeString SimpleStringExtent::unicode(size_t offset, size_t length) const {
-	return m_string.tempSubString(offset, length);
+	return UnicodeString(m_string, offset, length);
 }
 
 size_t SimpleStringExtent::length() const {
@@ -284,16 +366,16 @@ size_t SimpleStringExtent::number_of_code_points(size_t offset, size_t length) c
 	return length;
 }
 
-bool SimpleStringExtent::same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n) const {
+bool SimpleStringExtent::same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n, bool ignore_case) const {
     switch (extent->type()) {
         case StringExtent::ascii: {
             const AsciiStringExtent *ascii_extent = static_cast<const AsciiStringExtent*>(extent);
-            return eq_ascii_simple(ascii_extent, extent_offset, this, offset, n);
+            return eq_string<eq_ascii_simple>(ignore_case, ascii_extent, extent_offset, this, offset, n);
         }
 
         case StringExtent::simple: {
             const SimpleStringExtent *simple_extent = static_cast<const SimpleStringExtent*>(extent);
-            return m_string.compare(offset, n, simple_extent->unicode(), extent_offset, n) == 0;
+            return compare_unicode(m_string, offset, n, simple_extent->unicode(), extent_offset, n, ignore_case) == 0;
         }
 
 	    case StringExtent::complex: {
@@ -303,7 +385,7 @@ bool SimpleStringExtent::same_n(const StringExtent *extent, size_t offset, size_
 		    if (cp_size != n) {
 			    return false;
 		    }
-		    return m_string.compare(offset, n, complex_extent->unicode(), cp_offset, cp_size) == 0;
+            return compare_unicode(m_string, offset, n, complex_extent->unicode(), cp_offset, cp_size, ignore_case) == 0;
 	    }
 
         default:
@@ -336,7 +418,7 @@ std::string ComplexStringExtent::utf8(size_t offset, size_t length) const {
 
 UnicodeString ComplexStringExtent::unicode(size_t offset, size_t length) const {
 	const size_t cp_offset = m_offsets[offset];
-	return m_string.tempSubString(cp_offset, m_offsets[offset + length] - cp_offset);
+	return UnicodeString(m_string, cp_offset, m_offsets[offset + length] - cp_offset);
 }
 
 size_t ComplexStringExtent::length() const {
@@ -355,13 +437,13 @@ size_t ComplexStringExtent::number_of_code_points(size_t offset, size_t length) 
 	return m_offsets[offset + length] - m_offsets[offset];
 }
 
-bool ComplexStringExtent::same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n) const {
+bool ComplexStringExtent::same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n, bool ignore_case) const {
 	assert(offset + n < m_offsets.size());
 
 	switch (extent->type()) {
 		case StringExtent::ascii: {
 			const AsciiStringExtent *ascii_extent = static_cast<const AsciiStringExtent*>(extent);
-			return eq_ascii_complex(ascii_extent, extent_offset, this, offset, n);
+			return eq_string<eq_ascii_complex>(ignore_case, ascii_extent, extent_offset, this, offset, n);
 		}
 
 		case StringExtent::simple: {
@@ -371,7 +453,8 @@ bool ComplexStringExtent::same_n(const StringExtent *extent, size_t offset, size
 				return false;
 			}
 			const SimpleStringExtent *simple_extent = static_cast<const SimpleStringExtent*>(extent);
-			return m_string.compare(cp_offset, cp_size, simple_extent->unicode(), extent_offset, n) == 0;
+			return compare_unicode(
+                m_string, cp_offset, cp_size, simple_extent->unicode(), extent_offset, n, ignore_case) == 0;
 		}
 
 		case StringExtent::complex: {
@@ -383,8 +466,8 @@ bool ComplexStringExtent::same_n(const StringExtent *extent, size_t offset, size
 			if (cp_size != extent_cp_size) {
 				return false;
 			}
-			return m_string.compare(
-				cp_offset, cp_size, complex_extent->unicode(), extent_cp_offset, extent_cp_size) == 0;
+			return compare_unicode(
+				m_string, cp_offset, cp_size, complex_extent->unicode(), extent_cp_offset, extent_cp_size, ignore_case) == 0;
 		}
 
 		default:

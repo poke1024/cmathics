@@ -245,6 +245,13 @@ protected:
 		const Options&,
 		const Evaluation &);
 
+	template<typename T, typename Options>
+	using ExtendedOptionsPatternF1 = BaseExpressionRef (T::*) (
+		ExpressionPtr,
+		BaseExpressionPtr,
+		const Options&,
+		const Evaluation &);
+
 	template<typename T>
     using F2 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
@@ -265,6 +272,14 @@ protected:
 		const Options&,
 		const Evaluation &);
 
+	template<typename T, typename Options>
+	using ExtendedOptionsPatternF2 = BaseExpressionRef (T::*) (
+		ExpressionPtr,
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		const Options&,
+		const Evaluation &);
+
     template<typename T>
     using F3 = BaseExpressionRef (T::*) (
 		BaseExpressionPtr,
@@ -274,6 +289,15 @@ protected:
 
 	template<typename T, typename Options>
 	using OptionsPatternF3 = BaseExpressionRef (T::*) (
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		const Options&,
+		const Evaluation &);
+
+	template<typename T, typename Options>
+	using ExtendedOptionsPatternF3 = BaseExpressionRef (T::*) (
+		ExpressionPtr,
 		BaseExpressionPtr,
 		BaseExpressionPtr,
 		BaseExpressionPtr,
@@ -304,8 +328,25 @@ protected:
 		const Options &options,
 		const Evaluation &);
 
+	template<typename T, typename Options>
+	using ExtendedOptionsF2 = BaseExpressionRef (T::*) (
+		ExpressionPtr,
+		BaseExpressionPtr,
+		BaseExpressionPtr,
+		const Options &options,
+		const Evaluation &);
+
     template<typename T, typename Options>
     using OptionsF3 = BaseExpressionRef (T::*) (
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        BaseExpressionPtr,
+        const Options &options,
+        const Evaluation &);
+
+    template<typename T, typename Options>
+    using ExtendedOptionsF3 = BaseExpressionRef (T::*) (
+		ExpressionPtr,
         BaseExpressionPtr,
         BaseExpressionPtr,
         BaseExpressionPtr,
@@ -371,8 +412,20 @@ private:
     }
 
     template<typename T, typename Options, typename Add>
+    inline void add_rule(const OptionsInitializerList &options, ExtendedOptionsF2<T, Options> function, const Add &add) {
+        return internal_add_options_rule<T, Options, Add, decltype(function), 2, ExtendedArgumentsBridge>(
+            options, function, add);
+    }
+
+    template<typename T, typename Options, typename Add>
     inline void add_rule(const OptionsInitializerList &options, OptionsF3<T, Options> function, const Add &add) {
         return internal_add_options_rule<T, Options, Add, decltype(function), 3, ArgumentsBridge>(
+            options, function, add);
+    }
+
+    template<typename T, typename Options, typename Add>
+    inline void add_rule(const OptionsInitializerList &options, ExtendedOptionsF3<T, Options> function, const Add &add) {
+        return internal_add_options_rule<T, Options, Add, decltype(function), 3, ExtendedArgumentsBridge>(
             options, function, add);
     }
 
@@ -487,13 +540,28 @@ private:
 	}
 
 	template<typename T, typename Options, typename Add>
+	inline void add_rule(const char *pattern, ExtendedOptionsPatternF1<T, Options> function, const Add &add) {
+		internal_add_options_pattern_rule<T, Options, Add, decltype(function), 1, ExtendedArgumentsBridge>(pattern, function, add);
+	}
+
+	template<typename T, typename Options, typename Add>
 	inline void add_rule(const char *pattern, OptionsPatternF2<T, Options> function, const Add &add) {
 		internal_add_options_pattern_rule<T, Options, Add, decltype(function), 2, ArgumentsBridge>(pattern, function, add);
 	}
 
 	template<typename T, typename Options, typename Add>
+	inline void add_rule(const char *pattern, ExtendedOptionsPatternF2<T, Options> function, const Add &add) {
+		internal_add_options_pattern_rule<T, Options, Add, decltype(function), 2, ExtendedArgumentsBridge>(pattern, function, add);
+	}
+
+	template<typename T, typename Options, typename Add>
 	inline void add_rule(const char *pattern, OptionsPatternF3<T, Options> function, const Add &add) {
 		internal_add_options_pattern_rule<T, Options, Add, decltype(function), 3, ArgumentsBridge>(pattern, function, add);
+	}
+
+	template<typename T, typename Options, typename Add>
+	inline void add_rule(const char *pattern, ExtendedOptionsPatternF3<T, Options> function, const Add &add) {
+		internal_add_options_pattern_rule<T, Options, Add, decltype(function), 3, ExtendedArgumentsBridge>(pattern, function, add);
 	}
 
     /*template<typename T, typename Add>

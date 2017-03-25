@@ -5,94 +5,144 @@
 #include "core/atoms/symbol.h"
 #include "core/expression/implementation.h"
 #include "core/builtin.h"
-#include "core/pattern/context.h"
+#include "core/pattern/context.tcc"
 #include "core/pattern/sequence.tcc"
 
-class StringMatcher {
-private:
+class StringMatcherBase {
+protected:
     CachedPatternMatcherRef m_matcher;
     const BaseExpressionRef m_patt;
     const Evaluation &m_evaluation;
 
 public:
-    inline StringMatcher(
+    inline StringMatcherBase(
         const BaseExpressionRef &patt,
         const Evaluation &evaluation) :
 
         m_patt(patt), m_evaluation(evaluation) {
 
-        switch (patt->type()) {
-            case ExpressionType:
-                m_matcher.initialize(patt->as_expression()->string_matcher());
-                break;
-
-            case SymbolType:
-                m_matcher.initialize(compile_string_pattern(patt)); // FIXME
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    template<typename Callback>
-    inline void search(const String *string, const Callback &callback, bool overlap) const {
-        if (m_matcher) {
-            index_t begin = 0;
-            const index_t end = string->length();
-            MatchContext context(m_matcher, m_evaluation, MatchContext::NoEndAnchor);
-            while (begin < end) {
-                const index_t match_end = m_matcher->match(
-                        context, string, begin, end);
-                if (match_end >= 0) {
-                    callback(begin, match_end, context.match);
-                    if (overlap) {
-                        begin++;
-                    } else {
-                        begin = match_end;
-                    }
-                    if (begin < end) {
-                        context.reset();
-                    }
-                } else {
-                    begin++;
-                }
-            }
-        } else if (m_patt->type() == StringType) {
-            index_t curr = 0;
-
-            const String *patt_string = m_patt->as_string();
-            const auto string_unicode = string->unicode();
-            const auto patt_unicode = patt_string->unicode();
-            const auto match = m_evaluation.definitions.default_match;
-
-            while (true) {
-                const index_t next = string_unicode.indexOf(patt_unicode, curr);
-                if (next < 0) {
+        try {
+            switch (patt->type()) {
+                case StringType:
+                    m_matcher.initialize(expression(evaluation.StringExpression, patt)->string_matcher());
                     break;
-                }
-                callback(next, next + patt_string->length(), match);
-                curr = next + 1;
+
+                case ExpressionType:
+                    m_matcher.initialize(patt->as_expression()->string_matcher());
+                    break;
+
+                /*case SymbolType:
+                    m_matcher.initialize(compile_string_pattern(patt)); // FIXME
+                    break;*/
+
+                default:
+                    throw IllegalStringPattern(patt);
             }
+        } catch (const IllegalStringPattern &err) {
+            throw IllegalStringPattern(err.what(), patt);
         }
     }
+};
 
-    inline MatchRef operator()(const String *string) const {
-        if (m_matcher) {
-            MatchContext context(m_matcher, m_evaluation, 0);
-            const index_t match_end = m_matcher->match(
-                    context, string, 0, string->length());
-            if (match_end >= 0) {
-                return context.match;
-            } else {
-                return MatchRef();
+class StringCases : public StringMatcherBase {
+public:
+    using StringMatcherBase::StringMatcherBase;
+
+    class Iterator;
+
+    using IteratorRef = std::shared_ptr<Iterator>;
+
+    class Iterator {
+    private:
+        index_t m_match_begin;
+        index_t m_match_end;
+
+        bool m_overlap;
+
+        const StringPtr m_string;
+        const PatternMatcherRef m_matcher;
+        MatchContext m_context;
+
+        index_t m_begin;
+        index_t m_end;
+
+    public:
+        Iterator(
+            const StringPtr string,
+            bool ignore_case,
+            const PatternMatcherRef &matcher,
+            const Evaluation &evaluation) :
+
+            m_string(string),
+            m_matcher(matcher),
+            m_context(matcher, evaluation, MatchContext::NoEndAnchor | (ignore_case ? MatchContext::IgnoreCase : 0)),
+
+            m_begin(0),
+            m_end(string->length()),
+
+            m_overlap(false) {
+        }
+
+        inline index_t begin() const {
+            return m_match_begin;
+        }
+
+        inline index_t end() const {
+            return m_match_end;
+        }
+
+        void set_overlap(bool overlap) {
+            m_overlap = overlap;
+        }
+
+        inline const MatchRef &match() {
+            return m_context.match;
+        }
+
+        inline bool next() {
+            m_context.reset();
+
+            // this is a very simple brute force approach currently. it could be based on
+            // something much smarter like Boyer Moore if the pattern starts with a fixed
+            // string, which is usually always the case, see
+            // https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string_search_algorithm
+
+            while (m_begin < m_end) {
+                const index_t match_end = m_matcher->match(
+                    m_context, m_string, m_begin, m_end);
+                if (match_end >= 0) {
+                    m_match_begin = m_begin;
+                    m_match_end = match_end;
+                    if (m_overlap) {
+                        m_begin++;
+                    } else {
+                        m_begin = match_end;
+                    }
+                    return true;
+                } else {
+                    m_begin++;
+                }
             }
-        } else if (m_patt->type() == StringType) {
-            if (m_patt->as_string()->same(string)) {
-                return m_evaluation.definitions.default_match;
-            } else {
-                return MatchRef();
-            }
+
+            return false;
+        }
+    };
+
+    inline IteratorRef operator()(const StringPtr string, bool ignore_case) const {
+        return std::make_shared<Iterator>(string, ignore_case, m_matcher, m_evaluation);
+    }
+};
+
+class StringMatcher : public StringMatcherBase {
+public:
+    using StringMatcherBase::StringMatcherBase;
+
+    inline MatchRef operator()(const StringPtr string) const {
+        MatchContext context(m_matcher, m_evaluation, 0);
+        const index_t match_end = m_matcher->match(
+            context, string, 0, string->length());
+        if (match_end >= 0) {
+            return context.match;
         } else {
             return MatchRef();
         }

@@ -43,7 +43,7 @@ public:
 
     virtual hash_t hash(size_t offset, size_t length) const;
 
-    virtual bool same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n) const = 0;
+    virtual bool same_n(const StringExtent *extent, size_t offset, size_t extent_offset, size_t n, bool ignore_case) const = 0;
 
 	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const = 0;
 
@@ -61,7 +61,7 @@ public:
     inline AsciiStringExtent(std::string &&ascii) : StringExtent(StringExtent::ascii), m_ascii(ascii) {
     }
 
-    virtual ~AsciiStringExtent();
+    virtual ~AsciiStringExtent() final;
 
     static constexpr Type extent_type = ascii;
 
@@ -73,33 +73,23 @@ public:
 		return m_ascii;
 	}
 
-	virtual UnicodeString unicode() const final { // concurrent.
-		const UnicodeStringRef string = std::atomic_load(&m_string);
-		if (string) {
-			return *string;
-		} else {
-			UnicodeStringRef new_string = std::make_shared<UnicodeString>(
-				UnicodeString::fromUTF8(StringPiece(m_ascii)));
-			std::atomic_store(&m_string, new_string);
-			return *new_string;
-		}
-	}
+	virtual UnicodeString unicode() const final;
 
-    virtual std::string utf8(size_t offset, size_t length) const;
+    virtual std::string utf8(size_t offset, size_t length) const final;
 
-	virtual UnicodeString unicode(size_t offset, size_t length) const;
+	virtual UnicodeString unicode(size_t offset, size_t length) const final;
 
-	virtual size_t length() const;
+	virtual size_t length() const final;
 
-	virtual char ascii_char_at(size_t offset) const;
+	virtual char ascii_char_at(size_t offset) const final;
 
-	virtual size_t number_of_code_points(size_t offset, size_t length) const;
+	virtual size_t number_of_code_points(size_t offset, size_t length) const final;
 
-    virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n) const;
+    virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n, bool ignore_case) const final;
 
-	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const;
+	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const final;
 
-    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const;
+    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const final;
 
     template<typename F>
     inline bool all_code_points(size_t offset, const F &f) const {
@@ -135,21 +125,21 @@ public:
         return m_string;
     }
 
-    virtual std::string utf8(size_t offset, size_t length) const;
+    virtual std::string utf8(size_t offset, size_t length) const final;
 
-	virtual UnicodeString unicode(size_t offset, size_t length) const;
+	virtual UnicodeString unicode(size_t offset, size_t length) const final;
 
-    virtual size_t length() const;
+    virtual size_t length() const final;
 
-	virtual char ascii_char_at(size_t offset) const;
+	virtual char ascii_char_at(size_t offset) const final;
 
-	virtual size_t number_of_code_points(size_t offset, size_t length) const;
+	virtual size_t number_of_code_points(size_t offset, size_t length) const final;
 
-	virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n) const;
+	virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n, bool ignore_case) const final;
 
-	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const;
+	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const final;
 
-    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const;
+    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const final;
 
     template<typename F>
     inline bool all_code_points(size_t offset, const F &f) const {
@@ -195,21 +185,21 @@ public:
 		return m_offsets;
 	}
 
-	virtual std::string utf8(size_t offset, size_t length) const;
+	virtual std::string utf8(size_t offset, size_t length) const final;
 
-	virtual UnicodeString unicode(size_t offset, size_t length) const;
+	virtual UnicodeString unicode(size_t offset, size_t length) const final;
 
-	virtual size_t length() const;
+	virtual size_t length() const final;
 
-	virtual char ascii_char_at(size_t offset) const;
+	virtual char ascii_char_at(size_t offset) const final;
 
-	virtual size_t number_of_code_points(size_t offset, size_t length) const;
+	virtual size_t number_of_code_points(size_t offset, size_t length) const final;
 
-	virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n) const;
+	virtual bool same_n(const StringExtent *x, size_t offset, size_t x_offset, size_t n, bool ignore_case) const final;
 
-	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const;
+	virtual StringExtentRef repeat(size_t offset, size_t length, size_t n) const final;
 
-    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const;
+    virtual size_t walk_code_points(size_t offset, index_t cp_offset) const final;
 
     template<typename F>
     inline bool all_code_points(size_t offset, const F &f) const {
@@ -299,7 +289,7 @@ public:
 		return m_extent->type();
 	}
 
-    inline bool same_n(const String *s, size_t offset, size_t n) const {
+    inline bool same_n(const String *s, size_t offset, size_t n, bool ignore_case) const {
         if (n > m_length) {
             return false;
         } else if (offset + n > s->m_length) {
@@ -307,11 +297,11 @@ public:
         }
 
         return m_extent->same_n(
-            s->extent().get(), m_offset, s->to_extent_offset(offset), n);
+            s->extent().get(), m_offset, s->to_extent_offset(offset), n, ignore_case);
     }
 
     inline bool same_indeed(const String *s) const {
-        return s->m_length == m_length && same_n(s, 0, s->m_length);
+        return s->m_length == m_length && same_n(s, 0, s->m_length, false);
     }
 
     virtual inline bool same_indeed(const BaseExpression &expr) const final {
@@ -324,7 +314,7 @@ public:
             }
 
             return m_extent->same_n(
-                other->m_extent.get(), m_offset, other->m_offset, n);
+                other->m_extent.get(), m_offset, other->m_offset, n, false);
         } else {
             return false;
         }
@@ -528,7 +518,13 @@ public:
         if (n > m_length - begin) {
             return -1;
         }
-        if (m_extent->same_n(other_string->extent().get(), m_offset + begin, other_string->to_extent_offset(0), n)) {
+        if (m_extent->same_n(
+            other_string->extent().get(),
+            m_offset + begin,
+            other_string->to_extent_offset(0),
+            n,
+            m_context.options & MatchContext::IgnoreCase)) {
+
             return begin + n;
         } else {
             return -1;

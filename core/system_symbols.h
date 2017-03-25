@@ -27,6 +27,7 @@ SYMBOL(OptionsPattern)
 SYMBOL(Shortest)
 SYMBOL(Longest)
 SYMBOL(StringExpression)
+SYMBOL(StringJoin)
 
 SYMBOL(Slot)
 SYMBOL(SlotSequence)
