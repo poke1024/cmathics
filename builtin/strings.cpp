@@ -111,7 +111,7 @@ public:
      = YXXXYXXXaYYXXX
 
 
-    #> StringReplace["  Have a nice day.  ", (StartOfString ~~ Whitespace) | (Whitespace ~~ EndOfString) -> ""] // FullForm
+    >> StringReplace["  Have a nice day.  ", (StartOfString ~~ Whitespace) | (Whitespace ~~ EndOfString) -> ""] // FullForm
      = "Have a nice day."
 
     >> StringReplace["xyXY", "xy" -> "01"]
@@ -156,7 +156,7 @@ private:
         TemporaryRefVector chunks;
         size_t last_index = 0;
 
-        const auto push = [string, &chunks, &last_index, &n_to_replace] (
+        const auto push = [string, &chunks, &last_index, &n_to_replace, &evaluation] (
             const StringCases::IteratorRef &iterator, const BaseExpressionRef &rhs) -> bool {
 
             const size_t begin = iterator->begin();
@@ -166,7 +166,7 @@ private:
                 chunks.push_back(string->substr(last_index, begin));
             }
 
-            chunks.push_back(rhs->replace_all_or_copy(iterator->match()));
+            chunks.push_back(rhs->replace_all_or_copy(iterator->match(), evaluation));
             last_index = end;
 
             return --n_to_replace > 0;
@@ -377,8 +377,8 @@ public:
 		const OptionalRuleForm rule_form(patt);
 		if (rule_form.is_rule()) {
 			return generate(rule_form.left_side().get(),
-			    [&rule_form] (auto &store, index_t begin, index_t end, const auto &match) {
-				    store(rule_form.right_side()->replace_all_or_copy(match));
+			    [&rule_form, &evaluation] (auto &store, index_t begin, index_t end, const auto &match) {
+				    store(rule_form.right_side()->replace_all_or_copy(match, evaluation));
 				});
 		} else {
 			return generate(patt,

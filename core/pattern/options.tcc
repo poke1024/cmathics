@@ -126,6 +126,16 @@ index_t StaticOptionsProcessor<Options>::match(
 }
 
 template<typename Options>
+index_t StaticOptionsProcessor<Options>::match(
+    const FlatLeafSequence &sequence,
+    index_t begin,
+    index_t end,
+    const MatchRest &rest) {
+
+    return do_match(sequence, begin, end, rest);
+}
+
+template<typename Options>
 template<typename Sequence>
 inline index_t StaticOptionsProcessor<Options>::do_match(
     const Sequence &sequence,

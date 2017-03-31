@@ -193,36 +193,6 @@ public:
 		const Evaluation &evaluation) const;
 };
 
-/*class EvaluationContext {
-private:
-	EvaluationContext * const m_parent;
-
-	EvaluationContext *m_saved_context;
-
-	SymbolStateMap m_symbols;
-
-	static thread_local EvaluationContext *s_current;
-
-public:
-	inline EvaluationContext(EvaluationContext *parent) :
-		m_parent(parent) {
-
-		EvaluationContext *&current = s_current;
-		m_saved_context = current;
-		current = this;
-	}
-
-	inline ~EvaluationContext() {
-		s_current = m_saved_context;
-	}
-
-	static inline EvaluationContext *current() {
-		return s_current;
-	}
-
-	inline SymbolState &state(const Symbol *symbol);
-};*/
-
 class Symbol : public BaseExpression, public PoolObject<Symbol> {
 protected:
 	friend class Definitions;
@@ -326,7 +296,7 @@ public:
 		return same(expr);
 	}
 
-	virtual BaseExpressionRef replace_all(const MatchRef &match) const;
+	virtual BaseExpressionRef replace_all(const MatchRef &match, const Evaluation &evaluation) const;
 
 	virtual BaseExpressionRef replace_all(const ArgumentsMap &replacement, const Evaluation &evaluation) const;
 
@@ -354,19 +324,9 @@ public:
 	virtual std::string boxes_to_text(const Evaluation &evaluation) const {
 		return name();
 	}
-};
 
-/*inline SymbolState &EvaluationContext::state(const Symbol *symbol) {
-	const auto i = m_symbols.find(symbol);
-	if (i != m_symbols.end()) {
-		return i->second;
-	} else {
-		const SymbolState &state = m_parent ?
-			m_parent->state(symbol) :
-			symbol->m_user_state;
-		return m_symbols.emplace(SymbolRef(symbol), state).first->second;
-	}
-}*/
+    virtual MatchSize string_match_size() const final;
+};
 
 inline int SymbolKey::compare(const SymbolKey &key) const {
     if (_symbol) {

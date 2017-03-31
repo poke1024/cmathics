@@ -172,7 +172,7 @@ public:
 
         for (size_t i = 1; i < n; i += 2) {
             const BaseExpressionRef &pattern = args[i];
-            const Matcher matcher(pattern);
+            const Matcher matcher(pattern, evaluation);
 
             if (matcher(selector, evaluation)) {
                 const BaseExpressionRef &value = args[i + 1];

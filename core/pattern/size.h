@@ -69,6 +69,11 @@ public:
     }
 };
 
+inline std::ostream &operator<<(std::ostream &os, const MatchSize &size) {
+    os << "(" << size.min() << ", " << size.max() << ")";
+    return os;
+}
+
 typedef std::experimental::optional<MatchSize> OptionalMatchSize;
 
 class PatternMatcherSize {
@@ -95,3 +100,8 @@ public:
         return m_from_next;
     }
 };
+
+inline std::ostream &operator<<(std::ostream &os, const PatternMatcherSize &size) {
+    os << "(" << size.from_here() << ", " << size.from_next() << ")";
+    return os;
+}

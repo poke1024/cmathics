@@ -99,6 +99,7 @@ public:
     const SymbolicFormRef no_symbolic_form;
     const MatchRef default_match;
     const ExpressionRef empty_list;
+    const ExpressionRef empty_sequence;
 
 	const BinaryOperator<struct order> *order;
 };

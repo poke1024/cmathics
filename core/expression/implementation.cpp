@@ -114,85 +114,132 @@ inline tribool Expression::equals(const BaseExpression &item) const {
 	});
 }
 
+template<bool String, typename Recurse>
+inline MatchSize Expression::generic_match_size(const Recurse &recurse) const {
+    switch (_head->symbol()) {
+        case S::Blank:
+            return MatchSize::exactly(1);
+
+        case S::BlankSequence:
+            return MatchSize::at_least(1);
+
+        case S::BlankNullSequence:
+            return MatchSize::at_least(0);
+
+        case S::OptionsPattern:
+            return MatchSize::at_least(0);
+
+        case S::Pattern:
+            if (size() == 2) {
+                // Pattern is only valid with two arguments
+                return recurse(n_leaves<2>()[1]);
+            } else {
+                return MatchSize::exactly(1);
+            }
+
+        case S::Alternatives: {
+            const size_t n = size();
+
+            if (n == 0) {
+                return MatchSize::exactly(0);
+            }
+
+            return with_slice([&recurse] (const auto &slice) {
+                const size_t n = slice.size();
+
+                const MatchSize size = recurse(slice[0]);
+                match_size_t min_p = size.min();
+                match_size_t max_p = size.max();
+
+                for (size_t i = 1; i < n; i++) {
+                    const MatchSize leaf_size = recurse(slice[i]);
+                    max_p = std::max(max_p, leaf_size.max());
+                    min_p = std::min(min_p, leaf_size.min());
+                }
+
+                return MatchSize::between(min_p, max_p);
+            });
+        }
+
+        case S::Repeated:
+            switch (size()) {
+                case 1:
+                    return MatchSize::at_least(1);
+                case 2: {
+                    const optional<MatchSize> size =
+                        parse_repeated_size(n_leaves<2>()[1], 1);
+                    if (size) {
+                        return *size;
+                    }
+                    // fallthrough
+                }
+                default:
+                    return MatchSize::exactly(1);
+            }
+
+        case S::RepeatedNull:
+            switch (size()) {
+                case 1:
+                    return MatchSize::at_least(0);
+                case 2: {
+                    const optional<MatchSize> size =
+                        parse_repeated_size(n_leaves<2>()[1], 0);
+                    if (size) {
+                        return *size;
+                    }
+                    // fallthrough
+                }
+                default:
+                    return MatchSize::exactly(1);
+            }
+
+        case S::Except:
+            return MatchSize::at_least(0);
+
+        case S::Optional:
+            return MatchSize::at_least(0);
+
+        case S::Shortest:
+        case S::Longest: {
+            const size_t n = size();
+
+            if (n >= 1 && n <= 2) {
+                return with_slice([&recurse] (const auto &slice) {
+                    return recurse(slice[0]);
+                });
+            } else {
+                return MatchSize::exactly(1);
+            }
+        }
+
+        case S::StringExpression:
+            if (String) {
+                return with_slice([&recurse] (const auto &slice) {
+                    const size_t n = slice.size();
+                    MatchSize size = MatchSize::exactly(0);
+                    for (size_t i = 0; i < n; i++) {
+                        size += recurse(slice[i]);
+                    }
+                    return size;
+                });
+            }
+            // fallthrough
+
+        default:
+            return MatchSize::exactly(1);
+    }
+}
+
 MatchSize Expression::match_size() const {
-	switch (_head->symbol()) {
-		case S::Blank:
-			return MatchSize::exactly(1);
+    return generic_match_size<false>([] (const BaseExpressionRef &item) {
+        return item->match_size();
+    });
+}
 
-		case S::BlankSequence:
-			return MatchSize::at_least(1);
-
-		case S::BlankNullSequence:
-			return MatchSize::at_least(0);
-
-		case S::OptionsPattern:
-			return MatchSize::at_least(0);
-
-		case S::Pattern:
-			if (size() == 2) {
-				// Pattern is only valid with two arguments
-				return n_leaves<2>()[1]->match_size();
-			} else {
-				return MatchSize::exactly(1);
-			}
-
-		case S::Alternatives: {
-			const size_t n = size();
-
-			if (n == 0) {
-				return MatchSize::exactly(1); // FIXME
-			}
-
-			return with_slice([] (const auto &slice) {
-				const size_t n = slice.size();
-
-				const MatchSize size = slice[0]->match_size();
-				match_size_t min_p = size.min();
-				match_size_t max_p = size.max();
-
-				for (size_t i = 1; i < n; i++) {
-					const MatchSize leaf_size = slice[i]->match_size();
-					max_p = std::max(max_p, leaf_size.max());
-					min_p = std::min(min_p, leaf_size.min());
-				}
-
-				return MatchSize::between(min_p, max_p);
-			});
-		}
-
-		case S::Repeated:
-			switch(size()) {
-				case 1:
-					return MatchSize::at_least(1);
-				case 2:
-					// TODO inspect second arg
-					return MatchSize::at_least(1);
-				default:
-					return MatchSize::exactly(1);
-			}
-
-		case S::Except:
-			return MatchSize::at_least(0);
-
-		case S::Optional:
-			return MatchSize::at_least(0);
-
-		case S::Shortest:
-		case S::Longest: {
-			const size_t n = size();
-
-			if (n >= 1 && n <= 2) {
-				return with_slice([] (const auto &slice) {
-					return slice[0]->match_size();
-				});
-			} else {
-				return MatchSize::exactly(1);
-			}
-		}
-
-		default:
-			return MatchSize::exactly(1);
-	}
+MatchSize Expression::string_match_size() const {
+    return generic_match_size<true>([] (const BaseExpressionRef &item) {
+        return item->string_match_size();
+    });
 }
 
 bool Expression::is_numeric() const {
@@ -448,9 +495,9 @@ BaseExpressionRef Expression::replace_all(
 	const MatchRef &match, const Evaluation &evaluation) const {
 
 	return selective_conditional_map<ExpressionType, SymbolType>(
-		replace_head(_head, _head->replace_all(match)),
-		[&match] (const BaseExpressionRef &leaf) {
-			return leaf->replace_all(match);
+		replace_head(_head, _head->replace_all(match, evaluation)),
+		[&match, &evaluation] (const BaseExpressionRef &leaf) {
+			return leaf->replace_all(match, evaluation);
 		},
 		evaluation);
 }

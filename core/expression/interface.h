@@ -31,6 +31,9 @@ protected:
 
 	inline TypeMask materialize_exact_type_mask() const;
 
+    template<bool String, typename Recurse>
+    inline MatchSize generic_match_size(const Recurse &recurse) const;
+
  public:
     static constexpr Type Type = ExpressionType;
 
@@ -173,6 +176,8 @@ protected:
 	virtual tribool equals(const BaseExpression &item) const final;
 
 	virtual MatchSize match_size() const final;
+
+	virtual MatchSize string_match_size() const final;
 
 	virtual bool is_numeric() const final;
 

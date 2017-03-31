@@ -36,10 +36,19 @@ BaseExpressionRef function_pattern(
     return expression(expression(head, expression(BlankSequence)), expression(BlankNullSequence));
 }
 
+inline MatchSize match_size(const BaseExpressionRef &pattern) {
+	if (!pattern->is_expression()) {
+		return MatchSize::exactly(0); // undefined
+	} else {
+		if (pattern->as_expression()->head()->symbol() == S::Condition &&
+		    pattern->as_expression()->size() == 2) {
+			return match_size(pattern->as_expression()->n_leaves<2>()[0]);
+		} else {
+			return pattern->as_expression()->leaf_match_size();
+		}
+	}
+}
+
 MatchSize Rule::leaf_match_size() const {
-    if (!pattern->is_expression()) {
-        return MatchSize::exactly(0); // undefined
-    } else {
-        return pattern->as_expression()->leaf_match_size();
-    }
+	return match_size(pattern);
 }

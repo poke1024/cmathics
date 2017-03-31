@@ -500,7 +500,7 @@ public:
         return MatchSize::exactly(0);
     }
 
-    virtual BaseExpressionRef replace_all(const MatchRef &match) const {
+    virtual BaseExpressionRef replace_all(const MatchRef &match, const Evaluation &evaluation) const {
 		return BaseExpressionRef();
     }
 
@@ -508,8 +508,8 @@ public:
 		return BaseExpressionRef();
 	}
 
-	inline BaseExpressionRef replace_all_or_copy(const MatchRef &match) const {
-		const BaseExpressionRef result = replace_all(match);
+	inline BaseExpressionRef replace_all_or_copy(const MatchRef &match, const Evaluation &evaluation) const {
+		const BaseExpressionRef result = replace_all(match, evaluation);
 		if (result) {
 			return result;
 		} else {

@@ -160,3 +160,73 @@ public:
         }
     }
 };
+
+class FlatLeafSequence {
+private:
+    MatchContext &m_context;
+    const BaseExpressionPtr m_head;
+    const BaseExpressionRef &m_item;
+    mutable UnsafeBaseExpressionRef m_element;
+
+public:
+    class Element {
+    private:
+        const BaseExpressionRef m_expression;
+
+    public:
+        inline Element(const UnsafeBaseExpressionRef &expression) : m_expression(expression) {
+        }
+
+        inline index_t begin() const {
+            return 0;
+        }
+
+        inline const BaseExpressionRef &operator*() const {
+            return m_expression;
+        }
+    };
+
+    inline FlatLeafSequence(MatchContext &context, BaseExpressionPtr head, const BaseExpressionRef &item) :
+        m_context(context), m_head(head), m_item(item) {
+    }
+
+    inline MatchContext &context() const {
+        return m_context;
+    }
+
+    inline BaseExpressionPtr head() const {
+        return m_item->is_sequence() ? m_head : m_item->head(m_context.evaluation);
+    }
+
+    inline Element element(index_t begin) const {
+        assert(begin == 0);
+        if (!m_element) {
+            if (m_item->is_sequence()) {
+                m_element = m_item->clone(m_head);
+            } else {
+                m_element = m_item;
+            }
+        }
+        return Element(m_element);
+    }
+
+    inline Element slice(index_t begin, index_t end) const {
+        assert(begin <= end);
+        if (begin == end) {
+            return Element(m_context.evaluation.definitions.empty_sequence);
+        } else {
+            assert(end - begin == 1);
+            return Element(m_item);
+        }
+    }
+
+    inline index_t same(index_t begin, BaseExpressionPtr other) const {
+        assert(begin == 0);
+        const BaseExpressionRef expr = *element(0);
+        if (other == expr.get() || expr->same(other)) {
+            return begin + 1;
+        } else {
+            return -1;
+        }
+    }
+};

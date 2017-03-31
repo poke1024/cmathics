@@ -4,6 +4,7 @@ class HeadLeavesMatcher;
 
 class FastLeafSequence;
 class SlowLeafSequence;
+class FlatLeafSequence;
 class AsciiCharacterSequence;
 class SimpleCharacterSequence;
 class ComplexCharacterSequence;
@@ -57,6 +58,11 @@ public:
         index_t end) const = 0;
 
     virtual index_t match(
+        const FlatLeafSequence &sequence,
+        index_t begin,
+        index_t end) const = 0;
+
+    virtual index_t match(
         const AsciiCharacterSequence &sequence,
         index_t begin,
         index_t end) const = 0;
@@ -86,9 +92,6 @@ private:
     const BaseExpressionRef m_where;
 
 public:
-    IllegalStringPattern(const BaseExpressionRef &what) : m_what(what) {
-    }
-
     IllegalStringPattern(const BaseExpressionRef &what, const BaseExpressionRef &where) :
         m_what(what), m_where(where) {
     }
@@ -102,5 +105,6 @@ public:
     }
 };
 
+optional<MatchSize> parse_repeated_size(const BaseExpressionRef &spec, machine_integer_t min_size);
 PatternMatcherRef compile_expression_pattern(const BaseExpressionRef &patt);
 PatternMatcherRef compile_string_pattern(const BaseExpressionRef &patt);

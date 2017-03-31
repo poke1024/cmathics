@@ -44,6 +44,12 @@ public:
         index_t begin,
         index_t end,
         const MatchRest &rest) = 0;
+
+    virtual index_t match(
+        const FlatLeafSequence &sequence,
+        index_t begin,
+        index_t end,
+        const MatchRest &rest) = 0;
 };
 
 /*class EmptyOptionsProcessor : public OptionsProcessor {
@@ -86,16 +92,22 @@ public:
     }
 
     virtual index_t match(
-            const SlowLeafSequence &sequence,
-            index_t begin,
-            index_t end,
-            const MatchRest &rest) final;
+        const SlowLeafSequence &sequence,
+        index_t begin,
+        index_t end,
+        const MatchRest &rest) final;
 
     virtual index_t match(
-            const FastLeafSequence &sequence,
-            index_t begin,
-            index_t end,
-            const MatchRest &rest) final;
+        const FastLeafSequence &sequence,
+        index_t begin,
+        index_t end,
+        const MatchRest &rest) final;
+
+    virtual index_t match(
+        const FlatLeafSequence &sequence,
+        index_t begin,
+        index_t end,
+        const MatchRest &rest) final;
 
     inline const OptionsMap &options() const {
         return m_options;
@@ -147,6 +159,12 @@ public:
 
     virtual index_t match(
         const FastLeafSequence &sequence,
+        index_t begin,
+        index_t end,
+        const MatchRest &rest) final;
+
+    virtual index_t match(
+        const FlatLeafSequence &sequence,
         index_t begin,
         index_t end,
         const MatchRest &rest) final;

@@ -1,6 +1,7 @@
 #include "patterns.h"
 #include "levelspec.tcc"
 #include "arithmetic/binary.h"
+#include "arithmetic/unary.h"
 
 template<bool Repeated, typename Match>
 class DoReplaceAll {
@@ -502,219 +503,6 @@ public:
 	}
 };
 
-class MatchQ : public Builtin {
-public:
-	static constexpr const char *name = "MatchQ";
-
-	static constexpr const char *docs = R"(
-    <dl>
-    <dt>'MatchQ[$expr$, $form$]'
-        <dd>tests whether $expr$ matches $form$.
-    </dl>
-
-    >> MatchQ[123, _Integer]
-     = True
-    >> MatchQ[123, _Real]
-     = False
-    >> MatchQ[_Integer][123]
-     = True
-	)";
-
-public:
-	using Builtin::Builtin;
-
-	void build(Runtime &runtime) {
-		builtin("MatchQ[form_][expr_]", "MatchQ[expr, form]");
-		builtin(&MatchQ::apply);
-	}
-
-	inline BaseExpressionRef apply(
-		const BaseExpressionPtr expr,
-		const BaseExpressionPtr pattern,
-		const Evaluation &evaluation) {
-
-		return match(pattern, [expr, &evaluation] (const auto &match) {
-			return evaluation.Boolean(match(expr));
-		}, evaluation);
-	}
-};
-
-
-class Verbatim : public Builtin {
-public:
-	static constexpr const char *name = "Verbatim";
-
-	static constexpr const char *docs = R"(
-    <dl>
-    <dt>'Verbatim[$expr$]'
-        <dd>prevents pattern constructs in $expr$ from taking effect,
-        allowing them to match themselves.
-    </dl>
-
-    Create a pattern matching 'Blank':
-    >> _ /. Verbatim[_]->t
-     = t
-    >> x /. Verbatim[_]->t
-     = x
-
-    Without 'Verbatim', 'Blank' has its normal effect:
-    >> x /. _->t
-     = t
-	)";
-
-public:
-	using Builtin::Builtin;
-
-	void build(Runtime &runtime) {
-	}
-};
-
-class HoldPattern : public Builtin {
-public:
-	static constexpr const char *name = "HoldPattern";
-
-	static constexpr const char *docs = R"(
-    <dl>
-    <dt>'HoldPattern[$expr$]'
-        <dd>is equivalent to $expr$ for pattern matching, but
-        maintains it in an unevaluated form.
-    </dl>
-
-    >> HoldPattern[x + x]
-     = HoldPattern[x + x]
-    >> x /. HoldPattern[x] -> t
-     = t
-
-    'HoldPattern' has attribute 'HoldAll':
-    >> Attributes[HoldPattern]
-     = {HoldAll, Protected}
-	)";
-
-	static constexpr auto attributes = Attributes::HoldAll;
-
-public:
-	using Builtin::Builtin;
-
-	void build(Runtime &runtime) {
-	}
-};
-
-
-class Pattern : public Builtin {
-public:
-	static constexpr const char *name = "Pattern";
-
-	static constexpr const char *docs = R"(
-    <dl>
-    <dt>'Pattern[$symb$, $patt$]'
-    <dt>'$symb$ : $patt$'
-        <dd>assigns the name $symb$ to the pattern $patt$.
-    <dt>'$symb$_$head$'
-        <dd>is equivalent to '$symb$ : _$head$' (accordingly with '__'
-        and '___').
-    <dt>'$symb$ : $patt$ : $default$'
-        <dd>is a pattern with name $symb$ and default value $default$,
-        equivalent to 'Optional[$patt$ : $symb$, $default$]'.
-    </dl>
-
-    >> FullForm[a_b]
-     = Pattern[a, Blank[b]]
-    >> FullForm[a:_:b]
-     = Optional[Pattern[a, Blank[]], b]
-	)";
-
-	static constexpr auto attributes = Attributes::HoldFirst;
-
-public:
-	using Builtin::Builtin;
-
-	void build(Runtime &runtime) {
-		builtin("MakeBoxes[Verbatim[Pattern][symbol_Symbol, blank_Blank|blank_BlankSequence|blank_BlankNullSequence], "
-		    "f:StandardForm|TraditionalForm|InputForm|OutputForm]", "MakeBoxes[symbol, f] <> MakeBoxes[blank, f]");
-
-		format(
-			"Verbatim[Pattern][symbol_, pattern_?(!MatchQ[#, _Blank|_BlankSequence|_BlankNullSequence]&)]",
-			"Infix[{symbol, pattern}, \":\", 150, Left]");
-	}
-};
-
-class Blank : public Builtin {
-public:
-	static constexpr const char *name = "Blank";
-
-	static constexpr const char *docs = R"(
-    <dl>
-    <dt>'Blank[]'
-    <dt>'_'
-        <dd>represents any single expression in a pattern.
-    <dt>'Blank[$h$]'
-    <dt>'_$h$'
-        <dd>represents any expression with head $h$.
-    </dl>
-	)";
-
-public:
-	using Builtin::Builtin;
-
-	void build(Runtime &runtime) {
-		builtin("MakeBoxes[Verbatim[Blank][], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
-			"\"_\"");
-		builtin("MakeBoxes[Verbatim[Blank][head_Symbol], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
-			"\"_\" <> MakeBoxes[head, f]");
-	}
-};
-
-class BlankSequence : public Builtin {
-public:
-	static constexpr const char *name = "BlankSequence";
-
-	static constexpr const char *docs = R"(
-    <dl>
-    <dt>'BlankSequence[]'
-    <dt>'__'
-        <dd>represents any non-empty sequence of expression leaves in
-        a pattern.
-    <dt>'BlankSequence[$h$]'
-    <dt>'__$h$'
-        <dd>represents any sequence of leaves, all of which have head $h$.
-    </dl>
-	)";
-
-public:
-	using Builtin::Builtin;
-
-	void build(Runtime &runtime) {
-		builtin("MakeBoxes[Verbatim[BlankSequence][], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
-		    "\"__\"");
-		builtin("MakeBoxes[Verbatim[BlankSequence][head_Symbol], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
-	        "\"__\" <> MakeBoxes[head, f]");
-	}
-};
-
-class BlankNullSequence : public Builtin {
-public:
-	static constexpr const char *name = "BlankNullSequence";
-
-	static constexpr const char *docs = R"(
-    <dl>
-    <dt>'BlankNullSequence[]'
-    <dt>'___'
-        <dd>represents any sequence of expression leaves in a pattern,
-        including an empty sequence.
-    </dl>
-	)";
-
-public:
-	using Builtin::Builtin;
-
-	void build(Runtime &runtime) {
-		builtin("MakeBoxes[Verbatim[BlankNullSequence][], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
-	        "\"___\"");
-		builtin("MakeBoxes[Verbatim[BlankNullSequence][head_Symbol], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
-	        "\"___\" <> MakeBoxes[head, f]");
-	}
-};
-
 class PatternTest : public BinaryOperatorBuiltin {
 public:
 	static constexpr const char *name = "PatternTest";
@@ -768,7 +556,7 @@ public:
     >> StringReplace["0123 3210", "1" | "2" -> "X"]
      = 0XX3 3XX0
 
-    #> StringReplace["h1d9a f483", DigitCharacter | WhitespaceCharacter -> ""]
+    >> StringReplace["h1d9a f483", DigitCharacter | WhitespaceCharacter -> ""]
      = hdaf
 	)";
 
@@ -788,6 +576,520 @@ public:
     }
 };
 
+class Except : public Builtin {
+public:
+    static constexpr const char *name = "Except";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Except[$c$]'
+        <dd>represents a pattern object that matches any expression except those matching $c$.
+    <dt>'Except[$c$, $p$]'
+        <dd>represents a pattern object that matches $p$ but not $c$.
+    </dl>
+
+    >> Cases[{x, a, b, x, c}, Except[x]]
+     = {a, b, c}
+
+    >> Cases[{a, 0, b, 1, c, 2, 3}, Except[1, _Integer]]
+     = {0, 2, 3}
+
+    Except can also be used for string expressions:
+    >> StringReplace["Hello world!", Except[LetterCharacter] -> ""]
+     = Helloworld
+
+    >> StringReplace["abc DEF 123!", Except[LetterCharacter, WordCharacter] -> "0"]
+     = abc DEF 000!
+	)";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+    }
+};
+
+class MatchQ : public Builtin {
+public:
+    static constexpr const char *name = "MatchQ";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'MatchQ[$expr$, $form$]'
+        <dd>tests whether $expr$ matches $form$.
+    </dl>
+
+    >> MatchQ[123, _Integer]
+     = True
+    >> MatchQ[123, _Real]
+     = False
+    >> MatchQ[_Integer][123]
+     = True
+	)";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        builtin("MatchQ[form_][expr_]", "MatchQ[expr, form]");
+        builtin(&MatchQ::apply);
+    }
+
+    inline BaseExpressionRef apply(
+        const BaseExpressionPtr expr,
+        const BaseExpressionPtr pattern,
+        const Evaluation &evaluation) {
+
+        return match(pattern, [expr, &evaluation] (const auto &match) {
+            return evaluation.Boolean(match(expr));
+        }, evaluation);
+    }
+};
+
+
+class Verbatim : public Builtin {
+public:
+    static constexpr const char *name = "Verbatim";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Verbatim[$expr$]'
+        <dd>prevents pattern constructs in $expr$ from taking effect,
+        allowing them to match themselves.
+    </dl>
+
+    Create a pattern matching 'Blank':
+    >> _ /. Verbatim[_]->t
+     = t
+    >> x /. Verbatim[_]->t
+     = x
+
+    Without 'Verbatim', 'Blank' has its normal effect:
+    >> x /. _->t
+     = t
+	)";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+    }
+};
+
+class HoldPattern : public Builtin {
+public:
+    static constexpr const char *name = "HoldPattern";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'HoldPattern[$expr$]'
+        <dd>is equivalent to $expr$ for pattern matching, but
+        maintains it in an unevaluated form.
+    </dl>
+
+    >> HoldPattern[x + x]
+     = HoldPattern[x + x]
+    >> x /. HoldPattern[x] -> t
+     = t
+
+    'HoldPattern' has attribute 'HoldAll':
+    >> Attributes[HoldPattern]
+     = {HoldAll, Protected}
+	)";
+
+    static constexpr auto attributes = Attributes::HoldAll;
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+    }
+};
+
+
+class Pattern : public Builtin {
+public:
+    static constexpr const char *name = "Pattern";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Pattern[$symb$, $patt$]'
+    <dt>'$symb$ : $patt$'
+        <dd>assigns the name $symb$ to the pattern $patt$.
+    <dt>'$symb$_$head$'
+        <dd>is equivalent to '$symb$ : _$head$' (accordingly with '__'
+        and '___').
+    <dt>'$symb$ : $patt$ : $default$'
+        <dd>is a pattern with name $symb$ and default value $default$,
+        equivalent to 'Optional[$patt$ : $symb$, $default$]'.
+    </dl>
+
+    >> FullForm[a_b]
+     = Pattern[a, Blank[b]]
+    >> FullForm[a:_:b]
+     = Optional[Pattern[a, Blank[]], b]
+
+    'Pattern' has attribute 'HoldFirst', so it does not evaluate its name:
+    #> x = 2
+     = 2
+    >> x_
+     = x_
+
+    Nested 'Pattern' assign multiple names to the same pattern. Still,
+    the last parameter is the default value.
+    >> f[y] /. f[a:b,_:d] -> {a, b}
+     = f[y]
+    This is equivalent to:
+    >> f[a] /. f[a:_:b] -> {a, b}
+     = {a, b}
+    'FullForm':
+    >> FullForm[a:b:c:d:e]
+     = Optional[Pattern[a, b], Optional[Pattern[c, d], e]]
+
+    >> f[] /. f[a:_:b] -> {a, b}
+     = {b, b}
+	)";
+
+    static constexpr auto attributes = Attributes::HoldFirst;
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        builtin(
+           "MakeBoxes[Verbatim[Pattern][symbol_Symbol, blank_Blank|blank_BlankSequence|blank_BlankNullSequence], "
+           "f:StandardForm|TraditionalForm|InputForm|OutputForm]", "MakeBoxes[symbol, f] <> MakeBoxes[blank, f]");
+
+        format(
+           "Verbatim[Pattern][symbol_, pattern_?(!MatchQ[#, _Blank|_BlankSequence|_BlankNullSequence]&)]",
+           "Infix[{symbol, pattern}, \":\", 150, Left]");
+    }
+};
+
+class Optional : public BinaryOperatorBuiltin {
+public:
+    static constexpr const char *name = "Optional";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Optional[$patt$, $default$]'
+    <dt>'$patt$ : $default$'
+        <dd>is a pattern which matches $patt$, which if omitted
+        should be replaced by $default$.
+    </dl>
+
+    >> f[x_, y_:1] := {x, y}
+    >> f[1, 2]
+     = {1, 2}
+    >> f[a]
+     = {a, 1}
+	)";
+
+public:
+    using BinaryOperatorBuiltin::BinaryOperatorBuiltin;
+
+    void build(Runtime &runtime) {
+        add_binary_operator_formats();
+
+        builtin(
+            "MakeBoxes[Verbatim[Optional][Verbatim[Pattern][symbol_Symbol, Verbatim[_]]], f:StandardForm|TraditionalForm|InputForm|OutputForm]",
+            "MakeBoxes[symbol, f] <> \"_.\"");
+        builtin("MakeBoxes[Verbatim[Optional][Verbatim[_]], f:StandardForm|TraditionalForm|InputForm|OutputForm]",
+             "\"_.\"");
+
+        format(
+            "Verbatim[Optional][pattern_Pattern, default_]",
+            "Infix[{HoldForm[pattern], HoldForm[default]}, \":\", 140, Right]");
+
+    }
+
+    virtual const char *operator_name() const {
+        return ":";
+    }
+
+    virtual int precedence() const {
+        return 140;
+    }
+
+    virtual const char *grouping() const {
+        return "Right";
+    }
+};
+
+class Blank : public Builtin {
+public:
+    static constexpr const char *name = "Blank";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Blank[]'
+    <dt>'_'
+        <dd>represents any single expression in a pattern.
+    <dt>'Blank[$h$]'
+    <dt>'_$h$'
+        <dd>represents any expression with head $h$.
+    </dl>
+
+    >> MatchQ[a + b, _]
+     = True
+
+    Patterns of the form '_'$h$ can be used to test the types of
+    objects:
+    >> MatchQ[42, _Integer]
+     = True
+    >> MatchQ[1.0, _Integer]
+     = False
+    >> {42, 1.0, x} /. {_Integer -> "integer", _Real -> "real"} // InputForm
+     = {"integer", "real", x}
+
+    'Blank' only matches a single expression:
+    >> MatchQ[f[1, 2], f[_]]
+     = False
+
+    >> StringReplace["hello world!", _ -> "x"]
+     = xxxxxxxxxxxx
+	)";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        builtin(
+            "MakeBoxes[Verbatim[Blank][], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+            "\"_\"");
+        builtin(
+            "MakeBoxes[Verbatim[Blank][head_Symbol], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+            "\"_\" <> MakeBoxes[head, f]");
+    }
+};
+
+class BlankSequence : public Builtin {
+public:
+    static constexpr const char *name = "BlankSequence";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'BlankSequence[]'
+    <dt>'__'
+        <dd>represents any non-empty sequence of expression leaves in
+        a pattern.
+    <dt>'BlankSequence[$h$]'
+    <dt>'__$h$'
+        <dd>represents any sequence of leaves, all of which have head $h$.
+    </dl>
+
+    Use a 'BlankSequence' pattern to stand for a non-empty sequence of
+    arguments:
+    >> MatchQ[f[1, 2, 3], f[__]]
+     = True
+    >> MatchQ[f[], f[__]]
+     = False
+
+    '__'$h$ will match only if all leaves have head $h$:
+    >> MatchQ[f[1, 2, 3], f[__Integer]]
+     = True
+    >> MatchQ[f[1, 2.0, 3], f[__Integer]]
+     = False
+
+    The value captured by a named 'BlankSequence' pattern is a
+    'Sequence' object:
+    >> f[1, 2, 3] /. f[x__] -> x
+     = Sequence[1, 2, 3]
+
+    >> f[a, b, c, d] /. f[x__, c, y__] -> {{x},{y}}
+     = {{a, b}, {d}}
+    >> a + b + c + d /. Plus[x__, c] -> {x}
+     = {a, b, d}
+
+    >> StringReplace[{"ab", "abc", "abcd"}, "b" ~~ __ -> "x"]
+     = {ab, ax, ax}
+	)";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        builtin(
+            "MakeBoxes[Verbatim[BlankSequence][], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+            "\"__\"");
+        builtin(
+            "MakeBoxes[Verbatim[BlankSequence][head_Symbol], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+            "\"__\" <> MakeBoxes[head, f]");
+    }
+};
+
+class BlankNullSequence : public Builtin {
+public:
+    static constexpr const char *name = "BlankNullSequence";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'BlankNullSequence[]'
+    <dt>'___'
+        <dd>represents any sequence of expression leaves in a pattern,
+        including an empty sequence.
+    </dl>
+
+    'BlankNullSequence' is like 'BlankSequence', except it can match an
+    empty sequence:
+    >> MatchQ[f[], f[___]]
+     = True
+
+    The value captured by a named 'BlankNullSequence' pattern is a
+    'Sequence' object, which can have no leaves:
+    >> f[] /. f[x___] -> x
+     = Sequence[]
+
+    >> ___symbol
+     = ___symbol
+    >> ___symbol //FullForm
+     = BlankNullSequence[symbol]
+
+    >> StringReplace[{"ab", "abc", "abcd"}, "b" ~~ ___ -> "x"]
+     = {ax, ax, ax}
+	)";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+        builtin(
+            "MakeBoxes[Verbatim[BlankNullSequence][], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+            "\"___\"");
+        builtin(
+            "MakeBoxes[Verbatim[BlankNullSequence][head_Symbol], f:StandardForm|TraditionalForm|OutputForm|InputForm]",
+            "\"___\" <> MakeBoxes[head, f]");
+    }
+};
+
+class Repeated : public PostfixOperator {
+public:
+    static constexpr const char *name = "Repeated";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'Repeated[$pattern$]'
+        <dd>matches one or more occurrences of $pattern$.
+    </dl>
+
+    >> a_Integer.. // FullForm
+     = Repeated[Pattern[a, Blank[Integer]]]
+    >> 0..1//FullForm
+     = Repeated[0]
+    >> {{}, {a}, {a, b}, {a, a, a}, {a, a, a, a}} /. {Repeated[x : a | b, 3]} -> x
+     = {{}, a, {a, b}, a, {a, a, a, a}}
+    >> f[x, 0, 0, 0] /. f[x, s:0..] -> s
+     = Sequence[0, 0, 0]
+
+    >> 1.. // FullForm
+     = Repeated[1]
+    >> 8^^1.. // FullForm   (* Mathematica gets this wrong *)
+     = Repeated[1]
+
+    >> StringReplace["010110110001010", "01".. -> "a"]
+     = a1a100a0
+    >> StringMatchQ[#, "a" ~~ ("b"..) ~~ "a"] &/@ {"aa", "aba", "abba"}
+     = {False, True, True}
+	)";
+
+public:
+    using PostfixOperator::PostfixOperator;
+
+    void build(Runtime &runtime) {
+        add_operator_formats();
+
+        message("range", "Range specification in integers (max or {min, max}) expected at position `1` in `2`.");
+    }
+
+    virtual bool needs_verbatim() const {
+        return true;
+    }
+
+    virtual const char *operator_name() const {
+        return "..";
+    }
+
+    virtual int precedence() const {
+        return 170;
+    }
+};
+
+class RepeatedNull : public PostfixOperator {
+public:
+    static constexpr const char *name = "RepeatedNull";
+
+    static constexpr const char *docs = R"(
+    <dl>
+    <dt>'RepeatedNull[$pattern$]'
+        <dd>matches zero or more occurrences of $pattern$.
+    </dl>
+
+    >> a___Integer...//FullForm
+     = RepeatedNull[Pattern[a, BlankNullSequence[Integer]]]
+    >> f[x] /. f[x, 0...] -> t
+     = t
+
+    >> 1... // FullForm
+     = RepeatedNull[1]
+    >> 8^^1... // FullForm   (* Mathematica gets this wrong *)
+     = RepeatedNull[1]
+
+    >> StringMatchQ[#, "a" ~~ ("b"...) ~~ "a"] &/@ {"aa", "aba", "abba"}
+     = {True, True, True}
+	)";
+
+public:
+    using PostfixOperator::PostfixOperator;
+
+    void build(Runtime &runtime) {
+        add_operator_formats();
+    }
+
+    virtual bool needs_verbatim() const {
+        return true;
+    }
+
+    virtual const char *operator_name() const {
+        return "...";
+    }
+
+    virtual int precedence() const {
+        return 170;
+    }
+};
+
+class Shortest : public Builtin {
+public:
+    static constexpr const char *name = "Shortest";
+
+    static constexpr const char *docs = R"(
+    >> StringCases["aabaaab", Shortest["a" ~~ __ ~~ "b"]]
+     = {aab, aaab}
+	)";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+    }
+};
+
+class Longest : public Builtin {
+public:
+    static constexpr const char *name = "Longest";
+
+    static constexpr const char *docs = R"(
+    >> StringCases["aabaaab", Longest["a" ~~ __ ~~ "b"]]
+     = {aabaaab}
+	)";
+
+public:
+    using Builtin::Builtin;
+
+    void build(Runtime &runtime) {
+    }
+};
+
 class Condition : public BinaryOperatorBuiltin {
 public:
 	static constexpr const char *name = "Condition";
@@ -799,6 +1101,20 @@ public:
         <dd>places an additional constraint on $pattern$ that only
         allows it to match if $expr$ evaluates to 'True'.
     </dl>
+
+    The controlling expression of a 'Condition' can use variables from
+    the pattern:
+    >> f[3] /. f[x_] /; x>0 -> t
+     = t
+    >> f[-3] /. f[x_] /; x>0 -> t
+     = f[-3]
+
+    'Condition' can be used in an assignment:
+    >> f[x_] := p[x] /; x>0
+    >> f[3]
+     = p[3]
+    >> f[-3]
+     = f[-3]
 	)";
 
 	static constexpr auto attributes = Attributes::HoldRest;
@@ -825,14 +1141,20 @@ void Builtins::Patterns::initialize() {
     add<ReplaceRepeated>();
 	add<RuleBuiltin>();
 	add<RuleDelayed>();
-	add<MatchQ>();
-	add<Verbatim>();
-	add<HoldPattern>();
-	add<Pattern>();
-	add<Blank>();
-	add<BlankSequence>();
-	add<BlankNullSequence>();
 	add<PatternTest>();
     add<Alternatives>();
+    add<Except>();
+    add<MatchQ>();
+    add<Verbatim>();
+    add<HoldPattern>();
+    add<Pattern>();
+    add<Optional>();
+    add<Blank>();
+    add<BlankSequence>();
+    add<BlankNullSequence>();
+    add<Repeated>();
+    add<RepeatedNull>();
+    add<Shortest>();
+    add<Longest>();
 	add<Condition>();
 }

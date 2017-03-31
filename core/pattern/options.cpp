@@ -20,3 +20,12 @@ index_t DynamicOptionsProcessor::match(
 
 	return do_match(sequence, begin, end, rest);
 }
+
+index_t DynamicOptionsProcessor::match(
+    const FlatLeafSequence &sequence,
+    index_t begin,
+    index_t end,
+    const MatchRest &rest) {
+
+    return do_match(sequence, begin, end, rest);
+}

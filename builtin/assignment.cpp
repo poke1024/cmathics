@@ -1,5 +1,16 @@
 #include "assignment.h"
 
+inline void assign_add_rule(
+	const Symbol *name,
+	BaseExpressionPtr lhs,
+	BaseExpressionPtr rhs,
+	const Evaluation &evaluation) {
+
+	if (name) {
+		const_cast<Symbol*>(name)->mutable_state().add_rule(lhs, rhs, evaluation);
+	}
+}
+
 inline BaseExpressionRef assign(
 	ExpressionPtr,
 	BaseExpressionPtr lhs,
@@ -8,10 +19,24 @@ inline BaseExpressionRef assign(
 
 	// FIXME this is just a super simple example implementation.
 
-	const Symbol *name = lhs->lookup_name();
-	if (name) {
-		const_cast<Symbol*>(name)->mutable_state().add_rule(
-            lhs, rhs, evaluation);
+	if (rhs->is_expression() && rhs->as_expression()->head()->symbol() == S::Condition) {
+		const ExpressionPtr rhs_expr = rhs->as_expression();
+		if (rhs_expr->size() != 2) {
+			// evaluation.message_args(evaluation.Condition, rhs_expr->size(), 2);
+			return evaluation.Null;
+		} else {
+			const BaseExpressionRef new_lhs = expression(
+				evaluation.Condition,
+				BaseExpressionRef(lhs),
+				rhs_expr->n_leaves<2>()[1]);
+			assign_add_rule(
+				lhs->lookup_name(),
+				new_lhs.get(),
+				rhs_expr->n_leaves<2>()[0].get(),
+				evaluation);
+		}
+	} else {
+		assign_add_rule(lhs->lookup_name(), lhs, rhs, evaluation);
 	}
 
 	// f[x_] := f[x - 1] will end up in an inifinite recursion

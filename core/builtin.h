@@ -273,7 +273,9 @@ private:
 
 public:
 	RewriteRule(const BaseExpressionRef &patt, const BaseExpressionRef &into, const Evaluation &evaluation) :
-		Rule(patt, evaluation), m_into(into), m_matcher(patt),
+		Rule(patt, evaluation),
+        m_into(into),
+        m_matcher(patt, evaluation),
 		m_rewrite(m_matcher.prepare(into, evaluation)) {
 	}
 

@@ -7,7 +7,7 @@ typedef RewriteRule<Matcher> UpRule;
 // DownRule assumes that the expression's head was matched already using the down lookup rule
 // process, so it only looks at the leaves.
 
-typedef RewriteRule<SequenceMatcher> DownRule;
+typedef RewriteRule<LeavesMatcher> DownRule;
 
 inline NewRuleRef make_down_rule(const BaseExpressionRef &patt, const BaseExpressionRef &into) {
     return [patt, into] (const SymbolRef &head, Evaluation &evaluation) -> RuleRef {
@@ -23,11 +23,11 @@ template<int N, typename F>
 class PatternMatchedBuiltinRule : public Rule, public ExtendedHeapObject<PatternMatchedBuiltinRule<N, F>> {
 private:
     const F function;
-    const SequenceMatcher matcher;
+    const LeavesMatcher matcher;
 
 public:
     inline PatternMatchedBuiltinRule(const BaseExpressionRef &patt, const F &f, const Evaluation &evaluation) :
-        Rule(patt, evaluation), function(f), matcher(pattern) {
+        Rule(patt, evaluation), function(f), matcher(pattern, evaluation) {
     }
 
     virtual optional<BaseExpressionRef> try_apply(
@@ -62,7 +62,7 @@ class PatternMatchedOptionsBuiltinRule :
 
 private:
     const F m_function;
-    const SequenceMatcher m_matcher;
+    const LeavesMatcher m_matcher;
     const OptionsDefinitions<Options> m_options;
 
 public:
@@ -71,7 +71,7 @@ public:
         const F &f,
         const OptionsDefinitions<Options> &options,
         const Evaluation &evaluation) :
-        Rule(patt, evaluation), m_function(f), m_matcher(pattern), m_options(options) {
+        Rule(patt, evaluation), m_function(f), m_matcher(pattern, evaluation), m_options(options) {
     }
 
     virtual optional<BaseExpressionRef> try_apply(

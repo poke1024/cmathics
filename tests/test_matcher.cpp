@@ -13,7 +13,7 @@ TEST_CASE("match nested") {
     auto pattern = runtime->parse("f[g[{x___}, y__], z__]");
     auto item = runtime->parse("f[g[{1, 5}, 7, 8], 9, 10]");
 
-    const Matcher matcher(pattern);
+    const Matcher matcher(pattern, runtime->evaluation());
     MatchRef m = matcher(item, evaluation);
 	CHECK(bool(m) == true);
 

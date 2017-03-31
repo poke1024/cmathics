@@ -4,8 +4,6 @@
 #include "core/builtin.h"
 #include "core/matcher/matcher.tcc"
 
-// thread_local EvaluationContext *EvaluationContext::s_current = nullptr;
-
 void Messages::add(
     const SymbolRef &name,
     const char *tag,
@@ -125,4 +123,21 @@ BaseExpressionRef Symbol::make_boxes(
     const Evaluation &evaluation) const {
 
     return String::construct(short_name());
+}
+
+MatchSize Symbol::string_match_size() const {
+    switch (symbol()) {
+        case S::DigitCharacter:
+        case S::WhitespaceCharacter:
+        case S::WordCharacter:
+        case S::LetterCharacter:
+        case S::HexidecimalCharacter:
+            return MatchSize::exactly(1);
+
+        case S::Whitespace:
+            return MatchSize::at_least(0);
+
+        default:
+            return MatchSize::exactly(0);
+    }
 }

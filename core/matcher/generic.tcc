@@ -129,7 +129,7 @@ private:
                 } else {
                     assert(attributes & Attributes::Flat);
                     expr = expression(
-                        head, // sequence.context().evaluation.List,
+                        sequence.context().evaluation.Sequence,
                         sequential([head, &sequence, &chosen] (auto &store) {
                             const size_t n = chosen.size();
                             for (size_t i = 0; i < n; i++) {
@@ -143,7 +143,7 @@ private:
 
                 // std::cout << "trying to match " << expr->debugform() << " as argument " << arg << std::endl;
 
-                if (m_matchers[arg]->match(FastLeafSequence(sequence.context(), nullptr, &expr), 0, 1) == 1) {
+                if (m_matchers[arg]->match(FlatLeafSequence(sequence.context(), head, expr), 0, 1) == 1) {
                     const index_t match = match_generic(sequence, begin, end, head, attributes, not_chosen, arg + 1);
                     if (match >= 0) {
                         // std::cout << "match success" << std::endl;

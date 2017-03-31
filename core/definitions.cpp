@@ -18,6 +18,9 @@ inline DefinitionsPos get_definitions_pos(
 		return DefinitionsPos::None;
 	} else if (pattern->as_expression()->head() == symbol) {
 		return DefinitionsPos::Down;
+	} else if (pattern->as_expression()->head()->symbol() == S::Condition && pattern->as_expression()->size() == 2) {
+		const BaseExpressionRef expr = pattern->as_expression()->n_leaves<2>()[0];
+		return get_definitions_pos(expr.get(), symbol);
 	} else if (pattern->lookup_name() == symbol) {
 		return DefinitionsPos::Sub;
 	} else {
@@ -70,7 +73,7 @@ Symbol::~Symbol() {
 	}
 }
 
-BaseExpressionRef Symbol::replace_all(const MatchRef &match) const {
+BaseExpressionRef Symbol::replace_all(const MatchRef &match, const Evaluation &evaluation) const {
 	const UnsafeBaseExpressionRef *value = match->get_matched_value(this);
 	if (value) {
 		return *value;
@@ -201,6 +204,7 @@ Definitions::Definitions() :
     no_symbolic_form(SymbolicForm::construct(SymEngineRef())),
     default_match(Match::construct()),
     empty_list(expression(m_symbols.List)),
+    empty_sequence(expression(m_symbols.Sequence)),
     order(new BinaryOperator<struct order>(*this)) {
 }
 

@@ -21,25 +21,19 @@ public:
 
         m_patt(patt), m_evaluation(evaluation) {
 
-        try {
-            switch (patt->type()) {
-                case StringType:
-                    m_matcher.initialize(expression(evaluation.StringExpression, patt)->string_matcher());
-                    break;
+        switch (patt->type()) {
+            case StringType:
+                m_matcher.initialize(expression(evaluation.StringExpression, patt)->string_matcher());
+                break;
 
-                case ExpressionType:
-                    m_matcher.initialize(patt->as_expression()->string_matcher());
-                    break;
+            case ExpressionType:
+                m_matcher.initialize(patt->as_expression()->string_matcher());
+                break;
 
-                /*case SymbolType:
-                    m_matcher.initialize(compile_string_pattern(patt)); // FIXME
-                    break;*/
-
-                default:
-                    throw IllegalStringPattern(patt);
-            }
-        } catch (const IllegalStringPattern &err) {
-            throw IllegalStringPattern(err.what(), patt);
+            case SymbolType: // e.g. DigitCharacter
+            default:
+                m_matcher.initialize(compile_string_pattern(patt));
+                break;
         }
     }
 };
@@ -257,16 +251,18 @@ private:
     }
 
     MatchRef match_none(
-        const BaseExpressionRef &item, const OptionsProcessorRef &options, const Evaluation &evaluation) const {
+        const BaseExpressionRef &item,
+        const OptionsProcessorRef &options,
+        const Evaluation &evaluation) const {
 
         return MatchRef(); // no match
     }
 
 public:
-    inline CompleteMatcher(const BaseExpressionRef &patt) :
+    inline CompleteMatcher(const BaseExpressionRef &patt, const Evaluation &evaluation) :
         m_patt(patt) {
 
-        if (patt->type() == ExpressionType) {
+        if (patt->is_expression()) {
             m_matcher.initialize(patt->as_expression()->expression_matcher());
             if (m_matcher->might_match(1)) {
                 m_perform_match = &CompleteMatcher<OptionsProcessorRef>::match_expression;
@@ -301,23 +297,34 @@ public:
     }
 };
 
-// A SequenceMatcher is a Matcher that takes an Expression and matches only the leaves
+// A LeavesMatcher is a Matcher that takes an Expression and matches only the leaves
 // but not the head - it's basically a Matcher that ignores the head and is thus faster.
+// FIXME: LeavesMatcher should really be a special case in CompleteMatcher.
 
-class SequenceMatcher : public MatcherBase {
+class LeavesMatcher : public MatcherBase {
 private:
     const HeadLeavesMatcher *m_head_leaves_matcher;
     CachedBaseExpressionRef m_head;
 
     template<typename OptionsProcessorRef>
     inline MatchRef match(
-            const Expression *expr,
-            const OptionsProcessorRef &options,
-            const Evaluation &evaluation) const {
+        const Expression *expr,
+        const OptionsProcessorRef &options,
+        const Evaluation &evaluation) const {
 
         const auto * const matcher = m_head_leaves_matcher;
         if (!matcher) {
-            return MatchRef();
+	        if (m_matcher) {
+		        MatchContext context(m_matcher, options, evaluation);
+		        BaseExpressionRef item = expr;
+				if (m_matcher->match(FastLeafSequence(context, nullptr, &item), 0, 1) == 1) {
+					return context.match;
+				} else {
+					return MatchRef();
+				}
+	        } else {
+		        return MatchRef();
+	        }
         }
         MatchContext context(m_matcher, options, evaluation);
         if (matcher->without_head(context, expr)) {
@@ -329,24 +336,31 @@ private:
     }
 
 public:
-    inline SequenceMatcher(const BaseExpressionRef &patt) : m_head_leaves_matcher(nullptr) {
-        if (patt->type() == ExpressionType) {
-            m_head.initialize(patt->as_expression()->head());
-            const PatternMatcherRef matcher =
-                    patt->as_expression()->expression_matcher();
-            const auto head_leaves_matcher = matcher->head_leaves_matcher();
-            if (head_leaves_matcher) {
-                if (matcher->might_match(1)) {
-                    m_matcher.initialize(matcher); // validates ptr to m_head_leaves_matcher
-                    m_head_leaves_matcher = head_leaves_matcher;
-                } else {
-                    m_head_leaves_matcher = nullptr;
-                }
+    inline LeavesMatcher(const BaseExpressionRef &patt, const Evaluation &evaluation) :
+        m_head_leaves_matcher(nullptr) {
+
+        if (!patt->is_expression()) {
+            std::ostringstream s;
+            s << "constructed a LeavesMatcher for non-expression pattern " << patt->debugform();
+            throw std::runtime_error(s.str());
+        }
+
+        m_head.initialize(patt->as_expression()->head());
+        const PatternMatcherRef matcher = patt->as_expression()->expression_matcher();
+        const auto head_leaves_matcher = matcher->head_leaves_matcher();
+
+        if (head_leaves_matcher) {
+            if (matcher->might_match(1)) {
+                m_matcher.initialize(matcher); // validates ptr to m_head_leaves_matcher
+                m_head_leaves_matcher = head_leaves_matcher;
             } else {
-                throw std::runtime_error("constructed a SequenceMatcher for a non-expression pattern");
+                m_head_leaves_matcher = nullptr;
             }
         } else {
-            throw std::runtime_error("constructed a SequenceMatcher for a non-expression pattern");
+	        // this might happen, if we actually encountered an expression that is not an
+	        // ExpressionMatcher, e.g. Condition[a, b], which is a ConditionMatcher.
+	        m_head_leaves_matcher = nullptr;
+	        m_matcher.initialize(matcher);
         }
     }
 
